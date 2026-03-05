@@ -1,0 +1,650 @@
+pragma tolang 0.3.0;
+
+// GTOS Agent + Task + Prediction Market protocol — Agent-Native rewrite (v2).
+//
+// What changed vs v1 (AGENT_PROTOCOL_DRAFT.tol):
+//   address → agent          identity carries .stake / .reputation / .is_active natively
+//   mapping(u256 => u8)      task status → task<T> with compiler-enforced state machine
+//   require(registry...)     → @requires(caller: CapabilityName)  — compiler-inserted
+//   require(msg.value >= ...) → @pay(amount)                      — compiler-inserted
+//   transfer() + manual guard → escrow / slash / release          — intent-explicit keywords
+//   bool resolved + u8 winner → oracle<u8>                       — write-once, compiler-guarded
+//   no self-description       → manifest {}                       — machine-readable ABI metadata
+//   no proof hooks            → @verifiable                       — ZK-ready annotation
+
+// ── Global capability declarations ───────────────────────────────────────────
+//
+// Capabilities are first-class types.  Any function annotated @requires(caller: X)
+// gets a compiler-generated require(registry.hasCapability(msg.sender, X)) guard.
+
+capability Registrar;       // may register / suspend agents
+capability Scorer;          // may record reputation deltas
+capability Arbitrator;      // may rule on disputes
+capability OracleResolver;  // may fulfill prediction market outcomes
+capability RewardSigner;    // may allocate reward campaign funds
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IAgentRegistry
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface IAgentRegistry {
+  // agent replaces address — the type carries registry semantics
+  event AgentRegistered(agent indexed who, string metadata_uri, u256 stake)
+  event AgentProfileUpdated(agent indexed who, string metadata_uri)
+  event AgentStakeChanged(agent indexed who, i256 delta, u256 total)
+  event AgentStatusChanged(agent indexed who, u8 status, string reason)
+
+  function register(string metadata_uri) public payable;
+  function updateProfile(string metadata_uri) public;
+  function increaseStake() public payable;
+  function decreaseStake(u256 amount) public;
+
+  @requires(caller: Registrar)
+  function suspend(agent who, string reason) public;
+
+  @requires(caller: Registrar)
+  function unsuspend(agent who) public;
+}
+
+contract AgentRegistry is IAgentRegistry {
+  manifest {
+    version:      "1.0.0";
+    capabilities: [Registrar];
+    spec:         "ipfs://Qm_registry_spec";
+  }
+
+  agent admin;
+  u256  min_stake;
+
+  event AgentRegistered(agent indexed who, string metadata_uri, u256 stake)
+  event AgentProfileUpdated(agent indexed who, string metadata_uri)
+  event AgentStakeChanged(agent indexed who, i256 delta, u256 total)
+  event AgentStatusChanged(agent indexed who, u8 status, string reason)
+
+  function register(string metadata_uri) public payable {
+    require(msg.value >= min_stake, "BelowMinStake");
+    escrow(agent(msg.sender), msg.value);          // lock stake against agent identity
+    emit AgentRegistered(agent(msg.sender), metadata_uri, msg.value);
+  }
+
+  function updateProfile(string metadata_uri) public {
+    require(agent(msg.sender).is_active, "NotActive");
+    emit AgentProfileUpdated(agent(msg.sender), metadata_uri);
+  }
+
+  function increaseStake() public payable {
+    escrow(agent(msg.sender), msg.value);
+    emit AgentStakeChanged(agent(msg.sender), i256(msg.value), agent(msg.sender).stake);
+  }
+
+  function decreaseStake(u256 amount) public {
+    require(agent(msg.sender).stake - amount >= min_stake, "BelowMinStake");
+    release(agent(msg.sender), amount);
+    emit AgentStakeChanged(agent(msg.sender), -i256(amount), agent(msg.sender).stake);
+  }
+
+  @requires(caller: Registrar)
+  function suspend(agent who, string reason) public {
+    emit AgentStatusChanged(who, 2, reason);
+  }
+
+  @requires(caller: Registrar)
+  function unsuspend(agent who) public {
+    emit AgentStatusChanged(who, 1, "");
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IReputationHub
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface IReputationHub {
+  event ScorerAuthorized(agent indexed scorer, bool enabled)
+  event ReputationChanged(
+    agent   indexed who,
+    agent   indexed scorer,
+    i256    delta,
+    i256    total,
+    string  reason,
+    bytes32 ref_id
+  )
+
+  @requires(caller: Registrar)
+  function setScorer(agent scorer, bool enabled) public;
+
+  @requires(caller: Scorer)
+  function recordScore(agent who, i256 delta, string reason, bytes32 ref_id) public;
+
+  // @verifiable: outputs can be proven off-chain and verified on-chain without re-execution
+  @verifiable
+  function totalScoreOf(agent who) public view returns (i256 score);
+
+  @verifiable
+  function ratingCountOf(agent who) public view returns (u256 n);
+}
+
+contract ReputationHub is IReputationHub {
+  manifest {
+    version:      "1.0.0";
+    capabilities: [Scorer];
+    spec:         "ipfs://Qm_reputation_spec";
+  }
+
+  agent admin;
+
+  event ScorerAuthorized(agent indexed scorer, bool enabled)
+  event ReputationChanged(
+    agent   indexed who,
+    agent   indexed scorer,
+    i256    delta,
+    i256    total,
+    string  reason,
+    bytes32 ref_id
+  )
+
+  @requires(caller: Registrar)
+  function setScorer(agent scorer, bool enabled) public {
+    emit ScorerAuthorized(scorer, enabled);
+  }
+
+  @requires(caller: Scorer)
+  function recordScore(agent who, i256 delta, string reason, bytes32 ref_id) public {
+    // who.reputation is updated by the compiler-backed registry; emit reflects new total
+    emit ReputationChanged(who, agent(msg.sender), delta, who.reputation + delta, reason, ref_id);
+  }
+
+  @verifiable
+  function totalScoreOf(agent who) public view returns (i256 score) {
+    return who.reputation;           // agent property — no manual storage lookup
+  }
+
+  @verifiable
+  function ratingCountOf(agent who) public view returns (u256 n) {
+    return who.rating_count;
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ITaskEscrow
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// v1 used mapping(u256 => u8) task_status with raw numeric codes and no compiler
+// enforcement of valid transitions.
+//
+// v2 uses task<bytes32> — a parameterised type whose lifecycle the compiler tracks:
+//   Open → Accepted → Submitted → Approved
+//                  ↘ Rejected  → (Disputed)
+//   Open → Cancelled
+// Calling t.approve() when t.status != Submitted is a compile-time error.
+
+interface ITaskEscrow {
+  event TaskPosted(u256 indexed task_id, agent indexed poster, u256 reward, u64 deadline_ms, bytes32 spec_hash)
+  event TaskAccepted(u256 indexed task_id, agent indexed worker)
+  event TaskSubmitted(u256 indexed task_id, agent indexed worker, bytes32 result_hash)
+  event TaskApproved(u256 indexed task_id, agent indexed poster, agent indexed worker, u256 reward)
+  event TaskRejected(u256 indexed task_id, agent indexed poster, agent indexed worker, string reason)
+  event TaskDisputed(u256 indexed task_id, agent indexed opener, u256 bond)
+  event TaskCancelled(u256 indexed task_id, agent indexed poster)
+
+  // reward = msg.value (payable); no separate u256 reward param needed
+  function postTask(bytes32 spec_hash, u64 deadline_ms) public payable returns (u256 task_id);
+  function acceptTask(u256 task_id) public;
+  function submitTask(u256 task_id, bytes32 result_hash) public;
+  function approveTask(u256 task_id) public;
+  function rejectTask(u256 task_id, string reason) public;
+  function disputeTask(u256 task_id) public payable;
+  function cancelTask(u256 task_id) public;
+  function reclaimExpired(u256 task_id) public;
+}
+
+contract TaskEscrow is ITaskEscrow {
+  manifest {
+    version:      "1.0.0";
+    capabilities: [Arbitrator];
+    spec:         "ipfs://Qm_task_escrow_spec";
+    sla_uptime:   9900;
+  }
+
+  agent admin;
+  agent dispute_resolver;
+  u256  next_task_id;
+
+  mapping(u256 => task<bytes32>) tasks;   // task_id → compiler-managed task handle
+
+  event TaskPosted(u256 indexed task_id, agent indexed poster, u256 reward, u64 deadline_ms, bytes32 spec_hash)
+  event TaskAccepted(u256 indexed task_id, agent indexed worker)
+  event TaskSubmitted(u256 indexed task_id, agent indexed worker, bytes32 result_hash)
+  event TaskApproved(u256 indexed task_id, agent indexed poster, agent indexed worker, u256 reward)
+  event TaskRejected(u256 indexed task_id, agent indexed poster, agent indexed worker, string reason)
+  event TaskDisputed(u256 indexed task_id, agent indexed opener, u256 bond)
+  event TaskCancelled(u256 indexed task_id, agent indexed poster)
+
+  function postTask(bytes32 spec_hash, u64 deadline_ms) public payable returns (u256 task_id) {
+    require(agent(msg.sender).is_active, "AgentNotActive");
+    task_id = next_task_id;
+    next_task_id = next_task_id + 1;
+    tasks[task_id] = task<bytes32>.new(agent(msg.sender), msg.value, deadline_ms);
+    escrow(agent(msg.sender), msg.value);   // reward locked until task resolution
+    emit TaskPosted(task_id, agent(msg.sender), msg.value, deadline_ms, spec_hash);
+  }
+
+  function acceptTask(u256 task_id) public {
+    require(agent(msg.sender).is_active, "AgentNotActive");
+    tasks[task_id].accept(agent(msg.sender));   // compile error if status != Open
+    emit TaskAccepted(task_id, agent(msg.sender));
+  }
+
+  function submitTask(u256 task_id, bytes32 result_hash) public {
+    task<bytes32> t = tasks[task_id];
+    t.submit(result_hash);   // compile error if status != Accepted or caller != t.worker
+    emit TaskSubmitted(task_id, t.worker, result_hash);
+  }
+
+  function approveTask(u256 task_id) public {
+    task<bytes32> t = tasks[task_id];
+    t.approve();             // compile error if status != Submitted or caller != t.poster
+    release(t.poster, 0);           // free poster's escrowed portion
+    release(t.worker, t.reward);    // reward claimable by worker
+    emit TaskApproved(task_id, t.poster, t.worker, t.reward);
+  }
+
+  function rejectTask(u256 task_id, string reason) public {
+    task<bytes32> t = tasks[task_id];
+    t.reject();              // compile error if caller != t.poster or status != Submitted
+    emit TaskRejected(task_id, t.poster, t.worker, reason);
+  }
+
+  function disputeTask(u256 task_id) public payable {
+    task<bytes32> t = tasks[task_id];
+    t.dispute();             // compile error if status not in {Submitted, Rejected}
+    escrow(agent(msg.sender), msg.value);   // dispute bond
+    emit TaskDisputed(task_id, agent(msg.sender), msg.value);
+  }
+
+  function cancelTask(u256 task_id) public {
+    task<bytes32> t = tasks[task_id];
+    t.cancel();              // compile error if caller != t.poster or status != Open
+    release(t.poster, t.reward);
+    emit TaskCancelled(task_id, t.poster);
+  }
+
+  function reclaimExpired(u256 task_id) public {
+    task<bytes32> t = tasks[task_id];
+    require(t.is_expired, "NotExpired");
+    t.cancel();
+    release(t.poster, t.reward);
+    emit TaskCancelled(task_id, t.poster);
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IDisputeResolver
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface IDisputeResolver {
+  event DisputeOpened(u256 indexed dispute_id, u256 indexed task_id, agent indexed opener, u256 bond)
+  event EvidenceSubmitted(u256 indexed dispute_id, agent indexed submitter, bytes32 evidence_hash)
+  event DisputeRuled(u256 indexed dispute_id, agent indexed winner, u16 slash_bps, string reason)
+  event ArbitratorSet(agent indexed who, bool enabled)
+
+  function openDispute(u256 task_id, bytes32 evidence_hash) public payable returns (u256 dispute_id);
+  function submitEvidence(u256 dispute_id, bytes32 evidence_hash) public;
+
+  @requires(caller: Arbitrator)
+  function rule(u256 dispute_id, agent winner, u16 slash_bps, string reason) public;
+
+  @requires(caller: Registrar)
+  function setArbitrator(agent who, bool enabled) public;
+}
+
+contract DisputeResolver is IDisputeResolver {
+  manifest {
+    version:      "1.0.0";
+    capabilities: [Arbitrator];
+    spec:         "ipfs://Qm_dispute_spec";
+  }
+
+  agent admin;
+  u256 next_dispute_id;
+  mapping(u256 => u256)  dispute_task_id;
+  mapping(u256 => agent) dispute_opener;
+  mapping(u256 => agent) dispute_counterparty;
+  mapping(u256 => u256)  dispute_bond;
+  mapping(u256 => u8)    dispute_status;   // 0:none 1:open 2:ruled
+
+  event DisputeOpened(u256 indexed dispute_id, u256 indexed task_id, agent indexed opener, u256 bond)
+  event EvidenceSubmitted(u256 indexed dispute_id, agent indexed submitter, bytes32 evidence_hash)
+  event DisputeRuled(u256 indexed dispute_id, agent indexed winner, u16 slash_bps, string reason)
+  event ArbitratorSet(agent indexed who, bool enabled)
+
+  function openDispute(u256 task_id, bytes32 evidence_hash) public payable returns (u256 dispute_id) {
+    require(agent(msg.sender).is_active, "AgentNotActive");
+    dispute_id = next_dispute_id;
+    next_dispute_id = next_dispute_id + 1;
+    dispute_task_id[dispute_id]   = task_id;
+    dispute_opener[dispute_id]    = agent(msg.sender);
+    dispute_bond[dispute_id]      = msg.value;
+    dispute_status[dispute_id]    = 1;
+    escrow(agent(msg.sender), msg.value);
+    emit DisputeOpened(dispute_id, task_id, agent(msg.sender), msg.value);
+    emit EvidenceSubmitted(dispute_id, agent(msg.sender), evidence_hash);
+  }
+
+  function submitEvidence(u256 dispute_id, bytes32 evidence_hash) public {
+    require(dispute_status[dispute_id] == 1, "NotOpen");
+    emit EvidenceSubmitted(dispute_id, agent(msg.sender), evidence_hash);
+  }
+
+  @requires(caller: Arbitrator)
+  function rule(u256 dispute_id, agent winner, u16 slash_bps, string reason) public {
+    require(dispute_status[dispute_id] == 1, "NotOpen");
+    dispute_status[dispute_id] = 2;
+    agent loser = (dispute_opener[dispute_id] == winner)
+                  ? dispute_counterparty[dispute_id]
+                  : dispute_opener[dispute_id];
+    slash(loser, loser.stake * u256(slash_bps) / 10000);  // slash keyword routes proceeds
+    release(dispute_opener[dispute_id], dispute_bond[dispute_id]);
+    emit DisputeRuled(dispute_id, winner, slash_bps, reason);
+  }
+
+  @requires(caller: Registrar)
+  function setArbitrator(agent who, bool enabled) public {
+    emit ArbitratorSet(who, enabled);
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IPredictionMarketFactory
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface IPredictionMarketFactory {
+  event MarketCreated(
+    address indexed market,
+    agent   indexed creator,
+    bytes32 indexed question_id,
+    u64     close_time_ms,
+    agent   oracle_agent,
+    u16     fee_bps
+  )
+
+  // @pay enforces a market-creation fee at the language level; no manual require needed
+  @pay(10_000_000)
+  function createBinaryMarket(
+    bytes32 question_id,
+    u64     close_time_ms,
+    agent   oracle_agent,
+    u16     fee_bps
+  ) public returns (address market);
+}
+
+contract PredictionMarketFactory is IPredictionMarketFactory {
+  manifest {
+    version:      "1.0.0";
+    capabilities: [OracleResolver];
+    spec:         "ipfs://Qm_pmfactory_spec";
+  }
+
+  agent   admin;
+  agent   fee_recipient;
+  u256    market_count;
+  mapping(bytes32 => address) market_by_question;
+
+  event MarketCreated(
+    address indexed market,
+    agent   indexed creator,
+    bytes32 indexed question_id,
+    u64     close_time_ms,
+    agent   oracle_agent,
+    u16     fee_bps
+  )
+
+  @pay(10_000_000)
+  function createBinaryMarket(
+    bytes32 question_id,
+    u64     close_time_ms,
+    agent   oracle_agent,
+    u16     fee_bps
+  ) public returns (address market) {
+    require(market_by_question[question_id] == address(0), "MarketExists");
+    // deploy PredictionMarket child contract (address returned by runtime)
+    market = deploy PredictionMarket(question_id, close_time_ms, oracle_agent, fee_bps, fee_recipient);
+    market_by_question[question_id] = market;
+    market_count = market_count + 1;
+    emit MarketCreated(market, agent(msg.sender), question_id, close_time_ms, oracle_agent, fee_bps);
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IPredictionMarket
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// v1: bool resolved + u8 winning_outcome — nothing stops double-resolution.
+// v2: oracle<u8> winning_outcome — write-once; compiler emits a storage guard
+//     so a second call to winning_outcome.fulfill() is a hard revert.
+
+interface IPredictionMarket {
+  event LiquidityAdded(agent indexed provider, u256 amount, u256 minted_shares)
+  event LiquidityRemoved(agent indexed provider, u256 burned_shares, u256 amount_out)
+  event Bought(agent indexed trader, u8 indexed outcome, u256 amount_in, u256 shares_out, u256 fee_paid)
+  event Sold(agent indexed trader, u8 indexed outcome, u256 shares_in, u256 amount_out, u256 fee_paid)
+  event Resolved(u8 indexed outcome, agent indexed resolver)
+  event Claimed(agent indexed user, u256 payout)
+
+  function addLiquidity() public payable;
+  function removeLiquidity(u256 lp_shares) public;
+  function buy(u8 outcome, u256 min_shares_out) public payable;
+  function sell(u8 outcome, u256 shares_in, u256 min_amount_out) public;
+
+  @requires(caller: OracleResolver)
+  function resolve(u8 outcome) public;
+
+  function claim() public;
+
+  @verifiable
+  function poolOf(u8 outcome) public view returns (u256 amount);
+
+  @verifiable
+  function sharesOf(agent user, u8 outcome) public view returns (u256 shares);
+}
+
+contract PredictionMarket is IPredictionMarket {
+  manifest {
+    version:      "1.0.0";
+    capabilities: [OracleResolver];
+    spec:         "ipfs://Qm_prediction_market_spec";
+  }
+
+  agent   factory;
+  agent   oracle_agent;
+  agent   fee_recipient;
+  bytes32 question_id;
+  u64     close_time_ms;
+  u16     fee_bps;
+
+  oracle<u8> winning_outcome;   // write-once; second fulfill() → compile-guarded revert
+
+  mapping(u8 => u256)                       pool;
+  mapping(address => mapping(u8 => u256))   shares;
+  mapping(address => u256)                  lp_shares;
+  u256                                      total_lp_shares;
+  mapping(address => bool)                  claimed;
+
+  event LiquidityAdded(agent indexed provider, u256 amount, u256 minted_shares)
+  event LiquidityRemoved(agent indexed provider, u256 burned_shares, u256 amount_out)
+  event Bought(agent indexed trader, u8 indexed outcome, u256 amount_in, u256 shares_out, u256 fee_paid)
+  event Sold(agent indexed trader, u8 indexed outcome, u256 shares_in, u256 amount_out, u256 fee_paid)
+  event Resolved(u8 indexed outcome, agent indexed resolver)
+  event Claimed(agent indexed user, u256 payout)
+
+  function addLiquidity() public payable {
+    // AMM liquidity minting logic (unchanged from v1)
+    u256 minted = (total_lp_shares == 0) ? msg.value : msg.value * total_lp_shares / (pool[0] + pool[1]);
+    pool[0] = pool[0] + msg.value / 2;
+    pool[1] = pool[1] + msg.value / 2;
+    lp_shares[msg.sender] = lp_shares[msg.sender] + minted;
+    total_lp_shares = total_lp_shares + minted;
+    emit LiquidityAdded(agent(msg.sender), msg.value, minted);
+  }
+
+  function removeLiquidity(u256 lp_shares_in) public {
+    require(lp_shares[msg.sender] >= lp_shares_in, "InsufficientShares");
+    u256 total_pool = pool[0] + pool[1];
+    u256 amount_out = lp_shares_in * total_pool / total_lp_shares;
+    lp_shares[msg.sender] = lp_shares[msg.sender] - lp_shares_in;
+    total_lp_shares = total_lp_shares - lp_shares_in;
+    pool[0] = pool[0] - lp_shares_in * pool[0] / (total_lp_shares + lp_shares_in);
+    pool[1] = pool[1] - lp_shares_in * pool[1] / (total_lp_shares + lp_shares_in);
+    release(agent(msg.sender), amount_out);
+    emit LiquidityRemoved(agent(msg.sender), lp_shares_in, amount_out);
+  }
+
+  function buy(u8 outcome, u256 min_shares_out) public payable {
+    require(block.timestamp_ms < close_time_ms, "MarketClosed");
+    u256 fee      = msg.value * u256(fee_bps) / 10000;
+    u256 net      = msg.value - fee;
+    u256 shares_out = net;   // simplified; real LMSR math goes here
+    require(shares_out >= min_shares_out, "Slippage");
+    pool[outcome] = pool[outcome] + net;
+    shares[msg.sender][outcome] = shares[msg.sender][outcome] + shares_out;
+    release(fee_recipient, fee);
+    emit Bought(agent(msg.sender), outcome, msg.value, shares_out, fee);
+  }
+
+  function sell(u8 outcome, u256 shares_in, u256 min_amount_out) public {
+    require(block.timestamp_ms < close_time_ms, "MarketClosed");
+    require(shares[msg.sender][outcome] >= shares_in, "InsufficientShares");
+    u256 amount_out = shares_in;   // simplified; real LMSR math goes here
+    require(amount_out >= min_amount_out, "Slippage");
+    shares[msg.sender][outcome] = shares[msg.sender][outcome] - shares_in;
+    pool[outcome] = pool[outcome] - amount_out;
+    release(agent(msg.sender), amount_out);
+    emit Sold(agent(msg.sender), outcome, shares_in, amount_out, 0);
+  }
+
+  @requires(caller: OracleResolver)
+  function resolve(u8 outcome) public {
+    require(block.timestamp_ms >= close_time_ms, "MarketNotClosed");
+    winning_outcome.fulfill(outcome);   // compile error if called a second time
+    emit Resolved(outcome, agent(msg.sender));
+  }
+
+  function claim() public {
+    require(winning_outcome.is_set, "NotResolved");
+    require(!claimed[msg.sender], "AlreadyClaimed");
+    claimed[msg.sender] = true;
+    u256 user_shares  = shares[msg.sender][winning_outcome.value];
+    u256 total_shares = pool[winning_outcome.value];
+    u256 payout       = user_shares * (pool[0] + pool[1]) / total_shares;
+    release(agent(msg.sender), payout);
+    emit Claimed(agent(msg.sender), payout);
+  }
+
+  @verifiable
+  function poolOf(u8 outcome) public view returns (u256 amount) {
+    return pool[outcome];
+  }
+
+  @verifiable
+  function sharesOf(agent user, u8 outcome) public view returns (u256 shares_out) {
+    return shares[address(user)][outcome];
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IRewardVault
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface IRewardVault {
+  event RewardFunded(bytes32 indexed campaign_id, agent indexed from, u256 amount)
+  event RewardAllocated(bytes32 indexed campaign_id, agent indexed user, u256 amount, string reason)
+  event RewardClaimed(bytes32 indexed campaign_id, agent indexed user, u256 amount)
+  event SignerSet(agent indexed signer, bool enabled)
+
+  function fund(bytes32 campaign_id) public payable;
+
+  @requires(caller: RewardSigner)
+  function allocate(bytes32 campaign_id, agent user, u256 amount, string reason) public;
+
+  function claim(bytes32 campaign_id) public;
+
+  @requires(caller: Registrar)
+  function setSigner(agent signer, bool enabled) public;
+
+  @verifiable
+  function allocatedOf(bytes32 campaign_id, agent user) public view returns (u256 amount);
+
+  @verifiable
+  function claimedOf(bytes32 campaign_id, agent user) public view returns (u256 amount);
+
+  @verifiable
+  function remainingOf(bytes32 campaign_id) public view returns (u256 amount);
+}
+
+contract RewardVault is IRewardVault {
+  manifest {
+    version:      "1.0.0";
+    capabilities: [RewardSigner];
+    spec:         "ipfs://Qm_reward_vault_spec";
+  }
+
+  agent admin;
+  mapping(bytes32 => u256)                     campaign_fund;
+  mapping(bytes32 => u256)                     campaign_allocated_total;
+  mapping(bytes32 => mapping(address => u256)) allocated;
+  mapping(bytes32 => mapping(address => u256)) claimed_amount;
+
+  event RewardFunded(bytes32 indexed campaign_id, agent indexed from, u256 amount)
+  event RewardAllocated(bytes32 indexed campaign_id, agent indexed user, u256 amount, string reason)
+  event RewardClaimed(bytes32 indexed campaign_id, agent indexed user, u256 amount)
+  event SignerSet(agent indexed signer, bool enabled)
+
+  function fund(bytes32 campaign_id) public payable {
+    campaign_fund[campaign_id] = campaign_fund[campaign_id] + msg.value;
+    escrow(admin, msg.value);   // funds held in vault; admin is the escrow anchor
+    emit RewardFunded(campaign_id, agent(msg.sender), msg.value);
+  }
+
+  @requires(caller: RewardSigner)
+  function allocate(bytes32 campaign_id, agent user, u256 amount, string reason) public {
+    require(remainingOf(campaign_id) >= amount, "InsufficientFund");
+    allocated[campaign_id][address(user)] = allocated[campaign_id][address(user)] + amount;
+    campaign_allocated_total[campaign_id] = campaign_allocated_total[campaign_id] + amount;
+    emit RewardAllocated(campaign_id, user, amount, reason);
+  }
+
+  function claim(bytes32 campaign_id) public {
+    u256 claimable = allocated[campaign_id][msg.sender]
+                   - claimed_amount[campaign_id][msg.sender];
+    require(claimable > 0, "NothingToClaim");
+    claimed_amount[campaign_id][msg.sender] = claimed_amount[campaign_id][msg.sender] + claimable;
+    release(agent(msg.sender), claimable);
+    emit RewardClaimed(campaign_id, agent(msg.sender), claimable);
+  }
+
+  @requires(caller: Registrar)
+  function setSigner(agent signer, bool enabled) public {
+    emit SignerSet(signer, enabled);
+  }
+
+  @verifiable
+  function allocatedOf(bytes32 campaign_id, agent user) public view returns (u256 amount) {
+    return allocated[campaign_id][address(user)];
+  }
+
+  @verifiable
+  function claimedOf(bytes32 campaign_id, agent user) public view returns (u256 amount) {
+    return claimed_amount[campaign_id][address(user)];
+  }
+
+  @verifiable
+  function remainingOf(bytes32 campaign_id) public view returns (u256 amount) {
+    return campaign_fund[campaign_id] - campaign_allocated_total[campaign_id];
+  }
+}

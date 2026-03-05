@@ -1,0 +1,127 @@
+pragma tolang 0.2.0;
+
+contract TRC20 {
+  u256 total_supply;
+  mapping(address => u256) balances;
+  mapping(address => mapping(address => u256)) allowances;
+
+  // 32-byte GTOS zero address (spec §6.1: address is fixed 32 bytes).
+  constant ZERO_ADDRESS: address = "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+  // TRC20 standard events.
+  // 'from', 'to', 'owner', 'spender' are indexed so explorers can filter by address.
+  event Transfer(address from indexed, address to indexed, u256 value)
+  event Approval(address owner indexed, address spender indexed, u256 value)
+
+  /// @notice Mints `initialSupply` tokens and assigns them to the deployer.
+  /// @param  initialSupply Total token supply created at deployment.
+  /// @effects reads:  []
+  /// @effects writes: storage.total_supply, storage.balances[caller]
+  /// @effects emits:  Transfer
+  /// @effects calls:  []
+  constructor(u256 initialSupply) {
+    set total_supply = initialSupply;
+    set balances[msg.sender] = initialSupply;
+    emit Transfer(ZERO_ADDRESS, msg.sender, initialSupply);
+    return;
+  }
+
+  /// @notice Returns the total token supply.
+  /// @return s Total number of tokens in existence.
+  /// @effects reads:  storage.total_supply
+  /// @effects writes: []
+  /// @effects emits:  []
+  /// @effects calls:  []
+  /// @gas     upper:  3000
+  function totalSupply() public view returns (u256 s) {
+    return total_supply;
+  }
+
+  /// @notice Returns the token balance of `account`.
+  /// @param  account Address to query.
+  /// @return balance Token balance held by `account`.
+  /// @effects reads:  storage.balances[account]
+  /// @effects writes: []
+  /// @effects emits:  []
+  /// @effects calls:  []
+  /// @gas     upper:  3000
+  function balanceOf(address account) public view returns (u256 balance) {
+    return balances[account];
+  }
+
+  /// @notice Returns the remaining allowance that `spender` may use on behalf of `owner`.
+  /// @param  owner   Address that granted the allowance.
+  /// @param  spender Address permitted to spend.
+  /// @return remaining Current allowance (0 if none set).
+  /// @effects reads:  storage.allowances[owner,spender]
+  /// @effects writes: []
+  /// @effects emits:  []
+  /// @effects calls:  []
+  /// @gas     upper:  3000
+  function allowance(address owner, address spender) public view returns (u256 remaining) {
+    return allowances[owner][spender];
+  }
+
+  /// @notice Transfers `value` tokens from the caller to `to`.
+  /// @param  to    Recipient address (must not be the zero address).
+  /// @param  value Number of tokens to transfer.
+  /// @return ok    Always true on success; reverts on failure.
+  /// @effects reads:  storage.balances[caller], storage.balances[to]
+  /// @effects writes: storage.balances[caller], storage.balances[to]
+  /// @effects emits:  Transfer
+  /// @effects calls:  []
+  /// @gas     upper:  50000
+  function transfer(address to, u256 value) external returns (bool ok) {
+    require(to != ZERO_ADDRESS, "ZERO_ADDRESS");
+    require(balances[msg.sender] >= value, "INSUFFICIENT_BALANCE");
+    set balances[msg.sender] -= value;
+    set balances[to] += value;
+    emit Transfer(msg.sender, to, value);
+    return true;
+  }
+
+  /// @notice Approves `spender` to transfer up to `value` tokens on the caller's behalf.
+  /// @param  spender Address authorized to spend (must not be the zero address).
+  /// @param  value   Maximum number of tokens `spender` may transfer.
+  /// @return ok      Always true on success; reverts on failure.
+  /// @effects reads:  []
+  /// @effects writes: storage.allowances[caller,spender]
+  /// @effects emits:  Approval
+  /// @effects calls:  []
+  /// @gas     upper:  25000
+  function approve(address spender, u256 value) external returns (bool ok) {
+    require(spender != ZERO_ADDRESS, "ZERO_ADDRESS");
+    set allowances[msg.sender][spender] = value;
+    emit Approval(msg.sender, spender, value);
+    return true;
+  }
+
+  /// @notice Transfers `value` tokens from `from` to `to` using the caller's allowance.
+  /// @param  from  Source address (must not be the zero address).
+  /// @param  to    Destination address (must not be the zero address).
+  /// @param  value Number of tokens to transfer.
+  /// @return ok    Always true on success; reverts on failure.
+  /// @effects reads:  storage.allowances[from,caller], storage.balances[from], storage.balances[to]
+  /// @effects writes: storage.allowances[from,caller], storage.balances[from], storage.balances[to]
+  /// @effects emits:  Transfer
+  /// @effects calls:  []
+  /// @gas     upper:  75000
+  function transferFrom(address from, address to, u256 value) external returns (bool ok) {
+    require(from != ZERO_ADDRESS, "ZERO_ADDRESS");
+    require(to != ZERO_ADDRESS, "ZERO_ADDRESS");
+
+    let allowed: u256 = allowances[from][msg.sender];
+    require(allowed >= value, "INSUFFICIENT_ALLOWANCE");
+    require(balances[from] >= value, "INSUFFICIENT_BALANCE");
+
+    set allowances[from][msg.sender] -= value;
+    set balances[from] -= value;
+    set balances[to] += value;
+    emit Transfer(from, to, value);
+    return true;
+  }
+
+  fallback {
+    revert "UNKNOWN_SELECTOR";
+  }
+}

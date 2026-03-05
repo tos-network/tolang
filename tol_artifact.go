@@ -1,0 +1,654 @@
+package lua
+
+import (
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"strings"
+
+	tolast "github.com/tos-network/tolang/tol/ast"
+	"golang.org/x/crypto/sha3"
+)
+
+var tocMagic = [4]byte{'T', 'O', 'C', 0}
+
+// ArtifactFormatVersion is the binary format version for .toc artifacts.
+const ArtifactFormatVersion uint16 = 1
+
+// Artifact is a decoded .toc payload.
+type Artifact struct {
+	Version           uint16
+	Compiler          string
+	ContractName      string
+	Bytecode          []byte
+	ABIJSON           []byte
+	StorageLayoutJSON []byte
+	SourceHash        string
+	BytecodeHash      string
+	// Gas metadata (ArtifactFormatVersion >= 2)
+	MaxStackSlots         uint32
+	BytecodeLen           uint32
+	ContainsUnboundedLoop bool
+}
+
+// ArtifactOptions controls .artifact bytecode debug metadata emission.
+type ArtifactOptions struct {
+	// IncludeSourceMap controls whether embedded bytecode contains source map/debug metadata.
+	// Default is true for backward compatibility.
+	IncludeSourceMap bool
+}
+
+// gasModelVersion is the version string embedded in the gas_model ABI field.
+// It identifies the cost model used during compilation so that Agents can
+// verify that gas_upper values were computed under the same model version as
+// the VM they are targeting.
+const gasModelVersion = "tolang/0.2.0"
+
+// Gas cost constants used by the static estimator (§7.4 of TOL_EFFECTS.md).
+// These mirror the unexported constants in tol/sema/effects.go and must be
+// kept in sync if the cost model changes.
+const (
+	gasModelSload   = uint64(2100)
+	gasModelSstore  = uint64(20000)
+	gasModelLogBase = uint64(375)
+)
+
+type tocABIGasModel struct {
+	Version string `json:"version"`
+	Sload   uint64 `json:"sload"`
+	Sstore  uint64 `json:"sstore"`
+	LogBase uint64 `json:"log_base"`
+}
+
+type tocABI struct {
+	GasModel  tocABIGasModel   `json:"gas_model"`
+	Functions []tocABIFunction `json:"functions"`
+	Events    []tocABIEvent    `json:"events"`
+}
+
+type tocABIFunction struct {
+	Name       string     `json:"name"`
+	Visibility string     `json:"visibility"`
+	Selector   string     `json:"selector"`
+	Params     []string   `json:"params,omitempty"`
+	Returns    []string   `json:"returns,omitempty"`
+	Doc        *tocABIDoc `json:"doc,omitempty"`
+}
+
+type tocABIEvent struct {
+	Name   string   `json:"name"`
+	Params []string `json:"params,omitempty"`
+}
+
+// tocABIDoc is the optional doc metadata emitted per function in the ABI JSON.
+type tocABIDoc struct {
+	Notice        string         `json:"notice,omitempty"`
+	Effects       *tocABIEffects `json:"effects,omitempty"`
+	Bounds        []string       `json:"bounds,omitempty"`
+	GasUpper      uint64         `json:"gas_upper,omitempty"`
+	NonComposable bool           `json:"non_composable,omitempty"`
+}
+
+// tocABIEffects holds the @effects sub-object in ABI JSON.
+type tocABIEffects struct {
+	Reads  []string    `json:"reads,omitempty"`
+	Writes []string    `json:"writes,omitempty"`
+	Emits  []string    `json:"emits,omitempty"`
+	Calls  interface{} `json:"calls,omitempty"` // []tocABICallRef or nil
+}
+
+// tocABICallRef is one call entry in the ABI JSON calls array.
+type tocABICallRef struct {
+	Cap      string `json:"cap,omitempty"`
+	Iface    string `json:"iface,omitempty"`
+	Selector string `json:"selector,omitempty"`
+	MaxGas   uint64 `json:"max_gas,omitempty"`
+	MaxCalls uint32 `json:"max_calls,omitempty"`
+	MaxDepth uint32 `json:"max_depth,omitempty"`
+	Wildcard bool   `json:"wildcard,omitempty"`
+}
+
+type tocStorageLayout struct {
+	Slots []tocStorageSlot `json:"slots"`
+}
+
+type tocStorageSlot struct {
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	CanonicalHash string `json:"canonical_hash"`
+}
+
+// IsArtifact reports whether the input starts with .toc magic bytes.
+func IsArtifact(data []byte) bool {
+	if len(data) < len(tocMagic) {
+		return false
+	}
+	for i := range tocMagic {
+		if data[i] != tocMagic[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// CompileArtifact compiles TOL source into a .toc artifact.
+func CompileArtifact(source []byte, name string) ([]byte, error) {
+	return CompileArtifactWithOptions(source, name, nil)
+}
+
+// CompileArtifactWithOptions compiles TOL source into a .toc artifact with
+// configurable bytecode debug metadata emission.
+func CompileArtifactWithOptions(source []byte, name string, opts *ArtifactOptions) ([]byte, error) {
+	includeSourceMap := true
+	if opts != nil {
+		includeSourceMap = opts.IncludeSourceMap
+	}
+	bytecode, err := CompileBytecodeWithOptions(source, name, &CompileOptions{
+		IncludeSourceMap: includeSourceMap,
+	})
+	if err != nil {
+		return nil, err
+	}
+	mod, err := ParseModule(source, name)
+	if err != nil {
+		return nil, err
+	}
+	contractName, abiJSON, storageJSON, err := buildArtifactMetadata(mod)
+	if err != nil {
+		return nil, err
+	}
+	maxSlots, bcLen, unbounded, err := analyzeBytecodeMetadata(bytecode)
+	if err != nil {
+		return nil, fmt.Errorf("artifact gas metadata analysis: %w", err)
+	}
+	return EncodeArtifact(&Artifact{
+		Version:               ArtifactFormatVersion,
+		Compiler:              "tolang/" + PackageVersion,
+		ContractName:          contractName,
+		Bytecode:              bytecode,
+		ABIJSON:               abiJSON,
+		StorageLayoutJSON:     storageJSON,
+		SourceHash:            keccak256Hex(source),
+		BytecodeHash:          keccak256Hex(bytecode),
+		MaxStackSlots:         maxSlots,
+		BytecodeLen:           bcLen,
+		ContainsUnboundedLoop: unbounded,
+	})
+}
+
+// EncodeArtifact serializes a compiled artifact into deterministic binary bytes.
+func EncodeArtifact(a *Artifact) ([]byte, error) {
+	if a == nil {
+		return nil, fmt.Errorf("nil artifact")
+	}
+	if strings.TrimSpace(a.ContractName) == "" {
+		return nil, fmt.Errorf("artifact contract name is required")
+	}
+	if len(a.Bytecode) == 0 {
+		return nil, fmt.Errorf("artifact bytecode is required")
+	}
+	version := a.Version
+	if version == 0 {
+		version = ArtifactFormatVersion
+	}
+	if a.Compiler == "" {
+		a.Compiler = "tolang/" + PackageVersion
+	}
+	sourceHash, err := decodeHashHex(a.SourceHash)
+	if err != nil {
+		return nil, fmt.Errorf("invalid source hash: %w", err)
+	}
+	bytecodeHash, err := decodeHashHex(a.BytecodeHash)
+	if err != nil {
+		return nil, fmt.Errorf("invalid bytecode hash: %w", err)
+	}
+
+	var buf bytes.Buffer
+	buf.Write(tocMagic[:])
+	if err := writeU16(&buf, version); err != nil {
+		return nil, err
+	}
+	if err := writeString(&buf, a.Compiler); err != nil {
+		return nil, err
+	}
+	if err := writeString(&buf, strings.TrimSpace(a.ContractName)); err != nil {
+		return nil, err
+	}
+	if err := writeLenBytes(&buf, a.Bytecode); err != nil {
+		return nil, err
+	}
+	if err := writeLenBytes(&buf, a.ABIJSON); err != nil {
+		return nil, err
+	}
+	if err := writeLenBytes(&buf, a.StorageLayoutJSON); err != nil {
+		return nil, err
+	}
+	if _, err := buf.Write(sourceHash); err != nil {
+		return nil, err
+	}
+	if _, err := buf.Write(bytecodeHash); err != nil {
+		return nil, err
+	}
+	if err := writeU32(&buf, a.MaxStackSlots); err != nil {
+		return nil, err
+	}
+	if err := writeU32(&buf, a.BytecodeLen); err != nil {
+		return nil, err
+	}
+	ubyte := uint8(0)
+	if a.ContainsUnboundedLoop {
+		ubyte = 1
+	}
+	buf.WriteByte(ubyte)
+	return buf.Bytes(), nil
+}
+
+// DecodeArtifact deserializes a .toc payload into a structured artifact.
+func DecodeArtifact(data []byte) (*Artifact, error) {
+	r := &byteReader{b: data}
+	var magic [4]byte
+	if _, err := io.ReadFull(r, magic[:]); err != nil {
+		return nil, fmt.Errorf("invalid artifact header: %w", err)
+	}
+	if magic != tocMagic {
+		return nil, fmt.Errorf("invalid artifact magic")
+	}
+	version, err := readU16(r)
+	if err != nil {
+		return nil, fmt.Errorf("invalid artifact version: %w", err)
+	}
+	if version != ArtifactFormatVersion {
+		return nil, fmt.Errorf("unsupported artifact version: got=%d want=%d", version, ArtifactFormatVersion)
+	}
+	compiler, err := readString(r)
+	if err != nil {
+		return nil, fmt.Errorf("invalid artifact compiler: %w", err)
+	}
+	contractName, err := readString(r)
+	if err != nil {
+		return nil, fmt.Errorf("invalid artifact contract name: %w", err)
+	}
+	bytecode, err := readLenBytes(r)
+	if err != nil {
+		return nil, fmt.Errorf("invalid artifact bytecode payload: %w", err)
+	}
+	abiJSON, err := readLenBytes(r)
+	if err != nil {
+		return nil, fmt.Errorf("invalid artifact abi payload: %w", err)
+	}
+	storageJSON, err := readLenBytes(r)
+	if err != nil {
+		return nil, fmt.Errorf("invalid artifact storage payload: %w", err)
+	}
+	sourceHash, err := readFixedBytes(r, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid artifact source hash: %w", err)
+	}
+	bytecodeHash, err := readFixedBytes(r, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid artifact bytecode hash: %w", err)
+	}
+	maxStackSlots, err := readU32(r)
+	if err != nil {
+		return nil, fmt.Errorf("invalid artifact max_stack_slots: %w", err)
+	}
+	bytecodeLen, err := readU32(r)
+	if err != nil {
+		return nil, fmt.Errorf("invalid artifact bytecode_len: %w", err)
+	}
+	unboundedByte, err := readFixedBytes(r, 1)
+	if err != nil {
+		return nil, fmt.Errorf("invalid artifact contains_unbounded_loop: %w", err)
+	}
+	if r.n != len(data) {
+		return nil, fmt.Errorf("trailing bytes in artifact payload")
+	}
+	if strings.TrimSpace(contractName) == "" {
+		return nil, fmt.Errorf("artifact contract name is empty")
+	}
+	if len(bytecode) == 0 {
+		return nil, fmt.Errorf("artifact bytecode payload is empty")
+	}
+	gotBytecodeHash := keccak256Bytes(bytecode)
+	if !bytes.Equal(gotBytecodeHash, bytecodeHash) {
+		return nil, fmt.Errorf("artifact bytecode hash mismatch")
+	}
+	if _, err := DecodeFunctionProto(bytecode); err != nil {
+		return nil, fmt.Errorf("artifact embedded bytecode decode failed: %w", err)
+	}
+	if len(abiJSON) > 0 && !json.Valid(abiJSON) {
+		return nil, fmt.Errorf("artifact abi payload is not valid json")
+	}
+	if len(storageJSON) > 0 && !json.Valid(storageJSON) {
+		return nil, fmt.Errorf("artifact storage payload is not valid json")
+	}
+	return &Artifact{
+		Version:               version,
+		Compiler:              compiler,
+		ContractName:          contractName,
+		Bytecode:              bytecode,
+		ABIJSON:               abiJSON,
+		StorageLayoutJSON:     storageJSON,
+		SourceHash:            "0x" + hex.EncodeToString(sourceHash),
+		BytecodeHash:          "0x" + hex.EncodeToString(bytecodeHash),
+		MaxStackSlots:         maxStackSlots,
+		BytecodeLen:           bytecodeLen,
+		ContainsUnboundedLoop: unboundedByte[0] != 0,
+	}, nil
+}
+
+// VerifySourceHash checks whether a decoded artifact matches the given source bytes.
+func VerifySourceHash(art *Artifact, source []byte) error {
+	if art == nil {
+		return fmt.Errorf("nil artifact")
+	}
+	want := keccak256Hex(source)
+	got := strings.ToLower(strings.TrimSpace(art.SourceHash))
+	if got != want {
+		return fmt.Errorf("artifact source hash mismatch: got=%s want=%s", art.SourceHash, want)
+	}
+	return nil
+}
+
+func analyzeBytecodeMetadata(bytecode []byte) (maxSlots uint32, bcLen uint32, unbounded bool, err error) {
+	proto, err := DecodeFunctionProto(bytecode)
+	if err != nil {
+		return 0, 0, false, err
+	}
+	bcLen = uint32(len(bytecode))
+	maxSlots, unbounded = walkProtoMetadata(proto)
+	return maxSlots, bcLen, unbounded, nil
+}
+
+func walkProtoMetadata(p *FunctionProto) (maxSlots uint32, hasUnboundedLoop bool) {
+	if p == nil {
+		return 0, false
+	}
+	maxSlots = uint32(p.NumUsedRegisters)
+	for _, inst := range p.Code {
+		if opGetOpCode(inst) == OP_JMP && opGetArgSbx(inst) < 0 {
+			hasUnboundedLoop = true
+		}
+	}
+	for _, child := range p.FunctionPrototypes {
+		childSlots, childUnbounded := walkProtoMetadata(child)
+		if childSlots > maxSlots {
+			maxSlots = childSlots
+		}
+		if childUnbounded {
+			hasUnboundedLoop = true
+		}
+	}
+	return maxSlots, hasUnboundedLoop
+}
+
+// docMetaToABI converts an AST DocMeta to its ABI JSON representation.
+// Returns nil if meta is nil or contains no exportable data.
+func docMetaToABI(meta *tolast.DocMeta) *tocABIDoc {
+	if meta == nil {
+		return nil
+	}
+	doc := &tocABIDoc{}
+	hasData := false
+
+	if meta.Notice != "" {
+		doc.Notice = meta.Notice
+		hasData = true
+	}
+
+	if meta.Effects != nil {
+		eff := &tocABIEffects{}
+		if len(meta.Effects.Reads) > 0 {
+			eff.Reads = meta.Effects.Reads
+			hasData = true
+		}
+		if len(meta.Effects.Writes) > 0 {
+			eff.Writes = meta.Effects.Writes
+			hasData = true
+		}
+		if len(meta.Effects.Emits) > 0 {
+			eff.Emits = meta.Effects.Emits
+			hasData = true
+		}
+		if meta.Effects.Calls != nil {
+			calls := make([]tocABICallRef, 0, len(meta.Effects.Calls))
+			nonComposable := false
+			for _, cr := range meta.Effects.Calls {
+				calls = append(calls, tocABICallRef{
+					Cap:      cr.Cap,
+					Iface:    cr.Iface,
+					Selector: cr.Selector,
+					MaxGas:   cr.MaxGas,
+					MaxCalls: cr.MaxCalls,
+					MaxDepth: cr.MaxDepth,
+					Wildcard: cr.Wildcard,
+				})
+				if cr.Wildcard {
+					nonComposable = true
+				}
+			}
+			eff.Calls = calls
+			doc.NonComposable = nonComposable
+			hasData = true
+		}
+		doc.Effects = eff
+	}
+
+	if meta.Bounds != nil && len(meta.Bounds.Constraints) > 0 {
+		bs := make([]string, 0, len(meta.Bounds.Constraints))
+		for _, bc := range meta.Bounds.Constraints {
+			bs = append(bs, fmt.Sprintf("%s%s%d", bc.Ident, bc.Op, bc.Value))
+		}
+		doc.Bounds = bs
+		hasData = true
+	}
+
+	if meta.Gas != nil && meta.Gas.Upper > 0 {
+		doc.GasUpper = meta.Gas.Upper
+		hasData = true
+	}
+
+	if !hasData {
+		return nil
+	}
+	return doc
+}
+
+// buildArtifactMetadataForContract builds ABI and storage-layout JSON for a specific contract.
+func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, []byte, error) {
+	if c == nil {
+		return "", nil, nil, fmt.Errorf("artifact metadata requires a contract")
+	}
+	contractName := strings.TrimSpace(c.Name)
+	if contractName == "" {
+		return "", nil, nil, fmt.Errorf("artifact metadata requires contract name")
+	}
+
+	abi := tocABI{
+		GasModel: tocABIGasModel{
+			Version: gasModelVersion,
+			Sload:   gasModelSload,
+			Sstore:  gasModelSstore,
+			LogBase: gasModelLogBase,
+		},
+		Functions: make([]tocABIFunction, 0, len(c.Functions)),
+		Events:    make([]tocABIEvent, 0, len(c.Events)),
+	}
+	for _, fn := range c.Functions {
+		vis := functionVisibilityFromModifiers(fn.Modifiers)
+		if vis != "public" && vis != "external" {
+			continue
+		}
+		paramTypes := make([]string, 0, len(fn.Params))
+		for _, p := range fn.Params {
+			paramTypes = append(paramTypes, normalizeABIType(p.Type))
+		}
+		returnTypes := make([]string, 0, len(fn.Returns))
+		for _, r := range fn.Returns {
+			returnTypes = append(returnTypes, normalizeABIType(r.Type))
+		}
+		selector := strings.ToLower(strings.TrimSpace(fn.SelectorOverride))
+		if selector == "" {
+			selector = abiSelectorHex(fn.Name, paramTypes)
+		}
+		abi.Functions = append(abi.Functions, tocABIFunction{
+			Name:       fn.Name,
+			Visibility: vis,
+			Selector:   selector,
+			Params:     paramTypes,
+			Returns:    returnTypes,
+			Doc:        docMetaToABI(fn.Doc),
+		})
+	}
+	for _, ev := range c.Events {
+		paramTypes := make([]string, 0, len(ev.Params))
+		for _, p := range ev.Params {
+			paramTypes = append(paramTypes, normalizeABIType(p.Type))
+		}
+		abi.Events = append(abi.Events, tocABIEvent{
+			Name:   ev.Name,
+			Params: paramTypes,
+		})
+	}
+	storage := tocStorageLayout{
+		Slots: make([]tocStorageSlot, 0),
+	}
+	if c.Storage != nil {
+		storage.Slots = make([]tocStorageSlot, 0, len(c.Storage.Slots))
+		for _, s := range c.Storage.Slots {
+			name := strings.TrimSpace(s.Name)
+			typ := normalizeABIType(s.Type)
+			storage.Slots = append(storage.Slots, tocStorageSlot{
+				Name:          name,
+				Type:          typ,
+				CanonicalHash: keccak256Hex([]byte(fmt.Sprintf("tol.slot.%s.%s", contractName, name))),
+			})
+		}
+	}
+
+	abiJSON, err := json.Marshal(abi)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	storageJSON, err := json.Marshal(storage)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	return contractName, abiJSON, storageJSON, nil
+}
+
+// buildArtifactMetadata builds ABI and storage-layout JSON from the module's primary contract.
+func buildArtifactMetadata(mod *tolast.Module) (string, []byte, []byte, error) {
+	if mod == nil {
+		return "", nil, nil, fmt.Errorf("artifact metadata requires a contract module")
+	}
+	c := mod.PrimaryContract()
+	if c == nil {
+		return "", nil, nil, fmt.Errorf("artifact metadata requires contract module with at least one contract")
+	}
+	return buildArtifactMetadataForContract(c)
+}
+
+func functionVisibilityFromModifiers(modifiers []string) string {
+	vis := ""
+	for _, m := range modifiers {
+		switch m {
+		case "public", "external", "internal", "private":
+			vis = m
+		}
+	}
+	return vis
+}
+
+func normalizeABIType(t string) string {
+	s := strings.Join(strings.Fields(t), " ")
+	repl := strings.NewReplacer(
+		"( ", "(",
+		" )", ")",
+		"[ ", "[",
+		" ]", "]",
+		" ,", ",",
+		", ", ",",
+		" => ", "=>",
+		" =>", "=>",
+		"=> ", "=>",
+	)
+	return repl.Replace(s)
+}
+
+func abiSelectorHex(name string, paramTypes []string) string {
+	sig := fmt.Sprintf("%s(%s)", strings.TrimSpace(name), strings.Join(paramTypes, ","))
+	sum := keccak256(sig)
+	return "0x" + hex.EncodeToString(sum[:4])
+}
+
+func keccak256Hex(data []byte) string {
+	sum := keccak256Bytes(data)
+	return "0x" + hex.EncodeToString(sum)
+}
+
+func keccak256(s string) []byte {
+	return keccak256Bytes([]byte(s))
+}
+
+func keccak256Bytes(data []byte) []byte {
+	h := sha3.NewLegacyKeccak256()
+	_, _ = h.Write(data)
+	return h.Sum(nil)
+}
+
+func writeLenBytes(w io.Writer, b []byte) error {
+	if err := writeU32(w, uint32(len(b))); err != nil {
+		return err
+	}
+	if len(b) == 0 {
+		return nil
+	}
+	_, err := w.Write(b)
+	return err
+}
+
+func readLenBytes(r *byteReader) ([]byte, error) {
+	n, err := readU32(r)
+	if err != nil {
+		return nil, err
+	}
+	if int(n) < 0 || int(n) > len(r.b)-r.n {
+		return nil, io.ErrUnexpectedEOF
+	}
+	out := make([]byte, int(n))
+	copy(out, r.b[r.n:r.n+int(n)])
+	r.n += int(n)
+	return out, nil
+}
+
+func readFixedBytes(r *byteReader, n int) ([]byte, error) {
+	if n < 0 || r.n+n > len(r.b) {
+		return nil, io.ErrUnexpectedEOF
+	}
+	out := make([]byte, n)
+	copy(out, r.b[r.n:r.n+n])
+	r.n += n
+	return out, nil
+}
+
+func decodeHashHex(v string) ([]byte, error) {
+	s := strings.TrimSpace(strings.ToLower(v))
+	if s == "" {
+		return nil, fmt.Errorf("empty hash")
+	}
+	if !strings.HasPrefix(s, "0x") {
+		return nil, fmt.Errorf("hash must start with 0x")
+	}
+	raw := s[2:]
+	if len(raw) != 64 {
+		return nil, fmt.Errorf("hash must be 32 bytes")
+	}
+	out, err := hex.DecodeString(raw)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}

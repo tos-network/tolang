@@ -1,0 +1,13 @@
+.idea
+.claude/
+__pycache__/
+
+# compiled binaries
+bin/
+tol/tolang
+
+# ANTLR4 generated artifacts (regenerate with: java -jar antlr4.jar -Dlanguage=Go ...)
+docs/grammar/*.java
+docs/grammar/*.interp
+docs/grammar/*.tokens
+docs/grammar/*.go

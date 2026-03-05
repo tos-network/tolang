@@ -1,0 +1,1074 @@
+// ANTLR4 Parser Grammar for the TOL (TOS Object Language) language.
+//
+// TOL v0.3 — see docs/TOL_SPEC.md for the full language specification.
+//
+// This grammar is a specification document aligned with SolidityParser.g4
+// (see docs/grammar/diff.md for the full diff analysis).
+//
+// The production parser is in tol/parser/parser.go (recursive-descent,
+// Pratt precedence climbing for expressions).  Features marked
+// "// TODO: not yet in production" are specified here but not yet
+// fully implemented in parser.go.
+//
+// Key TOL design choices retained:
+//   - 'set' makes all storage writes explicit (implicit = also accepted)
+//   - 'let' declares local variables (type-first also accepted)
+//   - 'pragma tolang X.Y.Z' version header is mandatory
+//   - Test blocks ('test Name { … }') are first-class constructs
+//   - '@effects' annotation system for formal verification
+//   - '>>>' / '>>>=' logical right-shift distinct from '>>' arithmetic
+
+parser grammar TolangParser;
+
+options { tokenVocab = TolangLexer; }
+
+// ============================================================
+// Top-level source unit
+// ============================================================
+
+sourceUnit
+    : pragmaDirective
+      packageDeclaration?
+      ( importDeclaration
+      | topLevelDeclaration
+      )*
+      EOF
+    ;
+
+// ============================================================
+// Version / pragma directive
+//
+// Production parser (parser.go) accepts both:
+//   pragma tolang 0.3.0;               — canonical TOL form
+//   pragma solidity ^0.8.0;            — Solidity-compatible
+//   pragma solidity >=0.7.0 <0.9.0;   — range constraint
+//
+// 'pragma' is a reserved keyword (Pragma token).
+// Everything between 'pragma' and ';' is consumed as pragmaToken+.
+// The production lexer does NOT use a special PragmaMode; pragma content
+// is tokenised in the normal mode.
+// ============================================================
+
+pragmaDirective
+    : Pragma pragmaToken+ Semicolon
+    ;
+
+// pragmaToken: any token that can appear inside a pragma argument.
+// Covers the language name (identifier), version numbers,
+// and Solidity-style version range operators.
+pragmaToken
+    : Identifier
+    | DecimalNumber
+    | Lt | Gt | Le | Ge | Assign | BitXor | Minus | OrOr
+    ;
+
+// ============================================================
+// Package declaration  (TOL-specific)
+//
+//   package tos.registry;
+//   package com.example.myapp;
+//
+// Must appear at most once, immediately after the pragma directive.
+// The dotted name becomes the module's canonical namespace identifier,
+// stored in Module.Package and emitted as the "package" field in the
+// .tor manifest.
+// ============================================================
+
+packageDeclaration
+    : Package identifierPath Semicolon
+    ;
+
+// ============================================================
+// Import declaration — all Solidity-compatible forms plus TOL package imports
+//
+//   import "path";                              — bare file import
+//   import "path" as Alias;                     — file alias
+//   import {A, B as C} from "path";             — named symbols
+//   import * as Alias from "path";              — star alias
+//   import Name from "path";                    — legacy TOL form
+//   import tos.registry.AgentRegistry;          — package import  (TOL-specific)
+//   import tos.registry.AgentRegistry as IFoo;  — package import with alias  (TOL-specific)
+//
+// Package imports use a dotted identifier path (no string literal).
+// The last segment is the contract/interface name; the preceding segments
+// form the package path (e.g. "tos.registry").
+// The production resolver (tol_api.go OSFileResolver) maps the dotted path
+// to a filesystem location: tos/registry/AgentRegistry.{tol,toi,toc,tor}.
+// ============================================================
+
+importDeclaration
+    : Import (
+        ( StringLiteral (As Identifier)? )                     // bare or file-alias
+      | ( symbolAliases From StringLiteral )                   // {A, B as C} from "path"
+      | ( Star As Identifier From StringLiteral )              // * as Alias from "path"
+      | ( identifierPath As Identifier )                       // package import with alias
+      | ( identifierPath )                                      // package import (bare)
+      | ( Identifier From StringLiteral )                      // legacy: Name from "path"
+    ) Semicolon
+    ;
+    // NOTE: The two package-import alternatives must appear BEFORE the legacy
+    // (Identifier From StringLiteral) alternative so that ANTLR4 LL(*) prediction
+    // resolves ambiguity correctly:
+    //   import Foo;           -> identifierPath bare, no From  -> package import
+    //   import Foo.Bar;       -> identifierPath with Dot       -> package import
+    //   import Foo as X;      -> identifierPath As Identifier  -> package import with alias
+    //   import Foo from "p";  -> Identifier From StringLiteral -> legacy import
+
+symbolAliases
+    : LBrace importAlias (Comma importAlias)* RBrace
+    ;
+
+importAlias
+    : Identifier (As Identifier)?
+    ;
+
+// ============================================================
+// Top-level declarations
+// ============================================================
+
+topLevelDeclaration
+    : contractDeclaration
+    | interfaceDeclaration
+    | libraryDeclaration
+    | structDeclaration
+    | enumDeclaration
+    | errorDeclaration
+    | eventDeclaration
+    | userDefinedValueTypeDefinition
+    | constantDeclaration
+    | functionDeclaration             // free function at file level // TODO: not yet in production
+    | usingDeclaration                // top-level using              // TODO: not yet in production
+    | testDeclaration
+    ;
+
+// ============================================================
+// Contract declaration
+//
+//   contract Token is IERC20, Ownable { … }
+//   abstract contract Base { … }
+// ============================================================
+
+contractDeclaration
+    : Abstract? Contract Identifier inheritanceClause? LBrace contractMember* RBrace
+    ;
+
+inheritanceClause
+    : Is inheritanceSpecifier (Comma inheritanceSpecifier)*
+    ;
+
+inheritanceSpecifier
+    : identifierPath (LParen expressionList? RParen)?
+    ;
+    // Base constructor arguments allowed: is Base(arg1, arg2)
+    // Aligned with Solidity inheritanceSpecifier.
+
+contractMember
+    : storageVariable
+    | eventDeclaration
+    | functionDeclaration
+    | constructorDeclaration
+    | fallbackDeclaration
+    | receiveDeclaration
+    | errorDeclaration
+    | enumDeclaration
+    | userDefinedValueTypeDefinition
+    | modifierDeclaration
+    | immutableDeclaration
+    | constantDeclaration
+    | usingDeclaration
+    | structDeclaration
+    ;
+
+// ============================================================
+// Interface declaration
+//
+//   interface IERC20 {
+//     function transfer(address to, uint256 amount) external returns (bool ok);
+//   }
+// ============================================================
+
+interfaceDeclaration
+    : Interface Identifier inheritanceClause? LBrace interfaceMember* RBrace
+    ;
+
+interfaceMember
+    : functionDeclaration
+    | eventDeclaration
+    | errorDeclaration
+    | enumDeclaration
+    | userDefinedValueTypeDefinition
+    | structDeclaration
+    | usingDeclaration
+    ;
+    // Interfaces may not contain state variables or constructors.
+    // Aligned with Solidity: interfaces share contractBodyElement (with restrictions enforced by sema).
+
+// ============================================================
+// Library declaration
+//
+//   library Math {
+//     function max(uint256 a, uint256 b) internal pure returns (uint256 c) { … }
+//   }
+// ============================================================
+
+libraryDeclaration
+    : Library Identifier LBrace contractMember* RBrace
+    ;
+    // Libraries use the full contractMember set (restrictions enforced by sema:
+    // no state variables, no fallback/receive, no non-constant state vars).
+
+// ============================================================
+// Struct declaration  (top-level or inside a contract)
+//
+//   struct Point { uint256 x; uint256 y; }
+// ============================================================
+
+structDeclaration
+    : Struct Identifier LBrace structField* RBrace
+    ;
+
+structField
+    : typeName Identifier Semicolon?
+    ;
+
+// ============================================================
+// User-defined value type  (Solidity-aligned)
+//
+//   type Price is uint256;
+// ============================================================
+
+userDefinedValueTypeDefinition
+    : Type Identifier Is elementaryTypeName Semicolon
+    ;
+
+// ============================================================
+// Storage variable  (directly in contract body, Solidity-style)
+//
+//   uint256 totalSupply;
+//   mapping(address => uint256) balances;
+//   uint256 public maxSupply = 1000000;
+//   transient uint256 lockStatus;
+// ============================================================
+
+storageVariable
+    : Transient? typeName
+      stateVariableModifier*
+      Identifier
+      (Assign expression)?
+      Semicolon
+    ;
+
+stateVariableModifier
+    : Public
+    | Private
+    | Internal
+    | Constant
+    | Immutable
+    | overrideSpecifier
+    ;
+    // Aligned with Solidity stateVariableDeclaration modifiers.
+    // Note: Constant and Immutable here express the Solidity-style form
+    // (e.g. uint256 public constant MAX = 100;).
+    // The separate constantDeclaration / immutableDeclaration productions
+    // express the legacy TOL-native form (constant MAX: uint256 = 100;).
+
+// ============================================================
+// Immutable and constant declarations  (both TOL-native and Solidity-style)
+//
+//   TOL-native:   immutable owner: address;
+//   Solidity:     address immutable owner;  (via storageVariable above)
+//
+//   TOL-native:   constant MAX: uint256 = 1000000;
+//   Solidity:     uint256 constant MAX = 1000000;  (via storageVariable above)
+// ============================================================
+
+immutableDeclaration
+    : Immutable Identifier Colon typeName Semicolon
+    ;
+
+constantDeclaration
+    : Constant Identifier Colon typeName Assign expression Semicolon
+    ;
+
+// ============================================================
+// Override specifier
+//
+//   override
+//   override(Base1, Base2)
+// ============================================================
+
+overrideSpecifier
+    : Override (LParen identifierPath (Comma identifierPath)* RParen)?
+    ;
+
+// ============================================================
+// Event declaration
+//
+//   event Transfer(address indexed from, address indexed to, uint256 value);
+//   event Approval(address owner, address spender, uint256 value) anonymous;
+// ============================================================
+
+eventDeclaration
+    : Event Identifier LParen eventParameterList? RParen Anonymous? Semicolon?
+    ;
+
+eventParameterList
+    : eventParameter (Comma eventParameter)*
+    ;
+
+eventParameter
+    : typeName Indexed? Identifier?
+    ;
+    // Indexed is now a reserved keyword token (Solidity-aligned).
+    // Optional name after optional indexed.
+
+// ============================================================
+// Error declaration
+//
+//   error InsufficientBalance(address account, uint256 needed);
+// ============================================================
+
+errorDeclaration
+    : Error Identifier LParen errorParameterList? RParen Semicolon
+    ;
+
+errorParameterList
+    : errorParameter (Comma errorParameter)*
+    ;
+
+errorParameter
+    : typeName Identifier?
+    ;
+
+// ============================================================
+// Enum declaration
+//
+//   enum Status { Pending, Active, Closed }
+// ============================================================
+
+enumDeclaration
+    : Enum Identifier LBrace enumValueList? RBrace
+    ;
+
+enumValueList
+    : Identifier (Comma Identifier)* Comma?
+    ;
+    // Trailing comma accepted (TOL extension; Solidity does not allow it).
+
+// ============================================================
+// Using declaration  (Solidity-aligned, extended)
+//
+//   using Math for uint256;
+//   using SafeMath for *;
+//   using { add, sub } for uint256;
+//   using { addImpl as + } for uint256 global;
+// ============================================================
+
+usingDeclaration
+    : Using (
+        identifierPath
+      | (LBrace usingAlias (Comma usingAlias)* RBrace)
+    ) For (Star | typeName) Global? Semicolon
+    ;
+
+usingAlias
+    : identifierPath (As userDefinableOperator)?
+    ;
+
+userDefinableOperator
+    : BitAnd | BitNot | BitOr | BitXor
+    | Plus | Slash | Percent | Star | Minus
+    | Eq | Gt | Ge | Lt | Le | Ne
+    ;
+
+// ============================================================
+// Modifier declaration
+//
+//   modifier onlyOwner() { require(msg.sender == owner, "NOT_OWNER"); _; }
+//   modifier onlyOwner  { require(msg.sender == owner, "NOT_OWNER"); _; }
+//   modifier abstract virtual;
+// ============================================================
+
+modifierDeclaration
+    : Modifier Identifier (LParen parameterList? RParen)?
+      (Virtual | overrideSpecifier)*
+      (block | Semicolon)
+    ;
+    // Parentheses are optional when the modifier has no parameters (Solidity-aligned).
+    // Semicolon body = abstract modifier (no implementation).
+
+modifierBody
+    : modifierBodyElement*
+    ;
+
+modifierBodyElement
+    : statement
+    | placeholderStatement
+    ;
+
+placeholderStatement
+    : Identifier Semicolon
+    ;
+    // The Identifier must be '_'.
+
+// ============================================================
+// Function declaration
+//
+//   function transfer(address to, uint256 amount) external returns (bool ok) { … }
+//   function name() virtual;   — abstract
+// ============================================================
+
+functionDeclaration
+    : functionAttribute*
+      Function Identifier LParen parameterList? RParen
+      functionModifier*
+      (Returns LParen namedReturnList RParen)?
+      (block | Semicolon)
+    ;
+
+functionAttribute
+    : At Identifier (LParen attributeArgumentList? RParen)?
+    ;
+    // TOL-specific: @selector("0xAABBCCDD"), @skip, @tag("name"), @fuzz, @timeout(ms)
+
+attributeArgumentList
+    : attributeArgument (Comma attributeArgument)*
+    ;
+
+attributeArgument
+    : expression
+    | Identifier Assign expression
+    ;
+
+// ============================================================
+// Constructor, fallback, and receive
+// ============================================================
+
+constructorDeclaration
+    : Constructor LParen parameterList? RParen functionModifier* block
+    ;
+
+fallbackDeclaration
+    : Fallback LParen parameterList? RParen
+      (External | functionModifier)*
+      (Returns LParen namedReturnList RParen)?
+      (block | Semicolon)
+    ;
+    // Aligned with Solidity: fallback can have parameters and returns clause,
+    // and may be abstract (Semicolon).
+
+receiveDeclaration
+    : Receive LParen RParen
+      (External | functionModifier)*
+      (block | Semicolon)
+    ;
+    // Receive is now a reserved keyword token (Solidity-aligned).
+
+// ============================================================
+// Function modifiers (visibility, mutability, virtual, override, invocations)
+// ============================================================
+
+functionModifier
+    : visibilityModifier
+    | stateMutabilityModifier
+    | Virtual
+    | overrideSpecifier
+    | modifierInvocation
+    ;
+
+visibilityModifier
+    : Public | External | Internal | Private
+    ;
+
+stateMutabilityModifier
+    : Pure | View | Payable
+    ;
+
+modifierInvocation
+    : identifierPath (LParen expressionList? RParen)?
+    ;
+
+// ============================================================
+// Parameter lists
+// ============================================================
+
+parameterList
+    : parameter (Comma parameter)*
+    ;
+
+parameter
+    : typeName dataLocation? Identifier?
+    ;
+
+dataLocation
+    : Memory | Storage | Calldata
+    ;
+
+namedReturnList
+    : namedReturn (Comma namedReturn)*
+    ;
+
+namedReturn
+    : typeName Identifier?
+    ;
+
+// ============================================================
+// Qualified identifier path  (Solidity-aligned)
+//
+//   A           — simple identifier
+//   A.B         — member access path
+//   A.B.C       — nested path
+// ============================================================
+
+identifierPath
+    : Identifier (Dot Identifier)*
+    ;
+
+// ============================================================
+// Types
+// ============================================================
+
+typeName
+    : elementaryTypeName
+    | functionTypeName
+    | mappingType
+    | userDefinedTypeName
+    | typeName LBracket expression? RBracket    // T[] or T[N]
+    ;
+
+elementaryTypeName
+    : UnsignedIntegerType
+    | SignedIntegerType
+    | FixedBytesType
+    | Address
+    | Bool
+    | Bytes
+    | String
+    | Fixed
+    | Ufixed
+    | Address Payable              // address payable (Solidity-compatible)
+    ;
+
+userDefinedTypeName
+    : identifierPath
+    ;
+    // Covers contracts, interfaces, structs, enums, and UDVTs.
+    // Qualified paths (A.B.C) allow cross-contract / cross-library references.
+
+mappingType
+    : Mapping LParen mappingKeyType Identifier? FatArrow typeName Identifier? RParen
+    ;
+    // Named key and named value are optional (Solidity 0.8.18+, EIP-4200):
+    //   mapping(address from => uint256 balance)
+    // The second Identifier (after key type) is the optional key name;
+    // the Identifier after typeName is the optional value name.
+
+mappingKeyType
+    : UnsignedIntegerType
+    | SignedIntegerType
+    | FixedBytesType
+    | Address
+    | Bool
+    | String
+    | Bytes
+    | identifierPath              // user-defined types (enums) as mapping keys
+    ;
+
+// Function type
+//
+//   function(address, uint256) external returns (bool)
+//   function(bytes memory) internal pure
+functionTypeName
+    : Function LParen parameterList? RParen
+      (visibilityModifier | stateMutabilityModifier)*
+      (Returns LParen parameterList RParen)?
+    ;
+
+// ============================================================
+// Statements
+// ============================================================
+
+block
+    : LBrace statement* RBrace
+    ;
+
+statement
+    : block
+    | letStatement
+    | letTupleStatement
+    | variableDeclarationStatement    // type-first local var (Solidity-compatible)
+    | setStatement
+    | ifStatement
+    | whileStatement
+    | forStatement
+    | doWhileStatement
+    | breakStatement
+    | continueStatement
+    | returnStatement
+    | revertStatement
+    | requireStatement
+    | assertStatement
+    | emitStatement
+    | tryCatchStatement
+    | uncheckedStatement
+    | deleteStatement
+    | expressionStatement
+    ;
+    // Note: assemblyStatement is not yet supported in TOL (no Yul backend).
+
+// ============================================================
+// let — TOL-native local variable declaration
+//
+//   let x: uint256 = 1;
+//   let x: uint256;           — zero-initialised
+//   let (a, b): (T1, T2) = abi.decode(data);
+// ============================================================
+
+letStatement
+    : Let Identifier Colon typeName (Assign expression)? Semicolon
+    ;
+
+letTupleStatement
+    : Let LParen Identifier (Comma Identifier)+ RParen
+      (Colon LParen typeName (Comma typeName)+ RParen)?
+      Assign expression
+      Semicolon
+    ;
+
+// ============================================================
+// Type-first local variable declaration  (Solidity-compatible)
+//
+//   uint256 x = 1;
+//   address owner;
+//   (uint256 a, bool b) = abi.decode(data, (uint256, bool));
+// ============================================================
+
+variableDeclarationStatement
+    : (typeName dataLocation? Identifier (Assign expression)?)
+      Semicolon
+    | (LParen variableDeclarationTupleElem (Comma variableDeclarationTupleElem)+ RParen
+       Assign expression)
+      Semicolon
+    ;
+
+variableDeclarationTupleElem
+    : typeName Identifier
+    | /* empty slot */
+    ;
+
+// ============================================================
+// set — explicit storage / local write  (TOL-specific)
+//
+//   set x = expr;
+//   set mapping[key] = expr;
+//   set x += 1;
+//   set i++;
+// ============================================================
+
+setStatement
+    : Set setTarget (assignmentOperator expression | PlusPlus | MinusMinus) Semicolon
+    ;
+
+setTarget
+    : Identifier setAccessor*
+    ;
+
+setAccessor
+    : Dot Identifier
+    | LBracket expression RBracket
+    ;
+
+assignmentOperator
+    : Assign
+    | PlusAssign | MinusAssign | MulAssign | DivAssign | ModAssign
+    | AndAssign  | OrAssign    | XorAssign
+    | ShlAssign  | SarAssign   | ShrAssign
+    ;
+
+// ============================================================
+// Control flow
+// ============================================================
+
+ifStatement
+    : If LParen expression RParen statement (Else statement)?
+    ;
+    // Non-block bodies allowed (Solidity-aligned):
+    //   if (cond) doSomething();   — single statement, no braces
+    // The production parser currently still enforces blocks; this production
+    // is the target behaviour.
+
+whileStatement
+    : While LParen expression RParen statement
+    ;
+
+forStatement
+    : For LParen forInitializer? Semicolon expression? Semicolon forPost? RParen statement
+    ;
+
+forInitializer
+    : letStatement
+    | variableDeclarationStatement
+    | setStatement
+    | expressionStatement
+    ;
+
+forPost
+    : expression
+    ;
+
+doWhileStatement
+    : Do block While LParen expression RParen Semicolon
+    ;
+
+breakStatement
+    : Break Semicolon
+    ;
+
+continueStatement
+    : Continue Semicolon
+    ;
+
+returnStatement
+    : Return expression? Semicolon
+    ;
+
+// ============================================================
+// revert
+//
+//   revert;                              — bare revert
+//   revert InsufficientBalance(a, n);    — named custom error
+//   revert("message");                   — string reason (legacy)
+// ============================================================
+
+revertStatement
+    : Revert (expression callArgumentList?)? Semicolon
+    ;
+
+// ============================================================
+// require / assert  (TOL-specific statement forms)
+//
+//   require(cond);                  — no message; emits Panic(0x01)
+//   require(cond, "message");       — with message; emits Error(string)
+//   assert(cond, "message");        — always-on check
+// ============================================================
+
+requireStatement
+    : Require LParen expression (Comma StringLiteral)? RParen Semicolon
+    ;
+    // Message is OPTIONAL (Solidity-aligned: require(cond) valid).
+
+assertStatement
+    : Assert LParen expression (Comma StringLiteral)? RParen Semicolon
+    ;
+
+// ============================================================
+// emit
+//
+//   emit Transfer(from, to, amount);
+// ============================================================
+
+emitStatement
+    : Emit expression callArgumentList Semicolon
+    ;
+    // callArgumentList is now separate from the expression (Solidity-aligned).
+
+// ============================================================
+// delete  (Solidity-aligned statement form)
+//
+//   delete arr[i];
+//   delete mapping[key];
+// ============================================================
+
+deleteStatement
+    : Delete expression Semicolon
+    ;
+    // 'delete' is now a reserved keyword.
+
+uncheckedStatement
+    : Unchecked block
+    ;
+    // 'unchecked' is now a reserved keyword (Solidity-aligned).
+    // In TOL v0.3 unchecked has no runtime effect; provided for source compatibility.
+
+expressionStatement
+    : expression Semicolon
+    ;
+
+// ============================================================
+// Call argument list  (Solidity-aligned)
+//
+//   (a, b, c)                — positional
+//   ({to: alice, amount: 100}) — named (Solidity-style)
+// ============================================================
+
+callArgumentList
+    : LParen (
+        (expression (Comma expression)*)?
+      | (LBrace namedArgument (Comma namedArgument)* RBrace)?
+    ) RParen
+    ;
+
+namedArgument
+    : Identifier Colon expression
+    ;
+
+// ============================================================
+// try / catch statement  (Solidity-aligned)
+//
+//   try token.transfer(to, amount) returns (bool ok) {
+//     …
+//   } catch Error(string memory reason) {
+//     …
+//   } catch Panic(uint256 code) {
+//     …
+//   } catch (bytes memory err) {
+//     …
+//   } catch {
+//     …
+//   }
+// ============================================================
+
+tryCatchStatement
+    : Try expression (Returns LParen parameterList RParen)? block catchClause+
+    ;
+    // At least ONE catch clause required (Solidity-aligned; was 0+ in v0.2).
+    // Returns clause binds the external call's return values.
+
+catchClause
+    : Catch (Identifier? LParen parameterList RParen)? block
+    ;
+    // Forms:
+    //   catch Error(string memory reason) { }   — Identifier = 'Error'
+    //   catch Panic(uint256 code)         { }   — Identifier = 'Panic'
+    //   catch (bytes memory err)          { }   — no Identifier
+    //   catch                             { }   — bare
+
+// ============================================================
+// Test block  (TOL-specific)
+//
+//   test MyTests {
+//     setup { … }
+//     teardown { … }
+//     mock Counter : ICounter { function increment() { … } }
+//
+//     @tag("erc20")
+//     function test_transfer() {
+//       deploy Token(1000000) -> tok;
+//       with msg.sender = alice { … }
+//     }
+//
+//     @fuzz(count=500)
+//     function fuzz_deposit(uint256 amount) { … }
+//   }
+// ============================================================
+
+testDeclaration
+    : Test Identifier LBrace testMember* RBrace
+    ;
+
+testMember
+    : testLifecycleFunction
+    | mockDeclaration
+    | testFunction
+    | letStatement
+    ;
+
+testLifecycleFunction
+    : Identifier (Returns LParen namedReturnList RParen)? testBlock   // setup / setup_suite
+    | Identifier (LParen parameterList? RParen)? testBlock            // teardown / teardown_suite
+    ;
+
+mockDeclaration
+    : Identifier Identifier (Colon Identifier)? LBrace mockMethod* RBrace
+    ;
+
+mockMethod
+    : Function Identifier LParen parameterList? RParen
+      functionModifier*
+      (Returns LParen namedReturnList RParen)?
+      block
+    ;
+
+testFunction
+    : functionAttribute* Function Identifier LParen parameterList? RParen
+      testBlock casesTable?
+    ;
+
+casesTable
+    : Identifier LBrace casesRow* RBrace
+    ;
+
+casesRow
+    : BitOr (expression BitOr)+
+    ;
+
+testBlock
+    : LBrace testStatement* RBrace
+    ;
+
+testStatement
+    : deployStatement
+    | withStatement
+    | assertRevertStatement
+    | assertAllStatement
+    | assertInstructionsLeStatement
+    | statement
+    ;
+
+deployStatement
+    : Identifier Identifier (LParen expressionList? RParen)? (Arrow Identifier)? Semicolon
+    ;
+
+withStatement
+    : Identifier expression testBlock
+    ;
+
+assertRevertStatement
+    : Identifier (LParen expression RParen)? testBlock
+    ;
+
+assertAllStatement
+    : Identifier testBlock
+    ;
+
+assertInstructionsLeStatement
+    : Identifier LParen expression RParen testBlock
+    ;
+
+// ============================================================
+// Expressions
+//
+// Precedence (highest → lowest):
+//   postfix:   . [] () {}  ++ --               (level 14)
+//   prefix:    ! ~ + - delete                  (level 13)
+//   pow:       **              (right-assoc)   (level 12)
+//   mul:       * / %                           (level 11)
+//   add:       + -                             (level 10)
+//   shift:     << >> >>>                       (level 9)
+//   cmp:       < <= > >=                       (level 8)
+//   eq:        == !=                           (level 7)
+//   bitand:    &                               (level 6)
+//   bitxor:    ^                               (level 5)
+//   bitor:     |                               (level 4)
+//   and:       &&                              (level 3)
+//   or:        ||                              (level 2)
+//   ternary:   ? :            (right-assoc)   (level 1)
+//   assign:    = += -= etc.   (right-assoc)   (level 0)
+// ============================================================
+
+expression
+    // Postfix / primary-with-suffix (highest precedence)
+    : expression LBracket expression? RBracket                         # IndexAccess
+    | expression LBracket expression? Colon expression? RBracket       # SliceAccess
+    | expression Dot (Identifier | Address)                            # MemberAccess
+    | expression LBrace namedArgument (Comma namedArgument)* RBrace    # FunctionCallOptions
+    | expression callArgumentList                                       # FunctionCall
+    | expression (PlusPlus | MinusMinus)                               # PostfixOp
+
+    // Prefix / unary
+    | (Bang | BitNot | Plus | Minus) expression                        # PrefixOp
+    | Delete expression                                                 # DeleteExpr
+
+    // Object construction
+    | New typeName callArgumentList                                     # NewExpr
+
+    // payable conversion: payable(addr)
+    | Payable callArgumentList                                          # PayableConversion
+
+    // type() meta: type(T).min / type(T).max / type(I).interfaceId
+    | Type LParen typeName RParen                                       # MetaType
+
+    // Arithmetic
+    | <assoc=right> expression Pow expression                          # PowExpr
+    | expression (Star | Slash | Percent) expression                   # MulDivMod
+    | expression (Plus | Minus) expression                             # AddSub
+
+    // Bitwise shifts
+    | expression (Shl | Sar | Shr) expression                         # Shift
+
+    // Comparison
+    | expression (Lt | Le | Gt | Ge) expression                       # ComparisonExpr
+    | expression (Eq | Ne) expression                                   # EqualityExpr
+
+    // Bitwise binary
+    | expression BitAnd expression                                      # BitAndExpr
+    | expression BitXor expression                                      # BitXorExpr
+    | expression BitOr expression                                       # BitOrExpr
+
+    // Logical
+    | expression AndAnd expression                                      # LogicalAnd
+    | expression OrOr expression                                        # LogicalOr
+
+    // Ternary (right-associative)
+    | <assoc=right> expression Question expression Colon expression    # TernaryExpr
+
+    // Assignment (right-associative)
+    | <assoc=right> expression assignmentOperator expression           # AssignExpr
+
+    // Primary
+    | primary                                                           # PrimaryExpr
+    ;
+
+expressionList
+    : expression (Comma expression)*
+    ;
+
+// ============================================================
+// Primary expressions
+// ============================================================
+
+primary
+    : Identifier
+    | DecimalNumber (SubDenomination)?
+    | HexNumber
+    | StringLiteral+
+    | UnicodeStringLiteral+
+    | HexString+
+    | BooleanLiteral
+    | tupleExpression
+    | inlineArrayExpression
+    | typeExpression          // type(I).interfaceId — also type(T) for MetaType
+    | inspectExpression       // inspect binding.slotName (test blocks only)
+    | elementaryTypeName      // type name used as cast: uint256(x), address(y)
+    ;
+
+BooleanLiteral
+    : True | False
+    ;
+
+// Tuple expression: (a, b) / (a,) / (, b)
+// Used for multi-assignment and multi-return binding.
+tupleExpression
+    : LParen (expression? (Comma expression?)*) RParen
+    ;
+
+// Inline array: [1, 2, 3]
+inlineArrayExpression
+    : LBracket (expression (Comma expression)*) RBracket
+    ;
+
+// type(I).interfaceId  or  type(T)  (MetaType primary form)
+typeExpression
+    : Identifier LParen typeName RParen (Dot Identifier)?
+    ;
+    // When followed by .Identifier: type(I).interfaceId, type(T).min, type(T).max.
+    // When standalone: type(T) used as metatype (in MetaType expression production).
+
+// inspect binding.slotName  — white-box storage read (test blocks only)
+inspectExpression
+    : Identifier Identifier Dot Identifier
+    ;
+
+// ============================================================
+// Struct literal field initialisation  (TOL-specific)
+//
+//   Point { x: 1, y: 2 }
+// ============================================================
+
+structFieldInitList
+    : structFieldInit (Comma structFieldInit)*
+    ;
+
+structFieldInit
+    : Identifier Colon expression
+    ;

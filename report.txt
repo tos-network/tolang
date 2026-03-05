@@ -1,0 +1,24 @@
+sol2tol conversion report
+==================================================
+Total processed : 500
+Converted        : 339  (67%)
+Skipped          : 161
+Conversion errors: 0
+
+Skip reasons:
+    43  inline assembly
+    35  no contract declaration after conversion
+    35  dynamic array method
+    11  abi builtin
+    11  function type
+     6  multi-source
+     3  low-level call options
+     3  dynamic bytes variable
+     3  test as expression
+     2  storage layout specifier
+     2  type() intrinsic
+     2  duplicate event: Event
+     2  duplicate event: e2
+     1  duplicate event: e1
+     1  unsupported block field
+     1  tuple with empty slots

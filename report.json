@@ -1,0 +1,4510 @@
+{
+  "summary": {
+    "total": 500,
+    "converted": 339,
+    "skipped": 161,
+    "errors": 0
+  },
+  "results": [
+    {
+      "path": "benchmarks/OptimizorClub.sol",
+      "category": "benchmarks",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "benchmarks/chains.sol",
+      "category": "benchmarks",
+      "status": "skipped",
+      "skip_reason": "abi builtin",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "benchmarks/verifier.sol",
+      "category": "benchmarks",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/abi_via_ir/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/abi_via_ir/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/abiencoderv2_no_warning/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/abiencoderv2_no_warning/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/asm_json/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/asm_json/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/asm_json_no_pretty_print/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/asm_json_no_pretty_print/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ast_compact_json_no_pretty_json/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/ast_compact_json_no_pretty_json/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ast_compact_json_storage_layout_specifier/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "storage layout specifier",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ast_compact_json_with_base_path/c.sol",
+      "category": "c.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/ast_compact_json_with_base_path/c.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ast_compact_json_with_base_path/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ast_ir/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/ast_ir/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ast_json_import_wrong_evmVersion/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/combined_json_abi/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/combined_json_abi/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/combined_json_generated_sources/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/combined_json_generated_sources/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/combined_json_no_pretty_print/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/combined_json_no_pretty_print/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/combined_json_stop_after_parsing/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/combined_json_stop_after_parsing/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/combined_json_with_base_path/c.sol",
+      "category": "c.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/combined_json_with_base_path/c.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/combined_json_with_base_path/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/combined_json_with_devdoc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/combined_json_with_devdoc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/combined_json_with_userdoc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/combined_json_with_userdoc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/constant_optimizer_yul/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/debug_info_in_yul_and_evm_asm_print_all/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/debug_info_in_yul_and_evm_asm_print_all/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/debug_info_in_yul_and_evm_asm_print_all_and_none/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/debug_info_in_yul_and_evm_asm_print_location_only/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/debug_info_in_yul_and_evm_asm_print_location_only/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/debug_info_in_yul_and_evm_asm_print_none/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/debug_info_in_yul_and_evm_asm_print_none/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/debug_info_in_yul_and_evm_asm_print_snippet_only/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/debug_info_in_yul_and_evm_asm_print_snippet_only/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/debug_info_in_yul_snippet_escaping/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/debug_info_in_yul_snippet_escaping/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/dup_opt_peephole/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/eof_unavailable_before_osaka/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/eof_unavailable_before_osaka/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/error_codes/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/error_codes/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ethdebug_eof_container_osaka/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/ethdebug_eof_container_osaka/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ethdebug_on_abstract/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/ethdebug_on_abstract/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ethdebug_on_interface/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/events_in_abi/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "duplicate event: e1",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/evm_version_byzantium/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/evm_version_constantinople/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/evmasm_difficulty_post_paris/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/evmasm_difficulty_pre_paris/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/evmasm_prevrandao_post_paris/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/evmasm_prevrandao_pre_paris/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/evmasm_transient_storage_inline_assembly/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/evmasm_transient_storage_inline_assembly_via_ir/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/evmasm_transient_storage_state_variable/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/evmasm_transient_storage_state_variable/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/evmasm_transient_storage_state_variable_via_ir/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/evmasm_transient_storage_state_variable_via_ir/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/exp_base_literal/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/exp_base_literal/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/function_debug_info/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/function_debug_info/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/function_debug_info_via_yul/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/function_debug_info_via_yul/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/hashes/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/hashes/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/inline_assembly_function_name_clash/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ir_compiler_inheritance_nosubobjects/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/ir_compiler_inheritance_nosubobjects/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ir_compiler_subobjects/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/ir_compiler_subobjects/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ir_optimized_transient_storage_value_type/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/ir_optimized_transient_storage_value_type/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ir_optimized_with_optimize/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/ir_optimized_with_optimize/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ir_subobject_order/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ir_unoptimized_with_optimize/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/ir_unoptimized_with_optimize/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ir_unoptimized_with_optimize_via_ir/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/ir_unoptimized_with_optimize_via_ir/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ir_with_assembly_no_memoryguard_creation/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/ir_with_assembly_no_memoryguard_runtime/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/keccak_optimization_deploy_code/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/keccak_optimization_low_runs/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/linking_qualified_library_name/contract1.sol",
+      "category": "contract1.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/linking_qualified_library_name/contract1.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/linking_qualified_library_name/math.sol",
+      "category": "math.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/linking_solidity/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/linking_solidity/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/linking_solidity_unresolved_references/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/linking_solidity_unresolved_references/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/linking_unqualified_library_name/contract1.sol",
+      "category": "contract1.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/linking_unqualified_library_name/contract1.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/linking_unqualified_library_name/contract2.sol",
+      "category": "contract2.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/linking_unqualified_library_name/contract2.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/linking_unqualified_library_name/error.sol",
+      "category": "error.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/linking_unqualified_library_name/math.sol",
+      "category": "math.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/mcopy_bytes_array_abi_decode/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "abi builtin",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/mcopy_bytes_array_returned_from_function/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/mcopy_bytes_array_returned_from_function/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/mcopy_string_literal_returned_from_function/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/mcopy_string_literal_returned_from_function/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/memoryguard_shadowing_by_inline_assembly_identifiers/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/message_format/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/message_format/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/message_format_utf8/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/message_format_utf8/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/metadata/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/metadata/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_bmc_loop_iterations/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_bmc_loop_iterations/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_bmc_loop_iterations_invalid_arg/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_bmc_loop_iterations_no_argument/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_contracts_all/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_contracts_all/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_contracts_all_explicit/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_contracts_all_explicit/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_contracts_contract_missing/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_contracts_contract_missing/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_contracts_empty_contract/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_contracts_empty_contract/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_contracts_empty_source/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_contracts_empty_source/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_contracts_inexistent_contract/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_contracts_inexistent_contract/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_contracts_inexistent_source/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_contracts_inexistent_source/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_contracts_one_contract_missing/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_contracts_one_contract_missing/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_contracts_only_one/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_contracts_only_one/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_contracts_source_missing/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_contracts_source_missing/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_divModSlacks_default_all/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_divModSlacks_default_all/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_divModSlacks_default_bmc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_divModSlacks_default_bmc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_divModSlacks_default_chc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_divModSlacks_default_chc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_divModSlacks_false_all/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_divModSlacks_false_all/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_divModSlacks_false_bmc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_divModSlacks_false_bmc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_divModSlacks_false_chc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_divModSlacks_false_chc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_engine_all/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_engine_all/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_engine_bmc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_engine_bmc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_engine_chc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_engine_chc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_engine_none/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_engine_none/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_ext_calls_empty_arg/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_ext_calls_empty_arg/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_ext_calls_trusted_chc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_ext_calls_trusted_chc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_ext_calls_untrusted_chc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_ext_calls_untrusted_chc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_ext_calls_wrong_arg/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_ext_calls_wrong_arg/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_invariants_all/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_invariants_all/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_invariants_contract/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_invariants_contract/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_invariants_contract_eld/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_invariants_contract_eld/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_invariants_contract_reentrancy/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_invariants_contract_reentrancy/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_invariants_reentrancy/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_invariants_reentrancy/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_invariants_wrong/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_invariants_wrong/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_print_query_all/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_print_query_all/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_print_query_bmc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_print_query_bmc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_print_query_chc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_print_query_chc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_proved_safe_default_all_engines/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_show_proved_safe_default_all_engines/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_proved_safe_default_bmc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_show_proved_safe_default_bmc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_proved_safe_default_chc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_show_proved_safe_default_chc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_proved_safe_true_all_engines/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_show_proved_safe_true_all_engines/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_proved_safe_true_bmc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_show_proved_safe_true_bmc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_proved_safe_true_chc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_show_proved_safe_true_chc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_unproved_default_all_engines/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_show_unproved_default_all_engines/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_unproved_default_bmc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_show_unproved_default_bmc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_unproved_default_chc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_show_unproved_default_chc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_unproved_true_all_engines/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_show_unproved_true_all_engines/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_unproved_true_bmc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_show_unproved_true_bmc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_unproved_true_chc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_show_unproved_true_chc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_unsupported_default_all_engines/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_unsupported_default_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_unsupported_default_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_unsupported_true_all_engines/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_unsupported_true_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_show_unsupported_true_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_solvers_cvc5/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_solvers_cvc5/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_solvers_cvc5_eld/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_solvers_cvc5_eld/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_solvers_eld/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_solvers_eld/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_solvers_smtlib2/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_solvers_smtlib2/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_solvers_wrong/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_solvers_wrong/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_solvers_wrong2/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_solvers_wrong2/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_solvers_z3/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_solvers_z3/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_solvers_z3_implicit/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_solvers_z3_implicit/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_solvers_z3_smtlib2/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_solvers_z3_smtlib2/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_all_all_engines/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_all_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_all_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_assert_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_assert_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_balance_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_balance_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_constant_condition_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_constant_condition_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_default_all_engines/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_default_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_default_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_div_by_zero_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_div_by_zero_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_error/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_out_of_bounds_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_out_of_bounds_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_overflow_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_overflow_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_pop_empty_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_pop_empty_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_underflow_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_underflow_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_underflow_overflow_assert_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_underflow_overflow_assert_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_underflow_overflow_bmc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_targets_underflow_overflow_chc/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_timeout_all/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_timeout_all/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_timeout_bmc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_timeout_bmc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/model_checker_timeout_chc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/model_checker_timeout_chc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/name_simplifier/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/name_simplifier/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/no_cbor_metadata/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/no_cbor_metadata/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/no_cbor_metadata_with_metadata_hash/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "type() intrinsic",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/no_contract_combined_json/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/no_import_callback/contract_1.sol",
+      "category": "contract_1.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/no_import_callback/contract_2.sol",
+      "category": "contract_2.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/optimize_full_storage_write/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/optimize_full_storage_write/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/optimizer_BlockDeDuplicator/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "function type",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/optimizer_array_sload/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/optimizer_array_sload/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/optimizer_enabled_invalid_yul_optimizer_enabled_and_disabled/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/optimizer_inliner_add/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/optimizer_inliner_add/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/optimizer_inliner_call_from_constructor/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/optimizer_inliner_call_from_constructor/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/optimizer_inliner_dynamic_reference/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "function type",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/optimizer_inliner_dynamic_reference_constructor/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "function type",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/optimizer_inliner_inc/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/optimizer_inliner_inc/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/optimizer_inliner_multireturn/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/optimizer_inliner_multireturn/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/optimizer_user_yul/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/require_overload/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/require_overload/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/require_with_error_ir/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/require_with_error_ir/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/require_with_string_ir/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/require_with_string_ir/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/revert_strings/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/revert_strings/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/stack_too_deep_from_code_transform/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "abi builtin",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_debug_info_in_yul_and_evm_asm_print_all/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_debug_info_in_yul_and_evm_asm_print_all/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_debug_info_in_yul_and_evm_asm_print_location_only/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_debug_info_in_yul_and_evm_asm_print_location_only/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_debug_info_in_yul_and_evm_asm_print_none/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_debug_info_in_yul_and_evm_asm_print_none/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_debug_info_in_yul_and_evm_asm_print_snippet_only/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_debug_info_in_yul_and_evm_asm_print_snippet_only/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_irOptimized_ast_requested/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_irOptimized_ast_requested/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_ir_ast_requested/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_ir_ast_requested/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_metadata/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_metadata/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_no_import_callback/B.sol",
+      "category": "B.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_invalid_detail_type/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_invalid_detail_type/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_invalid_details/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_invalid_details/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_no_yul/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_no_yul/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yul/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yul/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_no_object/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_no_object/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_invalid_abbreviation/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_invalid_abbreviation/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_invalid_nested_delimiter/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_invalid_nested_delimiter/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_mutliple_delimiters/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_mutliple_delimiters/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_nested_brackets/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_nested_brackets/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_nesting_too_deep/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_nesting_too_deep/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_no_yul/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_no_yul/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_type/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_type/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_unbalanced_closing_bracket/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_unbalanced_closing_bracket/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_unbalanced_opening_bracket/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_unbalanced_opening_bracket/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_with_cleanup_sequence/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_with_cleanup_sequence/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_with_empty_cleanup_sequence/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_with_empty_cleanup_sequence/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_with_empty_optimisation_sequence/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_with_empty_optimisation_sequence/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_with_empty_sequence/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_with_empty_sequence/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_with_empty_sequence_no_yul/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_with_empty_sequence_no_yul/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_with_whitespace_newline_sequence_no_yul/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_optimiserSteps_with_whitespace_newline_sequence_no_yul/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_optimizer_yulDetails_without_yul/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_optimizer_yulDetails_without_yul/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_outputs_on_analysis_error_fatal/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_outputs_on_analysis_error_fatal/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_outputs_on_analysis_error_fatal_after_current_step/in.sol",
+      "category": "in.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_outputs_on_analysis_error_non_fatal/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_outputs_on_analysis_error_non_fatal/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_outputs_on_compilation_error/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_outputs_on_compilation_error/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_outputs_on_parsing_error/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_outputs_on_parsing_error/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_stack_too_deep_from_code_transform/in.sol",
+      "category": "in.sol",
+      "status": "skipped",
+      "skip_reason": "abi builtin",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_stop_after_parsing_ast_requested/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_stop_after_parsing_ast_requested/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_stop_after_parsing_bytecode_requested/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_stop_after_parsing_bytecode_requested/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_stop_after_parsing_non_binary_output_requested/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_stop_after_parsing_non_binary_output_requested/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_undeployable_contract_all_outputs/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_undeployable_contract_all_outputs/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_urls_existing_and_missing/contract.sol",
+      "category": "contract.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_urls_missing/contract.sol",
+      "category": "contract.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/standard_yul_cfg_json_export/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/standard_yul_cfg_json_export/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/stop_after_parsing_abi/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/stop_after_parsing_abi/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/stop_after_parsing_ast/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/stop_after_parsing_ast/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/storage_layout_transient_value_types/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/storage_layout_transient_value_types/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/storage_layout_user_defined/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/storage_layout_user_defined/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/storage_layout_user_defined_no_pretty_print/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/storage_layout_user_defined_no_pretty_print/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/storage_transient_storage_collision_ir_output/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/storage_transient_storage_collision_ir_output/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/strict_asm_options_in_non_asm_mode/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/strict_asm_options_in_non_asm_mode/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/structured_documentation_source_location/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/structured_documentation_source_location/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/too_long_line/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/too_long_line/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/too_long_line_both_sides_short/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/too_long_line_both_sides_short/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/too_long_line_edge_in/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/too_long_line_edge_in/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/too_long_line_edge_out/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/too_long_line_edge_out/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/too_long_line_left_short/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/too_long_line_left_short/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/too_long_line_multiline/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/too_long_line_multiline/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/too_long_line_right_short/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/too_long_line_right_short/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/transient_storage_layout/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/transient_storage_layout/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/transient_storage_layout_value_types/in.sol",
+      "category": "in.sol",
+      "status": "skipped",
+      "skip_reason": "function type",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/transient_storage_layout_value_types_interleaved_with_storage/in.sol",
+      "category": "in.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/transient_storage_layout_value_types_interleaved_with_storage/in.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/transient_storage_layout_value_types_packed/in.sol",
+      "category": "in.sol",
+      "status": "skipped",
+      "skip_reason": "function type",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/undeployable_contract_empty_outputs/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/undeployable_contract_empty_outputs/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/viair_abicoder_v1/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/viair_abicoder_v1/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/viair_msize_without_optimizer/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/viair_subobject_optimization/input.sol",
+      "category": "input.sol",
+      "status": "skipped",
+      "skip_reason": "type() intrinsic",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/viair_subobjects/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/viair_subobjects/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_cfg_json_export/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_cfg_json_export/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_disabled_sequence_empty/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_disabled_sequence_empty/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_steps/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_steps/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_steps_disabled/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_steps_disabled/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_steps_invalid_abbreviation/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_steps_invalid_abbreviation/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_steps_invalid_substitution_in_expression_simplifier/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_steps_invalid_substitution_in_expression_simplifier/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_steps_nested_brackets/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_steps_nested_brackets/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_steps_nesting_too_deep/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_steps_nesting_too_deep/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_steps_short_sequence/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_steps_short_sequence/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_steps_unbalanced_closing_bracket/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_steps_unbalanced_closing_bracket/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_steps_unbalanced_opening_bracket/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_steps_unbalanced_opening_bracket/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_steps_with_empty_cleanup_sequence/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_steps_with_empty_cleanup_sequence/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_steps_with_empty_optimization_sequence/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_steps_with_empty_optimization_sequence/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/yul_optimizer_steps_without_optimize_empty_sequence/input.sol",
+      "category": "input.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/cmdlineTests/yul_optimizer_steps_without_optimize_empty_sequence/input.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/~bytecode_equivalence_independent_of_import_discovery_order/inputs.sol",
+      "category": "inputs.sol",
+      "status": "skipped",
+      "skip_reason": "multi-source",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "cmdlineTests/~bytecode_equivalence_with_unused_contracts/inputs.sol",
+      "category": "inputs.sol",
+      "status": "skipped",
+      "skip_reason": "multi-source",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/MultiSigWallet/Factory.sol",
+      "category": "Factory.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/MultiSigWallet/MultiSigWallet.sol",
+      "category": "MultiSigWallet.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/MultiSigWallet/MultiSigWalletFactory.sol",
+      "category": "MultiSigWalletFactory.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/MultiSigWallet/MultiSigWalletFactory.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/MultiSigWallet/MultiSigWalletWithDailyLimit.sol",
+      "category": "MultiSigWalletWithDailyLimit.sol",
+      "status": "skipped",
+      "skip_reason": "low-level call options",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/MultiSigWallet/MultiSigWalletWithDailyLimitFactory.sol",
+      "category": "MultiSigWalletWithDailyLimitFactory.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/MultiSigWallet/MultiSigWalletWithDailyLimitFactory.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/MultiSigWallet/TestToken.sol",
+      "category": "TestToken.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/MultiSigWallet/TestToken.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/announcementTypes.sol",
+      "category": "announcementTypes.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/corion/announcementTypes.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/ico.sol",
+      "category": "ico.sol",
+      "status": "skipped",
+      "skip_reason": "function type",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/module.sol",
+      "category": "module.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/corion/module.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/moduleHandler.sol",
+      "category": "moduleHandler.sol",
+      "status": "skipped",
+      "skip_reason": "abi builtin",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/multiOwner.sol",
+      "category": "multiOwner.sol",
+      "status": "skipped",
+      "skip_reason": "abi builtin",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/owned.sol",
+      "category": "owned.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/corion/owned.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/premium.sol",
+      "category": "premium.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/provider.sol",
+      "category": "provider.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/corion/provider.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/publisher.sol",
+      "category": "publisher.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/safeMath.sol",
+      "category": "safeMath.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/corion/safeMath.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/schelling.sol",
+      "category": "schelling.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/token.sol",
+      "category": "token.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/corion/tokenDB.sol",
+      "category": "tokenDB.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/corion/tokenDB.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Events/CategoricalEvent.sol",
+      "category": "Events",
+      "status": "skipped",
+      "skip_reason": "abi builtin",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Events/Event.sol",
+      "category": "Events",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Events/EventFactory.sol",
+      "category": "Events",
+      "status": "skipped",
+      "skip_reason": "abi builtin",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Events/ScalarEvent.sol",
+      "category": "Events",
+      "status": "skipped",
+      "skip_reason": "abi builtin",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/MarketMakers/LMSRMarketMaker.sol",
+      "category": "MarketMakers",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/MarketMakers/LMSRMarketMaker.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/MarketMakers/MarketMaker.sol",
+      "category": "MarketMakers",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/MarketMakers/MarketMaker.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Markets/Campaign.sol",
+      "category": "Markets",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Markets/Campaign.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Markets/CampaignFactory.sol",
+      "category": "Markets",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Markets/CampaignFactory.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Markets/Market.sol",
+      "category": "Markets",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Markets/Market.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Markets/MarketFactory.sol",
+      "category": "Markets",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Markets/MarketFactory.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Markets/StandardMarket.sol",
+      "category": "Markets",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Markets/StandardMarket.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Markets/StandardMarketFactory.sol",
+      "category": "Markets",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Markets/StandardMarketFactory.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Migrations.sol",
+      "category": "Migrations.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Migrations.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/CentralizedOracle.sol",
+      "category": "Oracles",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Oracles/CentralizedOracle.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/CentralizedOracleFactory.sol",
+      "category": "Oracles",
+      "status": "skipped",
+      "skip_reason": "dynamic bytes variable",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/DifficultyOracle.sol",
+      "category": "Oracles",
+      "status": "skipped",
+      "skip_reason": "unsupported block field",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/DifficultyOracleFactory.sol",
+      "category": "Oracles",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Oracles/DifficultyOracleFactory.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/FutarchyOracle.sol",
+      "category": "Oracles",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/FutarchyOracleFactory.sol",
+      "category": "Oracles",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Oracles/FutarchyOracleFactory.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/MajorityOracle.sol",
+      "category": "Oracles",
+      "status": "skipped",
+      "skip_reason": "tuple with empty slots",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/MajorityOracleFactory.sol",
+      "category": "Oracles",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Oracles/MajorityOracleFactory.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/Oracle.sol",
+      "category": "Oracles",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Oracles/Oracle.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/SignedMessageOracle.sol",
+      "category": "Oracles",
+      "status": "skipped",
+      "skip_reason": "abi builtin",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/SignedMessageOracleFactory.sol",
+      "category": "Oracles",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Oracles/SignedMessageOracleFactory.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/UltimateOracle.sol",
+      "category": "Oracles",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Oracles/UltimateOracle.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Oracles/UltimateOracleFactory.sol",
+      "category": "Oracles",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Oracles/UltimateOracleFactory.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Tokens/EtherToken.sol",
+      "category": "Tokens",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Tokens/EtherToken.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Tokens/OutcomeToken.sol",
+      "category": "Tokens",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Tokens/OutcomeToken.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Tokens/StandardToken.sol",
+      "category": "Tokens",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Tokens/StandardToken.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Tokens/Token.sol",
+      "category": "Tokens",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/compilationTests/gnosis/Tokens/Token.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/gnosis/Utils/Math.sol",
+      "category": "Utils",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/milestonetracker/MilestoneTracker.sol",
+      "category": "MilestoneTracker.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic array method",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "compilationTests/milestonetracker/RLP.sol",
+      "category": "RLP.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "externalTests/solc-js/DAO/DAO.sol",
+      "category": "DAO",
+      "status": "skipped",
+      "skip_reason": "abi builtin",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "externalTests/solc-js/DAO/ManagedAccount.sol",
+      "category": "DAO",
+      "status": "skipped",
+      "skip_reason": "low-level call options",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "externalTests/solc-js/DAO/Token.sol",
+      "category": "DAO",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/externalTests/solc-js/DAO/Token.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "externalTests/solc-js/DAO/TokenCreation.sol",
+      "category": "DAO",
+      "status": "skipped",
+      "skip_reason": "low-level call options",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/basic_test.sol",
+      "category": "basic_test.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/basic_test.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/constructor_abi.sol",
+      "category": "constructor_abi.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/constructor_abi.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/empty_contract.sol",
+      "category": "empty_contract.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/empty_contract.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/empty_name_input_parameter_with_named_one.sol",
+      "category": "empty_name_input_parameter_with_named_one.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/empty_name_input_parameter_with_named_one.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/empty_name_return_parameters.sol",
+      "category": "empty_name_return_parameters.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/empty_name_return_parameters.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/errors.sol",
+      "category": "errors.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/errors.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/errors_referenced.sol",
+      "category": "errors_referenced.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/errors_referenced.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/event_emitted_from_foreign_contract.sol",
+      "category": "event_emitted_from_foreign_contract.sol",
+      "status": "skipped",
+      "skip_reason": "duplicate event: Event",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/event_emitted_in_base_contract.sol",
+      "category": "event_emitted_in_base_contract.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/event_emitted_in_base_contract.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/event_file_level.sol",
+      "category": "event_file_level.sol",
+      "status": "skipped",
+      "skip_reason": "duplicate event: Event",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/event_from_aggregated_contract_not_emitted.sol",
+      "category": "event_from_aggregated_contract_not_emitted.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/event_from_aggregated_contract_not_emitted.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/event_inheritance.sol",
+      "category": "event_inheritance.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/event_inheritance.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/event_structs.sol",
+      "category": "event_structs.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic bytes variable",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/events.sol",
+      "category": "events.sol",
+      "status": "skipped",
+      "skip_reason": "duplicate event: e2",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/events_anonymous.sol",
+      "category": "events_anonymous.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/events_anonymous.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/events_indirect.sol",
+      "category": "events_indirect.sol",
+      "status": "skipped",
+      "skip_reason": "duplicate event: e2",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/events_repetitions.sol",
+      "category": "events_repetitions.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/events_repetitions.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/function_type.sol",
+      "category": "function_type.sol",
+      "status": "skipped",
+      "skip_reason": "function type",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/function_type_extended.sol",
+      "category": "function_type_extended.sol",
+      "status": "skipped",
+      "skip_reason": "function type",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/global_struct.sol",
+      "category": "global_struct.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/global_struct.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/include_fallback_function.sol",
+      "category": "include_fallback_function.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/include_fallback_function.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/inherited.sol",
+      "category": "inherited.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/inherited.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/internal_constructor.sol",
+      "category": "internal_constructor.sol",
+      "status": "skipped",
+      "skip_reason": "function type",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/library_function.sol",
+      "category": "library_function.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/library_function.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/mapping.sol",
+      "category": "mapping.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/mapping.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/multiple_methods.sol",
+      "category": "multiple_methods.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/multiple_methods.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/multiple_methods_order.sol",
+      "category": "multiple_methods_order.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/multiple_methods_order.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/multiple_params.sol",
+      "category": "multiple_params.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/multiple_params.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/payable_constructor_abi.sol",
+      "category": "payable_constructor_abi.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/payable_constructor_abi.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/payable_fallback_function.sol",
+      "category": "payable_fallback_function.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/payable_fallback_function.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/payable_function.sol",
+      "category": "payable_function.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/payable_function.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/pure_function.sol",
+      "category": "pure_function.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/pure_function.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/receive_ether_and_fallback_function.sol",
+      "category": "receive_ether_and_fallback_function.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/receive_ether_and_fallback_function.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/receive_ether_function.sol",
+      "category": "receive_ether_function.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/receive_ether_function.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/return_param_in_abi.sol",
+      "category": "return_param_in_abi.sol",
+      "status": "skipped",
+      "skip_reason": "test as expression",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/return_structs.sol",
+      "category": "return_structs.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/return_structs.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/return_structs_with_contracts.sol",
+      "category": "return_structs_with_contracts.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/return_structs_with_contracts.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/same_event_defined_twice.sol",
+      "category": "same_event_defined_twice.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/same_event_defined_twice.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/structs_and_arrays.sol",
+      "category": "structs_and_arrays.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/structs_and_arrays.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/structs_in_libraries.sol",
+      "category": "structs_in_libraries.sol",
+      "status": "skipped",
+      "skip_reason": "dynamic bytes variable",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/user_defined_value_type.sol",
+      "category": "user_defined_value_type.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/user_defined_value_type.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ABIJson/view_function.sol",
+      "category": "view_function.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ABIJson/view_function.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/abstract_contract.sol",
+      "category": "abstract_contract.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/abstract_contract.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/address_payable.sol",
+      "category": "address_payable.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/address_payable.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/array_type_name.sol",
+      "category": "array_type_name.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/array_type_name.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/assembly/call.sol",
+      "category": "assembly",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/assembly/empty_block.sol",
+      "category": "assembly",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/assembly/empty_let_variable_declaration.sol",
+      "category": "assembly",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/assembly/function.sol",
+      "category": "assembly",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/assembly/leave.sol",
+      "category": "assembly",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/assembly/loop.sol",
+      "category": "assembly",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/assembly/nested_functions.sol",
+      "category": "assembly",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/assembly/slot_offset.sol",
+      "category": "assembly",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/assembly/stringlit.sol",
+      "category": "assembly",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/assembly/switch.sol",
+      "category": "assembly",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/assembly/switch_default.sol",
+      "category": "assembly",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/assembly/var_access.sol",
+      "category": "assembly",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/ast_internal_function_different_ids_export.sol",
+      "category": "ast_internal_function_different_ids_export.sol",
+      "status": "skipped",
+      "skip_reason": "multi-source",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/ast_internal_function_id_export.sol",
+      "category": "ast_internal_function_id_export.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/ast_internal_function_id_export.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/base_constructor_call.sol",
+      "category": "base_constructor_call.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/base_constructor_call.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/constructor.sol",
+      "category": "constructor.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/constructor.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/contract_dep_order.sol",
+      "category": "contract_dep_order.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/contract_dep_order.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/documentation.sol",
+      "category": "documentation.sol",
+      "status": "skipped",
+      "skip_reason": "multi-source",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/documentation_local_variable.sol",
+      "category": "documentation_local_variable.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/documentation_local_variable.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/documentation_on_statements.sol",
+      "category": "documentation_on_statements.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/documentation_on_statements.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/documentation_triple.sol",
+      "category": "documentation_triple.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/documentation_triple.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/emit_event_from_module_via_member_access.sol",
+      "category": "emit_event_from_module_via_member_access.sol",
+      "status": "skipped",
+      "skip_reason": "multi-source",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/enum_natspec.sol",
+      "category": "enum_natspec.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/enum_value.sol",
+      "category": "enum_value.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/enum_value.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/enum_value_declaration.sol",
+      "category": "enum_value_declaration.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/enum_value_natspec.sol",
+      "category": "enum_value_natspec.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/error_from_module_via_member_access.sol",
+      "category": "error_from_module_via_member_access.sol",
+      "status": "skipped",
+      "skip_reason": "multi-source",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/event_aggregated_contract.sol",
+      "category": "event_aggregated_contract.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/event_aggregated_contract.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/event_definition.sol",
+      "category": "event_definition.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/event_definition.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/event_emited_in_base_contract.sol",
+      "category": "event_emited_in_base_contract.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/event_emited_in_base_contract.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/event_emitted_from_foreign_contract.sol",
+      "category": "event_emitted_from_foreign_contract.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/event_emitted_from_foreign_contract.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/event_inheritance.sol",
+      "category": "event_inheritance.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/event_inheritance.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/event_with_variables_of_internal_types.sol",
+      "category": "event_with_variables_of_internal_types.sol",
+      "status": "skipped",
+      "skip_reason": "function type",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/fail_after_parsing.sol",
+      "category": "fail_after_parsing.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/fallback.sol",
+      "category": "fallback.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/fallback.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/fallback_and_receive_ether.sol",
+      "category": "fallback_and_receive_ether.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/fallback_and_receive_ether.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/fallback_payable.sol",
+      "category": "fallback_payable.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/fallback_payable.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/function_type.sol",
+      "category": "function_type.sol",
+      "status": "skipped",
+      "skip_reason": "function type",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/global_enum.sol",
+      "category": "global_enum.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/global_struct.sol",
+      "category": "global_struct.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/indirect_event.sol",
+      "category": "indirect_event.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/indirect_event.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/inheritance_specifier.sol",
+      "category": "inheritance_specifier.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/inheritance_specifier.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/license.sol",
+      "category": "license.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/license.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/long_type_name_binary_operation.sol",
+      "category": "long_type_name_binary_operation.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/long_type_name_binary_operation.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/long_type_name_identifier.sol",
+      "category": "long_type_name_identifier.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/long_type_name_identifier.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/mappings.sol",
+      "category": "mappings.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/mappings.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/modifier_definition.sol",
+      "category": "modifier_definition.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/modifier_definition.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/modifier_invocation.sol",
+      "category": "modifier_invocation.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/modifier_invocation.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/mutability.sol",
+      "category": "mutability.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/mutability.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/non_utf8.sol",
+      "category": "non_utf8.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/non_utf8.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/not_existing_import.sol",
+      "category": "not_existing_import.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/not_existing_import.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/override.sol",
+      "category": "override.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/override.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/placeholder_statement.sol",
+      "category": "placeholder_statement.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/placeholder_statement.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/pragma_experimental_solidity.sol",
+      "category": "pragma_experimental_solidity.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/receive_ether.sol",
+      "category": "receive_ether.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/receive_ether.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/short_type_name.sol",
+      "category": "short_type_name.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/short_type_name.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/short_type_name_ref.sol",
+      "category": "short_type_name_ref.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/short_type_name_ref.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/smoke.sol",
+      "category": "smoke.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/smoke.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/source_location.sol",
+      "category": "source_location.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/source_location.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/storage_layout_specifier.sol",
+      "category": "storage_layout_specifier.sol",
+      "status": "skipped",
+      "skip_reason": "storage layout specifier",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/string.sol",
+      "category": "string.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/string.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/struct_natspec.sol",
+      "category": "struct_natspec.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/two_base_functions.sol",
+      "category": "two_base_functions.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/two_base_functions.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/unicode.sol",
+      "category": "unicode.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/unicode.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/used_errors.sol",
+      "category": "used_errors.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/used_errors.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/userDefinedValueType.sol",
+      "category": "userDefinedValueType.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/userDefinedValueType.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/user_defined_operator.sol",
+      "category": "user_defined_operator.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/user_defined_operator.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/using_for_directive.sol",
+      "category": "using_for_directive.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/ASTJSON/using_for_directive.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/ASTJSON/yul_hex_literal.sol",
+      "category": "yul_hex_literal.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/astPropertyTests/blank_test_case.sol",
+      "category": "blank_test_case.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/astPropertyTests/blank_test_case.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/astPropertyTests/forLoop/isSimpleCounterLoop_negative_cases.sol",
+      "category": "forLoop",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/astPropertyTests/forLoop/isSimpleCounterLoop_positive_cases.sol",
+      "category": "forLoop",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/astPropertyTests/multiple_nested_properties_per_node.sol",
+      "category": "multiple_nested_properties_per_node.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/astPropertyTests/multiple_nested_properties_per_node.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/astPropertyTests/multiple_properties_per_node.sol",
+      "category": "multiple_properties_per_node.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/astPropertyTests/multiple_properties_per_node.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/astPropertyTests/nested_properties.sol",
+      "category": "nested_properties.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/astPropertyTests/nested_properties.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/astPropertyTests/property_expectation_with_colon.sol",
+      "category": "property_expectation_with_colon.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/astPropertyTests/property_expectation_with_colon.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/astPropertyTests/simple_properties.sol",
+      "category": "simple_properties.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/astPropertyTests/simple_properties.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/astPropertyTests/transient_data_location.sol",
+      "category": "transient_data_location.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/astPropertyTests/transient_data_location.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/functionDependencyGraphTests/callgraph.sol",
+      "category": "callgraph.sol",
+      "status": "skipped",
+      "skip_reason": "inline assembly",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/functionDependencyGraphTests/callgraph_no_leaves.sol",
+      "category": "callgraph_no_leaves.sol",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/gasTests/abiv2.sol",
+      "category": "abiv2.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/gasTests/abiv2.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/gasTests/abiv2_optimised.sol",
+      "category": "abiv2_optimised.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/gasTests/abiv2_optimised.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/gasTests/data_storage.sol",
+      "category": "data_storage.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/gasTests/data_storage.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/gasTests/dispatch_large.sol",
+      "category": "dispatch_large.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/gasTests/dispatch_large.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/gasTests/dispatch_large_optimised.sol",
+      "category": "dispatch_large_optimised.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/gasTests/dispatch_large_optimised.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/gasTests/dispatch_medium.sol",
+      "category": "dispatch_medium.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/gasTests/dispatch_medium.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/gasTests/dispatch_medium_optimised.sol",
+      "category": "dispatch_medium_optimised.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/gasTests/dispatch_medium_optimised.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/gasTests/dispatch_small.sol",
+      "category": "dispatch_small.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/gasTests/dispatch_small.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/gasTests/dispatch_small_optimised.sol",
+      "category": "dispatch_small_optimised.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/gasTests/dispatch_small_optimised.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/gasTests/exp.sol",
+      "category": "exp.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/gasTests/exp.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/gasTests/exp_optimized.sol",
+      "category": "exp_optimized.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/gasTests/exp_optimized.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/gasTests/storage_costs.sol",
+      "category": "storage_costs.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/gasTests/storage_costs.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/analyze-full-project/C.sol",
+      "category": "analyze-full-project",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/analyze-full-project/C.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/analyze-full-project/D.sol",
+      "category": "analyze-full-project",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/analyze-full-project/D.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/analyze-full-project/E.sol",
+      "category": "analyze-full-project",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/analyze-full-project/E.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/didChange_template.sol",
+      "category": "didChange_template.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/didChange_template.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/didOpen_with_import.sol",
+      "category": "didOpen_with_import.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/didOpen_with_import.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/goto/goto_definition.sol",
+      "category": "goto",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/goto/goto_definition.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/goto/goto_definition_imports.sol",
+      "category": "goto",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/goto/goto_definition_imports.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/goto/lib.sol",
+      "category": "goto",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/goto/publish_diagnostics_1.sol",
+      "category": "goto",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/goto/publish_diagnostics_1.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/goto/publish_diagnostics_2.sol",
+      "category": "goto",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/goto/publish_diagnostics_2.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/hover/hover.sol",
+      "category": "hover",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/hover/hover.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/include-paths/default_include.sol",
+      "category": "include-paths",
+      "status": "skipped",
+      "skip_reason": "test as expression",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/include-paths/file_at_include_path.sol",
+      "category": "include-paths",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/include-paths/file_at_include_path.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/include-paths/file_not_found_in_searchpath.sol",
+      "category": "include-paths",
+      "status": "skipped",
+      "skip_reason": "test as expression",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/include-paths/using-custom-includes.sol",
+      "category": "include-paths",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/include-paths/using-custom-includes.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/include-paths-nested/A/B/C/foo.sol",
+      "category": "include-paths-nested",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/include-paths-nested/A/B/C/foo.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/include-paths-nested/A/B/foo.sol",
+      "category": "include-paths-nested",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/include-paths-nested/A/B/foo.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/include-paths-nested/A/foo.sol",
+      "category": "include-paths-nested",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/include-paths-nested/A/foo.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/include-paths-nested/foo.sol",
+      "category": "include-paths-nested",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/include-paths-nested/foo.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/include-paths-nested-2/A/B/C/foo.sol",
+      "category": "include-paths-nested-2",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/include-paths-nested-2/A/B/C/foo.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/include-paths-nested-2/A/B/foo.sol",
+      "category": "include-paths-nested-2",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/include-paths-nested-2/A/B/foo.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/include-paths-nested-2/A/foo.sol",
+      "category": "include-paths-nested-2",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/include-paths-nested-2/A/foo.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/include-paths-nested-2/foo.sol",
+      "category": "include-paths-nested-2",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/include-paths-nested-2/foo.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/node_modules/my-module/test.sol",
+      "category": "node_modules",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/node_modules/rootlib.sol",
+      "category": "node_modules",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/other-include-dir/otherlib/otherlib.sol",
+      "category": "other-include-dir",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/other-include-dir/otherlib/second.sol",
+      "category": "other-include-dir",
+      "status": "skipped",
+      "skip_reason": "no contract declaration after conversion",
+      "has_errors": false,
+      "out_path": "",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/publish_diagnostics_3.sol",
+      "category": "publish_diagnostics_3.sol",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/publish_diagnostics_3.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/rename/contract.sol",
+      "category": "rename",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/rename/contract.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/rename/function.sol",
+      "category": "rename",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/rename/function.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/rename/functionCall.sol",
+      "category": "rename",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/rename/functionCall.tol",
+      "conv_error": ""
+    },
+    {
+      "path": "libsolidity/lsp/rename/import_directive.sol",
+      "category": "rename",
+      "status": "converted",
+      "skip_reason": "",
+      "has_errors": false,
+      "out_path": "/home/tomi/tolang/tests/libsolidity/lsp/rename/import_directive.tol",
+      "conv_error": ""
+    }
+  ]
+}

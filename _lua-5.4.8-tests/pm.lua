@@ -1,0 +1,298 @@
+-- $Id: testes/pm.lua $
+-- See Copyright Notice in file all.lua
+
+-- UTF-8 file
+
+
+local function checkerror (msg, f, ...)
+  local s, err = pcall(f, ...)
+  assert(not s and string.find(err, msg))
+end
+
+
+local function f (s, p)
+  local i,e = string.find(s, p)
+  if i then return string.sub(s, i, e) end
+end
+
+local a,b = string.find('', '')    -- empty patterns are tricky
+assert(a == 1 and b == 0);
+a,b = string.find('alo', '')
+assert(a == 1 and b == 0)
+a,b = string.find('a\0o a\0o a\0o', 'a', 1)   -- first position
+assert(a == 1 and b == 1)
+a,b = string.find('a\0o a\0o a\0o', 'a\0o', 2)   -- starts in the midle
+assert(a == 5 and b == 7)
+a,b = string.find('a\0o a\0o a\0o', 'a\0o', 9)   -- starts in the midle
+assert(a == 9 and b == 11)
+a,b = string.find('a\0a\0a\0a\0\0ab', '\0ab', 2);  -- finds at the end
+assert(a == 9 and b == 11);
+a,b = string.find('a\0a\0a\0a\0\0ab', 'b')    -- last position
+assert(a == 11 and b == 11)
+assert(not string.find('a\0a\0a\0a\0\0ab', 'b\0'))   -- check ending
+assert(not string.find('', '\0'))
+assert(string.find('alo123alo', '12') == 4)
+assert(not string.find('alo123alo', '^12'))
+
+assert(string.match("aaab", ".*b") == "aaab")
+assert(string.match("aaa", ".*a") == "aaa")
+assert(string.match("b", ".*b") == "b")
+
+assert(string.match("aaab", ".+b") == "aaab")
+assert(string.match("aaa", ".+a") == "aaa")
+assert(not string.match("b", ".+b"))
+
+assert(string.match("aaab", ".?b") == "ab")
+assert(string.match("aaa", ".?a") == "aa")
+assert(string.match("b", ".?b") == "b")
+
+assert(f('aloALO', '%l*') == 'alo')
+assert(f('aLo_ALO', '%a*') == 'aLo')
+
+assert(f("  \n\r*&\n\r   xuxu  \n\n", "%g%g%g+") == "xuxu")
+
+
+assert(f('aaab', 'a*') == 'aaa');
+assert(f('aaa', '^.*$') == 'aaa');
+assert(f('aaa', 'b*') == '');
+assert(f('aaa', 'ab*a') == 'aa')
+assert(f('aba', 'ab*a') == 'aba')
+assert(f('aaab', 'a+') == 'aaa')
+assert(f('aaa', '^.+$') == 'aaa')
+assert(not f('aaa', 'b+'))
+assert(not f('aaa', 'ab+a'))
+assert(f('aba', 'ab+a') == 'aba')
+assert(f('a$a', '.$') == 'a')
+assert(f('a$a', '.%$') == 'a$')
+assert(f('a$a', '.$.') == 'a$a')
+assert(not f('a$a', '$$'))
+assert(not f('a$b', 'a$'))
+assert(f('a$a', '$') == '')
+assert(f('', 'b*') == '')
+assert(not f('aaa', 'bb*'))
+assert(f('aaab', 'a-') == '')
+assert(f('aaa', '^.-$') == 'aaa')
+assert(f('aabaaabaaabaaaba', 'b.*b') == 'baaabaaabaaab')
+assert(f('aabaaabaaabaaaba', 'b.-b') == 'baaab')
+assert(f('alo xo', '.o$') == 'xo')
+assert(f(' \n isto é assim', '%S%S*') == 'isto')
+assert(f(' \n isto é assim', '%S*$') == 'assim')
+assert(f(' \n isto é assim', '[a-z]*$') == 'assim')
+assert(f('um caracter ? extra', '[^%sa-z]') == '?')
+assert(f('', 'a?') == '')
+assert(f('aa', '^aa?a?a') == 'aa')
+assert(f(']]]áb', '[^]]+') == 'áb')
+assert(f("0alo alo", "%x*") == "0a")
+assert(f("alo alo", "%C+") == "alo alo")
+
+
+local function f1 (s, p)
+  p = string.gsub(p, "%%([0-9])", function (s)
+        return "%" .. (tonumber(s)+1)
+       end)
+  p = string.gsub(p, "^(^?)", "%1()", 1)
+  p = string.gsub(p, "($?)$", "()%1", 1)
+  local t = {string.match(s, p)}
+  return string.sub(s, t[1], t[#t] - 1)
+end
+
+assert(f1('alo alx 123 b\0o b\0o', '(..*) %1') == "b\0o b\0o")
+assert(f1('axz123= 4= 4 34', '(.+)=(.*)=%2 %1') == '3= 4= 4 3')
+assert(f1('=======', '^(=*)=%1$') == '=======')
+assert(not string.match('==========', '^([=]*)=%1$'))
+
+local function range (i, j)
+  if i <= j then
+    return i, range(i+1, j)
+  end
+end
+
+local abc = string.char(range(0, 127)) .. string.char(range(128, 255));
+
+assert(string.len(abc) == 256)
+
+local function strset (p)
+  local res = {s=''}
+  string.gsub(abc, p, function (c) res.s = res.s .. c end)
+  return res.s
+end;
+
+assert(string.len(strset('[\200-\210]')) == 11)
+
+assert(strset('[a-z]') == "abcdefghijklmnopqrstuvwxyz")
+assert(strset('[a-z%d]') == strset('[%da-uu-z]'))
+assert(strset('[a-]') == "-a")
+assert(strset('[^%W]') == strset('[%w]'))
+assert(strset('[]%%]') == '%]')
+assert(strset('[a%-z]') == '-az')
+assert(strset('[%^%[%-a%]%-b]') == '-[]^ab')
+assert(strset('%Z') == strset('[\1-\255]'))
+assert(strset('.') == strset('[\1-\255%z]'))
+
+assert(string.match("alo xyzK", "(%w+)K") == "xyz")
+assert(string.match("254 K", "(%d*)K") == "")
+assert(string.match("alo ", "(%w*)$") == "")
+assert(not string.match("alo ", "(%w+)$"))
+assert(string.find("(álo)", "%(á") == 1)
+a, b, c, d  = string.match('0123456789', '(.+(.?)())')
+assert(a == '0123456789' and b == '' and c == 11 and d == nil)
+
+assert(string.gsub('ülo ülo', 'ü', 'x') == 'xlo xlo')
+assert(string.gsub('alo úlo  ', ' +$', '') == 'alo úlo')  -- trim
+assert(string.gsub('  alo alo  ', '^%s*(.-)%s*$', '%1') == 'alo alo')  -- double trim
+assert(string.gsub('alo  alo  \n 123\n ', '%s+', ' ') == 'alo alo 123 ')
+local t = "abç d"
+assert(string.gsub('alo alo', '()[al]', '%1') == '12o 56o')
+assert(string.gsub("abc=xyz", "(%w*)(%p)(%w+)", "%3%2%1-%0") ==
+              "xyz=abc-abc=xyz")
+assert(string.gsub("abc", "%w", "%1%0") == "aabbcc")
+assert(string.gsub("abc", "%w+", "%0%1") == "abcabc")
+assert(string.gsub('áéí', '$', '\0óú') == 'áéí\0óú')
+assert(string.gsub('', '^', 'r') == 'r')
+assert(string.gsub('', '$', 'r') == 'r')
+
+
+assert(string.gsub("um (dois) tres (quatro)", "(%(%w+%))", string.upper) ==
+            "um (DOIS) tres (QUATRO)")
+
+do
+  local function setglobal (n,v) rawset(_G, n, v) end
+  string.gsub("a=roberto,roberto=a", "(%w+)=(%w%w*)", setglobal)
+  assert(_G.a=="roberto" and _G.roberto=="a")
+  _G.a = nil; _G.roberto = nil
+end
+
+function f(a,b) return string.gsub(a,'.',b) end
+assert(string.gsub("trocar tudo em |teste|b| é |beleza|al|", "|([^|]*)|([^|]*)|", f) ==
+            "trocar tudo em bbbbb é alalalalalal")
+
+
+local t = {}
+local s = 'a alo jose  joao'
+local r = string.gsub(s, '()(%w+)()', function (a,w,b)
+             assert(string.len(w) == b-a);
+             t[a] = b-a;
+           end)
+assert(s == r and t[1] == 1 and t[3] == 3 and t[7] == 4 and t[13] == 4)
+
+
+local function isbalanced (s)
+  return not string.find(string.gsub(s, "%b()", ""), "[()]")
+end
+
+assert(isbalanced("(9 ((8))(\0) 7) \0\0 a b ()(c)() a"))
+assert(not isbalanced("(9 ((8) 7) a b (\0 c) a"))
+assert(string.gsub("alo 'oi' alo", "%b''", '"') == 'alo " alo')
+
+
+local t = {"apple", "orange", "lime"; n=0}
+assert(string.gsub("x and x and x", "x", function () t.n=t.n+1; return t[t.n] end)
+        == "apple and orange and lime")
+
+t = {n=0}
+string.gsub("first second word", "%w%w*", function (w) t.n=t.n+1; t[t.n] = w end)
+assert(t[1] == "first" and t[2] == "second" and t[3] == "word" and t.n == 3)
+
+t = {n=0}
+assert(string.gsub("first second word", "%w+",
+         function (w) t.n=t.n+1; t[t.n] = w end, 2) == "first second word")
+assert(t[1] == "first" and t[2] == "second" and t[3] == undef)
+
+
+if not _soft then
+  local a = string.rep('a', 300000)
+  assert(string.find(a, '^a*.?$'))
+  assert(not string.find(a, '^a*.?b$'))
+  assert(string.find(a, '^a-.?$'))
+
+  -- bug in 5.1.2
+  a = string.rep('a', 10000) .. string.rep('b', 10000)
+  assert(not pcall(string.gsub, a, 'b'))
+end
+
+-- recursive nest of gsubs
+local function rev (s)
+  return string.gsub(s, "(.)(.+)", function (c,s1) return rev(s1)..c end)
+end
+
+local x = "abcdef"
+assert(rev(rev(x)) == x)
+
+
+-- gsub with tables
+assert(string.gsub("alo alo", ".", {}) == "alo alo")
+assert(string.gsub("alo alo", "(.)", {a="AA", l=""}) == "AAo AAo")
+assert(string.gsub("alo alo", "(.).", {a="AA", l="K"}) == "AAo AAo")
+assert(string.gsub("alo alo", "((.)(.?))", {al="AA", o=false}) == "AAo AAo")
+
+assert(string.gsub("alo alo", "().", {'x','yy','zzz'}) == "xyyzzz alo")
+
+t = {}; setmetatable(t, {__index = function (t,s) return string.upper(s) end})
+assert(string.gsub("a alo b hi", "%w%w+", t) == "a ALO b HI")
+
+
+-- tests for gmatch
+local a = 0
+for i in string.gmatch('abcde', '()') do assert(i == a+1); a=i end
+assert(a==6)
+
+t = {n=0}
+for w in string.gmatch("first second word", "%w+") do
+      t.n=t.n+1; t[t.n] = w
+end
+assert(t[1] == "first" and t[2] == "second" and t[3] == "word")
+
+t = {3, 6, 9}
+for i in string.gmatch ("xuxx uu ppar r", "()(.)%2") do
+  assert(i == table.remove(t, 1))
+end
+assert(#t == 0)
+
+t = {}
+for i,j in string.gmatch("13 14 10 = 11, 15= 16, 22=23", "(%d+)%s*=%s*(%d+)") do
+  t[tonumber(i)] = tonumber(j)
+end
+a = 0
+for k,v in pairs(t) do assert(k+1 == v+0); a=a+1 end
+assert(a == 3)
+
+
+-- \0 in patterns
+assert(string.match("ab\0\1\2c", "[\0-\2]+") == "\0\1\2")
+assert(string.match("ab\0\1\2c", "[\0-\0]+") == "\0")
+assert(string.find("b$a", "$\0?") == 2)
+assert(string.find("abc\0efg", "%\0") == 4)
+assert(string.match("abc\0efg\0\1e\1g", "%b\0\1") == "\0efg\0\1e\1")
+assert(string.match("abc\0\0\0", "%\0+") == "\0\0\0")
+assert(string.match("abc\0\0\0", "%\0%\0?") == "\0\0")
+
+-- magic char after \0
+assert(string.find("abc\0\0","\0.") == 4)
+assert(string.find("abcx\0\0abc\0abc","x\0\0abc\0a.") == 4)
+
+
+do   -- test reuse of original string in gsub
+  local s = string.rep("a", 100)
+  local r = string.gsub(s, "b", "c")   -- no match
+
+  r = string.gsub(s, ".", {x = "y"})   -- no substitutions
+
+  local count = 0
+  r = string.gsub(s, ".", function (x)
+                            assert(x == "a")
+                            count = count + 1
+                            return nil    -- no substitution
+                          end)
+  r = string.gsub(r, ".", {b = 'x'})   -- "a" is not a key; no subst.
+  assert(count == 100)
+
+  count = 0
+  r = string.gsub(s, ".", function (x)
+                            assert(x == "a")
+                            count = count + 1
+                            return x    -- substitution...
+                          end)
+  assert(count == 100)
+  -- no reuse in this case
+end
+

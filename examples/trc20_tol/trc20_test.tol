@@ -1,0 +1,103 @@
+pragma tolang 0.2.0;
+
+test TRC20Suite {
+  let DEPLOYER: address = "0x000000000000000000000000000000000000000000000000000000000000dead";
+  let ALICE: address   = "0x0000000000000000000000000000000000000000000000000000000000000001";
+  let BOB: address     = "0x0000000000000000000000000000000000000000000000000000000000000002";
+  let CAROL: address   = "0x0000000000000000000000000000000000000000000000000000000000000003";
+  let ZERO: address    = "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+  setup {
+    deploy TRC20(1000000) -> token;
+  }
+
+  function test_total_supply() {
+    assert_eq(token.totalSupply(), 1000000);
+  }
+
+  function test_deployer_balance_equals_total_supply() {
+    assert_eq(token.balanceOf(DEPLOYER), 1000000);
+  }
+
+  function test_transfer_success() {
+    with msg.sender = DEPLOYER {
+      assert_eq(token.transfer(ALICE, 100), true);
+    }
+    assert_eq(token.balanceOf(DEPLOYER), 999900);
+    assert_eq(token.balanceOf(ALICE), 100);
+    assert_event("Transfer", DEPLOYER, ALICE, 100);
+  }
+
+  function test_transfer_insufficient_revert() {
+    with msg.sender = ALICE {
+      assert_revert("INSUFFICIENT_BALANCE") {
+        token.transfer(BOB, 1);
+      }
+    }
+  }
+
+  function test_transfer_zero_address_revert() {
+    with msg.sender = DEPLOYER {
+      assert_revert("ZERO_ADDRESS") {
+        token.transfer(ZERO, 1);
+      }
+    }
+  }
+
+  function test_approve_and_allowance() {
+    with msg.sender = DEPLOYER {
+      assert_eq(token.approve(ALICE, 250), true);
+    }
+    assert_eq(token.allowance(DEPLOYER, ALICE), 250);
+    assert_event("Approval", DEPLOYER, ALICE, 250);
+  }
+
+  function test_transfer_from_success() {
+    with msg.sender = DEPLOYER {
+      assert_eq(token.approve(ALICE, 300), true);
+    }
+    with msg.sender = ALICE {
+      assert_eq(token.transferFrom(DEPLOYER, BOB, 120), true);
+    }
+
+    assert_eq(token.balanceOf(DEPLOYER), 999880);
+    assert_eq(token.balanceOf(BOB), 120);
+    assert_eq(token.allowance(DEPLOYER, ALICE), 180);
+  }
+
+  function test_transfer_from_allowance_exceeded_revert() {
+    with msg.sender = DEPLOYER {
+      assert_eq(token.approve(ALICE, 50), true);
+    }
+    with msg.sender = ALICE {
+      assert_revert("INSUFFICIENT_ALLOWANCE") {
+        token.transferFrom(DEPLOYER, BOB, 51);
+      }
+    }
+  }
+
+  function test_approve_overwrites_allowance() {
+    with msg.sender = DEPLOYER {
+      assert_eq(token.approve(ALICE, 100), true);
+      assert_eq(token.approve(ALICE, 40), true);
+    }
+    assert_eq(token.allowance(DEPLOYER, ALICE), 40);
+  }
+
+  function test_multi_account_chain_a_to_b_to_c() {
+    with msg.sender = DEPLOYER {
+      assert_eq(token.transfer(ALICE, 300), true);
+    }
+    with msg.sender = ALICE {
+      assert_eq(token.transfer(BOB, 120), true);
+    }
+    with msg.sender = BOB {
+      assert_eq(token.transfer(CAROL, 20), true);
+    }
+
+    assert_eq(token.balanceOf(DEPLOYER), 999700);
+    assert_eq(token.balanceOf(ALICE), 180);
+    assert_eq(token.balanceOf(BOB), 100);
+    assert_eq(token.balanceOf(CAROL), 20);
+  }
+}

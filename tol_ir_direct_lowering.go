@@ -2595,6 +2595,35 @@ func defaultValueExprForTypeWithStructs(typeName string, structFieldTypes map[st
 	return withLineExpr(&luast.TableExpr{Fields: luaFields}), true
 }
 
+// buildPayPreamble emits Lua guard statements for @pay(...) annotations.
+//
+// Bare form (@pay(amount)):
+//
+//	if not (msg and msg.value and msg.value >= <amount>) then error("InsufficientPayment") end
+//
+// With recipient (@pay(amount, recipient: expr)):
+//
+//	if not (msg and msg.value and msg.value >= <amount>) then error("InsufficientPayment") end
+//	__tol_host_transfer(<recipient_expr>, <amount>)
+func buildPayPreamble(payAmount, payRecipient string) ([]luast.Stmt, error) {
+	if payAmount == "" {
+		return nil, nil
+	}
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf(
+		"if not (msg and msg.value and msg.value >= %s) then error(%q) end\n",
+		payAmount, "InsufficientPayment",
+	))
+	if payRecipient != "" {
+		sb.WriteString(fmt.Sprintf("__tol_host_transfer(%s, %s)\n", payRecipient, payAmount))
+	}
+	stmts, err := parse.Parse(bytes.NewReader([]byte(sb.String())), "<tol-pay-preamble>")
+	if err != nil {
+		return nil, fmt.Errorf("[%s] failed to build @pay preamble: %w", diag.CodeLowerUnsupportedFeature, err)
+	}
+	return stmts, nil
+}
+
 // buildRequiresCapPreamble emits Lua guard statements for @requires(caller: X) annotations.
 // For each capability name, emits:
 //
@@ -2687,6 +2716,14 @@ func lowerFunctionToLua(fn lower.Function, env *loweringEnv) (luast.Stmt, error)
 		body = append(preamble, body...)
 	}
 
+	// Inject @pay preamble (value guard and optional transfer).
+	if fn.Doc != nil && fn.Doc.HasPay && fn.Doc.PayAmount != "" {
+		payPreamble, pErr := buildPayPreamble(fn.Doc.PayAmount, fn.Doc.PayRecipient)
+		if pErr != nil {
+			return nil, pErr
+		}
+		body = append(payPreamble, body...)
+	}
 	nameExpr := withLineExpr(&luast.IdentExpr{Value: luaFuncName})
 	fnExpr := withLineExpr(&luast.FunctionExpr{
 		ParList: &luast.ParList{
@@ -3751,6 +3788,21 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 		default:
 			return withLineExpr(&luast.IdentExpr{Value: e.Value}), nil
 		}
+	case "msg_agent":
+		// msg.agent — returns msg.sender when available, otherwise zero address.
+		// Unlike agent(msg.sender) this never reverts on unregistered callers.
+		const zeroAddr = "0x0000000000000000000000000000000000000000"
+		src := fmt.Sprintf(`(msg and msg.sender or %q)`, zeroAddr)
+		stmts, err := parse.Parse(bytes.NewReader([]byte("return "+src)), "<tol-msg-agent>")
+		if err != nil {
+			return nil, fmt.Errorf("[%s] failed to build msg.agent expr: %w", diag.CodeLowerUnsupportedFeature, err)
+		}
+		if len(stmts) == 1 {
+			if rs, ok := stmts[0].(*luast.ReturnStmt); ok && len(rs.Exprs) == 1 {
+				return rs.Exprs[0], nil
+			}
+		}
+		return withLineExpr(&luast.IdentExpr{Value: "msg.sender"}), nil
 	case "number":
 		return withLineExpr(&luast.NumberExpr{Value: e.Value}), nil
 	case "string":

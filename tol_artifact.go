@@ -92,6 +92,7 @@ type tocABIFunction struct {
 	// Agent-native ABI extensions
 	RequiresCapability string     `json:"requires_capability,omitempty"`
 	PayAmountWei       string     `json:"pay_amount_wei,omitempty"`
+	PayRecipient       string     `json:"pay_recipient,omitempty"`
 	TotalCostWei       string     `json:"total_cost_wei,omitempty"`
 	Verifiable         bool       `json:"verifiable,omitempty"`
 	Delegated          bool       `json:"delegated,omitempty"`
@@ -528,6 +529,9 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 			}
 			if fn.Doc.PayAmount != "" {
 				abiFn.PayAmountWei = fn.Doc.PayAmount
+			}
+			if fn.Doc.PayRecipient != "" {
+				abiFn.PayRecipient = fn.Doc.PayRecipient
 			}
 			// total_cost_wei = pay_amount_wei + gas_upper × 10gwei (when both are known).
 			if fn.Doc.HasPay && fn.Doc.PayAmount != "" && fn.Doc.Gas != nil && fn.Doc.Gas.Upper > 0 {

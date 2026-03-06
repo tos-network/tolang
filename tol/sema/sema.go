@@ -3808,6 +3808,9 @@ func checkExpr(contractName string, funcVis map[string]string, funcArity map[str
 		for _, a := range e.Args {
 			checkExpr(contractName, funcVis, funcArity, filename, a, diags)
 		}
+	case "msg_agent":
+		// msg.agent — zero-agent fallback (agent-typed, no revert on unregistered callers).
+		// No sub-expressions to check.
 	default:
 		*diags = append(*diags, diag.Diagnostic{
 			Code:    diag.CodeSemaInvalidStmtShape,

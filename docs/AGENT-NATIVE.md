@@ -21,6 +21,309 @@ level.
 
 ---
 
+## Protocol Infrastructure Requirements
+
+The language features described in this document are not purely compiler work. They require
+corresponding infrastructure from the gtos blockchain protocol. This section enumerates every
+protocol-level requirement, grouped by layer, so that gtos core development can be planned
+independently of the TOL compiler roadmap.
+
+---
+
+### I. Account State Extensions
+
+The gtos account state must be extended beyond the standard `(balance, nonce, code_hash,
+storage_root)` tuple. Two fields are added as **protocol-native account state**, meaning they
+are maintained by the consensus layer — not by any contract — and are readable via a dedicated
+low-cost opcode rather than a cross-contract call.
+
+| Field | Type | Written by | Read cost | Rationale |
+|---|---|---|---|---|
+| `stake` | `u256` | `AGENT_REGISTRY` system contract (deposit/withdraw ops) | Protocol opcode (AGENTLOAD) | Slashing must be atomic with balance changes; cannot be split across a cross-contract call |
+| `suspended` | `bool` | `AGENT_REGISTRY` system contract (suspend/unsuspend ops) | Protocol opcode (AGENTLOAD) | Suspension check is on the hot path of every `agent(addr)` cast |
+| `validation_fee_balance` | `u256` | Account owner (top-up), mempool (deduct) | Protocol opcode | Separate from main balance to prevent AA fee exhaustion from draining operational funds |
+
+**New opcode: `AGENTLOAD <addr> <field_id>`**
+Returns the value of a protocol-native agent field for the given address in O(1), equivalent
+to an SLOAD on the caller's own storage. This replaces the cross-contract call path for
+`worker.stake` and `worker.suspended`, making the two most frequently checked properties free
+of external-call overhead and reentrancy risk.
+
+`worker.is_active` is a **derived property** — no storage needed:
+```
+is_active(addr) = isRegistered(addr) AND NOT suspended(addr) AND stake(addr) >= MIN_AGENT_STAKE
+```
+
+The remaining `agent` properties (`reputation`, `capabilities`) are NOT protocol-native; they
+live in system contracts (see §II) because their update logic must be governable.
+
+---
+
+### II. System Contracts (Deployed at Genesis)
+
+Four contracts are deployed at genesis at fixed, consensus-level addresses. They are privileged
+in that certain protocol operations (staking, slashing, capability grant) can only be triggered
+through them. Their source code is part of the gtos protocol specification.
+
+#### `tol.lang.AGENT_REGISTRY` — Identity & Stake
+
+Manages agent registration and the mapping between `address` and agent identity. Writes to
+protocol-native account state (`stake`, `suspended`) via privileged opcodes unavailable to
+user contracts.
+
+```
+Interface:
+  register(metadata_uri: string) payable               — msg.value becomes stake (AGENTLOAD write)
+  updateProfile(metadata_uri: string)
+  increaseStake() payable
+  decreaseStake(amount: u256)                           — reverts if stake - amount < MIN_AGENT_STAKE
+  suspend(addr: address, reason: string)                — requires Registrar capability
+  unsuspend(addr: address)                              — requires Registrar capability
+
+  isRegistered(addr: address) → bool
+  isSuspended(addr: address) → bool
+  stakeOf(addr: address) → u256                        — reads protocol-native account state
+  metadataOf(addr: address) → string
+```
+
+The `agent(addr)` cast in TOL compiles to: `require(AGENT_REGISTRY.isRegistered(addr))`.
+The `agent(addr).stake` property compiles to: `AGENTLOAD addr STAKE_FIELD` (no external call).
+The `agent(addr).is_active` property compiles to an inline check against both fields.
+
+#### `tol.lang.CAPABILITY_REGISTRY` — Capability Bitmap
+
+Manages the global namespace of `capability` names and per-agent capability bitmaps (u256,
+one bit per declared capability, up to 256 capabilities chain-wide).
+
+```
+Interface:
+  registerCapability(name: string) → bit_index: u8     — requires Registrar; name → bit mapping
+  grantCapability(addr: address, bit: u8)               — requires Registrar
+  revokeCapability(addr: address, bit: u8)              — requires Registrar
+  hasCapability(addr: address, bit: u8) → bool
+  capabilitiesOf(addr: address) → u256                  — full bitmap
+  totalEligible(bit: u8) → u256                         — count of agents with this capability
+                                                          (used by vote<T> for quorum snapshot)
+  capabilityBit(name: string) → u8                      — name → bit index lookup (compile-time use)
+```
+
+`@requires(caller: Arbitrator)` compiles to:
+`require(CAPABILITY_REGISTRY.hasCapability(msg.sender, ARBITRATOR_BIT))`.
+
+The `capability Arbitrator;` declaration in TOL registers the name at compile time and resolves
+`ARBITRATOR_BIT` as a compile-time constant via `capabilityBit("Arbitrator")`.
+
+#### `tol.lang.DELEGATION_REGISTRY` — Revocation & Nonce Tracking
+
+Manages delegation nonce consumption and explicit revocations. Keeps a minimal footprint:
+only spent/revoked nonces are stored (never-used nonces cost zero storage).
+
+```
+Interface:
+  markUsed(principal: address, nonce: u256)             — called by delegation.verify(); atomic
+  revoke(principal: address, nonce: u256)               — called by principal to revoke
+  isUsed(principal: address, nonce: u256) → bool
+  nextNonce(principal: address) → u256                  — convenience; nonces need not be sequential
+```
+
+`delegation.verify(sig, principal, scope, expiry)` compiles to a sequence that:
+1. Recovers signer from `sig` over the EIP-712 typed payload
+2. Checks `!DELEGATION_REGISTRY.isUsed(principal, nonce)`
+3. Calls `DELEGATION_REGISTRY.markUsed(principal, nonce)`
+4. Checks `block.timestamp_ms < expiry`
+All four steps are atomic within the transaction.
+
+#### `tol.lang.REPUTATION_HUB` — Reputation Scores
+
+Manages per-agent reputation scores and the set of authorized scorers. Decoupled from
+`AGENT_REGISTRY` so that scoring algorithms can be upgraded by governance without touching
+identity or staking logic.
+
+```
+Interface:
+  authorizeScorer(scorer: address, enabled: bool)       — requires Registrar
+  recordScore(who: address, delta: i256,
+              reason: string, ref_id: bytes32)          — requires Scorer capability
+  totalScoreOf(who: address) → i256
+  ratingCountOf(who: address) → u256
+```
+
+`agent(addr).reputation` compiles to: `REPUTATION_HUB.totalScoreOf(addr)` (one STATICCALL).
+`agent(addr).rating_count` compiles to: `REPUTATION_HUB.ratingCountOf(addr)`.
+
+---
+
+### III. VM Storage Primitives
+
+The following storage abstractions are implemented in the TOL VM (the Lua bytecode executor),
+not in user contracts. Each is backed by a dedicated storage namespace allocated by the compiler.
+
+#### Escrow Ledger
+
+The VM maintains a flat mapping:
+```
+escrow_balance[contract_addr][agent_addr][purpose_bit] → u256
+```
+`escrow(agent, amount, purpose: X)` increments this entry and deducts from the contract's
+balance. `release(agent, amount, purpose: X)` decrements and transfers out. `slash(agent,
+amount, recipient: R, purpose: X)` decrements and transfers to `R`. All three are VM
+instructions, not Lua library calls — they cannot be spoofed by user bytecode.
+
+The `purpose` label is resolved to a `u8` bit at compile time (same mechanism as `capability`).
+`escrow_balance_of(agent, purpose: X)` is a read-only VM query available to TOL code.
+
+#### `oracle<T>` Write-Once Slots
+
+Each `oracle<T>` field in a contract compiles to two storage slots:
+- `oracle_value_slot`: the stored value (written once)
+- `oracle_set_slot`: a `bool` flag (false → not set, true → fulfilled)
+
+The VM overrides `SSTORE` for `oracle_value_slot`: if `oracle_set_slot` is already `true`,
+the write reverts with `OracleAlreadyFulfilled`. This check happens at the VM instruction level,
+not in compiler-generated Lua code — it cannot be bypassed by raw bytecode.
+
+#### `vote<T>` Tally Storage
+
+Each `vote<T>` field compiles to a storage namespace containing:
+- `eligible_snapshot: u256` — captured at `vote<T>.new(...)` from `CAPABILITY_REGISTRY.totalEligible(bit)`
+- `quorum_bps: u16`, `deadline_ms: u64`, `tie_value: T` — creation parameters
+- `tally: mapping(u8 → u256)` — vote count per option value
+- `voted: mapping(address → bool)` — per-voter participation flag
+
+The VM enforces the per-voter single-write: `cast(voter, choice)` checks and sets the `voted`
+flag atomically. The `eligible_snapshot` is immutable after creation.
+
+#### `task<T>` State Machine Storage
+
+Each `task<T>` field compiles to a storage namespace per task ID:
+- `poster: address`, `worker: address`, `reward: u256`, `deadline_ms: u64`, `spec_hash: bytes32`
+- `status: u8` (0=None, 1=Open, 2=Accepted, 3=Submitted, 4=Approved, 5=Rejected, 6=Disputed, 7=Cancelled)
+- `result: T` (written by `submit`)
+
+State transition guards are VM instructions that check the current `status` before allowing
+the transition, reverting with a typed error (e.g., `TaskInvalidTransition`) if violated.
+
+---
+
+### IV. Mempool & Sequencer Extensions (Account Abstraction)
+
+The gtos mempool and block-builder must implement a two-phase transaction lifecycle for
+transactions originating from `account contract` addresses.
+
+**Transaction phases:**
+
+```
+Phase 1 — Validation (before inclusion in block):
+  1. Check account's validation_fee_balance > 0; reject if zero.
+  2. Deduct estimated validation fee from validation_fee_balance.
+  3. Call account.validate(tx_hash, sig) with hard gas cap = VALIDATION_GAS_CAP (50,000).
+     - If validate() returns false → reject transaction (no gas charge to account).
+     - If validate() exceeds gas cap → treat as false (reject).
+     - If validate() reverts → treat as false (reject).
+  4. If validate() returns true → proceed to Phase 2.
+
+Phase 2 — Execution (normal transaction execution):
+  1. Call account.beforeTransfer(to, amount) before any value transfer from this account.
+  2. Execute the transaction payload.
+  3. Charge gas to account's main balance at 10 gwei/gas.
+```
+
+**Consensus constants required:**
+```
+tol.lang.VALIDATION_GAS_CAP    = 50_000    (gas units)
+tol.lang.GAS_PRICE_GWEI        = 10        (gwei per gas unit; fixed)
+tol.lang.MIN_AGENT_STAKE       = TBD       (minimum u256 stake for agent registration)
+```
+
+**System contract addresses (fixed at genesis):**
+```
+tol.lang.AGENT_REGISTRY        = 0x0000000000000000000000000000000000000101
+tol.lang.CAPABILITY_REGISTRY   = 0x0000000000000000000000000000000000000102
+tol.lang.DELEGATION_REGISTRY   = 0x0000000000000000000000000000000000000103
+tol.lang.REPUTATION_HUB        = 0x0000000000000000000000000000000000000104
+```
+
+---
+
+### V. Block Context Extension
+
+The existing `block` context object must expose millisecond-precision timestamps, required
+by `task<T>.is_expired`, `vote<T>.is_decided`, and `oracle<T>` challenge windows:
+
+```
+block.timestamp_ms   → u64   (milliseconds since Unix epoch; consensus-provided)
+block.number         → u64   (block height)
+block.hash           → bytes32
+```
+
+`block.timestamp_ms` must be included in the block header and validated by consensus.
+Millisecond granularity is required because task and delegation deadlines are specified in
+milliseconds and the language guarantees `t.is_expired = (block.timestamp_ms > t.deadline_ms)`.
+
+---
+
+### VI. Compiler & ABI Toolchain Extensions
+
+The TOL compiler (`tol/codegen/`) and the `.toc` ABI format must be extended to carry
+agent-native metadata that off-chain AI orchestrators consume.
+
+**`.toc` ABI additions per function:**
+```json
+{
+  "name": "getPrice",
+  "requires_capability": "Arbitrator",
+  "pay_amount_wei": 1000000,
+  "gas_bound": 450000,
+  "total_cost_wei": 4501000000,
+  "effects": ["writes:balances[recipient]", "emits:Transfer(agent,agent,u256)"],
+  "verifiable": false
+}
+```
+
+**`.toc` manifest section (from `manifest {}` block):**
+```json
+{
+  "manifest": {
+    "version": "1.0.0",
+    "capabilities": ["DataFetcher", "PriceOracle"],
+    "sla_uptime_bps": 9900,
+    "price_per_call": { "getPrice": 1000000, "getBatch": 5000000 },
+    "spec_hash": "0xabc123...",
+    "spec_uri": "ipfs://Qm...",
+    "sla_escrow_wei": 10000000
+  }
+}
+```
+
+**`@effects` extension:** The existing `@effects` system must be updated to recognise
+`agent`-typed parameters. `emits: Transfer(address, address, u256)` must become
+`emits: Transfer(agent, agent, u256)` when the event parameters are declared as `agent` type,
+so orchestrators can reason about registered identity rather than raw addresses.
+
+---
+
+### Summary: Who Implements What
+
+| Requirement | Owner |
+|---|---|
+| `stake` + `suspended` in account state | gtos consensus / state trie |
+| `validation_fee_balance` in account state | gtos consensus / state trie |
+| `AGENTLOAD` opcode | gtos VM |
+| `AGENT_REGISTRY` system contract | gtos protocol (TOL source, genesis deploy) |
+| `CAPABILITY_REGISTRY` system contract | gtos protocol (TOL source, genesis deploy) |
+| `DELEGATION_REGISTRY` system contract | gtos protocol (TOL source, genesis deploy) |
+| `REPUTATION_HUB` system contract | gtos protocol (TOL source, genesis deploy) |
+| Escrow ledger VM instructions | TOL VM (`vm.go` / `tol_ir_direct_lowering.go`) |
+| `oracle<T>` write-once SSTORE guard | TOL VM |
+| `vote<T>` tally + snapshot storage | TOL VM |
+| `task<T>` state machine storage | TOL VM |
+| Two-phase AA transaction lifecycle | gtos mempool + sequencer |
+| `block.timestamp_ms` in block header | gtos consensus |
+| `.toc` ABI extensions | TOL compiler (`tol/codegen/`) |
+| `@effects` agent-type awareness | TOL sema + codegen |
+
+---
+
 ## What Is Missing
 
 ### 1. `agent` — Native Data Type

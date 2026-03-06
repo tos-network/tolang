@@ -109,7 +109,7 @@ func buildBootstrapChunkFromLowered(p *lower.Program, mode bootstrapMode) ([]lua
 		}
 		chunk = append(chunk, prelude...)
 	}
-	if len(p.Capabilities) > 0 || len(p.Purposes) > 0 || hasAgentNativeSlots(p.StorageSlots) {
+	if needsAgentNativePrelude(p) {
 		agentPrelude, err := buildAgentNativePrelude(p)
 		if err != nil {
 			return nil, err
@@ -671,6 +671,80 @@ end
 		return nil, fmt.Errorf("[%s] failed to build storage prelude: %w", diag.CodeLowerUnsupportedFeature, err)
 	}
 	return chunk, nil
+}
+
+// needsAgentNativePrelude returns true when the agent-native prelude must be emitted.
+// This covers five cases:
+//  1. Capability declarations → need __tol_cap_X locals
+//  2. Purpose declarations    → need __tol_pur_Y locals + escrow helpers
+//  3. Agent-native storage slots (oracle/vote/task/agent) → slot hashes + helpers
+//  4. Any @delegated function → need __tol_delegation_verify
+//  5. Any agent(expr) cast in any function body → need __tol_agent_cast
+func needsAgentNativePrelude(p *lower.Program) bool {
+	if len(p.Capabilities) > 0 || len(p.Purposes) > 0 || hasAgentNativeSlots(p.StorageSlots) {
+		return true
+	}
+	for _, fn := range p.Functions {
+		if fn.Doc != nil && fn.Doc.Delegated {
+			return true
+		}
+		if bodyHasAgentCast(fn.Body) {
+			return true
+		}
+	}
+	return false
+}
+
+// bodyHasAgentCast reports whether any expression in stmts is an agent(expr) call.
+func bodyHasAgentCast(stmts []tolast.Statement) bool {
+	for i := range stmts {
+		if stmtHasAgentCast(&stmts[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+func stmtHasAgentCast(s *tolast.Statement) bool {
+	if s == nil {
+		return false
+	}
+	if exprHasAgentCast(s.Expr) || exprHasAgentCast(s.Cond) ||
+		exprHasAgentCast(s.Target) || exprHasAgentCast(s.Post) {
+		return true
+	}
+	if s.Init != nil && stmtHasAgentCast(s.Init) {
+		return true
+	}
+	return bodyHasAgentCast(s.Then) || bodyHasAgentCast(s.Else) ||
+		bodyHasAgentCast(s.Body)
+}
+
+func exprHasAgentCast(e *tolast.Expr) bool {
+	if e == nil {
+		return false
+	}
+	if e.Kind == "call" {
+		callee := e.Callee
+		for callee != nil && callee.Kind == "paren" {
+			callee = callee.Left
+		}
+		if callee != nil && callee.Kind == "ident" &&
+			strings.TrimSpace(callee.Value) == "agent" && len(e.Args) == 1 {
+			return true
+		}
+	}
+	if exprHasAgentCast(e.Left) || exprHasAgentCast(e.Right) ||
+		exprHasAgentCast(e.Callee) || exprHasAgentCast(e.Object) ||
+		exprHasAgentCast(e.Index) {
+		return true
+	}
+	for _, a := range e.Args {
+		if exprHasAgentCast(a) {
+			return true
+		}
+	}
+	return false
 }
 
 // hasAgentNativeSlots reports whether any storage slot uses an agent-native type

@@ -149,6 +149,33 @@ func checkAgentNativeDecls(filename string, c *ast.ContractDecl, moduleCaps []as
 		isPayable := sliceContains(fn.Modifiers, "payable")
 		checkAgentBodyCalls(filename, fn.Body, fn.Doc.Delegated, isPayable, diags)
 	}
+
+	// TOL2316: account contract must declare validate(bytes32,bytes) -> bool.
+	if c.IsAccount {
+		hasValidate := false
+		for _, fn := range c.Functions {
+			if fn.Name != "validate" {
+				continue
+			}
+			// Match: validate(bytes32,bytes) or validate(bytes32,bytes) returns (bool)
+			if len(fn.Params) == 2 {
+				p0 := strings.TrimSpace(fn.Params[0].Type)
+				p1 := strings.TrimSpace(fn.Params[1].Type)
+				if (p0 == "bytes32" || p0 == "b256") && p1 == "bytes" {
+					hasValidate = true
+					break
+				}
+			}
+		}
+		if !hasValidate {
+			*diags = append(*diags, diag.Diagnostic{
+				Code:     diag.CodeAgentMissingValidate,
+				Message:  fmt.Sprintf("account contract '%s' should declare validate(bytes32 tx_hash, bytes sig) returning bool (TOL2316)", c.Name),
+				Span:     defaultSpan(filename),
+				Severity: diag.SeverityWarning,
+			})
+		}
+	}
 }
 
 // validTaskTransitions is the set of allowed (from, to) state pairs for task<T>.
@@ -185,20 +212,24 @@ func checkAgentBodyCalls(filename string, stmts []ast.Statement, isDelegated, is
 		if callee == nil {
 			return
 		}
-		// Check delegation.verify() outside @delegated (TOL2310).
-		if !isDelegated && callee.Kind == "member" {
+		// Check delegation.verify/consume arity (TOL2310).
+		// The new 5-arg forms are allowed in any function; only flag if called with
+		// the old 2-arg (nonce, sig) signature which is no longer supported.
+		if callee.Kind == "member" {
 			obj := callee.Object
 			for obj != nil && obj.Kind == "paren" {
 				obj = obj.Left
 			}
 			if obj != nil && obj.Kind == "ident" &&
-				strings.TrimSpace(obj.Value) == "delegation" &&
-				strings.TrimSpace(callee.Member) == "verify" {
-				*diags = append(*diags, diag.Diagnostic{
-					Code:    diag.CodeAgentDelegateVerifyOutside,
-					Message: "delegation.verify() called outside a @delegated function",
-					Span:    defaultSpan(filename),
-				})
+				strings.TrimSpace(obj.Value) == "delegation" {
+				method := strings.TrimSpace(callee.Member)
+				if (method == "verify" || method == "consume") && len(e.Args) != 5 {
+					*diags = append(*diags, diag.Diagnostic{
+						Code:    diag.CodeAgentDelegateVerifyOutside,
+						Message: fmt.Sprintf("delegation.%s() requires exactly 5 arguments: (sig, principal, scope_hash, expiry_ms, nonce)", method),
+						Span:    defaultSpan(filename),
+					})
+				}
 			}
 		}
 		if callee.Kind != "ident" {

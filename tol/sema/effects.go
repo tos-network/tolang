@@ -96,6 +96,7 @@ func checkFunctionEffects(filename string, fn ast.FunctionDecl, storageSlotNames
 	// P5: validate declared @effects and @gas upper if present.
 	checkDeclaredEffects(filename, fn, storageSlotNames, diags)
 	checkGasUpperBound(filename, fn, storageSlotNames, diags)
+	checkTotalCostBound(filename, fn, diags)
 }
 
 // --------------------------------------------------------------------------
@@ -1572,4 +1573,51 @@ func resolveGasIdent(name string, bounds *ast.BoundsDecl, calls []ast.CallRef) (
 		}
 	}
 	return 0, false
+}
+
+// checkTotalCostBound validates @total_cost(max: N) against @gas upper and @pay amount.
+// Emits TOL2209 (warning) if gas_upper * 10gwei + pay_amount > declared max.
+func checkTotalCostBound(filename string, fn ast.FunctionDecl, diags *diag.Diagnostics) {
+	if fn.Doc == nil || fn.Doc.TotalCostMax == "" {
+		return
+	}
+	maxWei, err := strconv.ParseUint(fn.Doc.TotalCostMax, 10, 64)
+	if err != nil {
+		// Non-integer max; skip numeric check.
+		return
+	}
+	span := diag.Span{File: filename}
+
+	var gasUpper uint64
+	if fn.Doc.Gas != nil && fn.Doc.Gas.Upper > 0 {
+		gasUpper = fn.Doc.Gas.Upper
+	}
+	var payAmount uint64
+	if fn.Doc.PayAmount != "" {
+		if v, pErr := strconv.ParseUint(fn.Doc.PayAmount, 10, 64); pErr == nil {
+			payAmount = v
+		}
+	}
+
+	// gweiPerGas = 10_000_000_000 (10 gwei per gas unit)
+	const checkGweiPerGas = uint64(10_000_000_000)
+	gasCost := gasUpper * checkGweiPerGas
+	total := gasCost + payAmount
+	// Overflow guard: if overflow occurred, values are too large to compare.
+	if gasCost/checkGweiPerGas != gasUpper {
+		return
+	}
+	if total < gasCost {
+		return
+	}
+	if total > maxWei {
+		*diags = append(*diags, diag.Diagnostic{
+			Code: diag.CodeEffectTotalCostExceeded,
+			Message: fmt.Sprintf(
+				"@total_cost(max: %d) in function '%s' is exceeded: gas_upper(%d) * 10gwei + pay(%d) = %d wei > %d",
+				maxWei, fn.Name, gasUpper, payAmount, total, maxWei),
+			Span:     span,
+			Severity: diag.SeverityWarning,
+		})
+	}
 }

@@ -250,6 +250,33 @@ func (p *Parser) parseModule() *ast.Module {
 					mod.Contract = &mod.Contracts[0]
 				}
 			}
+		case lexer.TokenIdent:
+			// "account contract <Name> { ... }" — account modifier on contract.
+			if p.cur.Literal == "account" {
+				saved := p.cur
+				p.next() // consume "account"
+				if p.cur.Type == lexer.TokenKwContract {
+					concrete := p.parseContractDecl(false)
+					if concrete != nil {
+						concrete.IsAccount = true
+						mod.Contracts = append(mod.Contracts, *concrete)
+						if mod.Contract == nil {
+							mod.Contract = &mod.Contracts[0]
+						} else {
+							mod.Contract = &mod.Contracts[0]
+						}
+					}
+				} else {
+					p.addDiag(diag.Diagnostic{
+						Code:    diag.CodeParseUnexpected,
+						Message: fmt.Sprintf("expected 'contract' after 'account', got '%s'", p.cur.Literal),
+						Span:    p.span(saved),
+					})
+					goto afterContracts
+				}
+			} else {
+				goto afterContracts
+			}
 		case lexer.TokenKwInterface:
 			iface := p.parseInterfaceDecl()
 			if iface != nil {
@@ -2069,6 +2096,26 @@ func (p *Parser) parseFunctionAttributes() (string, bool) {
 			p.pendingDoc.Delegated = true
 			if hasParen {
 				p.collectAttrArgs()
+			}
+			continue
+		case "quota":
+			// @quota(calls: N, price: M)
+			if hasParen {
+				rawQuota := p.collectAttrArgs()
+				if p.pendingDoc == nil {
+					p.pendingDoc = &ast.DocMeta{}
+				}
+				parseQuotaTag(p.pendingDoc, rawQuota)
+			}
+			continue
+		case "total_cost":
+			// @total_cost(max: N)
+			if hasParen {
+				rawTC := p.collectAttrArgs()
+				if p.pendingDoc == nil {
+					p.pendingDoc = &ast.DocMeta{}
+				}
+				parseTotalCostTag(p.pendingDoc, rawTC)
 			}
 			continue
 		default:
@@ -5446,6 +5493,15 @@ func (p *Parser) next() {
 			if parsed.PayRecipient != "" {
 				p.pendingDoc.PayRecipient = parsed.PayRecipient
 			}
+			if parsed.QuotaCalls != "" {
+				p.pendingDoc.QuotaCalls = parsed.QuotaCalls
+			}
+			if parsed.QuotaPrice != "" {
+				p.pendingDoc.QuotaPrice = parsed.QuotaPrice
+			}
+			if parsed.TotalCostMax != "" {
+				p.pendingDoc.TotalCostMax = parsed.TotalCostMax
+			}
 		}
 	}
 	// Clear pendingDoc if the token is not part of a declaration preamble.
@@ -5549,13 +5605,18 @@ func parseDocMeta(raw string) *ast.DocMeta {
 			meta.Delegated = true
 		case "verifiable":
 			meta.Verifiable = true
+		case "quota":
+			parseQuotaTag(meta, rest)
+		case "total_cost":
+			parseTotalCostTag(meta, rest)
 		}
 	}
 	// Return nil if nothing was parsed.
 	if meta.Notice == "" && len(meta.Params) == 0 && len(meta.Returns) == 0 &&
 		meta.Effects == nil && meta.Bounds == nil && meta.Gas == nil &&
 		len(meta.RequiresCap) == 0 && !meta.Delegated && !meta.Verifiable &&
-		!meta.HasPay && meta.PayAmount == "" {
+		!meta.HasPay && meta.PayAmount == "" &&
+		meta.QuotaCalls == "" && meta.TotalCostMax == "" {
 		return nil
 	}
 	return meta
@@ -5813,6 +5874,63 @@ func parsePayTag(meta *ast.DocMeta, rest string) {
 	// Bare amount: @pay(X)
 	meta.PayAmount = s
 	meta.PayIsBare = true
+}
+
+// parseQuotaTag parses "@quota(calls: N, price: M)" into meta.QuotaCalls / QuotaPrice.
+// Supported forms:
+//
+//	@quota(calls: 1000, price: 1000000)   — colon separators
+//	@quota(calls=1000, price=1000000)     — equals separators
+func parseQuotaTag(meta *ast.DocMeta, rest string) {
+	s := strings.TrimSpace(rest)
+	s = strings.TrimPrefix(s, "(")
+	s = strings.TrimSuffix(s, ")")
+	s = strings.TrimSpace(s)
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		var k, v string
+		var ok bool
+		k, v, ok = strings.Cut(part, ":")
+		if !ok {
+			k, v, ok = strings.Cut(part, "=")
+		}
+		if !ok {
+			continue
+		}
+		switch strings.TrimSpace(k) {
+		case "calls":
+			meta.QuotaCalls = strings.TrimSpace(v)
+		case "price":
+			meta.QuotaPrice = strings.TrimSpace(v)
+		}
+	}
+}
+
+// parseTotalCostTag parses "@total_cost(max: N)" into meta.TotalCostMax.
+// Supported forms:
+//
+//	@total_cost(max: 500000)   — colon separator
+//	@total_cost(max=500000)    — equals separator
+func parseTotalCostTag(meta *ast.DocMeta, rest string) {
+	s := strings.TrimSpace(rest)
+	s = strings.TrimPrefix(s, "(")
+	s = strings.TrimSuffix(s, ")")
+	s = strings.TrimSpace(s)
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		var k, v string
+		var ok bool
+		k, v, ok = strings.Cut(part, ":")
+		if !ok {
+			k, v, ok = strings.Cut(part, "=")
+		}
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(k) == "max" {
+			meta.TotalCostMax = strings.TrimSpace(v)
+		}
+	}
 }
 
 // parseCapabilityDecl parses "capability IDENT ;" at contract body level.

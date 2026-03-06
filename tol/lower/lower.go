@@ -78,6 +78,8 @@ type Program struct {
 	Capabilities []string          // ordered capability names (resolved at runtime via tos.capabilitybit)
 	Purposes     []string          // ordered purpose names (index = bit ordinal, compile-time constant)
 	Manifest     map[string]string // manifest key→value pairs
+	// Account abstraction
+	IsAccount bool // true for "account contract" declarations (emits AA marker sstore in constructor)
 }
 
 // Library is the lowered form of a library declaration.
@@ -460,6 +462,7 @@ func FromTypedContract(typed *sema.TypedModule, c *ast.ContractDecl) (*Program, 
 			}
 		}
 	}
+	out.IsAccount = c.IsAccount
 
 	return out, nil
 }

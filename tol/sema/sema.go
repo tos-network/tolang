@@ -4608,8 +4608,8 @@ func isValidTOLType(typeName string, allowMapping bool) bool {
 	if t == "" {
 		return false
 	}
-	// Agent-native parameterized types: oracle<T>, vote<T>, task<T>, agent.
-	if t == "agent" ||
+	// Agent-native parameterized types: oracle<T>, vote<T>, task<T>, agent, delegation.
+	if t == "agent" || t == "delegation" ||
 		strings.HasPrefix(t, "oracle<") ||
 		strings.HasPrefix(t, "vote<") ||
 		strings.HasPrefix(t, "task<") {

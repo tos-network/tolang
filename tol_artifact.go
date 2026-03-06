@@ -76,10 +76,11 @@ type tocABIManifest struct {
 }
 
 type tocABI struct {
-	GasModel  tocABIGasModel   `json:"gas_model"`
-	Functions []tocABIFunction `json:"functions"`
-	Events    []tocABIEvent    `json:"events"`
-	Manifest  *tocABIManifest  `json:"manifest,omitempty"`
+	GasModel        tocABIGasModel   `json:"gas_model"`
+	Functions       []tocABIFunction `json:"functions"`
+	Events          []tocABIEvent    `json:"events"`
+	Manifest        *tocABIManifest  `json:"manifest,omitempty"`
+	AccountContract bool             `json:"account_contract,omitempty"`
 }
 
 type tocABIFunction struct {
@@ -97,6 +98,11 @@ type tocABIFunction struct {
 	Verifiable         bool       `json:"verifiable,omitempty"`
 	Delegated          bool       `json:"delegated,omitempty"`
 	VerifiableStub     bool       `json:"verifiable_stub,omitempty"`
+	// @quota annotation
+	QuotaCalls string `json:"quota_calls,omitempty"`
+	QuotaPrice string `json:"quota_price,omitempty"`
+	// @total_cost annotation (declared max, separate from computed TotalCostWei)
+	DeclaredTotalCostMax string `json:"declared_total_cost_max,omitempty"`
 }
 
 type tocABIEvent struct {
@@ -495,8 +501,9 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 			Sstore:  gasModelSstore,
 			LogBase: gasModelLogBase,
 		},
-		Functions: make([]tocABIFunction, 0, len(c.Functions)),
-		Events:    make([]tocABIEvent, 0, len(c.Events)),
+		Functions:       make([]tocABIFunction, 0, len(c.Functions)),
+		Events:          make([]tocABIEvent, 0, len(c.Events)),
+		AccountContract: c.IsAccount,
 	}
 	for _, fn := range c.Functions {
 		vis := functionVisibilityFromModifiers(fn.Modifiers)
@@ -545,6 +552,17 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 			}
 			abiFn.Verifiable = fn.Doc.Verifiable
 			abiFn.Delegated = fn.Doc.Delegated
+			// @quota annotation
+			if fn.Doc.QuotaCalls != "" {
+				abiFn.QuotaCalls = fn.Doc.QuotaCalls
+			}
+			if fn.Doc.QuotaPrice != "" {
+				abiFn.QuotaPrice = fn.Doc.QuotaPrice
+			}
+			// @total_cost declared max
+			if fn.Doc.TotalCostMax != "" {
+				abiFn.DeclaredTotalCostMax = fn.Doc.TotalCostMax
+			}
 		}
 		abi.Functions = append(abi.Functions, abiFn)
 	}

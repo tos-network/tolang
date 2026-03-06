@@ -133,8 +133,8 @@ func buildBootstrapChunkFromLowered(p *lower.Program, mode bootstrapMode) ([]lua
 		// At deploy time, Execute() calls tos.oncreate() (via tolDispatch) with no args;
 		// the constructor reads tos.calldata for ABI-decoded arguments.
 		// Test paths can still call tos.oncreate(owner, supply, ...) with varargs.
-		if p.HasConstructor {
-			st, err := lowerConstructorToLua(p.ConstructorParams, p.ConstructorBody, env)
+		if p.HasConstructor || p.IsAccount {
+			st, err := lowerConstructorToLua(p.ConstructorParams, p.ConstructorBody, env, p.IsAccount)
 			if err != nil {
 				return nil, err
 			}
@@ -691,6 +691,66 @@ func needsAgentNativePrelude(p *lower.Program) bool {
 		if bodyHasAgentCast(fn.Body) {
 			return true
 		}
+		if bodyHasDelegationCall(fn.Body) {
+			return true
+		}
+	}
+	return false
+}
+
+// bodyHasDelegationCall reports whether any expression in stmts is a
+// delegation.verify(...) or delegation.consume(...) call.
+func bodyHasDelegationCall(stmts []tolast.Statement) bool {
+	for i := range stmts {
+		if stmtHasDelegationCall(&stmts[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+func stmtHasDelegationCall(s *tolast.Statement) bool {
+	if s == nil {
+		return false
+	}
+	for _, e := range []*tolast.Expr{s.Expr, s.Cond, s.Target, s.Post} {
+		if exprHasDelegationCall(e) {
+			return true
+		}
+	}
+	if s.Init != nil && stmtHasDelegationCall(s.Init) {
+		return true
+	}
+	return bodyHasDelegationCall(s.Then) || bodyHasDelegationCall(s.Else) ||
+		bodyHasDelegationCall(s.Body)
+}
+
+func exprHasDelegationCall(e *tolast.Expr) bool {
+	if e == nil {
+		return false
+	}
+	if e.Kind == "call" {
+		callee := stripTolParens(e.Callee)
+		if callee != nil && callee.Kind == "member" {
+			obj := stripTolParens(callee.Object)
+			if obj != nil && obj.Kind == "ident" &&
+				strings.TrimSpace(obj.Value) == "delegation" {
+				m := strings.TrimSpace(callee.Member)
+				if m == "verify" || m == "consume" {
+					return true
+				}
+			}
+		}
+	}
+	if exprHasDelegationCall(e.Left) || exprHasDelegationCall(e.Right) ||
+		exprHasDelegationCall(e.Callee) || exprHasDelegationCall(e.Object) ||
+		exprHasDelegationCall(e.Index) {
+		return true
+	}
+	for _, a := range e.Args {
+		if exprHasDelegationCall(a) {
+			return true
+		}
 	}
 	return false
 }
@@ -1017,23 +1077,45 @@ local __tol_slash   = tos and type(tos.slash)=="function"   and tos.slash   or f
 `)
 	}
 
-	// 9. Delegation verify helper (emitted if any function is @delegated).
-	hasDelegated := false
+	// 9. Delegation helpers (emitted if any function is @delegated OR any body uses delegation.verify/consume).
+	needsDelegation := false
 	for _, fn := range p.Functions {
-		if fn.Doc != nil && fn.Doc.Delegated {
-			hasDelegated = true
+		if (fn.Doc != nil && fn.Doc.Delegated) || bodyHasDelegationCall(fn.Body) {
+			needsDelegation = true
 			break
 		}
 	}
-	if hasDelegated {
+	if !needsDelegation && p.HasConstructor {
+		needsDelegation = bodyHasDelegationCall(p.ConstructorBody)
+	}
+	if needsDelegation {
 		sb.WriteString(`
-local __tol_delegation_verify = tos and type(tos.delegationused)=="function" and function(nonce, sig)
-  if tos.delegationused(nonce) ~= 0 then error("DelegationNonceUsed") end
-  if tos and type(tos.verify_sig)=="function" then
-    if not tos.verify_sig(msg.sender, nonce, sig) then error("DelegationInvalidSig") end
+local __tol_delegation_verify = function(sig_hex, principal, scope_hash, expiry_ms, nonce)
+  local hex = sig_hex
+  if type(hex) == "string" and string.sub(hex, 1, 2) == "0x" then
+    hex = string.sub(hex, 3)
   end
-  if tos and type(tos.setdelegationused)=="function" then tos.setdelegationused(nonce) end
-end or function(nonce, sig) error("delegation.verify: tos unavailable") end
+  local r = "0x" .. string.sub(hex, 1, 64)
+  local s = "0x" .. string.sub(hex, 65, 128)
+  local v = tonumber(string.sub(hex, 129, 130), 16) or 0
+  local payload = tostring(principal) .. tostring(scope_hash) .. tostring(expiry_ms) .. tostring(nonce)
+  local hash = keccak256(payload)
+  if not (tos ~= nil and type(tos.delegationverify) == "function") then
+    error("DelegationVerifyUnavailable")
+  end
+  local ok = tos.delegationverify(hash, v, r, s, principal, scope_hash, expiry_ms, nonce)
+  if not ok then error("DelegationInvalid") end
+  local delegate = (msg ~= nil and msg.sender) or ("0x" .. string.rep("0", 40))
+  return {principal=principal, delegate=delegate, scope=scope_hash, is_valid=true, _nonce=nonce}
+end
+
+local __tol_delegation_consume = function(sig_hex, principal, scope_hash, expiry_ms, nonce)
+  local d = __tol_delegation_verify(sig_hex, principal, scope_hash, expiry_ms, nonce)
+  if tos ~= nil and type(tos.delegationmarkused) == "function" then
+    tos.delegationmarkused(principal, nonce)
+  end
+  return d
+end
 `)
 	}
 
@@ -2649,6 +2731,35 @@ func buildRequiresCapPreamble(caps []string) ([]luast.Stmt, error) {
 	return stmts, nil
 }
 
+// buildQuotaPreamble emits Lua guard statements for @quota(calls: N, price: M) annotations.
+// The quota ledger uses per-caller/per-function storage slots. Each call decrements the caller's
+// quota balance. When the balance is zero, the call reverts with "QuotaExhausted".
+// A companion purchase function (purchase_quota_<fnName>) is emitted to let callers buy quota.
+//
+// Emitted preamble:
+//
+//	local __quota_caller = msg and msg.sender or "0x"..("0"):rep(40)
+//	local __quota_slot = keccak256("tol.quota.<contract>.<fn>." .. __quota_caller)
+//	local __quota_bal = __tol_sload(__quota_slot)
+//	if __quota_bal == 0 then error("QuotaExhausted") end
+//	__tol_sstore(__quota_slot, __quota_bal - 1)
+func buildQuotaPreamble(fnName, quotaCalls, quotaPrice string) ([]luast.Stmt, error) {
+	_ = quotaCalls // stored in ABI; runtime only needs the slot
+	_ = quotaPrice
+	var sb strings.Builder
+	sb.WriteString("local __quota_caller = msg and msg.sender or (\"0x\"..string.rep(\"0\", 40))\n")
+	sb.WriteString(fmt.Sprintf("local __quota_slot = keccak256(%q .. __quota_caller)\n",
+		"tol.quota."+fnName+"."))
+	sb.WriteString("local __quota_bal = __tol_sload(__quota_slot)\n")
+	sb.WriteString("if __quota_bal == 0 then error(\"QuotaExhausted\") end\n")
+	sb.WriteString("__tol_sstore(__quota_slot, __quota_bal - 1)\n")
+	stmts, err := parse.Parse(bytes.NewReader([]byte(sb.String())), "<tol-quota-preamble>")
+	if err != nil {
+		return nil, fmt.Errorf("[%s] failed to build @quota preamble: %w", diag.CodeLowerUnsupportedFeature, err)
+	}
+	return stmts, nil
+}
+
 func lowerFunctionToLua(fn lower.Function, env *loweringEnv) (luast.Stmt, error) {
 	if strings.TrimSpace(fn.Name) == "" {
 		return nil, fmt.Errorf("[%s] function name cannot be empty", diag.CodeLowerUnsupportedFeature)
@@ -2724,6 +2835,16 @@ func lowerFunctionToLua(fn lower.Function, env *loweringEnv) (luast.Stmt, error)
 		}
 		body = append(payPreamble, body...)
 	}
+
+	// Inject @quota preamble (per-caller quota ledger decrement).
+	if fn.Doc != nil && fn.Doc.QuotaCalls != "" {
+		quotaPreamble, qErr := buildQuotaPreamble(fn.Name, fn.Doc.QuotaCalls, fn.Doc.QuotaPrice)
+		if qErr != nil {
+			return nil, qErr
+		}
+		body = append(quotaPreamble, body...)
+	}
+
 	nameExpr := withLineExpr(&luast.IdentExpr{Value: luaFuncName})
 	fnExpr := withLineExpr(&luast.FunctionExpr{
 		ParList: &luast.ParList{
@@ -2794,7 +2915,27 @@ func lowerLibraryFunctionToLua(libName string, fn lower.Function, env *loweringE
 	}, 1), nil
 }
 
-func lowerConstructorToLua(params []tolast.FieldDecl, body []tolast.Statement, env *loweringEnv) (luast.Stmt, error) {
+// computeAAMarkerSlot computes keccak256("tol.aa.validate") at build time.
+// This is the storage slot the gtos protocol checks to identify AA wallet contracts.
+func computeAAMarkerSlot() string {
+	h := sha3.NewLegacyKeccak256()
+	_, _ = h.Write([]byte("tol.aa.validate"))
+	return "0x" + hex.EncodeToString(h.Sum(nil))
+}
+
+// buildAAMarkerLuaStmts returns the Lua statements that store the AA marker in the
+// constructor: __tol_sstore("<keccak256('tol.aa.validate')>", 1)
+func buildAAMarkerLuaStmts() ([]luast.Stmt, error) {
+	slot := computeAAMarkerSlot()
+	src := fmt.Sprintf("__tol_sstore(%q, 1)\n", slot)
+	stmts, err := parse.Parse(bytes.NewReader([]byte(src)), "<tol-aa-marker>")
+	if err != nil {
+		return nil, fmt.Errorf("[%s] failed to build AA marker: %w", diag.CodeLowerUnsupportedFeature, err)
+	}
+	return stmts, nil
+}
+
+func lowerConstructorToLua(params []tolast.FieldDecl, body []tolast.Statement, env *loweringEnv, isAccount bool) (luast.Stmt, error) {
 	parNames := make([]string, 0, len(params))
 	for _, p := range params {
 		name := strings.TrimSpace(p.Name)
@@ -2823,6 +2964,15 @@ func lowerConstructorToLua(params []tolast.FieldDecl, body []tolast.Statement, e
 			return nil, gErr
 		}
 		stmts = append(guardStmts, stmts...)
+	}
+
+	// For account contracts, prepend the AA marker sstore as the very first statement.
+	if isAccount {
+		aaStmts, aaErr := buildAAMarkerLuaStmts()
+		if aaErr != nil {
+			return nil, aaErr
+		}
+		stmts = append(aaStmts, stmts...)
 	}
 
 	nameExpr := withLineExpr(&luast.IdentExpr{Value: "__tol_constructor"})
@@ -4669,11 +4819,12 @@ func lowerHostBuiltinCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 }
 
 // lowerAgentNativeCallExpr handles agent-native call expressions:
-//   - agent(expr)                            → __tol_agent_cast(expr)
-//   - escrow(agent, amount, purpose)         → __tol_escrow(agent, amount, __tol_pur_purpose)
-//   - release(agent, amount, purpose)        → __tol_release(agent, amount, __tol_pur_purpose)
-//   - slash(agent, amount, recipient, purp)  → __tol_slash(agent, amount, recipient, __tol_pur_purpose)
-//   - delegation.verify(nonce, sig)          → __tol_delegation_verify(nonce, sig)
+//   - agent(expr)                                                → __tol_agent_cast(expr)
+//   - escrow(agent, amount, purpose)                            → __tol_escrow(agent, amount, __tol_pur_purpose)
+//   - release(agent, amount, purpose)                           → __tol_release(agent, amount, __tol_pur_purpose)
+//   - slash(agent, amount, recipient, purp)                     → __tol_slash(agent, amount, recipient, __tol_pur_purpose)
+//   - delegation.verify(sig, principal, scope, expiry, nonce)   → __tol_delegation_verify(...)
+//   - delegation.consume(sig, principal, scope, expiry, nonce)  → __tol_delegation_consume(...)
 //
 // Returns (expr, true, nil) on match, (nil, false, nil) if not an agent-native call.
 func lowerAgentNativeCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
@@ -4685,28 +4836,37 @@ func lowerAgentNativeCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 		return nil, false, nil
 	}
 
-	// delegation.verify(nonce, sig) — member call on "delegation" object.
+	// delegation.verify(sig, principal, scope_hash, expiry_ms, nonce)
+	// delegation.consume(sig, principal, scope_hash, expiry_ms, nonce)
+	// — member calls on the "delegation" namespace.
 	if callee.Kind == "member" {
 		obj := stripTolParens(callee.Object)
 		if obj != nil && obj.Kind == "ident" &&
-			strings.TrimSpace(obj.Value) == "delegation" &&
-			strings.TrimSpace(callee.Member) == "verify" {
-			if len(e.Args) != 2 {
-				return nil, true, fmt.Errorf("[%s] delegation.verify(nonce, sig) requires exactly 2 arguments", diag.CodeLowerUnsupportedFeature)
+			strings.TrimSpace(obj.Value) == "delegation" {
+			method := strings.TrimSpace(callee.Member)
+			switch method {
+			case "verify", "consume":
+				if len(e.Args) != 5 {
+					return nil, true, fmt.Errorf("[%s] delegation.%s(sig, principal, scope_hash, expiry_ms, nonce) requires exactly 5 arguments", diag.CodeLowerUnsupportedFeature, method)
+				}
+				luaArgs := make([]luast.Expr, 0, 5)
+				for _, a := range e.Args {
+					la, err := tolExprToLua(ctx, a)
+					if err != nil {
+						return nil, true, err
+					}
+					luaArgs = append(luaArgs, la)
+				}
+				hostFn := "__tol_delegation_verify"
+				if method == "consume" {
+					hostFn = "__tol_delegation_consume"
+				}
+				return withLineExpr(&luast.FuncCallExpr{
+					Func:      withLineExpr(&luast.IdentExpr{Value: hostFn}),
+					Args:      luaArgs,
+					AdjustRet: true,
+				}), true, nil
 			}
-			nonce, err := tolExprToLua(ctx, e.Args[0])
-			if err != nil {
-				return nil, true, err
-			}
-			sig, err := tolExprToLua(ctx, e.Args[1])
-			if err != nil {
-				return nil, true, err
-			}
-			return withLineExpr(&luast.FuncCallExpr{
-				Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_delegation_verify"}),
-				Args:      []luast.Expr{nonce, sig},
-				AdjustRet: true,
-			}), true, nil
 		}
 		return nil, false, nil
 	}

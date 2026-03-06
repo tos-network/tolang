@@ -122,12 +122,13 @@ const (
 	// Deprecation warnings (aligned with Solidity error codes where applicable).
 	CodeWarnYearsUnit = "TOL4820" // 'years' unit denomination is deprecated (Solidity 4820)
 
-	// Effect annotation diagnostics (TOL2200–TOL2205)
+	// Effect annotation diagnostics (TOL2200–TOL2209)
 	CodeEffectUndeclared     = "TOL2200" // inferred effect not covered by declared effect set
 	CodeEffectGasUnbounded   = "TOL2201" // @gas upper declared but function is UNBOUNDED
 	CodeEffectGasTooLow      = "TOL2202" // declared @gas upper < inferred conservative upper bound
 	CodeEffectEmptyCalls     = "TOL2204" // @effects calls:[] declared but external call found in IR
 	CodeEffectSelectorNoSite = "TOL2205" // @effects calls: declared selector has no matching IR call site
+	CodeEffectTotalCostExceeded = "TOL2209" // @total_cost(max) inconsistent with @gas and @pay
 
 	// Agent-native diagnostics (TOL2300–TOL2315)
 	CodeAgentCapabilityDup          = "TOL2300" // capability already declared in this contract
@@ -146,6 +147,7 @@ const (
 	CodeAgentCapabilityNameNotLit   = "TOL2313" // capability name must be a string literal
 	CodeAgentVerifiableNonPure      = "TOL2314" // @verifiable requires pure or view function
 	CodeAgentTaskInvalidTransition  = "TOL2315" // task state transition invalid
+	CodeAgentMissingValidate        = "TOL2316" // account contract missing validate(bytes32,bytes)→bool
 
 	CodeLowerNotImplemented      = "TOL3001"
 	CodeLowerUnsupportedFeature  = "TOL3002"

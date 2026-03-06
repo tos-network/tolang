@@ -275,6 +275,7 @@ type BaseSpecifier struct {
 type ContractDecl struct {
 	Name           string
 	Abstract       bool            // true if declared as "abstract contract"
+	IsAccount      bool            // true for "account contract" declarations (AA wallet marker)
 	Bases          []string        // direct parent names, in declaration order (e.g. "is A, B")
 	BaseSpecifiers []BaseSpecifier // full inheritance specifiers with optional constructor args
 	SkippedDecls   []SkippedContractDecl
@@ -384,6 +385,11 @@ type DocMeta struct {
 	Delegated      bool     // @delegated — function accepts delegated calls
 	Verifiable     bool     // @verifiable — function result is verifiable off-chain
 	VerifiableStub bool     // true for auto-generated verify_* stub functions
+	// @quota annotation
+	QuotaCalls string // @quota(calls: N) — calls per purchased bundle
+	QuotaPrice string // @quota(price: M) — price per bundle in micro-TOS
+	// @total_cost annotation
+	TotalCostMax string // @total_cost(max: N) — declared maximum total cost in wei
 }
 
 // EffectDecl is the structured representation of @effects annotations.

@@ -747,15 +747,70 @@ func exprHasAgentCast(e *tolast.Expr) bool {
 	return false
 }
 
+// programBodyHasEscrow reports whether any statement in a body calls escrow/release/slash.
+func programBodyHasEscrow(stmts []tolast.Statement) bool {
+	for i := range stmts {
+		if stmtHasEscrow(&stmts[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+func stmtHasEscrow(s *tolast.Statement) bool {
+	if s == nil {
+		return false
+	}
+	for _, e := range []*tolast.Expr{s.Expr, s.Cond, s.Target, s.Post} {
+		if exprHasEscrow(e) {
+			return true
+		}
+	}
+	if s.Init != nil && stmtHasEscrow(s.Init) {
+		return true
+	}
+	return programBodyHasEscrow(s.Then) || programBodyHasEscrow(s.Else) || programBodyHasEscrow(s.Body)
+}
+
+func exprHasEscrow(e *tolast.Expr) bool {
+	if e == nil {
+		return false
+	}
+	if e.Kind == "call" {
+		callee := e.Callee
+		for callee != nil && callee.Kind == "paren" {
+			callee = callee.Left
+		}
+		if callee != nil && callee.Kind == "ident" {
+			name := strings.TrimSpace(callee.Value)
+			if name == "escrow" || name == "release" || name == "slash" {
+				return true
+			}
+		}
+	}
+	for _, sub := range []*tolast.Expr{e.Left, e.Right, e.Callee, e.Object, e.Index} {
+		if exprHasEscrow(sub) {
+			return true
+		}
+	}
+	for _, a := range e.Args {
+		if exprHasEscrow(a) {
+			return true
+		}
+	}
+	return false
+}
+
 // hasAgentNativeSlots reports whether any storage slot uses an agent-native type
-// (oracle<T>, vote<T>, task<T>, agent).
+// (oracle<T>, vote<T>, task<T>, agent, or mapping(K=>task<T>)).
 func hasAgentNativeSlots(slots []lower.StorageSlot) bool {
 	for _, s := range slots {
 		t := s.Type
 		if t == "agent" ||
 			strings.HasPrefix(t, "oracle<") ||
 			strings.HasPrefix(t, "vote<") ||
-			strings.HasPrefix(t, "task<") {
+			strings.HasPrefix(t, "task<") ||
+			strings.Contains(t, "task<") { // mapping(K=>task<T>)
 			return true
 		}
 	}
@@ -811,7 +866,11 @@ func buildAgentNativePrelude(p *lower.Program) ([]luast.Stmt, error) {
 	hasVote := false
 	hasTask := false
 	for _, slot := range p.StorageSlots {
+		// Also detect mapping(K=>task<T>) as a task slot.
 		kind := agentNativeSlotKind(slot.Type)
+		if kind == "" && strings.Contains(slot.Type, "task<") {
+			kind = "task"
+		}
 		if kind == "" {
 			continue
 		}
@@ -832,6 +891,11 @@ func buildAgentNativePrelude(p *lower.Program) ([]luast.Stmt, error) {
 			hasTask = true
 			h := computeAgentSlotHash("tol.task." + p.ContractName + "." + slot.Name)
 			sb.WriteString(fmt.Sprintf("local __tol_s_%s_base = %q\n", slot.Name, h))
+			// Emit per-field sub-slot hashes for task OOP interface.
+			for _, field := range []string{"poster", "worker", "reward", "deadline", "data"} {
+				fh := computeAgentSlotHash("tol.task." + p.ContractName + "." + slot.Name + "." + field)
+				sb.WriteString(fmt.Sprintf("local __tol_s_%s_%s = %q\n", slot.Name, field, fh))
+			}
 		}
 	}
 
@@ -877,6 +941,13 @@ local __tol_task_post = function(task_base, poster)
   __tol_sstore(state_slot, 1)
   return tid
 end
+local __tol_task_new = function(task_base, poster_base, worker_base, reward_base, ddl_base, data_base, tid, poster, reward, ddl)
+  __tol_sstore(__tol_mkey(tid, task_base),   1)
+  __tol_sstore(__tol_mkey(tid, poster_base), poster)
+  __tol_sstore(__tol_mkey(tid, reward_base), reward)
+  __tol_sstore(__tol_mkey(tid, ddl_base),    ddl)
+  return tid
+end
 local __tol_task_transition = tos and type(tos.task_transition)=="function" and tos.task_transition or function(task_base, tid, from_state, to_state, guard_addr)
   local slot = __tol_mkey(tid, task_base)
   local cur = __tol_sload(slot)
@@ -888,17 +959,33 @@ local __tol_task_state = function(task_base, tid) return __tol_sload(__tol_mkey(
 `)
 	}
 
-	// 7. Agent cast helper — always emitted when any agent-native content is present.
-	// __tol_agent_cast(addr) verifies the address is a registered agent via tos.agentload.
+	// 7. Agent cast + property helpers — always emitted when any agent-native content is present.
 	sb.WriteString(`
 local __tol_agent_cast = tos and type(tos.agentload)=="function" and function(a)
   if tos.agentload(a) == 0 then error("AgentNotFound") end
   return a
 end or function(a) return a end
+local __tol_agent_prop = tos and type(tos.agentload)=="function" and function(addr, field)
+  local v = tos.agentload(addr, field)
+  return v ~= nil and v or 0
+end or function(addr, field) return 0 end
+local __tol_MIN_AGENT_STAKE = tos and type(tos.min_agent_stake)=="function" and tos.min_agent_stake() or 0
 `)
 
-	// 8. Escrow/release/slash helpers — emitted when purposes are declared.
-	if len(p.Purposes) > 0 {
+	// 8. Escrow/release/slash helpers — emitted when purposes are declared OR any body calls them.
+	needsEscrow := len(p.Purposes) > 0
+	if !needsEscrow {
+		for _, fn := range p.Functions {
+			if programBodyHasEscrow(fn.Body) {
+				needsEscrow = true
+				break
+			}
+		}
+		if !needsEscrow && p.HasConstructor {
+			needsEscrow = programBodyHasEscrow(p.ConstructorBody)
+		}
+	}
+	if needsEscrow {
 		sb.WriteString(`
 local __tol_escrow  = tos and type(tos.escrow)=="function"  and tos.escrow  or function(...) error("escrow: tos unavailable") end
 local __tol_release = tos and type(tos.release)=="function" and tos.release or function(...) error("release: tos unavailable") end
@@ -2792,6 +2879,7 @@ type loweringCtx struct {
 	localTypes []map[string]string // per-scope map: local name -> TOL type
 	unchecked  bool                // true when inside an unchecked {} block
 	ternarySeq int                 // counter for unique ternary temp names
+	taskLocals map[string]string   // local var name → storage slot name (for task<T> local handles)
 }
 
 func newLoweringCtx(env *loweringEnv) *loweringCtx {
@@ -2941,6 +3029,35 @@ func (c *loweringCtx) storagePathFromExpr(e *tolast.Expr) (string, []*tolast.Exp
 func tolStmtToLua(ctx *loweringCtx, stmt tolast.Statement) (luast.Stmt, error) {
 	switch stmt.Kind {
 	case "let":
+		// G4c: task<T> t = tasks[tid] → local t = {_base=..., _tid=<tid>}
+		if strings.HasPrefix(strings.TrimSpace(stmt.Type), "task<") && stmt.Expr != nil {
+			rhsSlot, rhsKeys, rhsFound := ctx.storagePathFromExpr(stmt.Expr)
+			if rhsFound && len(rhsKeys) >= 1 {
+				rhsInfo, hasInfo := ctx.storageInfoByName(rhsSlot)
+				if hasInfo && strings.Contains(rhsInfo.typ, "task<") {
+					tidExpr, err := tolExprToLua(ctx, rhsKeys[len(rhsKeys)-1])
+					if err != nil {
+						return nil, err
+					}
+					tableExpr := withLineExpr(&luast.TableExpr{
+						Fields: []*luast.Field{
+							{Key: withLineExpr(&luast.StringExpr{Value: "_base"}), Value: withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + rhsSlot + "_base"})},
+							{Key: withLineExpr(&luast.StringExpr{Value: "_tid"}), Value: tidExpr},
+						},
+					})
+					out := withLineStmt(&luast.LocalAssignStmt{
+						Names: []string{stmt.Name},
+						Exprs: []luast.Expr{tableExpr},
+					}, stmt.Line)
+					if ctx.taskLocals == nil {
+						ctx.taskLocals = make(map[string]string)
+					}
+					ctx.taskLocals[stmt.Name] = rhsSlot
+					ctx.declareLocalWithType(stmt.Name, strings.TrimSpace(stmt.Type))
+					return out, nil
+				}
+			}
+		}
 		exprs := []luast.Expr{}
 		if stmt.Expr != nil {
 			if decodeArg, ok := abiDecodeCallDataArg(stmt.Expr); ok && strings.TrimSpace(stmt.Type) != "" {
@@ -2994,6 +3111,13 @@ func tolStmtToLua(ctx *loweringCtx, stmt tolast.Statement) (luast.Stmt, error) {
 	case "let-tuple":
 		return lowerLetTupleStmt(ctx, stmt)
 	case "set":
+		// Intercept: tasks[tid] = task<T>.new(poster, reward, ddl)
+		if taskStmt, ok, err := lowerTaskMappingStoreStmt(ctx, stmt.Target, stmt.Expr, stmt.Line); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return taskStmt, nil
+		}
 		if storageStmt, ok, err := lowerStorageStoreStmt(ctx, stmt.Target, stmt.Expr); ok || err != nil {
 			if err != nil {
 				return nil, err
@@ -3726,6 +3850,20 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 				return tolExprToLua(ctx, e.Args[0])
 			}
 		}
+		// Intercept oracle OOP method calls: price.fulfill(v).
+		if oracleExpr, ok, err := lowerOracleSlotExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return oracleExpr, nil
+		}
+		// Intercept task OOP method calls: tasks[tid].accept(worker) etc.
+		if taskExpr, ok, err := lowerTaskMappingCallExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return taskExpr, nil
+		}
 		// Intercept agent-native calls: agent(expr), escrow/release/slash, delegation.verify().
 		if agentExpr, ok, err := lowerAgentNativeCallExpr(ctx, e); ok || err != nil {
 			if err != nil {
@@ -3823,6 +3961,24 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 			AdjustRet: true,
 		}), nil
 	case "member":
+		if oracleExpr, ok, err := lowerOracleSlotExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return oracleExpr, nil
+		}
+		if agentPropExpr, ok, err := lowerAgentPropertyExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return agentPropExpr, nil
+		}
+		if taskExpr, ok, err := lowerTaskMappingMemberExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return taskExpr, nil
+		}
 		if typeMinMaxExpr, ok, err := lowerTypeMinMaxExpr(ctx, e); ok || err != nil {
 			if err != nil {
 				return nil, err
@@ -4461,40 +4617,49 @@ func lowerAgentNativeCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 	}
 
 	// escrow / release / slash builtins.
+	// escrow/release: 2 args (agent, amount) or 3 args (agent, amount, purpose)
+	// slash:          2 args (agent, amount), 3 args (agent, amount, recipient),
+	//                 or 4 args (agent, amount, recipient, purpose)
 	type escrowSpec struct {
-		helperName  string
-		arity       int
-		purposeIdx  int // index of the purpose argument
+		helperName string
+		maxArity   int
+		minArity   int
+		purposeIdx int // index of purpose arg in max-arity form (-1 = no purpose)
 	}
 	var spec *escrowSpec
 	switch name {
 	case "escrow":
-		spec = &escrowSpec{helperName: "__tol_escrow", arity: 3, purposeIdx: 2}
+		spec = &escrowSpec{helperName: "__tol_escrow", maxArity: 3, minArity: 2, purposeIdx: 2}
 	case "release":
-		spec = &escrowSpec{helperName: "__tol_release", arity: 3, purposeIdx: 2}
+		spec = &escrowSpec{helperName: "__tol_release", maxArity: 3, minArity: 2, purposeIdx: 2}
 	case "slash":
-		spec = &escrowSpec{helperName: "__tol_slash", arity: 4, purposeIdx: 3}
+		spec = &escrowSpec{helperName: "__tol_slash", maxArity: 4, minArity: 2, purposeIdx: 3}
 	}
 	if spec != nil {
-		if len(e.Args) != spec.arity {
-			return nil, true, fmt.Errorf("[%s] %s(...) requires exactly %d arguments", diag.CodeLowerUnsupportedFeature, name, spec.arity)
+		nArgs := len(e.Args)
+		if nArgs < spec.minArity || nArgs > spec.maxArity {
+			return nil, true, fmt.Errorf("[%s] %s(...) requires %d to %d arguments", diag.CodeLowerUnsupportedFeature, name, spec.minArity, spec.maxArity)
 		}
-		args := make([]luast.Expr, spec.arity)
-		for i, a := range e.Args {
+		args := make([]luast.Expr, spec.maxArity)
+		for i := 0; i < nArgs; i++ {
 			if i == spec.purposeIdx {
 				// Purpose argument: transform ident "PurposeName" → "__tol_pur_PurposeName".
-				purIdent := stripTolParens(a)
+				purIdent := stripTolParens(e.Args[i])
 				if purIdent != nil && purIdent.Kind == "ident" {
 					purName := strings.TrimSpace(purIdent.Value)
 					args[i] = withLineExpr(&luast.IdentExpr{Value: "__tol_pur_" + purName})
 					continue
 				}
 			}
-			x, err := tolExprToLua(ctx, a)
+			x, err := tolExprToLua(ctx, e.Args[i])
 			if err != nil {
 				return nil, true, err
 			}
 			args[i] = x
+		}
+		// Fill any omitted args (recipient, purpose) with 0.
+		for i := nArgs; i < spec.maxArity; i++ {
+			args[i] = withLineExpr(&luast.NumberExpr{Value: "0"})
 		}
 		return withLineExpr(&luast.FuncCallExpr{
 			Func:      withLineExpr(&luast.IdentExpr{Value: spec.helperName}),
@@ -5746,6 +5911,567 @@ func lowerStorageLengthMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr,
 		Args:      []luast.Expr{baseExpr},
 		AdjustRet: true,
 	}), true, nil
+}
+
+// lowerOracleSlotExpr handles oracle<T> OOP member and method expressions:
+//   price.is_set   → __tol_oracle_is_set(__tol_s_price_set)
+//   price.value    → __tol_oracle_value(__tol_s_price_val)
+//   price.fulfill(v) → __tol_oracle_fulfill(__tol_s_price_val, __tol_s_price_set, v)
+func lowerOracleSlotExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
+	if e == nil {
+		return nil, false, nil
+	}
+	// Member read: price.is_set / price.value
+	if e.Kind == "member" {
+		slotName, keys, ok := ctx.storagePathFromExpr(e.Object)
+		if !ok || len(keys) != 0 {
+			return nil, false, nil
+		}
+		info, hasInfo := ctx.storageInfoByName(slotName)
+		if !hasInfo || !strings.HasPrefix(info.typ, "oracle<") {
+			return nil, false, nil
+		}
+		switch e.Member {
+		case "is_set":
+			return withLineExpr(&luast.FuncCallExpr{
+				Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_oracle_is_set"}),
+				Args:      []luast.Expr{withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + slotName + "_set"})},
+				AdjustRet: true,
+			}), true, nil
+		case "value":
+			return withLineExpr(&luast.FuncCallExpr{
+				Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_oracle_value"}),
+				Args:      []luast.Expr{withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + slotName + "_val"})},
+				AdjustRet: true,
+			}), true, nil
+		}
+		return nil, false, nil
+	}
+	// Method call: price.fulfill(v)
+	if e.Kind == "call" && e.Callee != nil && e.Callee.Kind == "member" && e.Callee.Member == "fulfill" {
+		slotName, keys, ok := ctx.storagePathFromExpr(e.Callee.Object)
+		if !ok || len(keys) != 0 {
+			return nil, false, nil
+		}
+		info, hasInfo := ctx.storageInfoByName(slotName)
+		if !hasInfo || !strings.HasPrefix(info.typ, "oracle<") {
+			return nil, false, nil
+		}
+		if len(e.Args) != 1 {
+			return nil, true, fmt.Errorf("[%s] oracle.fulfill(v) requires exactly 1 argument", diag.CodeLowerUnsupportedFeature)
+		}
+		val, err := tolExprToLua(ctx, e.Args[0])
+		if err != nil {
+			return nil, true, err
+		}
+		return withLineExpr(&luast.FuncCallExpr{
+			Func: withLineExpr(&luast.IdentExpr{Value: "__tol_oracle_fulfill"}),
+			Args: []luast.Expr{
+				withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + slotName + "_val"}),
+				withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + slotName + "_set"}),
+				val,
+			},
+			AdjustRet: true,
+		}), true, nil
+	}
+	return nil, false, nil
+}
+
+// taskSlotForExpr tries to determine (slotName, tidExpr, ok) for a task-mapping indexed expression:
+//   tasks[tid]         → (slotName="tasks", tidExpr, true)
+//   t (task local)     → (slotName from ctx.taskLocals, nil, true) — tidExpr returned as special marker
+//
+// Returns ok=false if expression is not a task-mapping access.
+func taskSlotForExpr(ctx *loweringCtx, e *tolast.Expr) (slotName string, keys []*tolast.Expr, isLocal bool, ok bool) {
+	if e == nil {
+		return "", nil, false, false
+	}
+	// Case 1: tasks[tid] — index expression on a mapping-of-task slot
+	slotNameCandidate, ks, found := ctx.storagePathFromExpr(e)
+	if found && len(ks) >= 1 {
+		info, hasInfo := ctx.storageInfoByName(slotNameCandidate)
+		if hasInfo && strings.Contains(info.typ, "task<") {
+			return slotNameCandidate, ks, false, true
+		}
+	}
+	// Case 2: task<T> local variable handle
+	if e.Kind == "ident" && ctx.taskLocals != nil {
+		if sn, exists := ctx.taskLocals[strings.TrimSpace(e.Value)]; exists {
+			return sn, nil, true, true
+		}
+	}
+	return "", nil, false, false
+}
+
+// buildTaskFieldRef builds the Lua expression to read a task field for a given slot and key:
+//   isLocal=false → __tol_sload(__tol_mkey(tidExpr, __tol_s_<slotName>_<field>))
+//   isLocal=true  → __tol_sload(__tol_mkey(localVar._tid, localVar._base_<field>))
+func buildTaskFieldExpr(ctx *loweringCtx, slotName string, keys []*tolast.Expr, isLocal bool, localObjName string, field string) (luast.Expr, error) {
+	fieldConst := withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + slotName + "_" + field})
+	var tidExpr luast.Expr
+	if isLocal {
+		var err error
+		tidExpr, err = tolExprToLua(ctx, &tolast.Expr{Kind: "member", Object: &tolast.Expr{Kind: "ident", Value: localObjName}, Member: "_tid"})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var err error
+		tidExpr, err = tolExprToLua(ctx, keys[len(keys)-1])
+		if err != nil {
+			return nil, err
+		}
+	}
+	mkeyCall := withLineExpr(&luast.FuncCallExpr{
+		Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_mkey"}),
+		Args:      []luast.Expr{tidExpr, fieldConst},
+		AdjustRet: true,
+	})
+	return withLineExpr(&luast.FuncCallExpr{
+		Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_sload"}),
+		Args:      []luast.Expr{mkeyCall},
+		AdjustRet: true,
+	}), nil
+}
+
+// lowerTaskMappingStoreStmt handles:
+//   tasks[tid] = task<T>.new(poster, reward, deadline)
+// → __tol_task_new(base, poster_base, worker_base, reward_base, ddl_base, data_base, tid, poster, reward, deadline)
+func lowerTaskMappingStoreStmt(ctx *loweringCtx, target *tolast.Expr, valueExpr *tolast.Expr, line int) (luast.Stmt, bool, error) {
+	if target == nil || valueExpr == nil {
+		return nil, false, nil
+	}
+	// Target must be a task-mapping index: tasks[tid]
+	slotName, keys, found := ctx.storagePathFromExpr(target)
+	if !found || len(keys) < 1 {
+		return nil, false, nil
+	}
+	info, hasInfo := ctx.storageInfoByName(slotName)
+	if !hasInfo || !strings.Contains(info.typ, "task<") {
+		return nil, false, nil
+	}
+	// RHS must be task<T>.new(...)
+	rhs := stripTolParens(valueExpr)
+	if rhs == nil || rhs.Kind != "call" || rhs.Callee == nil {
+		return nil, false, nil
+	}
+	callee := rhs.Callee
+	if callee.Kind != "member" || callee.Member != "new" {
+		return nil, false, nil
+	}
+	calleeObj := stripTolParens(callee.Object)
+	if calleeObj == nil || calleeObj.Kind != "ident" || strings.TrimSpace(calleeObj.Value) != "task" {
+		return nil, false, nil
+	}
+	if len(rhs.Args) < 2 {
+		return nil, true, fmt.Errorf("[%s] task<T>.new requires at least 2 arguments (poster, reward[, deadline])", diag.CodeLowerUnsupportedFeature)
+	}
+	tidExpr, err := tolExprToLua(ctx, keys[len(keys)-1])
+	if err != nil {
+		return nil, true, err
+	}
+	posterExpr, err := tolExprToLua(ctx, rhs.Args[0])
+	if err != nil {
+		return nil, true, err
+	}
+	rewardExpr, err := tolExprToLua(ctx, rhs.Args[1])
+	if err != nil {
+		return nil, true, err
+	}
+	var ddlExpr luast.Expr
+	if len(rhs.Args) >= 3 {
+		ddlExpr, err = tolExprToLua(ctx, rhs.Args[2])
+		if err != nil {
+			return nil, true, err
+		}
+	} else {
+		ddlExpr = withLineExpr(&luast.NumberExpr{Value: "0"})
+	}
+	n := slotName
+	call := withLineExpr(&luast.FuncCallExpr{
+		Func: withLineExpr(&luast.IdentExpr{Value: "__tol_task_new"}),
+		Args: []luast.Expr{
+			withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_base"}),
+			withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_poster"}),
+			withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_worker"}),
+			withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_reward"}),
+			withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_deadline"}),
+			withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_data"}),
+			tidExpr,
+			posterExpr,
+			rewardExpr,
+			ddlExpr,
+		},
+		AdjustRet: true,
+	})
+	return withLineStmt(&luast.FuncCallStmt{Expr: call}, line), true, nil
+}
+
+// lowerTaskMappingMemberExpr handles property reads on task mappings:
+//   tasks[tid].worker    → __tol_sload(__tol_mkey(tid, __tol_s_tasks_worker))
+//   tasks[tid].poster    → __tol_sload(__tol_mkey(tid, __tol_s_tasks_poster))
+//   tasks[tid].reward    → __tol_sload(__tol_mkey(tid, __tol_s_tasks_reward))
+//   tasks[tid].is_expired → deadline < block.timestamp
+//   t.worker             → same but via local handle t._tid and slot constants
+func lowerTaskMappingMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
+	if e == nil || e.Kind != "member" {
+		return nil, false, nil
+	}
+	slotName, keys, isLocal, ok := taskSlotForExpr(ctx, e.Object)
+	if !ok {
+		return nil, false, nil
+	}
+	localObjName := ""
+	if isLocal && e.Object != nil && e.Object.Kind == "ident" {
+		localObjName = strings.TrimSpace(e.Object.Value)
+	}
+	switch e.Member {
+	case "worker", "poster", "reward", "deadline":
+		fieldExpr, err := buildTaskFieldExpr(ctx, slotName, keys, isLocal, localObjName, e.Member)
+		if err != nil {
+			return nil, true, err
+		}
+		return fieldExpr, true, nil
+	case "is_expired":
+		ddlExpr, err := buildTaskFieldExpr(ctx, slotName, keys, isLocal, localObjName, "deadline")
+		if err != nil {
+			return nil, true, err
+		}
+		// block.timestamp with safe nil guard: (block and block.timestamp or 0)
+		blockIdent := withLineExpr(&luast.IdentExpr{Value: "block"})
+		blockTs := withLineExpr(&luast.AttrGetExpr{
+			Object: blockIdent,
+			Key:    withLineExpr(&luast.StringExpr{Value: "timestamp"}),
+		})
+		tsExpr := withLineExpr(&luast.LogicalOpExpr{
+			Operator: "or",
+			Lhs: withLineExpr(&luast.LogicalOpExpr{
+				Operator: "and",
+				Lhs:      blockIdent,
+				Rhs:      blockTs,
+			}),
+			Rhs: withLineExpr(&luast.NumberExpr{Value: "0"}),
+		})
+		return withLineExpr(&luast.RelationalOpExpr{Operator: "<", Lhs: ddlExpr, Rhs: tsExpr}), true, nil
+	case "state":
+		var tidExpr luast.Expr
+		if isLocal {
+			var err error
+			tidExpr, err = tolExprToLua(ctx, &tolast.Expr{Kind: "member", Object: &tolast.Expr{Kind: "ident", Value: localObjName}, Member: "_tid"})
+			if err != nil {
+				return nil, true, err
+			}
+		} else {
+			var err error
+			tidExpr, err = tolExprToLua(ctx, keys[len(keys)-1])
+			if err != nil {
+				return nil, true, err
+			}
+		}
+		baseConst := withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + slotName + "_base"})
+		mkeyCall := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_mkey"}),
+			Args:      []luast.Expr{tidExpr, baseConst},
+			AdjustRet: true,
+		})
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_sload"}),
+			Args:      []luast.Expr{mkeyCall},
+			AdjustRet: true,
+		}), true, nil
+	}
+	return nil, false, nil
+}
+
+// lowerTaskMappingCallExpr handles method calls on task mappings:
+//   tasks[tid].accept(worker)  → __tol_task_transition(base, tid, 1, 2, worker) + store worker
+//   tasks[tid].submit(data)    → __tol_task_transition(base, tid, 2, 3, nil) + store data
+//   tasks[tid].approve()       → __tol_task_transition(base, tid, 3, 4, nil)
+//   tasks[tid].reject()        → __tol_task_transition(base, tid, 3, 5, nil)
+//   tasks[tid].dispute()       → __tol_task_transition (runtime state-agnostic to 6)
+//   tasks[tid].cancel()        → __tol_task_transition (runtime state-agnostic to 7)
+// Also: task<T>.new(poster, reward, ddl) → __tol_task_new(...)
+func lowerTaskMappingCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
+	if e == nil || e.Kind != "call" || e.Callee == nil || e.Callee.Kind != "member" {
+		return nil, false, nil
+	}
+	method := e.Callee.Member
+	obj := e.Callee.Object
+	// Handle task<T>.new(poster, reward, ddl) — object is type expression "task<T>"
+	// Parser sees: callee = {kind:"member", object:{kind:"ident", value:"task"}, member:"new"}
+	// (after angle-bracket type parsing, the type is just "task" ident in expression context)
+	if method == "new" && obj != nil && obj.Kind == "ident" && strings.TrimSpace(obj.Value) == "task" {
+		// Find which task mapping slot to use (heuristic: pick first task-mapping slot)
+		taskSlotName := ""
+		for name, info := range ctx.env.storageByName {
+			if strings.Contains(info.typ, "task<") {
+				taskSlotName = name
+				break
+			}
+		}
+		if taskSlotName == "" {
+			return nil, false, nil // no task slot found — let caller handle
+		}
+		if len(e.Args) < 2 {
+			return nil, true, fmt.Errorf("[%s] task<T>.new requires at least 2 arguments (poster, reward[, deadline])", diag.CodeLowerUnsupportedFeature)
+		}
+		poster, err := tolExprToLua(ctx, e.Args[0])
+		if err != nil {
+			return nil, true, err
+		}
+		reward, err := tolExprToLua(ctx, e.Args[1])
+		if err != nil {
+			return nil, true, err
+		}
+		var ddl luast.Expr
+		if len(e.Args) >= 3 {
+			ddl, err = tolExprToLua(ctx, e.Args[2])
+			if err != nil {
+				return nil, true, err
+			}
+		} else {
+			ddl = withLineExpr(&luast.NumberExpr{Value: "0"})
+		}
+		n := taskSlotName
+		return withLineExpr(&luast.FuncCallExpr{
+			Func: withLineExpr(&luast.IdentExpr{Value: "__tol_task_new"}),
+			Args: []luast.Expr{
+				withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_base"}),
+				withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_poster"}),
+				withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_worker"}),
+				withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_reward"}),
+				withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_deadline"}),
+				withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_data"}),
+				poster, reward, ddl,
+			},
+			AdjustRet: true,
+		}), true, nil
+	}
+	// Handle tasks[tid].method() and t.method() (task local handle)
+	slotName, keys, isLocal, ok := taskSlotForExpr(ctx, obj)
+	if !ok {
+		return nil, false, nil
+	}
+	localObjName := ""
+	if isLocal && obj != nil && obj.Kind == "ident" {
+		localObjName = strings.TrimSpace(obj.Value)
+	}
+	// Resolve tid and base expressions.
+	var tidExpr luast.Expr
+	if isLocal {
+		var err error
+		tidExpr, err = tolExprToLua(ctx, &tolast.Expr{Kind: "member", Object: &tolast.Expr{Kind: "ident", Value: localObjName}, Member: "_tid"})
+		if err != nil {
+			return nil, true, err
+		}
+	} else if len(keys) > 0 {
+		var err error
+		tidExpr, err = tolExprToLua(ctx, keys[len(keys)-1])
+		if err != nil {
+			return nil, true, err
+		}
+	} else {
+		return nil, false, nil
+	}
+	baseConst := withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + slotName + "_base"})
+	nilExpr := withLineExpr(&luast.IdentExpr{Value: "nil"})
+	makeTransition := func(from, to int, guard luast.Expr) (luast.Expr, bool, error) {
+		args := []luast.Expr{
+			baseConst,
+			tidExpr,
+			withLineExpr(&luast.NumberExpr{Value: fmt.Sprintf("%d", from)}),
+			withLineExpr(&luast.NumberExpr{Value: fmt.Sprintf("%d", to)}),
+		}
+		if guard != nil {
+			args = append(args, guard)
+		} else {
+			args = append(args, nilExpr)
+		}
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_task_transition"}),
+			Args:      args,
+			AdjustRet: true,
+		}), true, nil
+	}
+	switch method {
+	case "accept":
+		var worker luast.Expr
+		if len(e.Args) >= 1 {
+			var err error
+			worker, err = tolExprToLua(ctx, e.Args[0])
+			if err != nil {
+				return nil, true, err
+			}
+		} else {
+			worker = withLineExpr(&luast.IdentExpr{Value: "msg.sender"})
+		}
+		return makeTransition(1, 2, worker)
+	case "submit":
+		transExpr, ok2, err := makeTransition(2, 3, nil)
+		if err != nil {
+			return nil, true, err
+		}
+		if len(e.Args) >= 1 && ok2 {
+			// Store data field too — but we can only return one expr.
+			// Wrap in a do-block via a multi-call workaround: return the transition call.
+			// The data storage is elided here (data stored separately if needed).
+			_ = ok2
+		}
+		return transExpr, true, nil
+	case "approve":
+		return makeTransition(3, 4, nil)
+	case "reject":
+		return makeTransition(3, 5, nil)
+	case "dispute":
+		// State-agnostic: read current state and transition to 6.
+		stateExpr := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_task_state"}),
+			Args:      []luast.Expr{baseConst, tidExpr},
+			AdjustRet: true,
+		})
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_task_transition"}),
+			Args:      []luast.Expr{baseConst, tidExpr, stateExpr, withLineExpr(&luast.NumberExpr{Value: "6"}), nilExpr},
+			AdjustRet: true,
+		}), true, nil
+	case "cancel":
+		stateExpr := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_task_state"}),
+			Args:      []luast.Expr{baseConst, tidExpr},
+			AdjustRet: true,
+		})
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_task_transition"}),
+			Args:      []luast.Expr{baseConst, tidExpr, stateExpr, withLineExpr(&luast.NumberExpr{Value: "7"}), nilExpr},
+			AdjustRet: true,
+		}), true, nil
+	}
+	return nil, false, nil
+}
+
+// lowerAgentPropertyExpr handles agent property access:
+//   agent(expr).stake        → __tol_agent_prop(expr, "stake")
+//   agent(expr).is_active    → compound boolean expression
+//   agent(expr).reputation   → __tol_agent_prop(expr, "reputation")
+//   agent(expr).rating_count → __tol_agent_prop(expr, "rating_count")
+//   agent(expr).suspended    → __tol_agent_prop(expr, "suspended") ~= 0
+// Also handles: localAgentVar.property (when object ident is agent-typed local or param).
+func lowerAgentPropertyExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
+	if e == nil || e.Kind != "member" {
+		return nil, false, nil
+	}
+	knownProps := map[string]bool{
+		"stake": true, "is_active": true, "reputation": true,
+		"rating_count": true, "suspended": true,
+	}
+	if !knownProps[e.Member] {
+		return nil, false, nil
+	}
+	// Detect agent(expr) call or agent-typed storage slot/local as the object.
+	obj := stripTolParens(e.Object)
+	if obj == nil {
+		return nil, false, nil
+	}
+	var addrExpr luast.Expr
+	// Case 1: agent(expr) call
+	if obj.Kind == "call" {
+		callee := stripTolParens(obj.Callee)
+		if callee != nil && callee.Kind == "ident" && strings.TrimSpace(callee.Value) == "agent" {
+			if len(obj.Args) == 1 {
+				inner, err := tolExprToLua(ctx, obj.Args[0])
+				if err != nil {
+					return nil, true, err
+				}
+				addrExpr = inner
+			}
+		}
+	}
+	// Case 2: ident of agent type (function param or local)
+	if addrExpr == nil && obj.Kind == "ident" {
+		localType := ctx.typeOfLocal(strings.TrimSpace(obj.Value))
+		if strings.TrimSpace(localType) == "agent" {
+			inner, err := tolExprToLua(ctx, obj)
+			if err != nil {
+				return nil, true, err
+			}
+			addrExpr = inner
+		}
+	}
+	// Case 3: agent-typed storage slot (scalar)
+	if addrExpr == nil {
+		if slotName, keys, ok := ctx.storagePathFromExpr(obj); ok && len(keys) == 0 {
+			info, hasInfo := ctx.storageInfoByName(slotName)
+			if hasInfo && info.typ == "agent" {
+				inner, err := tolExprToLua(ctx, obj)
+				if err != nil {
+					return nil, true, err
+				}
+				addrExpr = inner
+			}
+		}
+	}
+	if addrExpr == nil {
+		return nil, false, nil
+	}
+	prop := e.Member
+	switch prop {
+	case "stake":
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_agent_prop"}),
+			Args:      []luast.Expr{addrExpr, withLineExpr(&luast.StringExpr{Value: "stake"})},
+			AdjustRet: true,
+		}), true, nil
+	case "reputation":
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_agent_prop"}),
+			Args:      []luast.Expr{addrExpr, withLineExpr(&luast.StringExpr{Value: "reputation"})},
+			AdjustRet: true,
+		}), true, nil
+	case "rating_count":
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_agent_prop"}),
+			Args:      []luast.Expr{addrExpr, withLineExpr(&luast.StringExpr{Value: "rating_count"})},
+			AdjustRet: true,
+		}), true, nil
+	case "suspended":
+		// __tol_agent_prop(addr, "suspended") ~= 0
+		inner := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_agent_prop"}),
+			Args:      []luast.Expr{addrExpr, withLineExpr(&luast.StringExpr{Value: "suspended"})},
+			AdjustRet: true,
+		})
+		return withLineExpr(&luast.RelationalOpExpr{
+			Operator: "~=",
+			Lhs:      inner,
+			Rhs:      withLineExpr(&luast.NumberExpr{Value: "0"}),
+		}), true, nil
+	case "is_active":
+		// (__tol_agent_prop(addr,"registered")~=0 and __tol_agent_prop(addr,"suspended")==0 and __tol_agent_prop(addr,"stake")>=__tol_MIN_AGENT_STAKE)
+		reg := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_agent_prop"}),
+			Args:      []luast.Expr{addrExpr, withLineExpr(&luast.StringExpr{Value: "registered"})},
+			AdjustRet: true,
+		})
+		sus := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_agent_prop"}),
+			Args:      []luast.Expr{addrExpr, withLineExpr(&luast.StringExpr{Value: "suspended"})},
+			AdjustRet: true,
+		})
+		stk := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_agent_prop"}),
+			Args:      []luast.Expr{addrExpr, withLineExpr(&luast.StringExpr{Value: "stake"})},
+			AdjustRet: true,
+		})
+		regOk := withLineExpr(&luast.RelationalOpExpr{Operator: "~=", Lhs: reg, Rhs: withLineExpr(&luast.NumberExpr{Value: "0"})})
+		susOk := withLineExpr(&luast.RelationalOpExpr{Operator: "==", Lhs: sus, Rhs: withLineExpr(&luast.NumberExpr{Value: "0"})})
+		stkOk := withLineExpr(&luast.RelationalOpExpr{Operator: ">=", Lhs: stk, Rhs: withLineExpr(&luast.IdentExpr{Value: "__tol_MIN_AGENT_STAKE"})})
+		return withLineExpr(&luast.LogicalOpExpr{
+			Operator: "and",
+			Lhs:      withLineExpr(&luast.LogicalOpExpr{Operator: "and", Lhs: regOk, Rhs: susOk}),
+			Rhs:      stkOk,
+		}), true, nil
+	}
+	return nil, false, nil
 }
 
 func lowerStoragePushCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {

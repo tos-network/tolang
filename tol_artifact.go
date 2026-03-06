@@ -574,10 +574,32 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 		manifest := &tocABIManifest{}
 		extra := make(map[string]string)
 		for _, f := range c.Manifest.Fields {
-			// Strip surrounding quotes from string literal values stored by the parser.
-			val := f.Value
-			if len(val) >= 2 && val[0] == '"' && val[len(val)-1] == '"' {
-				val = val[1 : len(val)-1]
+			var val string
+			if f.IsArray {
+				// Serialize array as JSON: ["A","B"]
+				var sb strings.Builder
+				sb.WriteString("[")
+				for i, elem := range f.Array {
+					if i > 0 {
+						sb.WriteString(",")
+					}
+					// Strip quotes if element is a string literal
+					if len(elem) >= 2 && elem[0] == '"' && elem[len(elem)-1] == '"' {
+						sb.WriteString(elem) // already quoted
+					} else {
+						sb.WriteString(`"`)
+						sb.WriteString(elem)
+						sb.WriteString(`"`)
+					}
+				}
+				sb.WriteString("]")
+				val = sb.String()
+			} else {
+				// Strip surrounding quotes from string literal values stored by the parser.
+				val = f.Value
+				if len(val) >= 2 && val[0] == '"' && val[len(val)-1] == '"' {
+					val = val[1 : len(val)-1]
+				}
 			}
 			switch f.Key {
 			case "name":

@@ -21,9 +21,13 @@ import (
 //   - @pay: amount must not be empty (TOL2308), recipient must not be empty (TOL2309)
 //   - delegation.verify() only inside @delegated functions (TOL2310)
 //   - escrow/release/slash only inside payable functions (TOL2311)
-func checkAgentNativeDecls(filename string, c *ast.ContractDecl, diags *diag.Diagnostics, knownStructNames map[string]bool) {
-	// Build capability name set for lookup.
-	capNames := make(map[string]bool, len(c.Capabilities))
+// moduleCaps are top-level capabilities declared outside any contract (shared across file).
+func checkAgentNativeDecls(filename string, c *ast.ContractDecl, moduleCaps []ast.CapabilityDecl, diags *diag.Diagnostics, knownStructNames map[string]bool) {
+	// Build capability name set for lookup: union of module-level + contract-level.
+	capNames := make(map[string]bool, len(c.Capabilities)+len(moduleCaps))
+	for _, cd := range moduleCaps {
+		capNames[cd.Name] = true
+	}
 	for _, cd := range c.Capabilities {
 		if capNames[cd.Name] {
 			*diags = append(*diags, diag.Diagnostic{
@@ -123,7 +127,8 @@ func checkAgentNativeDecls(filename string, c *ast.ContractDecl, diags *diag.Dia
 				})
 			}
 		}
-		// @pay: when declared, amount and recipient must be non-empty (TOL2308/2309).
+		// @pay: when declared, amount must be non-empty (TOL2308).
+		// Recipient (TOL2309) is only required when using named-key form (not bare form).
 		if fn.Doc.HasPay {
 			if fn.Doc.PayAmount == "" {
 				*diags = append(*diags, diag.Diagnostic{
@@ -132,7 +137,7 @@ func checkAgentNativeDecls(filename string, c *ast.ContractDecl, diags *diag.Dia
 					Span:    defaultSpan(filename),
 				})
 			}
-			if fn.Doc.PayRecipient == "" {
+			if !fn.Doc.PayIsBare && fn.Doc.PayRecipient == "" {
 				*diags = append(*diags, diag.Diagnostic{
 					Code:    diag.CodeAgentPayBadRecipient,
 					Message: fmt.Sprintf("@pay on function '%s': recipient= expression must not be empty", fn.Name),
@@ -200,8 +205,28 @@ func checkAgentBodyCalls(filename string, stmts []ast.Statement, isDelegated, is
 			return
 		}
 		name := strings.TrimSpace(callee.Value)
-		// Check escrow/release/slash outside payable (TOL2311).
-		if !isPayable && (name == "escrow" || name == "release" || name == "slash") {
+		// Check escrow/release/slash arity: allow 2 or 3 args for escrow/release, 3 or 4 for slash.
+		switch name {
+		case "escrow", "release":
+			if len(e.Args) < 2 || len(e.Args) > 3 {
+				*diags = append(*diags, diag.Diagnostic{
+					Code:    diag.CodeAgentEscrowNonPayable,
+					Message: fmt.Sprintf("%s() requires 2 or 3 arguments (agent, amount[, purpose])", name),
+					Span:    defaultSpan(filename),
+				})
+			}
+		case "slash":
+			if len(e.Args) < 2 || len(e.Args) > 4 {
+				*diags = append(*diags, diag.Diagnostic{
+					Code:    diag.CodeAgentEscrowNonPayable,
+					Message: "slash() requires 2 to 4 arguments (agent, amount[, recipient[, purpose]])",
+					Span:    defaultSpan(filename),
+				})
+			}
+		}
+		// Check escrow outside payable (TOL2311).
+		// release/slash operate on already-escrowed funds and can be called from non-payable functions.
+		if !isPayable && name == "escrow" {
 			*diags = append(*diags, diag.Diagnostic{
 				Code:    diag.CodeAgentEscrowNonPayable,
 				Message: fmt.Sprintf("%s() called outside a payable function", name),

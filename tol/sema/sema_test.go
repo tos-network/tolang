@@ -1475,7 +1475,10 @@ func TestCheckRejectsMissingReturnValueInNonVoidFunction(t *testing.T) {
 	}
 }
 
-func TestCheckRejectsNonVoidFunctionWithoutAnyReturnStmt(t *testing.T) {
+func TestCheckAcceptsNamedReturnFunctionWithoutExplicitReturn(t *testing.T) {
+	// Solidity convention: named return variables allow implicit return.
+	// A function with all-named returns that never explicitly returns is valid.
+
 	m := &ast.Module{
 		Version: "0.2.0",
 		Contract: &ast.ContractDecl{
@@ -1499,15 +1502,13 @@ func TestCheckRejectsNonVoidFunctionWithoutAnyReturnStmt(t *testing.T) {
 		},
 	}
 	_, diags := Check("<test>", m)
-	if !diags.HasErrors() {
-		t.Fatalf("expected diagnostics")
-	}
-	if !strings.Contains(diags.Error(), "TOL2017") {
-		t.Fatalf("expected TOL2017, got: %v", diags)
+	if diags.HasErrors() {
+		t.Fatalf("unexpected diagnostics (named return allows implicit return): %v", diags)
 	}
 }
 
-func TestCheckRejectsNonVoidFunctionMissingReturnOnSomePath(t *testing.T) {
+func TestCheckAcceptsNamedReturnFunctionMissingExplicitReturnOnSomePath(t *testing.T) {
+	// Solidity convention: named return variables allow implicit return on any path.
 	m := &ast.Module{
 		Version: "0.2.0",
 		Contract: &ast.ContractDecl{
@@ -1535,11 +1536,8 @@ func TestCheckRejectsNonVoidFunctionMissingReturnOnSomePath(t *testing.T) {
 		},
 	}
 	_, diags := Check("<test>", m)
-	if !diags.HasErrors() {
-		t.Fatalf("expected diagnostics")
-	}
-	if !strings.Contains(diags.Error(), "TOL2017") {
-		t.Fatalf("expected TOL2017, got: %v", diags)
+	if diags.HasErrors() {
+		t.Fatalf("unexpected diagnostics (named return allows implicit return on any path): %v", diags)
 	}
 }
 

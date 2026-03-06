@@ -394,9 +394,20 @@ func FromTypedContract(typed *sema.TypedModule, c *ast.ContractDecl) (*Program, 
 	}
 
 	// Lower agent-native declarations.
-	out.Capabilities = make([]string, 0, len(c.Capabilities))
+	// Module-level capabilities (from typed.AST.Capabilities) come first, then contract-level.
+	seen := make(map[string]bool)
+	out.Capabilities = make([]string, 0, len(typed.AST.Capabilities)+len(c.Capabilities))
+	for _, cd := range typed.AST.Capabilities {
+		if !seen[cd.Name] {
+			out.Capabilities = append(out.Capabilities, cd.Name)
+			seen[cd.Name] = true
+		}
+	}
 	for _, cd := range c.Capabilities {
-		out.Capabilities = append(out.Capabilities, cd.Name)
+		if !seen[cd.Name] {
+			out.Capabilities = append(out.Capabilities, cd.Name)
+			seen[cd.Name] = true
+		}
 	}
 	out.Purposes = make([]string, 0, len(c.Purposes))
 	for _, pd := range c.Purposes {
@@ -405,7 +416,11 @@ func FromTypedContract(typed *sema.TypedModule, c *ast.ContractDecl) (*Program, 
 	if c.Manifest != nil {
 		out.Manifest = make(map[string]string, len(c.Manifest.Fields))
 		for _, f := range c.Manifest.Fields {
-			out.Manifest[f.Key] = f.Value
+			if f.IsArray {
+				out.Manifest[f.Key] = "[" + strings.Join(f.Array, ",") + "]"
+			} else {
+				out.Manifest[f.Key] = f.Value
+			}
 		}
 	}
 

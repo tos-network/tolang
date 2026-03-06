@@ -463,7 +463,7 @@ func Check(filename string, m *ast.Module) (*TypedModule, diag.Diagnostics) {
 		len(m.Structs) > 0 || len(m.TypeDecls) > 0 || len(m.AbstractContracts) > 0 ||
 		len(m.FreeFunctions) > 0 || len(m.Constants) > 0 || len(m.Enums) > 0 ||
 		len(m.Errors) > 0 || len(m.Events) > 0 || len(m.UsingDecls) > 0 ||
-		len(m.Contracts) > 0
+		len(m.Capabilities) > 0 || len(m.Contracts) > 0
 	if len(m.Contracts) == 0 && !hasTopLevelDecls {
 		diags = append(diags, diag.Diagnostic{
 			Code:    diag.CodeSemaMissingContract,
@@ -1315,7 +1315,15 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		checkReturnStatements(filename, "function", fn.Name, len(fn.Returns) > 0, fn.Body, diags)
 		checkUnreachableStatements(filename, fn.Body, 0, diags)
 		checkDuplicateLocals(filename, "function", fn.Name, fn.Params, fn.Body, diags)
-		if len(fn.Returns) > 0 && !guaranteesValueReturnOrRevert(fn.Body) {
+		// Solidity convention: if ALL return parameters are named, implicit return is allowed.
+		allNamedReturns := len(fn.Returns) > 0
+		for _, r := range fn.Returns {
+			if strings.TrimSpace(r.Name) == "" {
+				allNamedReturns = false
+				break
+			}
+		}
+		if len(fn.Returns) > 0 && !allNamedReturns && !guaranteesValueReturnOrRevert(fn.Body) {
 			*diags = append(*diags, diag.Diagnostic{
 				Code:    diag.CodeSemaInvalidReturn,
 				Message: fmt.Sprintf("function '%s' requires all paths to end in return value or revert in current verifier stage", fn.Name),
@@ -1430,7 +1438,7 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 	for name := range knownStructs {
 		structNameSet[name] = true
 	}
-	checkAgentNativeDecls(filename, c, diags, structNameSet)
+	checkAgentNativeDecls(filename, c, m.Capabilities, diags, structNameSet)
 }
 
 func checkStatements(filename string, contractName string, funcVis map[string]string, funcArity map[string]int, eventArity map[string]int, stmts []ast.Statement, loopDepth int, diags *diag.Diagnostics, knownStructs ...map[string][]ast.FieldDecl) {
@@ -1924,7 +1932,7 @@ func isAllowedEnvField(scope, key string) bool {
 	case "tx":
 		return key == "origin" || key == "gasprice"
 	case "block":
-		return key == "number" || key == "timestamp"
+		return key == "number" || key == "timestamp" || key == "timestamp_ms"
 	default:
 		return false
 	}
@@ -3167,15 +3175,53 @@ func checkStorageExpr(filename string, ctx *storageCheckCtx, e *ast.Expr, use st
 
 	switch e.Kind {
 	case "call":
-		if e.Callee != nil && e.Callee.Kind == "member" && e.Callee.Member == "push" {
-			if slotName, keys, ok := ctx.storagePathFromExpr(e.Callee.Object); ok {
-				info := ctx.slots[slotName]
-				checkStorageKeys(filename, ctx, keys, diags)
-				validateStoragePush(filename, info, keys, len(e.Args), diags)
-				for _, a := range e.Args {
-					checkStorageExpr(filename, ctx, a, storageUseValue, diags)
+		if e.Callee != nil && e.Callee.Kind == "member" {
+			if e.Callee.Member == "push" {
+				if slotName, keys, ok := ctx.storagePathFromExpr(e.Callee.Object); ok {
+					info := ctx.slots[slotName]
+					checkStorageKeys(filename, ctx, keys, diags)
+					validateStoragePush(filename, info, keys, len(e.Args), diags)
+					for _, a := range e.Args {
+						checkStorageExpr(filename, ctx, a, storageUseValue, diags)
+					}
+					return
 				}
-				return
+			}
+			// Allow oracle<T> OOP method: .fulfill(value)
+			if e.Callee.Member == "fulfill" {
+				if slotName, _, ok := ctx.storagePathFromExpr(e.Callee.Object); ok {
+					info := ctx.slots[slotName]
+					if strings.HasPrefix(info.typeName, "oracle<") {
+						for _, a := range e.Args {
+							checkStorageExpr(filename, ctx, a, storageUseValue, diags)
+						}
+						return
+					}
+				}
+			}
+			// Allow task<T> OOP methods: .accept/.submit/.approve/.reject/.dispute/.cancel
+			taskMethods := map[string]bool{
+				"accept": true, "submit": true, "approve": true,
+				"reject": true, "dispute": true, "cancel": true,
+			}
+			if taskMethods[e.Callee.Member] {
+				if slotName, _, ok := ctx.storagePathFromExpr(e.Callee.Object); ok {
+					info := ctx.slots[slotName]
+					if strings.Contains(info.typeName, "task<") {
+						for _, a := range e.Args {
+							checkStorageExpr(filename, ctx, a, storageUseValue, diags)
+						}
+						return
+					}
+				}
+				// Also allow on task<T> local variable (tracked by type)
+				if e.Callee.Object != nil && e.Callee.Object.Kind == "ident" {
+					// Pass through — task local method calls are handled in lowering
+					for _, a := range e.Args {
+						checkStorageExpr(filename, ctx, a, storageUseValue, diags)
+					}
+					return
+				}
 			}
 		}
 		checkStorageExpr(filename, ctx, e.Callee, storageUseCallCallee, diags)
@@ -3193,6 +3239,27 @@ func checkStorageExpr(filename string, ctx *storageCheckCtx, e *ast.Expr, use st
 		}
 		if slotName, _, ok := ctx.storagePathFromExpr(e.Object); ok && e.Member != "selector" {
 			info := ctx.slots[slotName]
+			// Allow oracle<T> OOP members: .is_set, .value
+			if strings.HasPrefix(info.typeName, "oracle<") {
+				switch e.Member {
+				case "is_set", "value":
+					return // valid oracle property access
+				}
+			}
+			// Allow task<T> mapping OOP members when accessed via index (tasks[tid].worker etc.)
+			if strings.Contains(info.typeName, "task<") {
+				switch e.Member {
+				case "worker", "poster", "reward", "is_expired", "state":
+					return // valid task property access
+				}
+			}
+			// Allow agent-typed slot property access
+			if info.typeName == "agent" {
+				switch e.Member {
+				case "stake", "is_active", "reputation", "rating_count", "suspended":
+					return // valid agent property access
+				}
+			}
 			reportStorageAccess(filename, fmt.Sprintf("unsupported member access '.%s' on storage slot '%s'", e.Member, info.name), diags)
 		}
 		checkStorageExpr(filename, ctx, e.Object, storageUseMemberObject, diags)

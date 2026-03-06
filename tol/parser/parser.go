@@ -185,6 +185,12 @@ func (p *Parser) parseModule() *ast.Module {
 			if ud != nil {
 				mod.UsingDecls = append(mod.UsingDecls, *ud)
 			}
+		} else if p.cur.Type == lexer.TokenIdent && p.cur.Literal == "capability" {
+			// Top-level capability declaration: capability Foo;
+			cd := p.parseCapabilityDecl()
+			if cd != nil {
+				mod.Capabilities = append(mod.Capabilities, *cd)
+			}
 		} else if p.cur.Type == lexer.TokenKwAbstract {
 			// Look-ahead: "abstract contract <Name> { ... }" → abstract contract decl.
 			saved := p.cur
@@ -229,20 +235,60 @@ func (p *Parser) parseModule() *ast.Module {
 	}
 
 	// Parse zero or more concrete contract declarations (multi-contract files).
-	// Test blocks may be interspersed between contracts.
-	for p.cur.Type == lexer.TokenKwContract {
-		concrete := p.parseContractDecl(false)
-		if concrete != nil {
-			mod.Contracts = append(mod.Contracts, *concrete)
-			// Maintain backward-compatible mod.Contract pointing to the first contract.
-			if mod.Contract == nil {
-				mod.Contract = &mod.Contracts[0]
-			} else {
-				// Re-point to the slice element (slice may have been reallocated).
-				mod.Contract = &mod.Contracts[0]
+	// Interfaces, abstract contracts, and libraries may be interspersed between contracts.
+	for {
+		switch p.cur.Type {
+		case lexer.TokenKwContract:
+			concrete := p.parseContractDecl(false)
+			if concrete != nil {
+				mod.Contracts = append(mod.Contracts, *concrete)
+				// Maintain backward-compatible mod.Contract pointing to the first contract.
+				if mod.Contract == nil {
+					mod.Contract = &mod.Contracts[0]
+				} else {
+					// Re-point to the slice element (slice may have been reallocated).
+					mod.Contract = &mod.Contracts[0]
+				}
 			}
+		case lexer.TokenKwInterface:
+			iface := p.parseInterfaceDecl()
+			if iface != nil {
+				mod.Interfaces = append(mod.Interfaces, *iface)
+			}
+		case lexer.TokenKwLibrary:
+			lib := p.parseLibraryDecl()
+			if lib != nil {
+				mod.Libraries = append(mod.Libraries, *lib)
+			}
+		case lexer.TokenKwAbstract:
+			saved := p.cur
+			p.next() // consume "abstract"
+			if p.cur.Type == lexer.TokenKwContract {
+				ac := p.parseContractDecl(true)
+				if ac != nil {
+					mod.AbstractContracts = append(mod.AbstractContracts, *ac)
+				}
+			} else {
+				p.addDiag(diag.Diagnostic{
+					Code:    diag.CodeParseUnexpected,
+					Message: fmt.Sprintf("expected 'contract' after 'abstract', got '%s'", p.cur.Literal),
+					Span:    p.span(saved),
+				})
+				goto afterContracts
+			}
+		case lexer.TokenKwTest:
+			// Test blocks may follow each contract declaration.
+			for p.cur.Type == lexer.TokenKwTest {
+				td := p.parseTestDecl()
+				if td != nil {
+					mod.Tests = append(mod.Tests, *td)
+				}
+			}
+			continue
+		default:
+			goto afterContracts
 		}
-		// Test blocks may follow each contract declaration.
+		// Test blocks may also appear between any top-level declarations.
 		for p.cur.Type == lexer.TokenKwTest {
 			td := p.parseTestDecl()
 			if td != nil {
@@ -250,6 +296,7 @@ func (p *Parser) parseModule() *ast.Module {
 			}
 		}
 	}
+afterContracts:
 
 	// If no contracts were found, check whether the file had other top-level declarations.
 	if len(mod.Contracts) == 0 {
@@ -773,7 +820,7 @@ func (p *Parser) parseTestStatementBlock(what string) ([]ast.Statement, bool) {
 	for p.cur.Type != lexer.TokenRBrace && p.cur.Type != lexer.TokenEOF {
 		var stmt ast.Statement
 		var ok bool
-		if p.cur.Type == lexer.TokenIdent {
+		if p.cur.Type == lexer.TokenIdent || p.cur.Type == lexer.TokenKwDeploy {
 			switch p.cur.Literal {
 			case "deploy":
 				startLine := p.cur.Start.Line
@@ -1899,6 +1946,27 @@ func (p *Parser) parseContractMember(contract *ast.ContractDecl) {
 	}
 }
 
+// collectAttrArgs collects the raw text of tokens between '(' and ')' (already past the '(').
+// Returns the collected string and advances past ')'.
+func (p *Parser) collectAttrArgs() string {
+	var parts []string
+	depth := 1
+	for p.cur.Type != lexer.TokenEOF {
+		if p.cur.Type == lexer.TokenLParen {
+			depth++
+		} else if p.cur.Type == lexer.TokenRParen {
+			depth--
+			if depth == 0 {
+				p.next() // consume ')'
+				break
+			}
+		}
+		parts = append(parts, p.cur.Literal)
+		p.next()
+	}
+	return strings.Join(parts, "")
+}
+
 func (p *Parser) parseFunctionAttributes() (string, bool) {
 	selectorOverride := ""
 	for p.cur.Type == lexer.TokenAt {
@@ -1909,50 +1977,115 @@ func (p *Parser) parseFunctionAttributes() (string, bool) {
 		if !p.expect(lexer.TokenIdent, diag.CodeParseUnexpected, "expected attribute name after '@'") {
 			return "", false
 		}
-		if !p.expect(lexer.TokenLParen, diag.CodeParseUnexpected, "expected '(' after attribute name") {
-			return "", false
+		// Check if attribute has parens or is bare.
+		hasParen := p.cur.Type == lexer.TokenLParen
+		if hasParen {
+			p.next() // consume '('
 		}
 
 		switch attrName.Literal {
 		case "selector":
+			if !hasParen {
+				break // @selector without parens is a no-op
+			}
 			if p.cur.Type != lexer.TokenString {
 				p.addDiag(diag.Diagnostic{
 					Code:    diag.CodeParseUnexpected,
 					Message: "expected selector string literal",
 					Span:    p.span(p.cur),
 				})
+				p.collectAttrArgs()
+				continue
+			}
+			val, err := strconv.Unquote(p.cur.Literal)
+			if err != nil {
+				p.addDiag(diag.Diagnostic{
+					Code:    diag.CodeParseUnexpected,
+					Message: "invalid selector string literal",
+					Span:    p.span(p.cur),
+				})
 			} else {
-				val, err := strconv.Unquote(p.cur.Literal)
-				if err != nil {
+				if selectorOverride != "" {
 					p.addDiag(diag.Diagnostic{
-						Code:    diag.CodeParseUnexpected,
-						Message: "invalid selector string literal",
-						Span:    p.span(p.cur),
+						Code:    diag.CodeParseUnsupported,
+						Message: "duplicate @selector attribute",
+						Span:    p.span(attrName),
 					})
-				} else {
-					if selectorOverride != "" {
-						p.addDiag(diag.Diagnostic{
-							Code:    diag.CodeParseUnsupported,
-							Message: "duplicate @selector attribute",
-							Span:    p.span(attrName),
-						})
-					}
-					selectorOverride = val
 				}
+				selectorOverride = val
+			}
+			p.next()
+			// consume remaining to ')'
+			for p.cur.Type != lexer.TokenRParen && p.cur.Type != lexer.TokenEOF {
 				p.next()
 			}
+			if p.cur.Type == lexer.TokenRParen {
+				p.next()
+			}
+			continue
+		case "requires":
+			// @requires(caller: CapName) — add to pendingDoc.
+			if hasParen {
+				rawArgs := p.collectAttrArgs()
+				// Parse: "caller:CapName" or "caller: CapName"
+				rawArgs = strings.TrimSpace(rawArgs)
+				if strings.HasPrefix(rawArgs, "caller") {
+					rest := strings.TrimSpace(strings.TrimPrefix(rawArgs, "caller"))
+					rest = strings.TrimPrefix(rest, ":")
+					rest = strings.TrimPrefix(rest, "=")
+					capName := strings.TrimSpace(rest)
+					if capName != "" {
+						if p.pendingDoc == nil {
+							p.pendingDoc = &ast.DocMeta{}
+						}
+						p.pendingDoc.RequiresCap = append(p.pendingDoc.RequiresCap, capName)
+					}
+				}
+			}
+			continue
+		case "pay":
+			// @pay(amount_expr) or @pay(amount=expr, recipient=expr)
+			if hasParen {
+				rawPay := p.collectAttrArgs()
+				if p.pendingDoc == nil {
+					p.pendingDoc = &ast.DocMeta{}
+				}
+				parsePayTag(p.pendingDoc, rawPay)
+			}
+			continue
+		case "verifiable":
+			if p.pendingDoc == nil {
+				p.pendingDoc = &ast.DocMeta{}
+			}
+			p.pendingDoc.Verifiable = true
+			if hasParen {
+				p.collectAttrArgs()
+			}
+			continue
+		case "delegated":
+			if p.pendingDoc == nil {
+				p.pendingDoc = &ast.DocMeta{}
+			}
+			p.pendingDoc.Delegated = true
+			if hasParen {
+				p.collectAttrArgs()
+			}
+			continue
 		default:
 			p.addDiag(diag.Diagnostic{
 				Code:    diag.CodeParseUnsupported,
 				Message: fmt.Sprintf("unsupported attribute '@%s'", attrName.Literal),
 				Span:    p.span(attrName),
 			})
-			if p.cur.Type != lexer.TokenRParen {
-				p.syncUntil(lexer.TokenRParen, lexer.TokenEOF)
+			if hasParen {
+				p.collectAttrArgs()
 			}
+			continue
 		}
-		if !p.expect(lexer.TokenRParen, diag.CodeParseUnexpected, "expected ')' after attribute") {
-			return "", false
+		if hasParen {
+			if !p.expect(lexer.TokenRParen, diag.CodeParseUnexpected, "expected ')' after attribute") {
+				return "", false
+			}
 		}
 	}
 	return selectorOverride, true
@@ -2073,7 +2206,7 @@ func (p *Parser) parseStructDecl() *ast.StructDecl {
 			typeTokens = append(typeTokens, p.cur.Literal)
 			p.next()
 		}
-		typ := joinTypeTokens(typeTokens)
+		typ := normalizeGenericTypeString(joinTypeTokens(typeTokens))
 		if typ == "" {
 			p.addDiag(diag.Diagnostic{
 				Code:    diag.CodeParseUnexpected,
@@ -2541,7 +2674,10 @@ func (p *Parser) parseFunctionDecl(selectorOverride string) *ast.FunctionDecl {
 		return nil
 	}
 	nameTok := p.cur
-	if !p.expect(lexer.TokenIdent, diag.CodeParseUnexpected, "expected function name") {
+	// Allow ident-like keywords (e.g. "deploy", "new") as function names.
+	if isIdentLike(p.cur.Type) {
+		p.next()
+	} else if !p.expect(lexer.TokenIdent, diag.CodeParseUnexpected, "expected function name") {
 		return nil
 	}
 
@@ -2766,6 +2902,7 @@ func (p *Parser) parseField(allowIndexed, allowDataLoc bool) (ast.FieldDecl, boo
 	var typeTokens []string
 	depthParen := 0
 	depthBracket := 0
+	depthAngle := 0 // for generic type params: task<T>, oracle<T>
 	// isFunctionType tracks whether the type being collected is a function type
 	// (starts with "function" keyword). Function types can include modifiers
 	// like "external", "internal", "view", "pure", "payable" and "returns".
@@ -2774,7 +2911,7 @@ func (p *Parser) parseField(allowIndexed, allowDataLoc bool) (ast.FieldDecl, boo
 	// Collect type tokens. Stop at dataloc keyword, indexed keyword, plain ident after type,
 	// comma, or rparen.
 	for p.cur.Type != lexer.TokenEOF {
-		if depthParen == 0 && depthBracket == 0 {
+		if depthParen == 0 && depthBracket == 0 && depthAngle == 0 {
 			// Check for data location (memory, calldata, storage) — now promoted keywords.
 			if allowDataLoc && isDataLocationKeyword(p.cur.Type) {
 				break // type done, next is dataloc
@@ -2846,14 +2983,16 @@ func (p *Parser) parseField(allowIndexed, allowDataLoc bool) (ast.FieldDecl, boo
 				continue
 			}
 			// A non-ident keyword token that is NOT a type keyword stops type collection
-			// (unless we're inside parens/brackets or it's a known type keyword).
+			// (unless we're inside parens/brackets, angle brackets, or it's a known type keyword).
 			if len(typeTokens) > 0 && p.cur.Type != lexer.TokenIdent &&
 				!isIdentLike(p.cur.Type) &&
 				p.cur.Type != lexer.TokenKwMapping &&
 				p.cur.Type != lexer.TokenLBracket &&
 				p.cur.Type != lexer.TokenRBracket &&
 				p.cur.Type != lexer.TokenLParen &&
-				p.cur.Type != lexer.TokenRParen {
+				p.cur.Type != lexer.TokenRParen &&
+				p.cur.Type != lexer.TokenLT && // generic type param open
+				p.cur.Type != lexer.TokenGT {  // generic type param close
 				break
 			}
 		}
@@ -2871,13 +3010,25 @@ func (p *Parser) parseField(allowIndexed, allowDataLoc bool) (ast.FieldDecl, boo
 			if depthBracket > 0 {
 				depthBracket--
 			}
+		case lexer.TokenLT:
+			// Only treat '<' as angle-bracket open when collecting a known generic type name.
+			if len(typeTokens) > 0 {
+				last := typeTokens[len(typeTokens)-1]
+				if last == "task" || last == "oracle" || last == "vote" || depthAngle > 0 {
+					depthAngle++
+				}
+			}
+		case lexer.TokenGT:
+			if depthAngle > 0 {
+				depthAngle--
+			}
 		}
 
 		typeTokens = append(typeTokens, p.cur.Literal)
 		p.next()
 	}
 
-	typ := joinTypeTokens(typeTokens)
+	typ := normalizeGenericTypeString(joinTypeTokens(typeTokens))
 	if typ == "" {
 		p.addDiag(diag.Diagnostic{
 			Code:    diag.CodeParseUnexpected,
@@ -2997,6 +3148,15 @@ func joinTypeTokens(tokens []string) string {
 		b.WriteString(cur)
 	}
 	return b.String()
+}
+
+// normalizeGenericTypeString removes spaces around '<' and '>' for generic type params.
+// e.g. "task < bytes32 >" → "task<bytes32>"
+func normalizeGenericTypeString(s string) string {
+	s = strings.ReplaceAll(s, " < ", "<")
+	s = strings.ReplaceAll(s, " >", ">")
+	s = strings.ReplaceAll(s, "< ", "<")
+	return s
 }
 
 // isTypelikeToken returns true if s is a type-like token (identifier or type keyword),
@@ -3149,6 +3309,14 @@ func (p *Parser) parseStatement() (ast.Statement, bool) {
 		p.cur.Type != lexer.TokenKwTry &&
 		!(p.cur.Type == lexer.TokenIdent && (p.cur.Literal == "unchecked" || p.cur.Literal == "try")) {
 		return p.parseTypeFirstVarDecl()
+	}
+	// Also handle generic agent-native types: task<T>, oracle<T>, vote<T>
+	// where peek() returns '<' (not an ident), so the check above fails.
+	if p.cur.Type == lexer.TokenIdent && p.peek().Type == lexer.TokenLT {
+		switch p.cur.Literal {
+		case "task", "oracle", "vote":
+			return p.parseTypeFirstVarDecl()
+		}
 	}
 
 	switch p.cur.Type {
@@ -4264,6 +4432,45 @@ func (p *Parser) parsePrefixExpr(stop map[lexer.Type]bool) (*ast.Expr, bool) {
 		tok := p.cur
 		p.next()
 		return &ast.Expr{Kind: "ident", Value: tok.Literal}, true
+	case lexer.TokenKwDeploy:
+		p.next() // consume "deploy"
+		if !isIdentLike(p.cur.Type) {
+			p.addDiag(diag.Diagnostic{
+				Code:    diag.CodeParseUnexpected,
+				Message: "expected contract name after 'deploy'",
+				Span:    p.span(p.cur),
+			})
+			return nil, false
+		}
+		{
+			deployName := p.cur.Literal
+			p.next()
+			if !p.expect(lexer.TokenLParen, diag.CodeParseUnexpected, "expected '(' after contract name in 'deploy' expression") {
+				return nil, false
+			}
+			deployArgs := []*ast.Expr{}
+			if p.cur.Type != lexer.TokenRParen {
+				for {
+					arg, ok := p.parseExpression(map[lexer.Type]bool{
+						lexer.TokenComma:  true,
+						lexer.TokenRParen: true,
+					})
+					if !ok {
+						return nil, false
+					}
+					deployArgs = append(deployArgs, arg)
+					if p.cur.Type == lexer.TokenComma {
+						p.next()
+					} else {
+						break
+					}
+				}
+			}
+			if !p.expect(lexer.TokenRParen, diag.CodeParseUnexpected, "expected ')' to close 'deploy' argument list") {
+				return nil, false
+			}
+			return &ast.Expr{Kind: "new", Value: deployName, Args: deployArgs}, true
+		}
 	case lexer.TokenKwNew:
 		p.next() // consume "new"
 		if !isIdentLike(p.cur.Type) {
@@ -4407,6 +4614,29 @@ func (p *Parser) parsePrefixExpr(stop map[lexer.Type]bool) (*ast.Expr, bool) {
 			return &ast.Expr{Kind: "ident", Value: nameTok.Literal}, true
 		}
 		tok := p.cur
+		// Handle generic type expressions like task<bytes32>, oracle<u256>, vote<u8>
+		// in expression context BEFORE consuming anything.
+		// Peek at the next token to see if this ident is followed by '<'.
+		if (tok.Literal == "task" || tok.Literal == "oracle" || tok.Literal == "vote") && p.peekTok().Type == lexer.TokenLT {
+			// Commit: consume ident, '<', type-param ident, '>'.
+			p.next() // consume ident
+			p.next() // consume '<'
+			// Consume type param tokens until '>'
+			depth := 1
+			for depth > 0 && p.cur.Type != lexer.TokenEOF {
+				if p.cur.Type == lexer.TokenLT {
+					depth++
+				} else if p.cur.Type == lexer.TokenGT {
+					depth--
+					if depth == 0 {
+						p.next() // consume '>'
+						break
+					}
+				}
+				p.next()
+			}
+			return &ast.Expr{Kind: "ident", Value: tok.Literal}, true
+		}
 		p.next()
 		return &ast.Expr{Kind: "ident", Value: tok.Literal}, true
 	case lexer.TokenNumber:
@@ -4913,7 +5143,7 @@ func isIdentLike(t lexer.Type) bool {
 		lexer.TokenKwBool, lexer.TokenKwCalldata, lexer.TokenKwDelete,
 		lexer.TokenKwExternal, lexer.TokenKwFalse, lexer.TokenKwGlobal,
 		lexer.TokenKwIndexed, lexer.TokenKwInternal, lexer.TokenKwIs,
-		lexer.TokenKwMemory, lexer.TokenKwNew, lexer.TokenKwOverride,
+		lexer.TokenKwMemory, lexer.TokenKwNew, lexer.TokenKwDeploy, lexer.TokenKwOverride,
 		lexer.TokenKwPayable, lexer.TokenKwPrivate, lexer.TokenKwPublic,
 		lexer.TokenKwPure, lexer.TokenKwReceive, lexer.TokenKwStorage,
 		lexer.TokenKwString, lexer.TokenKwTrue, lexer.TokenKwUnchecked,
@@ -5530,12 +5760,22 @@ func parseRequiresTag(meta *ast.DocMeta, rest string) {
 	}
 }
 
-// parsePayTag parses "@pay(amount=expr, recipient=expr)" into meta.PayAmount / PayRecipient.
+// parsePayTag parses "@pay(...)" into meta.PayAmount / PayRecipient.
+// Supported forms:
+//   @pay(amount=X, recipient=Y)  — named keys
+//   @pay(X)                      — bare amount (PayIsBare=true, PayRecipient left empty)
 func parsePayTag(meta *ast.DocMeta, rest string) {
 	meta.HasPay = true
 	s := strings.TrimSpace(rest)
 	s = strings.TrimPrefix(s, "(")
 	s = strings.TrimSuffix(s, ")")
+	s = strings.TrimSpace(s)
+	// If the content has no '=' it is a bare amount expression.
+	if !strings.Contains(s, "=") {
+		meta.PayAmount = s
+		meta.PayIsBare = true
+		return
+	}
 	for _, part := range strings.Split(s, ",") {
 		part = strings.TrimSpace(part)
 		k, v, ok := strings.Cut(part, "=")
@@ -5594,7 +5834,12 @@ func (p *Parser) parsePurposeDecl() *ast.PurposeDecl {
 	return &ast.PurposeDecl{Name: name, Line: line}
 }
 
-// parseManifestDecl parses "manifest { key: "value", ... }" at contract body level.
+// parseManifestDecl parses a manifest block at contract body level.
+// Supported value forms:
+//   key: "string"    — string literal
+//   key: 1234        — number literal
+//   key: [A, B]      — array of idents/strings
+// Separators: ',' or ';' (both accepted, both optional before '}'.
 func (p *Parser) parseManifestDecl() *ast.ManifestDecl {
 	line := p.cur.Start.Line
 	p.next() // consume 'manifest'
@@ -5619,20 +5864,55 @@ func (p *Parser) parseManifestDecl() *ast.ManifestDecl {
 			p.syncUntil(lexer.TokenRBrace, lexer.TokenEOF)
 			break
 		}
-		if p.cur.Type != lexer.TokenString {
+		var field ast.ManifestField
+		field.Key = key
+		switch p.cur.Type {
+		case lexer.TokenString:
+			field.Value = p.cur.Literal
+			p.next()
+		case lexer.TokenNumber:
+			field.Value = p.cur.Literal
+			p.next()
+		case lexer.TokenLBracket:
+			// Array value: [A, B, ...]
+			p.next() // consume '['
+			field.IsArray = true
+			for p.cur.Type != lexer.TokenRBracket && p.cur.Type != lexer.TokenEOF {
+				switch p.cur.Type {
+				case lexer.TokenIdent:
+					field.Array = append(field.Array, p.cur.Literal)
+				case lexer.TokenString:
+					field.Array = append(field.Array, p.cur.Literal)
+				default:
+					p.addDiag(diag.Diagnostic{
+						Code:    diag.CodeParseUnexpected,
+						Message: fmt.Sprintf("expected identifier or string in manifest array, got '%s'", p.cur.Literal),
+						Span:    p.span(p.cur),
+					})
+					p.syncUntil(lexer.TokenRBracket, lexer.TokenRBrace, lexer.TokenEOF)
+					goto doneField
+				}
+				p.next()
+				if p.cur.Type == lexer.TokenComma {
+					p.next()
+				}
+			}
+			if p.cur.Type == lexer.TokenRBracket {
+				p.next() // consume ']'
+			}
+		default:
 			p.addDiag(diag.Diagnostic{
 				Code:    diag.CodeParseUnexpected,
-				Message: fmt.Sprintf("expected string literal for manifest value, got '%s'", p.cur.Literal),
+				Message: fmt.Sprintf("expected string, number, or array for manifest value, got '%s'", p.cur.Literal),
 				Span:    p.span(p.cur),
 			})
 			p.syncUntil(lexer.TokenRBrace, lexer.TokenEOF)
 			break
 		}
-		val := p.cur.Literal
-		p.next()
-		md.Fields = append(md.Fields, ast.ManifestField{Key: key, Value: val})
-		// Optional trailing comma
-		if p.cur.Type == lexer.TokenComma {
+		md.Fields = append(md.Fields, field)
+	doneField:
+		// Accept ',' or ';' as separator (both optional before '}')
+		if p.cur.Type == lexer.TokenComma || p.cur.Type == lexer.TokenSemicolon {
 			p.next()
 		}
 	}

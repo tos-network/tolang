@@ -30,8 +30,10 @@ type PurposeDecl struct {
 
 // ManifestField is one key-value pair in a manifest block.
 type ManifestField struct {
-	Key   string
-	Value string // string literal value
+	Key     string
+	Value   string   // string or number literal value (as text, quotes stripped by parser for strings)
+	IsArray bool     // true when value is an array literal: [A, B, ...]
+	Array   []string // array elements (ident or string values); valid when IsArray==true
 }
 
 // ManifestDecl is a manifest block declaration inside a contract.
@@ -99,6 +101,7 @@ type Module struct {
 	Errors        []ErrorDecl     // top-level error declarations
 	Events        []EventDecl     // top-level event declarations
 	UsingDecls    []UsingDecl     // top-level using-for declarations
+	Capabilities  []CapabilityDecl // top-level capability declarations (shared across all contracts in file)
 	Contract      *ContractDecl   // primary (first) concrete contract; kept for backward compatibility
 	Contracts     []ContractDecl  // all concrete contract declarations in declaration order
 	Tests         []TestDecl
@@ -377,6 +380,7 @@ type DocMeta struct {
 	HasPay       bool     // true when @pay(...) annotation is present
 	PayAmount    string   // @pay(amount=expr) — amount expression text (literal if known)
 	PayRecipient string   // @pay(recipient=expr) — recipient expression text
+	PayIsBare    bool     // true when @pay(expr) bare form used (no named keys)
 	Delegated    bool     // @delegated — function accepts delegated calls
 	Verifiable   bool     // @verifiable — function result is verifiable off-chain
 }

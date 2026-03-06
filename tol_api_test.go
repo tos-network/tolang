@@ -2615,7 +2615,10 @@ contract Demo {
 	}
 }
 
-func TestBuildIRRejectsNonVoidFunctionMissingReturnPath(t *testing.T) {
+func TestBuildIRAcceptsNamedReturnFunctionMissingExplicitReturnPath(t *testing.T) {
+	// Solidity convention: named return variables allow implicit return.
+	// A function with all-named returns that doesn't return on all paths is valid
+	// (the named variable holds the default/zero value on the other path).
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
@@ -2627,11 +2630,8 @@ contract Demo {
 }
 `)
 	_, err := BuildIR(src, "<tol>")
-	if err == nil {
-		t.Fatalf("expected non-void return-path error")
-	}
-	if !strings.Contains(err.Error(), "TOL2017") {
-		t.Fatalf("expected TOL2017 sema error, got: %v", err)
+	if err != nil {
+		t.Fatalf("expected success (named return allows implicit return), got: %v", err)
 	}
 }
 

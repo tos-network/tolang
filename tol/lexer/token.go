@@ -115,6 +115,7 @@ const (
 	TokenKwIs         // "is"
 	TokenKwMemory     // "memory"
 	TokenKwNew        // "new"
+	TokenKwDeploy     // "deploy" (alias for "new" in expression context)
 	TokenKwOverride   // "override"
 	TokenKwPayable    // "payable"
 	TokenKwPrivate    // "private"
@@ -327,6 +328,8 @@ func (t Type) String() string {
 		return "memory"
 	case TokenKwNew:
 		return "new"
+	case TokenKwDeploy:
+		return "deploy"
 	case TokenKwOverride:
 		return "override"
 	case TokenKwPayable:
@@ -509,6 +512,8 @@ func keywordType(lit string) Type {
 		return TokenKwMemory
 	case "new":
 		return TokenKwNew
+	case "deploy":
+		return TokenKwDeploy
 	case "override":
 		return TokenKwOverride
 	case "payable":

@@ -20,7 +20,7 @@ This whitepaper defines the vision, architecture, semantics, interface model, se
 
 ## Keywords
 
-Tolang, TOS Network, agent economy, smart contract language, agent-native, capability, task, oracle, delegation, reputation, ACI, ABI, deterministic execution, machine-readable policy, secure composition
+Tolang, TOS Network, agent economy, smart contract language, agent-native, capability, task, oracle, delegation, reputation, ABI, ABI, deterministic execution, machine-readable policy, secure composition
 
 ---
 
@@ -29,7 +29,7 @@ Tolang, TOS Network, agent economy, smart contract language, agent-native, capab
 1. [Vision](#1-vision)  
 2. [Present Architecture](#2-present-architecture)  
 3. [Agent-Native Semantics](#3-agent-native-semantics)  
-4. [ACI — Agent Coordination Interface](#4-aci--agent-coordination-interface)  
+4. [ABI — Agent Behavior Interface](#4-aci--agent-coordination-interface)  
 5. [Security Doctrine](#5-security-doctrine)  
 6. [Roadmap](#6-roadmap)  
 7. [Feature Maturity Model](#7-feature-maturity-model)  
@@ -312,7 +312,7 @@ That is the essence of an agent-native language.
 
 ---
 
-# 4. ACI — Agent Coordination Interface
+# 4. ABI — Agent Behavior Interface
 
 ## 4.1 Why ABI is no longer enough
 
@@ -328,17 +328,17 @@ An agent deciding whether to interact with a contract needs more than parameter 
 - whether value transfer or escrow is involved,
 - and whether the result should be interpreted as a task status, a proof-bearing result, or a simple return value.
 
-For this reason, Tolang should define a formal standard called **ACI: Agent Coordination Interface**.
+For this reason, Tolang should define a formal standard called **ABI: Agent Behavior Interface**.
 
 ## 4.2 Definition
 
-ACI is the machine-readable interface standard through which agents discover, evaluate, negotiate with, and safely compose Tolang services on TOS Network.
+ABI is the machine-readable interface standard through which agents discover, evaluate, negotiate with, and safely compose Tolang services on TOS Network.
 
-ACI extends the notion of ABI from **call encoding** to **economic coordination semantics**.
+ABI extends the notion of ABI from **call encoding** to **economic coordination semantics**.
 
 ## 4.3 Design goals
 
-ACI should satisfy six design goals.
+ABI should satisfy six design goals.
 
 ### 4.3.1 Discoverability
 
@@ -364,9 +364,9 @@ An agent should know whether outputs are ordinary values, proof-bearing values, 
 
 An agent should be able to tell whether a function is generally composable, non-composable, or subject to additional operational constraints.
 
-## 4.4 Proposed ACI fields
+## 4.4 Proposed ABI fields
 
-A first formal version of ACI should standardize the following categories of fields.
+A first formal version of ABI should standardize the following categories of fields.
 
 ### 4.4.1 Core callable schema
 
@@ -422,11 +422,11 @@ A first formal version of ACI should standardize the following categories of fie
 - challengeability metadata
 - trust surface disclosure
 
-## 4.5 Why ACI is essential
+## 4.5 Why ABI is essential
 
-Without ACI, every serious agent ecosystem ends up rebuilding its own side-channel metadata, handwritten integration logic, or natural-language documentation layer. That makes composition brittle and ecosystem growth slow.
+Without ABI, every serious agent ecosystem ends up rebuilding its own side-channel metadata, handwritten integration logic, or natural-language documentation layer. That makes composition brittle and ecosystem growth slow.
 
-With ACI, Tolang can define a common machine protocol for:
+With ABI, Tolang can define a common machine protocol for:
 
 - agent marketplaces,
 - service registries,
@@ -436,7 +436,7 @@ With ACI, Tolang can define a common machine protocol for:
 - audit tools,
 - and reputation systems.
 
-In practical terms, ACI is how Tolang stops being “a language with useful metadata” and becomes a platform language for machine coordination.
+In practical terms, ABI is how Tolang stops being “a language with useful metadata” and becomes a platform language for machine coordination.
 
 ## 4.6 Immediate next step
 
@@ -598,14 +598,14 @@ Tolang becomes indisputably real as a deployable contract language, not merely a
 
 Tolang stops looking like “a language that may become agent-native someday” and is recognized as a language already organized around agent primitives.
 
-## 6.4 Phase III — ACI standardization
+## 6.4 Phase III — ABI standardization
 
 ### Objectives
 
 - turn existing metadata concepts into a formal interface standard,
 - define required and optional fields,
 - formalize effect, bound, gas, policy, and manifest schema,
-- and make ACI versioned and ecosystem-targetable.
+- and make ABI versioned and ecosystem-targetable.
 
 ### Deliverables
 
@@ -613,7 +613,7 @@ Tolang stops looking like “a language that may become agent-native someday” 
 - schema examples,
 - serialization rules,
 - compatibility policy,
-- and ACI-aware inspection tooling.
+- and ABI-aware inspection tooling.
 
 ### Strategic outcome
 
@@ -646,7 +646,7 @@ Tolang becomes the native programming language of the TOS agent infrastructure, 
 ### Objectives
 
 - build agent-facing SDKs,
-- build ACI-aware discovery and marketplace tools,
+- build ABI-aware discovery and marketplace tools,
 - build preflight risk analyzers,
 - build artifact policy validators,
 - and build audit tools that reason about machine-readable policy rather than source alone.
@@ -656,7 +656,7 @@ Tolang becomes the native programming language of the TOS agent infrastructure, 
 - ecosystem SDKs,
 - contract and service registries,
 - policy inspection tools,
-- ACI-aware explorers,
+- ABI-aware explorers,
 - and integration libraries for autonomous agents.
 
 ### Strategic outcome
@@ -720,7 +720,7 @@ Features whose direction is clear but whose stable semantics, implementation, or
 
 Examples may include:
 
-- formal ACI v1,
+- formal ABI v1,
 - proof-carrying task completion standards,
 - richer dispute and slashing semantics,
 - standardized agent marketplaces,
@@ -736,7 +736,7 @@ The Tolang repository should include a machine-readable or table-based feature m
 | task | ✅ | ✅ | ✅ | partial | partial | Tier B |
 | oracle | ✅ | ✅ | ✅ | partial | partial | Tier B |
 | manifest | ✅ | ✅ | ✅ | ✅ | n/a | Tier A |
-| ACI | partial | partial | partial | partial | n/a | Tier C |
+| ABI | partial | partial | partial | partial | n/a | Tier C |
 
 This single practice would materially improve clarity for developers, partners, and auditors.
 
@@ -825,7 +825,7 @@ It is the language through which TOS Network can become an economy of agents.
 
 # 10. Glossary
 
-**ACI (Agent Coordination Interface)**  
+**ABI (Agent Behavior Interface)**  
 A proposed machine-readable interface standard extending ABI into an economic coordination schema for autonomous agents.
 
 **Agent**  

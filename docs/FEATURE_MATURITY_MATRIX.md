@@ -45,7 +45,7 @@ This distinction is essential for technical credibility. Tolang already has a st
 | `@verifiable` | ✅ | ✅ | ✅ | ✅ | depends on verifier/proof flow | Compiler-Complete / Runtime-Dependent |
 | `@pay` | ✅ | ✅ | ✅ | ✅ | depends on settlement rules | Compiler-Complete / Runtime-Dependent |
 | account-style / AA-aligned contract markers | ✅ | ✅ | ✅ | ✅ | depends on validation path | Compiler-Complete / Runtime-Dependent |
-| ACI unified schema | partial | partial | partial | partial | — | Proposed |
+| ABI unified schema | partial | partial | partial | partial | — | Proposed |
 | proof-carrying task completion | — | — | partial | partial | — | Proposed |
 | task marketplace standard interfaces | — | — | — | — | — | Proposed |
 | dispute / slashing standard model | — | — | — | — | — | Proposed |

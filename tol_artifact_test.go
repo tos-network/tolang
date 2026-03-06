@@ -11,11 +11,11 @@ func TestCompileArtifactRoundTrip(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   u256 total;
-  mapping(address => u256) balances;
+  mapping(agent => u256) balances;
 
   event Tick(u256 v);
 
-  function ping(address owner, u256 amount) public {
+  function ping(agent owner, u256 amount) public {
     return;
   }
 }
@@ -68,7 +68,7 @@ contract Demo {
 	if abi.Functions[0].Name != "ping" {
 		t.Fatalf("unexpected function name: %q", abi.Functions[0].Name)
 	}
-	wantSel := abiSelectorHex("ping", []string{"address", "u256"})
+	wantSel := abiSelectorHex("ping", []string{"agent", "u256"})
 	if abi.Functions[0].Selector != wantSel {
 		t.Fatalf("unexpected function selector: got=%s want=%s", abi.Functions[0].Selector, wantSel)
 	}

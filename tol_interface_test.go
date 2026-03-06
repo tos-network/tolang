@@ -17,7 +17,7 @@ contract Demo {
   }
 
   @selector("0x12345678")
-  function ping(address owner, u256 amount) public view returns (bool ok) {
+  function ping(agent owner, u256 amount) public view returns (bool ok) {
     return;
   }
 
@@ -40,7 +40,7 @@ contract Demo {
 	if !strings.Contains(out, `@selector("0x12345678")`) {
 		t.Fatalf("expected selector override in interface, got:\n%s", out)
 	}
-	if !strings.Contains(out, "function ping(address owner, u256 amount) public view returns (bool ok);") {
+	if !strings.Contains(out, "function ping(agent owner, u256 amount) public view returns (bool ok);") {
 		t.Fatalf("expected exported ping signature, got:\n%s", out)
 	}
 	if !strings.Contains(out, "function poke() external;") {

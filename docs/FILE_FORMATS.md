@@ -66,7 +66,7 @@ Fields follow immediately after the header, in this exact order:
       "name": "transfer",
       "visibility": "public",
       "selector": "0xa9059cbb",
-      "params": ["address", "uint256"],
+      "params": ["agent", "u256"],
       "returns": ["bool"],
       "doc": {
         "notice": "...",
@@ -83,7 +83,7 @@ Fields follow immediately after the header, in this exact order:
     }
   ],
   "events": [
-    { "name": "Transfer", "params": ["address", "address", "uint256"] }
+    { "name": "Transfer", "params": ["agent", "agent", "u256"] }
   ]
 }
 ```
@@ -104,7 +104,7 @@ Fields follow immediately after the header, in this exact order:
   "slots": [
     {
       "name": "totalSupply",
-      "type": "uint256",
+      "type": "u256",
       "canonical_hash": "0x..."
     }
   ]

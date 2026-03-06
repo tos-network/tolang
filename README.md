@@ -342,7 +342,7 @@ Example `.toc` ABI excerpt for an agent-native function:
   "name": "rule",
   "visibility": "public",
   "selector": "0x...",
-  "params": ["u256", "address", "u16", "string"],
+  "params": ["u256", "agent", "u16", "string"],
   "returns": [],
   "requires_capability": "Arbitrator",
   "verifiable": false,

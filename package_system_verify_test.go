@@ -15,7 +15,7 @@ func TestPackageImportParsing(t *testing.T) {
 pragma tolang 0.2.0;
 package tos.registry;
 contract Registry {
-    function get(bytes32 k) external returns (address r) { return address(0); }
+    function get(bytes32 k) external returns (agent r) { return agent(0); }
 }
 `
     mod, diags := parser.ParseFile("registry.tol", []byte(src))
@@ -32,7 +32,7 @@ func TestPackageImportDecl(t *testing.T) {
 pragma tolang 0.2.0;
 import tos.registry.AgentRegistry;
 contract Caller {
-    function resolve(address pkgAddr, bytes32 name) external returns (address r) {
+    function resolve(agent pkgAddr, bytes32 name) external returns (agent r) {
         let reg: AgentRegistry = AgentRegistry(pkgAddr);
         return reg.lookup(name);
     }
@@ -65,7 +65,7 @@ func TestPackageImportWithAlias(t *testing.T) {
 pragma tolang 0.2.0;
 import tos.registry.AgentRegistry as IRegistry;
 contract Caller {
-    function foo(address a) external returns (address r) { return address(0); }
+    function foo(agent a) external returns (agent r) { return agent(0); }
 }
 `
     mod, diags := parser.ParseFile("caller.tol", []byte(src))
@@ -88,13 +88,13 @@ func TestPackageImportSemaResolution(t *testing.T) {
     modSrc := `pragma tolang 0.2.0;
 package tos.registry;
 contract AgentRegistry {
-  function lookup(bytes32 name) external returns (address addr) { return address(0); }
+  function lookup(bytes32 name) external returns (agent addr) { return agent(0); }
 }
 `
     src := `pragma tolang 0.2.0;
 import tos.registry.AgentRegistry;
 contract Caller {
-  function resolve(address pkgAddr, bytes32 name) external returns (address r) {
+  function resolve(agent pkgAddr, bytes32 name) external returns (agent r) {
     let reg: AgentRegistry = AgentRegistry(pkgAddr);
     return reg.lookup(name);
   }
@@ -136,13 +136,13 @@ func TestPackageImportLoweringHasPackageInfo(t *testing.T) {
     modSrc := `pragma tolang 0.2.0;
 package tos.registry;
 contract AgentRegistry {
-  function lookup(bytes32 name) external returns (address addr) { return address(0); }
+  function lookup(bytes32 name) external returns (agent addr) { return agent(0); }
 }
 `
     src := `pragma tolang 0.2.0;
 import tos.registry.AgentRegistry;
 contract Caller {
-  function resolve(address pkgAddr, bytes32 name) external returns (address r) {
+  function resolve(agent pkgAddr, bytes32 name) external returns (agent r) {
     let reg: AgentRegistry = AgentRegistry(pkgAddr);
     return reg.lookup(name);
   }
@@ -197,7 +197,7 @@ package tos.registry;
 contract AgentRegistry {
   constant MAX_FEE: uint256 = 1000;
   enum Kind { Free, Pro, Enterprise }
-  function lookup(bytes32 name) external returns (address addr) { return address(0); }
+  function lookup(bytes32 name) external returns (agent addr) { return agent(0); }
 }
 `
 	// Caller uses qualified constant and enum access
@@ -263,7 +263,7 @@ func TestPackageImportManifest(t *testing.T) {
     src := `pragma tolang 0.2.0;
 package tos.registry;
 contract Registry {
-  function get(bytes32 k) external returns (address r) { return address(0); }
+  function get(bytes32 k) external returns (agent r) { return agent(0); }
 }
 `
     pkgBytes, err := CompilePackage([]byte(src), "registry.tol", nil)
@@ -297,7 +297,7 @@ contract Token {
 	// User contract — no import, just uses Token directly
 	userSrc := `pragma tolang 0.2.0;
 contract MyContract {
-  function supply(address tok) external returns (uint256 s) {
+  function supply(agent tok) external returns (uint256 s) {
     let t: Token = Token(tok);
     return t.totalSupply();
   }

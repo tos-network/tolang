@@ -802,7 +802,7 @@ func generateFuzzValue(typ string, rng *rand.Rand) string {
 		hi := rng.Uint64()
 		lo := rng.Uint64()
 		return fmt.Sprintf("\"0x%016x%016x\"", hi, lo)
-	case "address":
+	case "agent":
 		b := make([]byte, 32)
 		rng.Read(b)
 		return "\"0x" + hex.EncodeToString(b) + "\""

@@ -52,7 +52,7 @@ Multiple .toc + .abi  →  CompilePackage()  tol_package.go  →  .tor (ZIP)
 Tokenises UTF-8 TOL source. Produces a flat token stream including:
 - Identifiers, keywords (Solidity-aligned: `function`, `returns`, `mapping`, `struct`,
   `transient`, `type`, `as`, `pragma`, `contract`, `interface`, etc.)
-- Literals: integer, string, address, selector (`0x...` 4-byte), doc-comments (`///`, `/** */`)
+- Literals: integer, string, agent, selector (`0x...` 4-byte), doc-comments (`///`, `/** */`)
 - 21 Solidity reserved words mapped to `TokenReserved` (emits `TOL1001` if used as identifiers)
 
 ### 2.2 Parser (`tol/parser/parser.go`)
@@ -66,7 +66,7 @@ Recursive descent parser. Produces `ast.Module` containing:
 ### 2.3 Semantic Analysis (`tol/sema/sema.go`)
 
 `sema.Check()` / `sema.CheckWithResolver()` performs:
-- Type checking (uint256, address, bool, string, bytes, mapping, array, struct, enum, tuple)
+- Type checking (uint256, agent, bool, string, bytes, mapping, array, struct, enum, tuple)
 - Visibility and mutability checks
 - Inheritance / C3 linearisation / interface conformance
 - `using LibName for Type` library dispatch resolution

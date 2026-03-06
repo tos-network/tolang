@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func parseAddressString(raw string) (LAddress, error) {
+func parseAgentString(raw string) (LAgent, error) {
 	norm := strings.ToLower(strings.TrimSpace(raw))
 	if !strings.HasPrefix(norm, "0x") {
 		return "", fmt.Errorf("expected address with 0x prefix")
@@ -19,15 +19,15 @@ func parseAddressString(raw string) (LAddress, error) {
 			return "", fmt.Errorf("invalid address hex string")
 		}
 	}
-	return LAddress("0x" + hex), nil
+	return LAgent("0x" + hex), nil
 }
 
-func parseAddressValue(v LValue) (LAddress, error) {
+func parseAgentValue(v LValue) (LAgent, error) {
 	switch lv := v.(type) {
-	case LAddress:
-		return parseAddressString(string(lv))
+	case LAgent:
+		return parseAgentString(string(lv))
 	case LString:
-		return parseAddressString(string(lv))
+		return parseAgentString(string(lv))
 	default:
 		return "", fmt.Errorf("expected address string")
 	}

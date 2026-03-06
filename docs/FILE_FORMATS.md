@@ -149,9 +149,9 @@ pragma tolang 0.2;
 
 interface ITRC20 {
   @selector("0xa9059cbb")
-  function transfer(address to, uint256 amount) public returns (bool ok);
+  function transfer(agent to, u256 amount) public returns (bool ok);
 
-  event Transfer(address from, address to, uint256 value);
+  event Transfer(agent from, agent to, u256 value);
 }
 ```
 

@@ -10,7 +10,7 @@ coordination — all ultimately require programmable contracts. TOL is that prog
 `docs/AGENT_PROTOCOL_DRAFT.tol` shows we can already express the agent economy protocols
 (`IAgentRegistry`, `IReputationHub`, `ITaskEscrow`, `IDisputeResolver`, `IPredictionMarket`,
 `IRewardVault`) in valid TOL. But this is **library-level** agent support: agent concepts are
-represented as plain `address` values and raw `u256` identifiers, with semantics enforced only at
+represented as plain `agent` values and raw `u256` identifiers, with semantics enforced only at
 runtime through explicit require-guards hand-written by the developer.
 
 The gap between "a language you can use to write agent contracts" and a genuinely **Agent-Native**
@@ -43,7 +43,7 @@ low-cost opcode rather than a cross-contract call.
 | `suspended` | `bool` | `AGENT_REGISTRY` system contract (suspend/unsuspend ops) | Protocol opcode (AGENTLOAD) | Suspension check is on the hot path of every `agent(addr)` cast |
 
 **New opcode: `AGENTLOAD <addr> <field_id>`**
-Returns the value of a protocol-native agent field for the given address in O(1), equivalent
+Returns the value of a protocol-native agent field for the given agent in O(1), equivalent
 to an SLOAD on the caller's own storage. This replaces the cross-contract call path for
 `worker.stake` and `worker.suspended`, making the two most frequently checked properties free
 of external-call overhead and reentrancy risk.
@@ -66,7 +66,7 @@ through them. Their source code is part of the gtos protocol specification.
 
 #### `tol.lang.AGENT_REGISTRY` — Identity & Stake
 
-Manages agent registration and the mapping between `address` and agent identity. Writes to
+Manages agent registration and the mapping between `agent` identity. Writes to
 protocol-native account state (`stake`, `suspended`) via privileged opcodes unavailable to
 user contracts.
 
@@ -80,15 +80,15 @@ Interface:
                                                           before it is withdrawable (see design note below)
   withdraw()                                            — transfers unfrozen stake to caller; reverts if
                                                           cooldown not elapsed
-  suspend(addr: address, reason: string)                — requires Registrar capability
-  unsuspend(addr: address)                              — requires Registrar capability
+  suspend(addr: agent, reason: string)                — requires Registrar capability
+  unsuspend(addr: agent)                              — requires Registrar capability
 
-  isRegistered(addr: address) → bool
-  isSuspended(addr: address) → bool
-  stakeOf(addr: address) → u256                        — reads protocol-native account state
-  frozenStakeOf(addr: address) → u256                  — stake in cooldown (still slashable)
-  unstakeUnlocksAt(addr: address) → u64                — block number when frozen stake becomes withdrawable
-  metadataOf(addr: address) → string
+  isRegistered(addr: agent) → bool
+  isSuspended(addr: agent) → bool
+  stakeOf(addr: agent) → u256                        — reads protocol-native account state
+  frozenStakeOf(addr: agent) → u256                  — stake in cooldown (still slashable)
+  unstakeUnlocksAt(addr: agent) → u64                — block number when frozen stake becomes withdrawable
+  metadataOf(addr: agent) → string
 ```
 
 **Exit cooldown (design note):** When an agent calls `decreaseStake` or deregisters, the
@@ -100,10 +100,10 @@ This prevents the attack pattern of: register → acquire capability → act mal
 immediately unstake to escape slashing. An agent's `is_active` returns false as soon as
 `decreaseStake` drops the remaining unfrozen stake below `MIN_AGENT_STAKE`.
 
-**Registrar bootstrap:** The genesis block sets a protocol-owned multisig address as the
-initial holder of the `Registrar` capability. This address can then grant `Registrar` to
+**Registrar bootstrap:** The genesis block sets a protocol-owned multisig agent as the
+initial holder of the `Registrar` capability. This agent can then grant `Registrar` to
 governance-approved contracts or committees, and eventually to a fully on-chain governance
-contract. The genesis Registrar address is a consensus constant (`tol.lang.GENESIS_REGISTRAR`).
+contract. The genesis Registrar agent is a consensus constant (`tol.lang.GENESIS_REGISTRAR`).
 
 The `agent(addr)` cast in TOL compiles to: `require(AGENT_REGISTRY.isRegistered(addr))`.
 The `agent(addr).stake` property compiles to: `AGENTLOAD addr STAKE_FIELD` (no external call).
@@ -117,16 +117,16 @@ one bit per declared capability, up to 256 capabilities chain-wide).
 ```
 Interface:
   registerCapability(name: string) → bit_index: u8     — requires Registrar; name → bit mapping
-  grantCapability(addr: address, bit: u8)               — requires Registrar
-  revokeCapability(addr: address, bit: u8)              — requires Registrar
-  hasCapability(addr: address, bit: u8) → bool
-  capabilitiesOf(addr: address) → u256                  — full bitmap
+  grantCapability(addr: agent, bit: u8)               — requires Registrar
+  revokeCapability(addr: agent, bit: u8)              — requires Registrar
+  hasCapability(addr: agent, bit: u8) → bool
+  capabilitiesOf(addr: agent) → u256                  — full bitmap
   totalEligible(bit: u8) → u256                         — count of agents with this capability
                                                           (used by vote<T> for quorum snapshot)
   capabilityBit(name: string) → u8                      — name → bit index lookup (compile-time use)
 ```
 
-**Who maintains the capability bitmap:** Only addresses holding the `Registrar` capability can
+**Who maintains the capability bitmap:** Only agents holding the `Registrar` capability can
 call `grantCapability` and `revokeCapability`. An agent **cannot grant or revoke its own
 capabilities** — self-authorization would defeat the purpose of the permission system. The
 `Registrar` role itself is bootstrapped at genesis (see `AGENT_REGISTRY` design note above).
@@ -146,10 +146,10 @@ only spent/revoked nonces are stored (never-used nonces cost zero storage).
 
 ```
 Interface:
-  markUsed(principal: address, nonce: u256)             — called by delegation.verify(); atomic
-  revoke(principal: address, nonce: u256)               — called by principal to revoke
-  isUsed(principal: address, nonce: u256) → bool
-  nextNonce(principal: address) → u256                  — convenience; nonces need not be sequential
+  markUsed(principal: agent, nonce: u256)             — called by delegation.verify(); atomic
+  revoke(principal: agent, nonce: u256)               — called by principal to revoke
+  isUsed(principal: agent, nonce: u256) → bool
+  nextNonce(principal: agent) → u256                  — convenience; nonces need not be sequential
 ```
 
 `delegation.verify(sig, principal, scope, expiry)` compiles to a sequence that:
@@ -167,11 +167,11 @@ identity or staking logic.
 
 ```
 Interface:
-  authorizeScorer(scorer: address, enabled: bool)       — requires Registrar
-  recordScore(who: address, delta: i256,
+  authorizeScorer(scorer: agent, enabled: bool)       — requires Registrar
+  recordScore(who: agent, delta: i256,
               reason: string, ref_id: bytes32)          — requires Scorer capability
-  totalScoreOf(who: address) → i256
-  ratingCountOf(who: address) → u256
+  totalScoreOf(who: agent) → i256
+  ratingCountOf(who: agent) → u256
 ```
 
 **Who are the Scorers:** The `Scorer` capability is granted by `Registrar` to specific
@@ -230,7 +230,7 @@ Each `vote<T>` field compiles to a storage namespace containing:
 - `eligible_snapshot: u256` — captured at `vote<T>.new(...)` from `CAPABILITY_REGISTRY.totalEligible(bit)`
 - `quorum_bps: u16`, `deadline_ms: u64`, `tie_value: T` — creation parameters
 - `tally: mapping(u8 → u256)` — vote count per option value
-- `voted: mapping(address → bool)` — per-voter participation flag
+- `voted: mapping(agent → bool)` — per-voter participation flag
 
 The VM enforces the per-voter single-write: `cast(voter, choice)` checks and sets the `voted`
 flag atomically. The `eligible_snapshot` is immutable after creation.
@@ -238,7 +238,7 @@ flag atomically. The `eligible_snapshot` is immutable after creation.
 #### `task<T>` State Machine Storage
 
 Each `task<T>` field compiles to a storage namespace per task ID:
-- `poster: address`, `worker: address`, `reward: u256`, `deadline_ms: u64`, `spec_hash: bytes32`
+- `poster: agent`, `worker: agent`, `reward: u256`, `deadline_ms: u64`, `spec_hash: bytes32`
 - `status: u8` (0=None, 1=Open, 2=Accepted, 3=Submitted, 4=Approved, 5=Rejected, 6=Disputed, 7=Cancelled)
 - `result: T` (written by `submit`)
 
@@ -344,7 +344,7 @@ agent-native metadata that off-chain AI orchestrators consume.
 ```
 
 **`@effects` extension:** The existing `@effects` system must be updated to recognise
-`agent`-typed parameters. `emits: Transfer(address, address, u256)` must become
+`agent`-typed parameters. `emits: Transfer(agent, agent, u256)` must become
 `emits: Transfer(agent, agent, u256)` when the event parameters are declared as `agent` type,
 so orchestrators can reason about registered identity rather than raw addresses.
 
@@ -375,17 +375,17 @@ so orchestrators can reason about registered identity rather than raw addresses.
 
 ### 1. `agent` — Native Data Type — ✅ Done
 
-**Current state:** agent identity is a bare `address`. All registry lookups, stake checks, and
+**Current state:** agent identity is a bare identity value. All registry lookups, stake checks, and
 reputation reads are hand-written calls to external interfaces.
 
 ```tol
 // today
-address worker = msg.sender;
+agent worker = msg.sender;
 require(IAgentRegistry(registry).isRegistered(worker), "NotRegistered");
 u256 stake = IAgentRegistry(registry).stakeOf(worker);
 ```
 
-**Agent-Native:** `agent` is a first-class type — a superset of `address` that the compiler
+**Agent-Native:** `agent` is a first-class type — a superset of raw identity that the compiler
 integrates with the system registry automatically.
 
 ```tol
@@ -398,7 +398,7 @@ worker.capabilities // → u256 (each bit = one declared capability; supports up
 
 **Design constraints:**
 
-- **Registry binding:** The system registry address is a consensus-level constant
+- **Registry binding:** The system registry agent is a consensus-level constant
   (`tol.lang.AGENT_REGISTRY`), not a constructor argument. This removes the coupling ambiguity —
   there is exactly one authoritative registry per chain.
 - **Property access cost:** Each distinct property read (`worker.stake`, `worker.reputation`, …)
@@ -408,10 +408,10 @@ worker.capabilities // → u256 (each bit = one declared capability; supports up
   cheap. However, the first read of each *distinct* property across a cross-contract boundary is
   still one warm call (not a cold SLOAD on the caller's side). Developers should cache
   frequently-read properties in local variables rather than relying on implicit caching.
-- **Null agent:** `agent(address(0))` is the zero agent. `agent(addr)` on an unregistered address
-  reverts with `AgentNotFound`. Use `address(x)` to cast back to `address` without registry lookup.
+- **Null agent:** `agent(0)` is the zero agent. `agent(addr)` on an unregistered agent
+  reverts with `AgentNotFound`. Use the raw identity without registry lookup.
 - **Chicken-and-egg:** Inside `AgentRegistry` itself, properties like `worker.stake` resolve to
-  local storage directly (the compiler detects `address(this) == AGENT_REGISTRY` and skips the
+  local storage directly (the compiler detects self-registry calls and skips the
   external call). All other contracts use the external call path.
 
 **`msg.agent` context variable:**
@@ -422,7 +422,7 @@ callers and lets the function decide how to handle them.
 
 ```tol
 function acceptTask(u256 task_id) public {
-  require(msg.agent != agent(address(0)), "CallerNotAgent");
+  require(msg.agent != agent(0), "CallerNotAgent");
   tasks[task_id].accept(msg.agent);
 }
 ```
@@ -552,7 +552,7 @@ ether), the entire call reverts — the compiler does not silently swallow faile
   with error `TOL2206: @pay cannot be applied to view functions`. For read APIs that need access
   control, use subscription pre-payment or signed access tokens; off-chain payment channels are
   the recommended pattern for high-frequency M2M reads.
-- The `recipient:` field is required. The compiler does not silently route funds to `address(this)`.
+- The `recipient:` field is required. The compiler does not silently route funds to `agent(this)`.
   Making the destination explicit prevents accidental fund trapping.
 - `@pay` is appropriate for per-call on-chain payments. For very high-frequency M2M interactions,
   on-chain per-call payment remains gas-intensive; use pre-paid subscription quotas (`@quota`,
@@ -600,7 +600,7 @@ t.cancel();                    // runtime revert if status != Open or caller != 
   `AgentRequired` if `msg.agent` is the zero agent (i.e., `msg.sender` is not registered).
   Anonymous task posting is not permitted — every task must have an on-chain accountable poster
   for dispute resolution and slashing to function correctly.
-- `t.worker` on an Open task returns the zero agent (`agent(address(0))`), not a revert. Callers
+- `t.worker` on an Open task returns the zero agent (`agent(0)`), not a revert. Callers
   should check `t.status` before reading worker-specific fields.
 - The generic parameter `T` must be a value type or `bytes32`. Dynamic types (string, bytes)
   are not supported as task result types; use a `bytes32` content hash pointing to off-chain data.
@@ -635,7 +635,7 @@ release(worker, amount, purpose: TaskReward);  // unlock `amount` from worker's 
   ```
 - **`slash` requires an explicit `recipient`.** The destination of slashed funds is an economic
   design decision (burn, treasury, victim compensation). The compiler does not silently route
-  slashed funds — "per policy" is not a valid substitute for an explicit address.
+  slashed funds — "per policy" is not a valid substitute for an explicit agent.
 - **`slash` draws exclusively from the named escrow balance.** `slash(loser, amount, recipient: treasury)`
   deducts `amount` only from `loser`'s escrowed balance under the active purpose label. It never
   touches the agent's free balance or stake in the registry. If the escrowed balance is
@@ -687,7 +687,7 @@ function claim() public {
 - The write-once guarantee is enforced at the **storage slot level** in the VM, not only in
   compiler-generated code. A contract calling the bytecode directly (bypassing TOL) still cannot
   overwrite a fulfilled oracle.
-- `T` must be a value type (`bool`, `u8`–`u256`, `address`, `agent`, `bytes32`).
+- `T` must be a value type (`bool`, `u8`–`u256`, `agent`, `bytes32`).
 
 ---
 
@@ -713,7 +713,7 @@ invariant bounds, and decide whether to approve a transaction **before submittin
 simulating the full execution. This is the machine-readable safety contract that Pillar 5 requires.
 
 **What still needs to happen:** The `@effects` system must be extended to understand `agent`-typed
-parameters (current implementation uses `address`). Effects like `emits: Transfer(agent, agent,
+parameters (current implementation uses `agent`). Effects like `emits: Transfer(agent, agent,
 u256)` should reflect the agent types in the ABI doc output so orchestrators can reason about
 identity, not just raw addresses.
 
@@ -867,7 +867,7 @@ first-class transaction originators with user-defined validation logic.
 account contract AgentWallet {
   agent owner;              // the registered agent identity bound to this wallet
   u256  daily_limit;        // max spend per day without multi-sig
-  mapping(address => bool) trusted_delegates;
+  mapping(agent => bool) trusted_delegates;
 
   // The VM calls validate() before executing any transaction from this account
   // instead of the usual ECDSA signature check
@@ -878,7 +878,7 @@ account contract AgentWallet {
   }
 
   // Spending guard called by VM before any value transfer
-  function beforeTransfer(address to, u256 amount) public {
+  function beforeTransfer(agent to, u256 amount) public {
     require(amount <= daily_limit, "DailyLimitExceeded");
   }
 }
@@ -1076,8 +1076,7 @@ knows: type mismatches, incompatible annotation combinations (`@pay` + `view`,
 `@verifiable` + non-view), undeclared capability names.
 
 **4. The `agent` type is the only identity primitive.**
-`address` remains available for raw EVM interop. Within agent protocol contracts, `agent` is
-used exclusively. Functions that accept `address` where `agent` is semantically intended are
+`agent` is used exclusively within agent protocol contracts. Functions that accept raw identity values where `agent` is semantically intended are
 a type error.
 
 **5. Authorization is layered, not flat.**

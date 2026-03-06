@@ -72,7 +72,7 @@ func checkAgentNativeDecls(filename string, c *ast.ContractDecl, moduleCaps []as
 				if inner == "" || !isValueTOLType(inner) {
 					*diags = append(*diags, diag.Diagnostic{
 						Code:    diag.CodeAgentOracleInvalidType,
-						Message: fmt.Sprintf("oracle<%s>: type parameter must be a value type (uint/int/bool/address/bytesN), got '%s'", inner, inner),
+						Message: fmt.Sprintf("oracle<%s>: type parameter must be a value type (uint/int/bool/agent/bytesN), got '%s'", inner, inner),
 						Span:    defaultSpan(filename),
 					})
 				}
@@ -275,7 +275,7 @@ func checkAgentBodyCalls(filename string, stmts []ast.Statement, isDelegated, is
 				Span:    defaultSpan(filename),
 			})
 		}
-		// Check agent(expr) cast: numeric/bool literal is definitely not an address (TOL2306).
+		// Check agent(expr) cast: numeric/bool literal is definitely not an agent (TOL2306).
 		if name == "agent" && len(e.Args) == 1 {
 			arg := e.Args[0]
 			for arg != nil && arg.Kind == "paren" {
@@ -284,7 +284,7 @@ func checkAgentBodyCalls(filename string, stmts []ast.Statement, isDelegated, is
 			if arg != nil && isNonAgentLiteralExpr(arg) {
 				*diags = append(*diags, diag.Diagnostic{
 					Code:    diag.CodeAgentCastNonAgent,
-					Message: "agent(expr): argument is a non-address literal; agent cast requires an address expression",
+					Message: "agent(expr): argument is a non-agent literal; agent cast requires an agent expression",
 					Span:    defaultSpan(filename),
 				})
 			}
@@ -323,7 +323,11 @@ func isNonAgentLiteralExpr(e *ast.Expr) bool {
 		return false
 	}
 	if e.Kind == "number" {
-		return true // decimal integer is never a valid address
+		// Literal 0 is the canonical zero/null agent (agent(0) idiom).
+		if e.Value == "0" {
+			return false
+		}
+		return true // any other decimal integer is not a valid agent
 	}
 	if e.Kind == "ident" && (e.Value == "true" || e.Value == "false") {
 		return true // boolean is never a valid address

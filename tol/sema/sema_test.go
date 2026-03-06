@@ -652,7 +652,7 @@ func TestCheckRejectsSelectorBuiltinNonCanonicalSpacingLiteral(t *testing.T) {
 									Value: "selector",
 								},
 								Args: []*ast.Expr{
-									{Kind: "string", Value: "\"transfer(address, u256)\""},
+									{Kind: "string", Value: "\"transfer(agent, u256)\""},
 								},
 							},
 						},
@@ -692,7 +692,7 @@ func TestCheckRejectsSelectorBuiltinLeadingWhitespaceLiteral(t *testing.T) {
 									Value: "selector",
 								},
 								Args: []*ast.Expr{
-									{Kind: "string", Value: "\" transfer(address,u256)\""},
+									{Kind: "string", Value: "\" transfer(agent,u256)\""},
 								},
 							},
 						},
@@ -732,7 +732,7 @@ func TestCheckRejectsSelectorBuiltinNameWhitespaceBeforeParen(t *testing.T) {
 									Value: "selector",
 								},
 								Args: []*ast.Expr{
-									{Kind: "string", Value: "\"transfer (address,u256)\""},
+									{Kind: "string", Value: "\"transfer (agent,u256)\""},
 								},
 							},
 						},
@@ -978,7 +978,7 @@ func TestCheckRejectsCallingSelectorBuiltinResult(t *testing.T) {
 										Value: "selector",
 									},
 									Args: []*ast.Expr{
-										{Kind: "string", Value: "\"transfer(address,u256)\""},
+										{Kind: "string", Value: "\"transfer(agent,u256)\""},
 									},
 								},
 							},
@@ -2829,7 +2829,7 @@ func TestCheckRejectsSelectorBuiltinExprStatement(t *testing.T) {
 									Value: "selector",
 								},
 								Args: []*ast.Expr{
-									{Kind: "string", Value: "\"transfer(address,u256)\""},
+									{Kind: "string", Value: "\"transfer(agent,u256)\""},
 								},
 							},
 						},
@@ -3319,7 +3319,7 @@ func TestCheckRejectsEmitSelectorBuiltinPayload(t *testing.T) {
 									Value: "selector",
 								},
 								Args: []*ast.Expr{
-									{Kind: "string", Value: "\"transfer(address,u256)\""},
+									{Kind: "string", Value: "\"transfer(agent,u256)\""},
 								},
 							},
 						},
@@ -4692,7 +4692,7 @@ func TestCheckMultipleInterfacesConformance(t *testing.T) {
 // ──────────────────────────────────────────────────────────────
 
 func TestCheckErrorDeclArityMismatch(t *testing.T) {
-	// Declare error Unauthorized(caller: address) and call revert Unauthorized(a, b) → arity error.
+	// Declare error Unauthorized(caller: agent) and call revert Unauthorized(a, b) → arity error.
 	m := &ast.Module{
 		Version: "0.2.0",
 		Contract: &ast.ContractDecl{
@@ -4731,7 +4731,7 @@ func TestCheckErrorDeclArityMismatch(t *testing.T) {
 }
 
 func TestCheckErrorDeclArityCorrect(t *testing.T) {
-	// Declare error Unauthorized(caller: address) and call revert Unauthorized(addr) → OK.
+	// Declare error Unauthorized(caller: agent) and call revert Unauthorized(addr) → OK.
 	m := &ast.Module{
 		Version: "0.2.0",
 		Contract: &ast.ContractDecl{
@@ -6511,7 +6511,7 @@ func TestCheckNestedArrayIndexAccepted(t *testing.T) {
 }
 
 func TestCheckNestedMappingAccepted(t *testing.T) {
-	// mapping(agent => mapping(agent => u256)) m; fn f(a: address, b: address) { set got = m[a][b]; }
+	// mapping(agent => mapping(agent => u256)) m; fn f(a: agent, b: agent) { set got = m[a][b]; }
 	m := &ast.Module{
 		Version: "0.2.0",
 		Contract: &ast.ContractDecl{
@@ -6541,7 +6541,7 @@ func TestCheckNestedMappingAccepted(t *testing.T) {
 }
 
 func TestCheckMappingToArrayAccepted(t *testing.T) {
-	// mapping(agent => u256[]) bal; fn f(addr: address, i: u256) { set got = bal[addr][i]; }
+	// mapping(agent => u256[]) bal; fn f(addr: agent, i: u256) { set got = bal[addr][i]; }
 	m := &ast.Module{
 		Version: "0.2.0",
 		Contract: &ast.ContractDecl{
@@ -6792,7 +6792,7 @@ func TestCheckArrayReturnAccepted(t *testing.T) {
 	}
 }
 
-// TestCheckConstructorArrayParamAccepted verifies that a constructor with an address[]
+// TestCheckConstructorArrayParamAccepted verifies that a constructor with an agent[]
 // parameter is accepted by the sema checker (array ABI decode is now supported).
 func TestCheckConstructorArrayParamAccepted(t *testing.T) {
 	m := &ast.Module{
@@ -6801,7 +6801,7 @@ func TestCheckConstructorArrayParamAccepted(t *testing.T) {
 			Name: "Demo",
 			Constructor: &ast.ConstructorDecl{
 				Params: []ast.FieldDecl{
-					{Name: "tokens", Type: "address[]"},
+					{Name: "tokens", Type: "agent[]"},
 				},
 				Body: []ast.Statement{
 					{Kind: "return"},
@@ -6811,7 +6811,7 @@ func TestCheckConstructorArrayParamAccepted(t *testing.T) {
 	}
 	_, diags := Check("<test>", m)
 	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics for constructor with address[] param: %v", diags)
+		t.Fatalf("unexpected diagnostics for constructor with agent[] param: %v", diags)
 	}
 }
 
@@ -6869,9 +6869,9 @@ func TestCheckTypeBoundsAccepted(t *testing.T) {
 }
 
 // TestCheckTypeBoundsRejectsNonIntegerType verifies that type(bool).max and
-// type(address).max are rejected with TOL2034.
+// type(agent).max are rejected with TOL2034.
 func TestCheckTypeBoundsRejectsNonIntegerType(t *testing.T) {
-	invalidTypes := []string{"bool", "address", "bytes", "bytes32", "string"}
+	invalidTypes := []string{"bool", "agent", "bytes", "bytes32", "string"}
 	for _, typName := range invalidTypes {
 		for _, bound := range []string{"min", "max"} {
 			m := &ast.Module{
@@ -6970,7 +6970,7 @@ func TestCheckReceivePayableValid(t *testing.T) {
 }
 
 // TestCheckTransferOnPayableAgentOK verifies that calling .transfer() on an
-// "address payable" variable is accepted with no diagnostics.
+// "agent payable" variable is accepted with no diagnostics.
 func TestCheckTransferOnPayableAgentOK(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
@@ -6980,7 +6980,7 @@ func TestCheckTransferOnPayableAgentOK(t *testing.T) {
 				{
 					Name: "sendFunds",
 					Params: []ast.FieldDecl{
-						{Name: "recipient", Type: "address payable"},
+						{Name: "recipient", Type: "agent payable"},
 						{Name: "amount", Type: "u256"},
 					},
 					Modifiers: []string{"public"},
@@ -7006,16 +7006,16 @@ func TestCheckTransferOnPayableAgentOK(t *testing.T) {
 	}
 	_, diags := Check("<test>", m)
 	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics for .transfer() on address payable: %v", diags)
+		t.Fatalf("unexpected diagnostics for .transfer() on agent payable: %v", diags)
 	}
 }
 
 // TestCheckTransferOnAgentAllowed verifies that calling .transfer() on a plain
-// "address" or "agent" variable is accepted in TOL. In TOL's agent-first model,
-// every address is an agent and can receive transfers — the Solidity "address payable"
+// "agent" or "agent" variable is accepted in TOL. In TOL's agent-first model,
+// every agent is an agent and can receive transfers — the Solidity "agent payable"
 // distinction is not required.
 func TestCheckTransferOnAgentAllowed(t *testing.T) {
-	for _, typ := range []string{"address", "agent", "address payable"} {
+	for _, typ := range []string{"agent", "agent", "agent payable"} {
 		m := &ast.Module{
 			Version: "0.2.0",
 			Contract: &ast.ContractDecl{
@@ -7056,7 +7056,7 @@ func TestCheckTransferOnAgentAllowed(t *testing.T) {
 }
 
 // TestCheckPayableCastAllowsTransfer verifies that payable(addr).transfer(amount)
-// is accepted (the payable() cast makes it address payable).
+// is accepted (the payable() cast makes it agent payable).
 func TestCheckPayableCastAllowsTransfer(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
@@ -7477,7 +7477,7 @@ func TestUDVTValidElementaryUnderlying(t *testing.T) {
 	// Valid: underlying is an elementary value type.
 	// Note: the lexer normalizes Solidity aliases (uint256→u256, int128→i128 etc.) before
 	// the AST reaches sema, so we only need to test the canonical internal forms here.
-	for _, underlying := range []string{"u256", "u8", "i128", "bool", "address", "bytes32", "bytes1"} {
+	for _, underlying := range []string{"u256", "u8", "i128", "bool", "agent", "bytes32", "bytes1"} {
 		m := &ast.Module{
 			Version: "0.2.0",
 			TypeDecls: []ast.TypeDecl{

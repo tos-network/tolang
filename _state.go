@@ -1439,16 +1439,16 @@ func (ls *LState) ToString(n int) string {
 	return LVAsString(ls.Get(n))
 }
 
-func (ls *LState) ToAddress(n int) LAddress {
-	if lv, ok := ls.Get(n).(LAddress); ok {
+func (ls *LState) ToAgent(n int) LAgent {
+	if lv, ok := ls.Get(n).(LAgent); ok {
 		return lv
 	}
 	if lv, ok := ls.Get(n).(LString); ok {
-		if addr, err := parseAddressString(string(lv)); err == nil {
+		if addr, err := parseAgentString(string(lv)); err == nil {
 			return addr
 		}
 	}
-	return LAddress("")
+	return LAgent("")
 }
 
 func (ls *LState) ToTable(n int) *LTable {

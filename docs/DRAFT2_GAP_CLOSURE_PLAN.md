@@ -348,7 +348,7 @@ strings /tmp/draft2.toc | grep -E "requires_capability|manifest|verifiable|deleg
 cat > /tmp/g1.tol <<'EOF'
 pragma tolang 0.2;
 contract Factory {
-    function make() external returns (address) {
+    function make() external returns (agent) {
         return deploy Child();
     }
 }

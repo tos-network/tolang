@@ -582,8 +582,8 @@ func TestBlockLetWrongValueFails(t *testing.T) {
 // emitterSrc is a minimal TOL contract that emits a Transfer event.
 const emitterSrc = `pragma tolang 0.2.0;
 contract Emitter {
-  event Transfer(address from, address to, u256 amount)
-  function transfer(address from, address to, u256 amount) public {
+  event Transfer(agent from, agent to, u256 amount)
+  function transfer(agent from, agent to, u256 amount) public {
     emit Transfer(from, to, amount);
     return;
   }
@@ -1232,8 +1232,8 @@ func TestWithSenderOverridesContext(t *testing.T) {
 	dir := t.TempDir()
 	contractSrc := []byte(`pragma tolang 0.2.0;
 contract EchoSender {
-  function sender() public view returns (address s) {
-    let s: address = msg.sender;
+  function sender() public view returns (agent s) {
+    let s: agent = msg.sender;
     return s;
   }
 }

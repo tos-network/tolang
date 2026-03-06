@@ -768,14 +768,14 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		name := strings.TrimSpace(td.Name)
 		if name != "" {
 			// Solidity compliance (Deviation 4): the underlying type of a UDVT must
-			// be an elementary value type (uN, iN, bool, address, bytesN, string,
+			// be an elementary value type (uN, iN, bool, agent, bytesN, string,
 			// bytes). Arrays, mappings, structs, function types, and other UDVTs
 			// are not allowed.
 			underlying := normalizeSelectorType(strings.TrimSpace(td.Underlying))
 			if underlying != "" && !isValueTOLType(underlying) {
 				*diags = append(*diags, diag.Diagnostic{
 					Code:    diag.CodeSemaUDVTInvalidUnderlying,
-					Message: fmt.Sprintf("user-defined value type '%s': underlying type '%s' must be an elementary value type (uN, iN, bool, address, bytesN); arrays, mappings, and struct types are not allowed", name, td.Underlying),
+					Message: fmt.Sprintf("user-defined value type '%s': underlying type '%s' must be an elementary value type (uN, iN, bool, agent, bytesN); arrays, mappings, and struct types are not allowed", name, td.Underlying),
 					Span:    defaultSpan(filename),
 				})
 			}
@@ -1102,7 +1102,7 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		if !isValueTOLType(normType) {
 			*diags = append(*diags, diag.Diagnostic{
 				Code:    diag.CodeSemaImmutableBadType,
-				Message: fmt.Sprintf("immutable '%s' has unsupported type '%s'; immutable variables must be value types (uN, iN, bool, address, bytes1..bytes32)", immName, normType),
+				Message: fmt.Sprintf("immutable '%s' has unsupported type '%s'; immutable variables must be value types (uN, iN, bool, agent, bytes1..bytes32)", immName, normType),
 				Span:    defaultSpan(filename),
 			})
 		}
@@ -1183,7 +1183,7 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		if !isValueTOLType(ctype) {
 			*diags = append(*diags, diag.Diagnostic{
 				Code:    diag.CodeSemaConstantInvalidType,
-				Message: fmt.Sprintf("constant '%s' has unsupported type '%s'; constants must be value types (uN, iN, bool, address, bytes1..bytes32)", cname, ctype),
+				Message: fmt.Sprintf("constant '%s' has unsupported type '%s'; constants must be value types (uN, iN, bool, agent, bytes1..bytes32)", cname, ctype),
 				Span:    defaultSpan(filename),
 			})
 		}
@@ -1497,7 +1497,7 @@ func checkStatementsWithStructs(filename string, contractName string, funcVis ma
 				} else if !isSupportedABIDecodeTargetTypeWithStructs(localType, knownStructs) {
 					*diags = append(*diags, diag.Diagnostic{
 						Code:    diag.CodeSemaInvalidStmtShape,
-						Message: fmt.Sprintf("abi.decode typed local binding only supports bool/address/bytesN/uN/iN/bytes/struct in current stage (got '%s')", localType),
+						Message: fmt.Sprintf("abi.decode typed local binding only supports bool/agent/bytesN/uN/iN/bytes/struct in current stage (got '%s')", localType),
 						Span:    defaultSpan(filename),
 					})
 				} else {
@@ -1553,7 +1553,7 @@ func checkStatementsWithStructs(filename string, contractName string, funcVis ma
 						}
 						*diags = append(*diags, diag.Diagnostic{
 							Code:    diag.CodeSemaInvalidStmtShape,
-							Message: fmt.Sprintf("abi.decode typed tuple binding only supports bool/address/bytesN/uN/iN/bytes/struct in current stage (got '%s' for '%s')", localType, varName),
+							Message: fmt.Sprintf("abi.decode typed tuple binding only supports bool/agent/bytesN/uN/iN/bytes/struct in current stage (got '%s' for '%s')", localType, varName),
 							Span:    defaultSpan(filename),
 						})
 					}
@@ -2110,7 +2110,7 @@ func isSupportedABIDecodeTargetType(typeName string) bool {
 func isSupportedABIDecodeTargetTypeWithStructs(typeName string, knownStructs map[string][]ast.FieldDecl) bool {
 	t := normalizeSelectorType(typeName)
 	switch t {
-	case "bool", "address", "bytes":
+	case "bool", "agent", "bytes":
 		return true
 	}
 	// Dynamic array T[] or fixed array T[N]: supported via ABI decode prelude.
@@ -2145,7 +2145,7 @@ func isSupportedABIDecodeTargetTypeWithStructs(typeName string, knownStructs map
 func isDefaultInitializableTOLType(typeName string) bool {
 	t := normalizeSelectorType(typeName)
 	switch t {
-	case "bool", "address", "string", "bytes":
+	case "bool", "agent", "string", "bytes":
 		return true
 	}
 	if strings.HasPrefix(t, "bytes") {
@@ -4251,11 +4251,11 @@ func selectorTypeList(params []ast.FieldDecl) string {
 }
 
 // isPayableAgentType returns true if the type is any agent/address — every
-// agent in TOL is a valid transfer target; Solidity's "address payable" distinction
+// agent in TOL is a valid transfer target; Solidity's "agent payable" distinction
 // is not required.
 func isPayableAgentType(t string) bool {
 	n := normalizeSelectorType(t)
-	return n == "address"
+	return n == "agent"
 }
 
 // checkAgentTransferCalls validates that .transfer() and .send() are called on
@@ -4313,8 +4313,8 @@ func checkAgentTransferInStmts(filename string, typeEnv map[string]string, stmts
 }
 
 // isPayableReceiverExpr returns true if expr is an expression that is
-// guaranteed to produce an "address payable" value:
-//   - ident whose declared type is "address payable"
+// guaranteed to produce an "agent payable" value:
+//   - ident whose declared type is "agent payable"
 //   - payable(expr) cast
 func isPayableReceiverExpr(typeEnv map[string]string, e *ast.Expr) bool {
 	if e == nil {
@@ -4325,7 +4325,7 @@ func isPayableReceiverExpr(typeEnv map[string]string, e *ast.Expr) bool {
 		rawType := typeEnv[strings.TrimSpace(e.Value)]
 		return isPayableAgentType(rawType)
 	case "call":
-		// payable(addr) is an explicit cast to address payable.
+		// payable(addr) is an explicit cast to agent payable.
 		if callee := e.Callee; callee != nil && callee.Kind == "ident" &&
 			strings.TrimSpace(callee.Value) == "payable" {
 			return true
@@ -4344,7 +4344,7 @@ func checkAgentTransferInExpr(filename string, typeEnv map[string]string, e *ast
 		if callee != nil && callee.Kind == "member" {
 			member := strings.TrimSpace(callee.Member)
 			if member == "transfer" || member == "send" {
-				// Check that the receiver is address payable.
+				// Check that the receiver is agent payable.
 				receiver := callee.Object
 				if !isPayableReceiverExpr(typeEnv, receiver) {
 					receiverDesc := "expression"
@@ -4352,13 +4352,13 @@ func checkAgentTransferInExpr(filename string, typeEnv map[string]string, e *ast
 						name := strings.TrimSpace(receiver.Value)
 						rawType := typeEnv[name]
 						if rawType == "" {
-							rawType = "address"
+							rawType = "agent"
 						}
 						receiverDesc = fmt.Sprintf("'%s' (declared as '%s')", name, rawType)
 					}
 					*diags = append(*diags, diag.Diagnostic{
 						Code:    diag.CodeSemaTransferOnNonPayable,
-						Message: fmt.Sprintf("'.%s()' requires 'address payable' receiver; %s is not payable — use payable(addr).%s(...) or declare the variable as 'address payable'", member, receiverDesc, member),
+						Message: fmt.Sprintf("'.%s()' requires 'agent payable' receiver; %s is not payable — use payable(addr).%s(...) or declare the variable as 'agent payable'", member, receiverDesc, member),
 						Span:    defaultSpan(filename),
 					})
 				}
@@ -4522,11 +4522,9 @@ func normalizeSelectorType(t string) string {
 	result := repl.Replace(s)
 	result = strings.ReplaceAll(result, " (", "(")
 	result = strings.ReplaceAll(result, " [", "[")
-	// Normalize "address payable" → "address": same runtime representation.
-	// Normalize "agent" → "address": agent is TOL's preferred spelling of the
-	// identity type; both compile identically and share all methods.
-	if result == "address payable" || result == "agent" {
-		result = "address"
+	// Strip payable qualifier: "agent payable" → "agent".
+	if result == "agent payable" {
+		result = "agent"
 	}
 	return result
 }
@@ -4660,7 +4658,7 @@ func isValidTOLType(typeName string, allowMapping bool) bool {
 
 func isValidMappingKeyType(t string) bool {
 	switch t {
-	case "bool", "address", "bytes32":
+	case "bool", "agent", "bytes32":
 		return true
 	}
 	if len(t) >= 2 && (t[0] == 'u' || t[0] == 'i') {
@@ -4669,7 +4667,7 @@ func isValidMappingKeyType(t string) bool {
 	}
 	// Allow user-defined types (enums, UDVTs) as mapping keys.
 	// These are plain identifiers that are not known primitive types.
-	// Reject known non-key primitive types (string, bytes, address payable etc.).
+	// Reject known non-key primitive types (string, bytes, agent payable etc.).
 	// The caller already ensures this is not a mapping or array type.
 	switch t {
 	case "string", "bytes", "tuple":
@@ -4734,7 +4732,7 @@ func splitTopLevelMappingPair(inner string) (string, string, bool) {
 
 func isValidAtomicTOLType(t string) bool {
 	switch t {
-	case "bool", "address", "string", "bytes":
+	case "bool", "agent", "string", "bytes":
 		return true
 	}
 	if strings.HasPrefix(t, "bytes") {
@@ -4753,7 +4751,7 @@ func isValidAtomicTOLType(t string) bool {
 }
 
 // isValueTOLType returns true if typeName is a value type that can be used for
-// immutable declarations: uN, iN, bool, address, bytes1..bytes32.
+// immutable declarations: uN, iN, bool, agent, bytes1..bytes32.
 // Mappings, arrays, string, and bytes are excluded.
 func isValueTOLType(typeName string) bool {
 	t := strings.TrimSpace(typeName)
@@ -4769,7 +4767,7 @@ func isValueTOLType(typeName string) bool {
 		return false
 	}
 	switch t {
-	case "bool", "address":
+	case "bool", "agent":
 		return true
 	}
 	if strings.HasPrefix(t, "bytes") {
@@ -4849,7 +4847,7 @@ func checkHexLiteralType(filename, constName, ctype, hexValue string) diag.Diagn
 			return diags
 		}
 	}
-	// For any other type (uN, iN, bool, address), a hex_lit is not valid.
+	// For any other type (uN, iN, bool, agent), a hex_lit is not valid.
 	diags = append(diags, diag.Diagnostic{
 		Code:    diag.CodeSemaConstantInvalidValue,
 		Message: fmt.Sprintf("constant '%s': hex\"...\" literal cannot be used as type '%s'; hex literals are only valid for bytes, string, and bytesN types", constName, ctype),
@@ -5035,11 +5033,11 @@ func validateTypedABIDecodeLiteralForType(filename, localName, localType string,
 	switch localType {
 	case "bool":
 		return
-	case "address":
+	case "agent":
 		if len(payload) != 64 {
 			*diags = append(*diags, diag.Diagnostic{
 				Code:    diag.CodeSemaInvalidStmtShape,
-				Message: fmt.Sprintf("abi.decode literal for local '%s' as address expects 32-byte payload, got %d-byte", localName, len(payload)/2),
+				Message: fmt.Sprintf("abi.decode literal for local '%s' as agent expects 32-byte payload, got %d-byte", localName, len(payload)/2),
 				Span:    defaultSpan(filename),
 			})
 		}

@@ -133,7 +133,7 @@ type LibraryDecl struct {
 // UsingDecl is a using-for declaration inside a contract: using LibName for Type;
 type UsingDecl struct {
 	Library string // the library name
-	Type    string // the target type (e.g. "u256", "address")
+	Type    string // the target type (e.g. "u256", "agent")
 }
 
 // TestDecl is a test block declaration.

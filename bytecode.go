@@ -20,7 +20,7 @@ const (
 	bcConstBool
 	bcConstNumber
 	bcConstString
-	bcConstAddress
+	bcConstAgent
 )
 
 func bytecodeVMID() string {
@@ -498,8 +498,8 @@ func writeConst(w io.Writer, v LValue) error {
 			return err
 		}
 		return writeString(w, string(lv))
-	case LAddress:
-		if err := writeU8(w, bcConstAddress); err != nil {
+	case LAgent:
+		if err := writeU8(w, bcConstAgent); err != nil {
 			return err
 		}
 		return writeString(w, string(lv))
@@ -542,12 +542,12 @@ func readConst(r *byteReader) (LValue, error) {
 			return nil, err
 		}
 		return LString(s), nil
-	case bcConstAddress:
+	case bcConstAgent:
 		s, err := readString(r)
 		if err != nil {
 			return nil, err
 		}
-		addr, err := parseAddressString(s)
+		addr, err := parseAgentString(s)
 		if err != nil {
 			return nil, err
 		}

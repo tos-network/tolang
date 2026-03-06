@@ -64,25 +64,25 @@ func (ls *LState) CheckString(n int) string {
 	return ""
 }
 
-func (ls *LState) CheckAddress(n int) LAddress {
+func (ls *LState) CheckAgent(n int) LAgent {
 	v := ls.Get(n)
 	switch lv := v.(type) {
-	case LAddress:
-		addr, err := parseAddressString(string(lv))
+	case LAgent:
+		addr, err := parseAgentString(string(lv))
 		if err != nil {
 			ls.ArgError(n, err.Error())
 		}
 		return addr
 	case LString:
-		addr, err := parseAddressString(string(lv))
+		addr, err := parseAgentString(string(lv))
 		if err != nil {
 			ls.ArgError(n, err.Error())
 		}
 		return addr
 	default:
-		ls.TypeError(n, LTAddress)
+		ls.TypeError(n, LTAgent)
 	}
-	return LAddress("")
+	return LAgent("")
 }
 
 func (ls *LState) CheckBool(n int) bool {
@@ -211,28 +211,28 @@ func (ls *LState) OptString(n int, d string) string {
 	return ""
 }
 
-func (ls *LState) OptAddress(n int, d LAddress) LAddress {
+func (ls *LState) OptAgent(n int, d LAgent) LAgent {
 	v := ls.Get(n)
 	if v == LNil {
 		return d
 	}
 	switch lv := v.(type) {
-	case LAddress:
-		addr, err := parseAddressString(string(lv))
+	case LAgent:
+		addr, err := parseAgentString(string(lv))
 		if err != nil {
 			ls.ArgError(n, err.Error())
 		}
 		return addr
 	case LString:
-		addr, err := parseAddressString(string(lv))
+		addr, err := parseAgentString(string(lv))
 		if err != nil {
 			ls.ArgError(n, err.Error())
 		}
 		return addr
 	default:
-		ls.TypeError(n, LTAddress)
+		ls.TypeError(n, LTAgent)
 	}
-	return LAddress("")
+	return LAgent("")
 }
 
 func (ls *LState) OptBool(n int, d bool) bool {

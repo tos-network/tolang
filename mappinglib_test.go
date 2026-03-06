@@ -32,19 +32,19 @@ func TestMappingU256U256Semantics(t *testing.T) {
 	}
 }
 
-func TestMappingAddressKeySemantics(t *testing.T) {
+func TestMappingAgentKeySemantics(t *testing.T) {
 	L := NewState()
 	defer L.Close()
 
 	err := L.DoString(`
-		local m = mapping.new("address", "u256")
+		local m = mapping.new("agent", "u256")
 		local zero = "0x0000000000000000000000000000000000000000000000000000000000000000"
 		local a = "0x1111111111111111111111111111111111111111111111111111111111111111"
 		local upper = "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 		local lower = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 		assert(m[zero] == 0)
-		assert(mapping.key_type(m) == "address")
+		assert(mapping.key_type(m) == "agent")
 		assert(mapping.val_type(m) == "u256")
 
 		m[a] = 5

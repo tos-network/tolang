@@ -135,7 +135,7 @@ func cryptoGasLeft(L *LState) int {
 
 // cryptoTolEnc implements __tol_enc(value) -> 64-char hex string (no 0x, 32 bytes).
 // Encodes a TOL key value for canonical mapping slot derivation (spec §8.3):
-//   - LAddress / LString "0x...": hex decode, right-align in 32 bytes
+//   - LAgent / LString "0x...": hex decode, right-align in 32 bytes
 //   - LUint256 / LString decimal: big-endian 32-byte u256
 //   - LBool: 32 zero bytes with LSB = 1 (true) or 0 (false)
 func cryptoTolEnc(L *LState) int {
@@ -217,7 +217,7 @@ func abiDecodeSlot(slotHex, typ string) (LValue, error) {
 		}
 		return LBool(!allZero), nil
 
-	case "address":
+	case "agent":
 		// ABI pads address to 32 bytes (left-padded with zeros); return "0x" + full 64 hex
 		return LString("0x" + slotHex), nil
 
@@ -306,7 +306,7 @@ func tolEncodeKey(v LValue) (string, error) {
 			buf[31] = 1
 		}
 		return hex.EncodeToString(buf[:]), nil
-	case LAddress:
+	case LAgent:
 		return encodeHexTo32(string(val))
 	case LString:
 		s := strings.TrimSpace(string(val))

@@ -102,8 +102,8 @@ const (
 	TokenKwTry        // "try"
 	TokenKwCatch      // "catch" — promoted from contextual
 	TokenKwAbstract   // "abstract"
-	TokenKwAddress    // "address"
 	TokenKwAnonymous  // "anonymous"
+	TokenKwAgent      // "agent"
 	TokenKwBool       // "bool"
 	TokenKwCalldata   // "calldata"
 	TokenKwDelete     // "delete"
@@ -302,10 +302,10 @@ func (t Type) String() string {
 		return "catch"
 	case TokenKwAbstract:
 		return "abstract"
-	case TokenKwAddress:
-		return "address"
 	case TokenKwAnonymous:
 		return "anonymous"
+	case TokenKwAgent:
+		return "agent"
 	case TokenKwBool:
 		return "bool"
 	case TokenKwCalldata:
@@ -486,8 +486,6 @@ func keywordType(lit string) Type {
 		return TokenKwCatch
 	case "abstract":
 		return TokenKwAbstract
-	case "address":
-		return TokenKwAddress
 	case "anonymous":
 		return TokenKwAnonymous
 	case "bool":

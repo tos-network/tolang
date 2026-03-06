@@ -53,14 +53,14 @@ re-reading the source.
 
 ```tol
 /// @notice Transfers `amount` tokens from caller to `to`.
-/// @param  to     Recipient address.
+/// @param  to     Recipient agent.
 /// @param  amount Number of tokens (u256).
 /// @effects reads:  storage.balances[caller], storage.allowances[caller, to]
 /// @effects writes: storage.balances[caller], storage.balances[to]
 /// @effects emits:  Transfer(caller, to, amount)
 /// @effects calls:  []
 /// @gas     upper:  50000
-fn transfer(to: address, amount: u256) -> (ok: bool) external {
+fn transfer(to: agent, amount: u256) -> (ok: bool) external {
     ...
 }
 ```
@@ -70,7 +70,7 @@ fn transfer(to: address, amount: u256) -> (ok: bool) external {
 ```tol
 /**
  * @notice Transfers `amount` tokens from caller to `to`.
- * @param  to     Recipient address.
+ * @param  to     Recipient agent.
  * @param  amount Number of tokens (u256).
  * @effects reads:  storage.balances[caller], storage.allowances[caller, to]
  * @effects writes: storage.balances[caller], storage.balances[to]
@@ -78,7 +78,7 @@ fn transfer(to: address, amount: u256) -> (ok: bool) external {
  * @effects calls:  []
  * @gas     upper:  50000
  */
-fn transfer(to: address, amount: u256) -> (ok: bool) external {
+fn transfer(to: agent, amount: u256) -> (ok: bool) external {
     ...
 }
 ```
@@ -105,15 +105,15 @@ Storage refs use `caller` and `this` with distinct meanings:
 
 | Keyword | Meaning |
 |---------|---------|
-| `caller` | `msg.sender` — the external address that called this function |
-| `this` | The current contract's own address |
+| `caller` | `msg.sender` — the external agent that called this function |
+| `this` | The current contract's own agent identity |
 | `<param>` | A function parameter name used as a mapping key |
 | `*` | Wildcard: any key in this slot's key-space |
 
 ```
 storage.<slot>                          entire slot (scalar)
 storage.<slot>[caller]                  mapping key = msg.sender
-storage.<slot>[this]                    mapping key = contract address
+storage.<slot>[this]                    mapping key = contract agent identity
 storage.<slot>[<param>]                 mapping key = function parameter
 storage.<slot>[*]                       any key (wildcard)
 storage.<slot>[caller, <param>]         nested mapping: outer=caller, inner=param
@@ -555,7 +555,7 @@ type InferredEffects struct {
 
 type CallSite struct {
     Selector string // 4-byte hex, if statically known
-    Target   string // address expression (may be "dynamic")
+    Target   string // agent expression (may be "dynamic")
 }
 ```
 
@@ -711,7 +711,7 @@ This prevents spurious mismatches from formatting differences.
 **Canonical form rules:**
 
 1. No spaces inside `[` / `]` or around `,`.
-2. Keyword `caller` = `msg.sender`; keyword `this` = contract's own address. Both are preserved
+2. Keyword `caller` = `msg.sender`; keyword `this` = contract's own agent identity. Both are preserved
    as-is (not collapsed).
 3. Slot name and key names are lowercase.
 4. Multiple keys in nested mappings use `,` as separator: `[caller,to]`.
@@ -752,7 +752,7 @@ The `.toc` ABI JSON (§4 of `docs/toc-format.md`) is extended per function.
       "name": "transfer",
       "visibility": "external",
       "selector": "0xf6136730",
-      "params": ["address", "u256"],
+      "params": ["agent", "u256"],
       "returns": ["bool"],
       "doc": {
         "notice": "Transfers `amount` tokens from caller to `to`.",
@@ -862,17 +862,17 @@ source tolang 0.2.0
 
 contract TRC20 {
     storage {
-        slot balances:     mapping(address => u256);
-        slot allowances:   mapping(address => mapping(address => u256));
+        slot balances:     mapping(agent => u256);
+        slot allowances:   mapping(agent => mapping(agent => u256));
         slot total_supply: u256;
     }
 
-    event Transfer(from: address indexed, to: address indexed, value: u256)
-    event Approval(owner: address indexed, spender: address indexed, value: u256)
+    event Transfer(from: agent indexed, to: agent indexed, value: u256)
+    event Approval(owner: agent indexed, spender: agent indexed, value: u256)
 
     /**
      * @notice Returns the token balance of `owner`.
-     * @param  owner   The address to query.
+     * @param  owner   The agent to query.
      * @return balance The token balance.
      * @effects reads:  storage.balances[owner]
      * @effects writes: []
@@ -880,7 +880,7 @@ contract TRC20 {
      * @effects calls:  []
      * @gas     upper:  2500
      */
-    fn balanceOf(owner: address) -> (balance: u256) public view {
+    fn balanceOf(owner: agent) -> (balance: u256) public view {
         return balances[owner];
     }
 
@@ -892,7 +892,7 @@ contract TRC20 {
      * @effects calls:  []
      * @gas     upper:  50000
      */
-    fn transfer(to: address, amount: u256) -> (ok: bool) external {
+    fn transfer(to: agent, amount: u256) -> (ok: bool) external {
         require(balances[msg.sender] >= amount, "INSUFFICIENT_BALANCE");
         set balances[msg.sender] -= amount;
         set balances[to] += amount;
@@ -909,7 +909,7 @@ ABI JSON entry for `transfer`:
   "name": "transfer",
   "visibility": "external",
   "selector": "0xf6136730",
-  "params": ["address", "u256"],
+  "params": ["agent", "u256"],
   "returns": ["bool"],
   "doc": {
     "effects": {

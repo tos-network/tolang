@@ -21,7 +21,7 @@ func OpenBase(L *LState) int {
 }
 
 var baseFuncs = map[string]LGFunction{
-	"address": baseAddress,
+	"agent": baseAgent,
 	"assert":  baseAssert,
 	// collectgarbage REMOVED: runtime GC behavior is not consensus-critical
 	// and can leak host runtime nondeterminism into contracts.
@@ -278,8 +278,8 @@ func baseToNumber(L *LState) int {
 	return 1
 }
 
-func baseAddress(L *LState) int {
-	addr, err := parseAddressValue(L.CheckAny(1))
+func baseAgent(L *LState) int {
+	addr, err := parseAgentValue(L.CheckAny(1))
 	if err != nil {
 		L.ArgError(1, err.Error())
 	}

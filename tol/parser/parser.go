@@ -1801,7 +1801,7 @@ func (p *Parser) parseContractMember(contract *ast.ContractDecl) {
 
 	// Handle agent-native contextual keywords: capability, purpose, manifest,
 	// oracle<T>, vote<T>, task<T>, agent.
-	if p.cur.Type == lexer.TokenIdent {
+	if p.cur.Type == lexer.TokenIdent || p.cur.Type == lexer.TokenKwAgent {
 		switch p.cur.Literal {
 		case "capability":
 			cd := p.parseCapabilityDecl()
@@ -2977,7 +2977,7 @@ func (p *Parser) parseField(allowIndexed, allowDataLoc bool) (ast.FieldDecl, boo
 			// A plain ident AFTER we already have type tokens = parameter name
 			// (keywords like 'mapping', 'address' etc. can be part of the type)
 			if len(typeTokens) > 0 && p.cur.Type == lexer.TokenIdent {
-				// "payable" as plain ident is a type suffix: "address payable"
+				// "payable" as plain ident is a type suffix: "agent payable"
 				if p.cur.Literal == "payable" {
 					// fall through to append (legacy: payable still as ident)
 				} else if isFunctionType && isFunctionTypeModifier(p.cur.Literal) {
@@ -3000,7 +3000,7 @@ func (p *Parser) parseField(allowIndexed, allowDataLoc bool) (ast.FieldDecl, boo
 			}
 			// Handle promoted keyword tokens after type tokens have started.
 			if len(typeTokens) > 0 {
-				// "payable" as keyword suffix: "address payable"
+				// "payable" as keyword suffix: "agent payable"
 				if p.cur.Type == lexer.TokenKwPayable {
 					typeTokens = append(typeTokens, p.cur.Literal)
 					p.next()
@@ -3219,8 +3219,8 @@ func isTypelikeToken(s string) bool {
 // stripMappingKeyValueNames removes the optional named key/value identifiers from
 // mapping type tokens. E.g.:
 //
-//	["mapping", "(", "address", "key", "=>", "u256", "value", ")"]
-//	→ ["mapping", "(", "address", "=>", "u256", ")"]
+//	["mapping", "(", "agent", "key", "=>", "u256", "value", ")"]
+//	→ ["mapping", "(", "agent", "=>", "u256", ")"]
 //
 // A name is stripped only when two consecutive typeLike tokens appear before "=>"
 // (strip the second one) or after "=>" and before ")" at depth 1 (strip the one
@@ -4584,7 +4584,7 @@ func (p *Parser) parsePrefixExpr(stop map[lexer.Type]bool) (*ast.Expr, bool) {
 			Args:  args,
 		}, true
 	// Keywords that can appear in expression context (used as identifiers):
-	case lexer.TokenKwAddress, lexer.TokenKwBool, lexer.TokenKwString,
+	case lexer.TokenKwAgent, lexer.TokenKwBool, lexer.TokenKwString,
 		lexer.TokenKwPayable, lexer.TokenKwPure, lexer.TokenKwView,
 		lexer.TokenKwPublic, lexer.TokenKwPrivate, lexer.TokenKwExternal, lexer.TokenKwInternal,
 		lexer.TokenKwMemory, lexer.TokenKwCalldata, lexer.TokenKwStorage,
@@ -5008,13 +5008,14 @@ func (p *Parser) parsePostfixExpr(left *ast.Expr) (*ast.Expr, bool) {
 			})
 			return nil, false
 		}
-		p.next() // accept any non-EOF token as member name (including keywords like 'address')
+		p.next() // accept any non-EOF token as member name (including keywords like 'agent')
+		memberName := memberTok.Literal
 		// msg.agent → special Kind "msg_agent" (zero-agent fallback, no revert on unregistered).
-		if memberTok.Literal == "agent" &&
+		if memberName == "agent" &&
 			left != nil && left.Kind == "ident" && strings.TrimSpace(left.Value) == "msg" {
 			return &ast.Expr{Kind: "msg_agent"}, true
 		}
-		return &ast.Expr{Kind: "member", Object: left, Member: memberTok.Literal}, true
+		return &ast.Expr{Kind: "member", Object: left, Member: memberName}, true
 	case lexer.TokenLBracket:
 		p.next()
 		// Check for slice notation: expr[start:end]
@@ -5175,7 +5176,7 @@ func (p *Parser) isTypeStart() bool {
 	switch p.cur.Type {
 	case lexer.TokenKwMapping, lexer.TokenIdent,
 		// Promoted type keywords that can start a type expression:
-		lexer.TokenKwAddress, lexer.TokenKwBool, lexer.TokenKwString,
+		lexer.TokenKwAgent, lexer.TokenKwBool, lexer.TokenKwString,
 		lexer.TokenKwMemory, lexer.TokenKwCalldata, lexer.TokenKwStorage:
 		return true
 	}
@@ -5191,7 +5192,7 @@ func isIdentLike(t lexer.Type) bool {
 	switch t {
 	case lexer.TokenIdent,
 		// Keywords that can appear as identifiers in various contexts
-		lexer.TokenKwAbstract, lexer.TokenKwAddress, lexer.TokenKwAnonymous,
+		lexer.TokenKwAbstract, lexer.TokenKwAgent, lexer.TokenKwAnonymous,
 		lexer.TokenKwBool, lexer.TokenKwCalldata, lexer.TokenKwDelete,
 		lexer.TokenKwExternal, lexer.TokenKwFalse, lexer.TokenKwGlobal,
 		lexer.TokenKwIndexed, lexer.TokenKwInternal, lexer.TokenKwIs,
@@ -5244,7 +5245,7 @@ func (p *Parser) isContractMemberStart(tt lexer.Type) bool {
 		lexer.TokenIdent,
 		// Promoted keywords that can start contract members:
 		lexer.TokenKwUsing, lexer.TokenKwReceive,
-		lexer.TokenKwAddress, lexer.TokenKwBool, lexer.TokenKwString:
+		lexer.TokenKwAgent, lexer.TokenKwBool, lexer.TokenKwString:
 		return true
 	default:
 		return false
@@ -6103,6 +6104,23 @@ func (p *Parser) parseAgentTypeSlot() *ast.StorageSlot {
 			p.next()
 		}
 		fullType = typeName + "<" + strings.Join(innerParts, "") + ">"
+	}
+
+	// Parse optional array suffixes: [][3][], [N], etc.
+	for p.cur.Type == lexer.TokenLBracket {
+		p.next() // consume '['
+		if p.cur.Type == lexer.TokenRBracket {
+			fullType += "[]"
+			p.next() // consume ']'
+		} else {
+			// fixed-size array [N]
+			size := p.cur.Literal
+			p.next()
+			if p.cur.Type == lexer.TokenRBracket {
+				p.next()
+			}
+			fullType += "[" + size + "]"
+		}
 	}
 
 	// Parse optional visibility modifiers (public/private/internal/override)

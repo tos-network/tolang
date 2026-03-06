@@ -217,11 +217,11 @@ func TestTRC20ConstructorCreditsOwner(t *testing.T) {
 	L, tos := deployTRC20(t, alice, 1000)
 	defer L.Close()
 
-	bal := callTRC20(t, L, tos, "balanceOf(address)", LString(alice))
+	bal := callTRC20(t, L, tos, "balanceOf(agent)", LString(alice))
 	if bal != "1000" {
 		t.Fatalf("alice balance after deploy: got %s want 1000", bal)
 	}
-	bal = callTRC20(t, L, tos, "balanceOf(address)", LString(bob))
+	bal = callTRC20(t, L, tos, "balanceOf(agent)", LString(bob))
 	if bal != "0" {
 		t.Fatalf("bob balance after deploy: got %s want 0", bal)
 	}
@@ -233,7 +233,7 @@ func TestTRC20BalanceOfZeroForUnknownAgent(t *testing.T) {
 	L, tos := deployTRC20(t, alice, 500)
 	defer L.Close()
 
-	bal := callTRC20(t, L, tos, "balanceOf(address)", LString(charlie))
+	bal := callTRC20(t, L, tos, "balanceOf(agent)", LString(charlie))
 	if bal != "0" {
 		t.Fatalf("charlie balance: got %s want 0", bal)
 	}
@@ -246,13 +246,13 @@ func TestTRC20TransferMovesBalance(t *testing.T) {
 	defer L.Close()
 
 	setSender(L, alice)
-	callTRC20(t, L, tos, "transfer(address,u256)", LString(bob), lu256FromInt(300))
+	callTRC20(t, L, tos, "transfer(agent,u256)", LString(bob), lu256FromInt(300))
 
-	aliceBal := callTRC20(t, L, tos, "balanceOf(address)", LString(alice))
+	aliceBal := callTRC20(t, L, tos, "balanceOf(agent)", LString(alice))
 	if aliceBal != "700" {
 		t.Fatalf("alice balance after transfer: got %s want 700", aliceBal)
 	}
-	bobBal := callTRC20(t, L, tos, "balanceOf(address)", LString(bob))
+	bobBal := callTRC20(t, L, tos, "balanceOf(agent)", LString(bob))
 	if bobBal != "300" {
 		t.Fatalf("bob balance after transfer: got %s want 300", bobBal)
 	}
@@ -263,13 +263,13 @@ func TestTRC20TransferFullBalance(t *testing.T) {
 	defer L.Close()
 
 	setSender(L, alice)
-	callTRC20(t, L, tos, "transfer(address,u256)", LString(bob), lu256FromInt(500))
+	callTRC20(t, L, tos, "transfer(agent,u256)", LString(bob), lu256FromInt(500))
 
-	aliceBal := callTRC20(t, L, tos, "balanceOf(address)", LString(alice))
+	aliceBal := callTRC20(t, L, tos, "balanceOf(agent)", LString(alice))
 	if aliceBal != "0" {
 		t.Fatalf("alice balance after full transfer: got %s want 0", aliceBal)
 	}
-	bobBal := callTRC20(t, L, tos, "balanceOf(address)", LString(bob))
+	bobBal := callTRC20(t, L, tos, "balanceOf(agent)", LString(bob))
 	if bobBal != "500" {
 		t.Fatalf("bob balance after full transfer: got %s want 500", bobBal)
 	}
@@ -280,7 +280,7 @@ func TestTRC20TransferInsufficientBalanceReverts(t *testing.T) {
 	defer L.Close()
 
 	setSender(L, alice)
-	errMsg := callTRC20Err(t, L, tos, "transfer(address,u256)", LString(bob), lu256FromInt(200))
+	errMsg := callTRC20Err(t, L, tos, "transfer(agent,u256)", LString(bob), lu256FromInt(200))
 	if !strings.Contains(errMsg, "INSUFFICIENT_BALANCE") {
 		t.Fatalf("expected INSUFFICIENT_BALANCE error, got: %s", errMsg)
 	}
@@ -291,9 +291,9 @@ func TestTRC20TransferDoesNotChangeBalanceOnRevert(t *testing.T) {
 	defer L.Close()
 
 	setSender(L, alice)
-	callTRC20Err(t, L, tos, "transfer(address,u256)", LString(bob), lu256FromInt(999))
+	callTRC20Err(t, L, tos, "transfer(agent,u256)", LString(bob), lu256FromInt(999))
 
-	aliceBal := callTRC20(t, L, tos, "balanceOf(address)", LString(alice))
+	aliceBal := callTRC20(t, L, tos, "balanceOf(agent)", LString(alice))
 	if aliceBal != "100" {
 		t.Fatalf("alice balance unchanged after failed transfer: got %s want 100", aliceBal)
 	}
@@ -304,18 +304,18 @@ func TestTRC20MultipleTransfers(t *testing.T) {
 	defer L.Close()
 
 	setSender(L, alice)
-	callTRC20(t, L, tos, "transfer(address,u256)", LString(bob), lu256FromInt(200))
-	callTRC20(t, L, tos, "transfer(address,u256)", LString(charlie), lu256FromInt(300))
+	callTRC20(t, L, tos, "transfer(agent,u256)", LString(bob), lu256FromInt(200))
+	callTRC20(t, L, tos, "transfer(agent,u256)", LString(charlie), lu256FromInt(300))
 
-	aliceBal := callTRC20(t, L, tos, "balanceOf(address)", LString(alice))
+	aliceBal := callTRC20(t, L, tos, "balanceOf(agent)", LString(alice))
 	if aliceBal != "500" {
 		t.Fatalf("alice balance: got %s want 500", aliceBal)
 	}
-	bobBal := callTRC20(t, L, tos, "balanceOf(address)", LString(bob))
+	bobBal := callTRC20(t, L, tos, "balanceOf(agent)", LString(bob))
 	if bobBal != "200" {
 		t.Fatalf("bob balance: got %s want 200", bobBal)
 	}
-	charlieBal := callTRC20(t, L, tos, "balanceOf(address)", LString(charlie))
+	charlieBal := callTRC20(t, L, tos, "balanceOf(agent)", LString(charlie))
 	if charlieBal != "300" {
 		t.Fatalf("charlie balance: got %s want 300", charlieBal)
 	}
@@ -328,18 +328,18 @@ func TestTRC20ApproveSetAllowance(t *testing.T) {
 	defer L.Close()
 
 	setSender(L, alice)
-	callTRC20(t, L, tos, "approve(address,u256)", LString(charlie), lu256FromInt(400))
+	callTRC20(t, L, tos, "approve(agent,u256)", LString(charlie), lu256FromInt(400))
 
 	// Verify via transferFrom: charlie can spend up to 400 of alice's tokens.
 	setSender(L, charlie)
-	callTRC20(t, L, tos, "transferFrom(address,address,u256)",
+	callTRC20(t, L, tos, "transferFrom(agent,agent,u256)",
 		LString(alice), LString(charlie), lu256FromInt(100))
 
-	charlieBal := callTRC20(t, L, tos, "balanceOf(address)", LString(charlie))
+	charlieBal := callTRC20(t, L, tos, "balanceOf(agent)", LString(charlie))
 	if charlieBal != "100" {
 		t.Fatalf("charlie balance after transferFrom: got %s want 100", charlieBal)
 	}
-	aliceBal := callTRC20(t, L, tos, "balanceOf(address)", LString(alice))
+	aliceBal := callTRC20(t, L, tos, "balanceOf(agent)", LString(alice))
 	if aliceBal != "900" {
 		t.Fatalf("alice balance after transferFrom: got %s want 900", aliceBal)
 	}
@@ -350,19 +350,19 @@ func TestTRC20ApproveOverwritesPreviousAllowance(t *testing.T) {
 	defer L.Close()
 
 	setSender(L, alice)
-	callTRC20(t, L, tos, "approve(address,u256)", LString(charlie), lu256FromInt(500))
-	callTRC20(t, L, tos, "approve(address,u256)", LString(charlie), lu256FromInt(50))
+	callTRC20(t, L, tos, "approve(agent,u256)", LString(charlie), lu256FromInt(500))
+	callTRC20(t, L, tos, "approve(agent,u256)", LString(charlie), lu256FromInt(50))
 
 	// charlie can only spend 50 now.
 	setSender(L, charlie)
-	callTRC20Err(t, L, tos, "transferFrom(address,address,u256)",
+	callTRC20Err(t, L, tos, "transferFrom(agent,agent,u256)",
 		LString(alice), LString(charlie), lu256FromInt(100))
 
 	// But spending 50 or less works.
-	callTRC20(t, L, tos, "transferFrom(address,address,u256)",
+	callTRC20(t, L, tos, "transferFrom(agent,agent,u256)",
 		LString(alice), LString(charlie), lu256FromInt(50))
 
-	charlieBal := callTRC20(t, L, tos, "balanceOf(address)", LString(charlie))
+	charlieBal := callTRC20(t, L, tos, "balanceOf(agent)", LString(charlie))
 	if charlieBal != "50" {
 		t.Fatalf("charlie balance: got %s want 50", charlieBal)
 	}
@@ -375,20 +375,20 @@ func TestTRC20TransferFromReducesAllowance(t *testing.T) {
 	defer L.Close()
 
 	setSender(L, alice)
-	callTRC20(t, L, tos, "approve(address,u256)", LString(charlie), lu256FromInt(300))
+	callTRC20(t, L, tos, "approve(agent,u256)", LString(charlie), lu256FromInt(300))
 
 	setSender(L, charlie)
-	callTRC20(t, L, tos, "transferFrom(address,address,u256)",
+	callTRC20(t, L, tos, "transferFrom(agent,agent,u256)",
 		LString(alice), LString(bob), lu256FromInt(100))
-	callTRC20(t, L, tos, "transferFrom(address,address,u256)",
+	callTRC20(t, L, tos, "transferFrom(agent,agent,u256)",
 		LString(alice), LString(bob), lu256FromInt(100))
 
-	bobBal := callTRC20(t, L, tos, "balanceOf(address)", LString(bob))
+	bobBal := callTRC20(t, L, tos, "balanceOf(agent)", LString(bob))
 	if bobBal != "200" {
 		t.Fatalf("bob balance: got %s want 200", bobBal)
 	}
 	// Remaining allowance = 100; spending 101 should fail.
-	errMsg := callTRC20Err(t, L, tos, "transferFrom(address,address,u256)",
+	errMsg := callTRC20Err(t, L, tos, "transferFrom(agent,agent,u256)",
 		LString(alice), LString(bob), lu256FromInt(101))
 	if !strings.Contains(errMsg, "INSUFFICIENT_ALLOWANCE") {
 		t.Fatalf("expected INSUFFICIENT_ALLOWANCE, got: %s", errMsg)
@@ -401,7 +401,7 @@ func TestTRC20TransferFromInsufficientAllowanceReverts(t *testing.T) {
 
 	// charlie has no allowance → should revert immediately.
 	setSender(L, charlie)
-	errMsg := callTRC20Err(t, L, tos, "transferFrom(address,address,u256)",
+	errMsg := callTRC20Err(t, L, tos, "transferFrom(agent,agent,u256)",
 		LString(alice), LString(bob), lu256FromInt(1))
 	if !strings.Contains(errMsg, "INSUFFICIENT_ALLOWANCE") {
 		t.Fatalf("expected INSUFFICIENT_ALLOWANCE, got: %s", errMsg)
@@ -414,10 +414,10 @@ func TestTRC20TransferFromInsufficientBalanceReverts(t *testing.T) {
 
 	// Give charlie unlimited allowance but alice only has 50.
 	setSender(L, alice)
-	callTRC20(t, L, tos, "approve(address,u256)", LString(charlie), lu256FromInt(9999))
+	callTRC20(t, L, tos, "approve(agent,u256)", LString(charlie), lu256FromInt(9999))
 
 	setSender(L, charlie)
-	errMsg := callTRC20Err(t, L, tos, "transferFrom(address,address,u256)",
+	errMsg := callTRC20Err(t, L, tos, "transferFrom(agent,agent,u256)",
 		LString(alice), LString(bob), lu256FromInt(100))
 	if !strings.Contains(errMsg, "INSUFFICIENT_BALANCE") {
 		t.Fatalf("expected INSUFFICIENT_BALANCE, got: %s", errMsg)

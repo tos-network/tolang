@@ -27,7 +27,7 @@ Reference: `docs/AGENT-NATIVE.md` (§III VM Storage Primitives, §VI Compiler & 
   Rejected=5/Disputed=6/Cancelled=7). Transitions enforced by `__tol_task_transition`
   (delegates to `tos.task_transition` atomic CAS when available).
 - **task ID**: `keccak256(poster_bytes ++ block.number_bytes)` — unique per-poster-per-block.
-- **`agent` type**: subtype of `address`. Reading a slot of type `agent` as an expression
+- **`agent` type**: TOL's native identity type. Reading a slot of type `agent` as an expression
   compiles to an identity value; casting `agent(expr)` inlines a guard via `tos.agentload`.
 - **Manifest block**: compile-time key/value metadata emitted verbatim into `.toc` ABI JSON
   under a `"manifest"` top-level key.
@@ -194,7 +194,7 @@ Type restriction: `T` should be a struct type — TOL2305.
 agent worker;
 ```
 
-Stored as a regular address slot. Reading the value yields an address. Casting `agent(expr)`
+Stored as a native agent identity slot. Casting `agent(expr)`
 inlines a runtime registration check.
 
 ---
@@ -229,7 +229,7 @@ function claimReward(uint256 tid) external payable returns (uint256) { ... }
 ```
 
 Documents the payment semantics. Emitted in `.toc` ABI JSON as `"pay_amount_wei": "100"`.
-Sema validates: amount must be a uint256 expression (TOL2308), recipient must be an address (TOL2309).
+Sema validates: amount must be a uint256 expression (TOL2308), recipient must be an agent expression (TOL2309).
 
 ### `@delegated`
 
@@ -330,10 +330,10 @@ go into `"extra": { ... }`.
 | TOL2303 | `oracle<T>`: type parameter must be a value type                 |
 | TOL2304 | `vote<T>`: type parameter must be numeric (uint/int/bool)        |
 | TOL2305 | `task<T>`: T should be a struct type                             |
-| TOL2306 | `agent` cast on non-address expression                           |
+| TOL2306 | `agent` cast on non-agent expression                           |
 | TOL2307 | Manifest block already declared                                  |
 | TOL2308 | `@pay`: amount must be a uint256 expression                      |
-| TOL2309 | `@pay`: recipient must be an address expression                  |
+| TOL2309 | `@pay`: recipient must be an agent expression                  |
 | TOL2310 | `delegation.verify()` outside `@delegated` function             |
 | TOL2311 | `escrow`/`release`/`slash` outside payable context              |
 | TOL2312 | Purpose ordinal overflow (max 256 purposes per contract)         |
@@ -387,7 +387,7 @@ contract TaskBoard {
 
     /// @delegated
     function acceptJob(uint256 tid) external payable {
-        __tol_task_transition(__tol_s_jobs_base, tid, 1, 2, address(0));
+        __tol_task_transition(__tol_s_jobs_base, tid, 1, 2, agent(0));
     }
 
     /// @verifiable

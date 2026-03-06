@@ -196,7 +196,7 @@ type loweringEnv struct {
 	usingTypeToLib     map[string]string
 	// enumByName maps enum name → (member name → integer value).
 	enumByName         map[string]map[string]int
-	// errorSigByName maps error name → canonical ABI signature string (e.g. "Unauthorized(address,uint256)").
+	// errorSigByName maps error name → canonical ABI signature string (e.g. "Unauthorized(agent,uint256)").
 	errorSigByName     map[string]string
 	// structFields maps struct name → ordered list of field names.
 	structFields       map[string][]string
@@ -1331,7 +1331,7 @@ function __tol_abi_encode_slot(v, typ)
     end
     return string.rep("0", 64)
   end
-  if typ == "address" or typ == "agent" then
+  if typ == "agent" or typ == "agent" then
     local hex = "0"
     if type(v) == "string" and string.sub(v, 1, 2) == "0x" then
       hex = string.sub(v, 3)
@@ -1434,7 +1434,7 @@ local function __tol_abi_slot_static(v, typ)
   -- For string values: if 0x-prefixed hex, right-align; otherwise text-encode
   if type(v) == "string" then
     if string.sub(v, 1, 2) == "0x" then
-      -- Hex string (address, bytesN, or bytes-as-value): right-align in 32 bytes
+      -- Hex string (agent, bytesN, or bytes-as-value): right-align in 32 bytes
       local hex = string.lower(string.sub(v, 3))
       if #hex > 64 then hex = string.sub(hex, #hex - 63) end
       local pad = 64 - #hex
@@ -1450,7 +1450,7 @@ local function __tol_abi_slot_static(v, typ)
       return string.rep("0", pad) .. hex
     end
   end
-  -- address, uN, iN, uint256: right-aligned; use __tol_enc for full 256-bit correctness
+  -- agent, uN, iN, uint256: right-aligned; use __tol_enc for full 256-bit correctness
   local encoded = __tol_enc(v)  -- 64-char hex string (no 0x prefix)
   return encoded
 end
@@ -1575,7 +1575,7 @@ function __tol_abi_encode_packed_v2(...)
       out = out .. data
     elseif typ == "bool" then
       if v then out = out .. "01" else out = out .. "00" end
-    elseif typ == "address" or typ == "agent" then
+    elseif typ == "agent" or typ == "agent" then
       -- 20 bytes right-aligned (strip leading zeros from full 32-byte slot to 20 bytes)
       local slot = __tol_abi_slot_static(v, "agent")
       out = out .. string.sub(slot, 25)  -- last 40 hex chars = 20 bytes
@@ -1596,9 +1596,9 @@ function __tol_abi_decode_typed(data, typ)
   if typ == "bool" then
     return not __tol_all_zero_hex(payload)
   end
-  if typ == "address" or typ == "agent" then
+  if typ == "agent" or typ == "agent" then
     if #payload ~= 64 then
-      error("abi.decode typed address expects 32-byte hex payload")
+      error("abi.decode typed agent expects 32-byte hex payload")
     end
     return "0x" .. payload
   end
@@ -2617,10 +2617,9 @@ func normalizeSelectorType(t string) string {
 		b.WriteString(cur)
 	}
 	result := b.String()
-	// Normalize "address payable" and "agent" → "address": same runtime
-	// representation and ABI encoding. "agent" is TOL's preferred spelling.
-	if result == "address payable" || result == "agent" {
-		result = "address"
+	// Strip payable qualifier: "agent payable" → "agent".
+	if result == "agent payable" {
+		result = "agent"
 	}
 	return result
 }
@@ -2630,7 +2629,7 @@ func defaultValueExprForType(typeName string) (luast.Expr, bool) {
 	switch t {
 	case "bool":
 		return withLineExpr(&luast.FalseExpr{}), true
-	case "address":
+	case "agent":
 		return withLineExpr(&luast.StringExpr{Value: "0x" + strings.Repeat("0", 64)}), true
 	case "string":
 		return withLineExpr(&luast.StringExpr{Value: ""}), true
@@ -3022,10 +3021,10 @@ func lowerConstructorToLua(params []tolast.FieldDecl, body []tolast.Statement, e
 // When tos.calldata is absent or empty the parameters retain whatever values
 // were passed as direct Lua function arguments (test-runner path).
 //
-// Example output for constructor(supply: u256, owner: address):
+// Example output for constructor(supply: u256, owner: agent):
 //
 //	if tos ~= nil and type(tos.calldata) == "string" and #tos.calldata > 2 then
-//	  supply, owner = __tol_abi_decode_tuple(tos.calldata, "u256", "address")
+//	  supply, owner = __tol_abi_decode_tuple(tos.calldata, "u256", "agent")
 //	end
 //
 // Example output for constructor(p: Point, n: u256) where Point={x,y}:
@@ -4490,7 +4489,7 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 		var defaultExpr luast.Expr
 		if elemType == "bool" {
 			defaultExpr = withLineExpr(&luast.FalseExpr{})
-		} else if elemType == "address" || strings.HasPrefix(elemType, "bytes") {
+		} else if elemType == "agent" || strings.HasPrefix(elemType, "bytes") {
 			defaultExpr = withLineExpr(&luast.StringExpr{Value: "0x"})
 		} else {
 			// uN, iN, u256: default is 0.
@@ -4756,7 +4755,7 @@ func lowerCallWithOptionsExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 
 // lowerAgentTransferSendCallExpr handles addr.transfer(amount) and addr.send(amount),
 // lowering them to __tol_host_transfer(addr, amount) and __tol_host_send(addr, amount).
-// The sema pass (TOL2085) already guarantees addr is address payable; this handles lowering.
+// The sema pass (TOL2085) already guarantees addr is agent payable; this handles lowering.
 func lowerAgentTransferSendCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
 	if e == nil || e.Kind != "call" {
 		return nil, false, nil
@@ -5530,7 +5529,7 @@ func isSupportedABIDecodeTargetType(typeName string) bool {
 
 func isSupportedABIDecodeTargetTypeWithStructs(typeName string, structFields map[string][]string) bool {
 	switch typeName {
-	case "bool", "address", "bytes":
+	case "bool", "agent", "bytes":
 		return true
 	}
 	if strings.HasPrefix(typeName, "bytes") {
@@ -6256,7 +6255,7 @@ func lowerStorageLengthMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr,
 	if !strings.HasSuffix(compact, "]") {
 		return nil, true, fmt.Errorf("[%s] '.length' is only supported on storage arrays (slot '%s')", diag.CodeLowerUnsupportedFeature, info.name)
 	}
-	// Compute the base address for the (possibly nested) array.
+	// Compute the base agent for the (possibly nested) array.
 	baseExpr, err := buildHashSlotExpr(ctx, info, keys)
 	if err != nil {
 		return nil, true, err
@@ -6900,10 +6899,10 @@ func lowerAgentPropertyExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool,
 		}
 	}
 	// Case 2: ident of agent/address type (function param or local).
-	// "agent" normalizes to "address" in typeOfLocal, so check both.
+	// "agent" normalizes to "agent" in typeOfLocal, so check both.
 	if addrExpr == nil && obj.Kind == "ident" {
 		localType := ctx.typeOfLocal(strings.TrimSpace(obj.Value))
-		if strings.TrimSpace(localType) == "agent" || strings.TrimSpace(localType) == "address" {
+		if strings.TrimSpace(localType) == "agent" || strings.TrimSpace(localType) == "agent" {
 			inner, err := tolExprToLua(ctx, obj)
 			if err != nil {
 				return nil, true, err
@@ -6915,7 +6914,7 @@ func lowerAgentPropertyExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool,
 	if addrExpr == nil {
 		if slotName, keys, ok := ctx.storagePathFromExpr(obj); ok && len(keys) == 0 {
 			info, hasInfo := ctx.storageInfoByName(slotName)
-			if hasInfo && (info.typ == "agent" || info.typ == "address") {
+			if hasInfo && info.typ == "agent" {
 				inner, err := tolExprToLua(ctx, obj)
 				if err != nil {
 					return nil, true, err
@@ -7054,7 +7053,7 @@ func lowerStoragePushCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 	if err != nil {
 		return nil, true, err
 	}
-	// Compute the base address for the (possibly nested) array.
+	// Compute the base agent for the (possibly nested) array.
 	baseExpr, err := buildHashSlotExpr(ctx, info, keys)
 	if err != nil {
 		return nil, true, err
@@ -7136,11 +7135,11 @@ func unsignedIntBits(typName string) int {
 	return n
 }
 
-// isTypeCastCallName returns true if name is a TOL type cast like u256, i8, bool, address, etc.
+// isTypeCastCallName returns true if name is a TOL type cast like u256, i8, bool, agent, etc.
 func isTypeCastCallName(name string) bool {
 	n := strings.TrimSpace(name)
 	switch n {
-	case "bool", "agent", "address", "bytes", "string":
+	case "bool", "agent", "bytes", "string":
 		return true
 	}
 	if strings.HasPrefix(n, "bytes") {

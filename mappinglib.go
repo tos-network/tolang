@@ -10,7 +10,7 @@ const MappingLibName = "mapping"
 const mappingTypeName = "__tos_mapping"
 
 const (
-	zeroAddress = "0x0000000000000000000000000000000000000000000000000000000000000000"
+	zeroAgent = "0x0000000000000000000000000000000000000000000000000000000000000000"
 	zeroBytes32 = "0x0000000000000000000000000000000000000000000000000000000000000000"
 )
 
@@ -20,7 +20,7 @@ const (
 	mappingKindU256 mappingKind = iota
 	mappingKindBool
 	mappingKindString
-	mappingKindAddress
+	mappingKindAgent
 	mappingKindBytes32
 )
 
@@ -202,8 +202,8 @@ func parseMappingKind(name string, allowStringKey bool) (mappingKind, error) {
 			return mappingKindString, nil
 		}
 		return mappingKindString, nil
-	case "address":
-		return mappingKindAddress, nil
+	case "agent":
+		return mappingKindAgent, nil
 	case "bytes32":
 		return mappingKindBytes32, nil
 	default:
@@ -222,8 +222,8 @@ func mappingKindName(k mappingKind) string {
 		return "bool"
 	case mappingKindString:
 		return "string"
-	case mappingKindAddress:
-		return "address"
+	case mappingKindAgent:
+		return "agent"
 	case mappingKindBytes32:
 		return "bytes32"
 	default:
@@ -237,8 +237,8 @@ func defaultMappingValue(kind mappingKind) LValue {
 		return LUint256Zero
 	case mappingKindBool:
 		return LFalse
-	case mappingKindAddress:
-		return LAddress(zeroAddress)
+	case mappingKindAgent:
+		return LAgent(zeroAgent)
 	case mappingKindBytes32:
 		return LString(zeroBytes32)
 	case mappingKindString:
@@ -265,8 +265,8 @@ func normalizeMappingKey(v LValue, kind mappingKind) (string, error) {
 			return string(s), nil
 		}
 		return "", fmt.Errorf("expected string key")
-	case mappingKindAddress:
-		addr, err := parseAddressValue(v)
+	case mappingKindAgent:
+		addr, err := parseAgentValue(v)
 		if err != nil {
 			return "", err
 		}
@@ -300,8 +300,8 @@ func normalizeMappingValue(v LValue, kind mappingKind) (LValue, error) {
 			return s, nil
 		}
 		return LNil, fmt.Errorf("expected string value")
-	case mappingKindAddress:
-		addr, err := parseAddressValue(v)
+	case mappingKindAgent:
+		addr, err := parseAgentValue(v)
 		if err != nil {
 			return LNil, err
 		}

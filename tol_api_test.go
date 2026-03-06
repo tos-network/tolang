@@ -555,7 +555,7 @@ func TestBuildIRAcceptsFixedArrayTypes(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   u8[2] xs;
-  address[][3] ys;
+  agent[][3] ys;
   function run(u256[4] a) public {
     return;
   }
@@ -737,7 +737,7 @@ contract Demo {
 
 	wantZeroAddr := "0x" + strings.Repeat("0", 64)
 	if got := LVAsString(L.GetGlobal("out_a")); got != wantZeroAddr {
-		t.Fatalf("unexpected address default: got=%s want=%s", got, wantZeroAddr)
+		t.Fatalf("unexpected agent default: got=%s want=%s", got, wantZeroAddr)
 	}
 	if got := LVAsString(L.GetGlobal("out_s")); got != "" {
 		t.Fatalf("unexpected string default: got=%q want=%q", got, "")
@@ -1185,8 +1185,8 @@ contract Demo {
 	if sigTable == LNil {
 		t.Fatalf("expected __tol_event_sig table")
 	}
-	if got := LVAsString(L.GetField(sigTable, "Transfer")); got != "Transfer(address,address,u256)" {
-		t.Fatalf("unexpected event signature metadata: got=%s want=Transfer(address,address,u256)", got)
+	if got := LVAsString(L.GetField(sigTable, "Transfer")); got != "Transfer(agent,agent,u256)" {
+		t.Fatalf("unexpected event signature metadata: got=%s want=Transfer(agent,agent,u256)", got)
 	}
 
 	indexedTable := L.GetGlobal("__tol_event_indexed")
@@ -1254,8 +1254,8 @@ contract Demo {
 	if got := LVAsString(L.GetGlobal("__ev_arg3")); got != "7" {
 		t.Fatalf("unexpected emit arg3 position: got=%s want=7", got)
 	}
-	if got := LVAsString(L.GetGlobal("__ev_sig")); got != "Transfer(address,address,u256)" {
-		t.Fatalf("unexpected emit signature metadata: got=%s want=Transfer(address,address,u256)", got)
+	if got := LVAsString(L.GetGlobal("__ev_sig")); got != "Transfer(agent,agent,u256)" {
+		t.Fatalf("unexpected emit signature metadata: got=%s want=Transfer(agent,agent,u256)", got)
 	}
 	if got := LVAsString(L.GetGlobal("__ev_indexed")); got != "110" {
 		t.Fatalf("unexpected emit indexed metadata: got=%s want=110", got)
@@ -2239,7 +2239,7 @@ func TestBuildIRRejectsSelectorBuiltinExprStatement(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    selector("transfer(address,u256)");
+    selector("transfer(agent,u256)");
     return;
   }
 }
@@ -2477,7 +2477,7 @@ func TestBuildIRRejectsEmitSelectorBuiltinPayload(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    emit selector("transfer(address,u256)");
+    emit selector("transfer(agent,u256)");
     return;
   }
 }
@@ -3122,12 +3122,12 @@ contract Token {
 }
 
 // TestConstructorABIDecodeAgentAndU256FromCalldata verifies that a constructor
-// with multiple parameters (address, u256) correctly decodes both from calldata.
+// with multiple parameters (agent, u256) correctly decodes both from calldata.
 func TestConstructorABIDecodeAgentAndU256FromCalldata(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Wallet {
-  address owner;
+  agent owner;
   u256 balance;
   constructor(agent initialOwner, u256 initialBalance) {
     set owner = initialOwner;
@@ -3161,8 +3161,8 @@ contract Wallet {
 		t.Fatalf("init DoBytecode error: %v", err)
 	}
 
-	// ABI calldata for (address=0x...a11c, u256=9999):
-	// Slot 0 (address): 32 bytes, agent right-aligned (left-padded with zeros).
+	// ABI calldata for (agent=0x...a11c, u256=9999):
+	// Slot 0 (agent): 32 bytes, agent right-aligned (left-padded with zeros).
 	//   alice = 0x000000000000000000000000000000000000000000000000000000000000a11c
 	//   ABI padded: 000000000000000000000000000000000000000000000000000000000000a11c
 	// Slot 1 (u256): 32 bytes, 9999 = 0x270F → 60 zeros + "270f"
@@ -3372,7 +3372,7 @@ func TestCompileBytecodeSelectorBuiltinLiteral(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function mark() public {
-    set sel = selector("transfer(address,u256)");
+    set sel = selector("transfer(agent,u256)");
     return;
   }
 }
@@ -3398,7 +3398,7 @@ contract Demo {
 	if err := L.PCall(1, 0, nil); err != nil {
 		t.Fatalf("oninvoke call failed: %v", err)
 	}
-	want := selectorHexFromSignature("transfer(address,u256)")
+	want := selectorHexFromSignature("transfer(agent,u256)")
 	if got := LVAsString(L.GetGlobal("sel")); got != want {
 		t.Fatalf("unexpected selector result: got=%s want=%s", got, want)
 	}
@@ -3409,7 +3409,7 @@ func TestCompileBytecodeSelectorBuiltinLiteralWithParenCallee(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function mark() public {
-    set sel = (selector)("transfer(address,u256)");
+    set sel = (selector)("transfer(agent,u256)");
     return;
   }
 }
@@ -3435,7 +3435,7 @@ contract Demo {
 	if err := L.PCall(1, 0, nil); err != nil {
 		t.Fatalf("oninvoke call failed: %v", err)
 	}
-	want := selectorHexFromSignature("transfer(address,u256)")
+	want := selectorHexFromSignature("transfer(agent,u256)")
 	if got := LVAsString(L.GetGlobal("sel")); got != want {
 		t.Fatalf("unexpected selector result: got=%s want=%s", got, want)
 	}
@@ -3469,11 +3469,11 @@ contract Demo {
 
 	L.Push(oninvoke)
 	L.Push(LString(selectorHexFromSignature("mark(string)")))
-	L.Push(LString("transfer(address,u256)"))
+	L.Push(LString("transfer(agent,u256)"))
 	if err := L.PCall(2, 0, nil); err != nil {
 		t.Fatalf("oninvoke call failed: %v", err)
 	}
-	want := selectorHexFromSignature("transfer(address,u256)")
+	want := selectorHexFromSignature("transfer(agent,u256)")
 	if got := LVAsString(L.GetGlobal("sel")); got != want {
 		t.Fatalf("unexpected dynamic selector result: got=%s want=%s", got, want)
 	}
@@ -3907,7 +3907,7 @@ contract Demo {
 	}
 
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("add(address,u256)")))
+	L.Push(LString(selectorHexFromSignature("add(agent,u256)")))
 	L.Push(lu256FromInt(11))
 	L.Push(lu256FromInt(3))
 	if err := L.PCall(3, 0, nil); err != nil {
@@ -3918,7 +3918,7 @@ contract Demo {
 	}
 
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("add(address,u256)")))
+	L.Push(LString(selectorHexFromSignature("add(agent,u256)")))
 	L.Push(lu256FromInt(11))
 	L.Push(lu256FromInt(4))
 	if err := L.PCall(3, 0, nil); err != nil {
@@ -4022,7 +4022,7 @@ contract Demo {
 	}
 
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("add(address,address,u256)")))
+	L.Push(LString(selectorHexFromSignature("add(agent,agent,u256)")))
 	L.Push(lu256FromInt(1))
 	L.Push(lu256FromInt(2))
 	L.Push(lu256FromInt(3))
@@ -4034,7 +4034,7 @@ contract Demo {
 	}
 
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("add(address,address,u256)")))
+	L.Push(LString(selectorHexFromSignature("add(agent,agent,u256)")))
 	L.Push(lu256FromInt(1))
 	L.Push(lu256FromInt(2))
 	L.Push(lu256FromInt(4))
@@ -4338,7 +4338,7 @@ contract Demo {
 	}
 	want := "0x00000000000000000000000000000000000000000000000000000000000000ab"
 	if got := LVAsString(L.GetGlobal("out")); got != want {
-		t.Fatalf("unexpected typed abi.decode address result: got=%s want=%s", got, want)
+		t.Fatalf("unexpected typed abi.decode agent result: got=%s want=%s", got, want)
 	}
 }
 
@@ -4494,7 +4494,7 @@ contract Demo {
 	if !strings.Contains(err.Error(), "TOL2021") {
 		t.Fatalf("expected TOL2021 error, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "abi.decode typed local binding only supports bool/address/bytesN/uN") {
+	if !strings.Contains(err.Error(), "abi.decode typed local binding only supports bool/agent/bytesN/uN") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -4618,7 +4618,7 @@ func TestBuildIRModifierExpansion(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  address owner;
+  agent owner;
   modifier onlyOwner {
     require(msg.sender == owner, "not owner");
     _;
@@ -4698,7 +4698,7 @@ func TestBuildIRMultipleModifiersExpansion(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  address owner;
+  agent owner;
   bool paused;
   modifier onlyOwner {
     require(msg.sender == owner, "not owner");
@@ -5713,7 +5713,7 @@ contract Demo {
 
 // TestABIDecodeTupleU256AndAgent verifies that a tuple let-binding
 // with abi.decode unpacks two slots correctly:
-//   let (v, a): (u256, address) = abi.decode(data);
+//   let (v, a): (u256, agent) = abi.decode(data);
 // decodes 64-byte ABI payload into u256=42 and address=0x...ab.
 func TestABIDecodeTupleU256AndAgent(t *testing.T) {
 	// 64-byte ABI payload: slot0 = u256(42), slot1 = address(0xab)
@@ -5724,7 +5724,7 @@ func TestABIDecodeTupleU256AndAgent(t *testing.T) {
 contract Demo {
   function run() public {
     let data: bytes = "` + data + `";
-    let (val, addr): (u256, address) = abi.decode(data);
+    let (val, addr): (u256, agent) = abi.decode(data);
     set out_val = val;
     set out_addr = addr;
     return;
@@ -5738,7 +5738,7 @@ contract Demo {
 	}
 	wantAddr := "0x00000000000000000000000000000000000000000000000000000000000000ab"
 	if got := LVAsString(L.GetGlobal("out_addr")); got != wantAddr {
-		t.Errorf("address slot: expected %s, got %s", wantAddr, got)
+		t.Errorf("agent slot: expected %s, got %s", wantAddr, got)
 	}
 }
 
@@ -5896,7 +5896,7 @@ func TestLetTupleParserBasic(t *testing.T) {
 contract Demo {
   function run() public {
     let data: bytes = "0x0000000000000000000000000000000000000000000000000000000000000001";
-    let (a, b): (u256, address) = abi.decode(data);
+    let (a, b): (u256, agent) = abi.decode(data);
     return;
   }
 }
@@ -7374,13 +7374,13 @@ contract Demo {
 	}
 }
 
-// TestConstructorWithArrayParam verifies that a constructor taking an address[]
+// TestConstructorWithArrayParam verifies that a constructor taking an agent[]
 // parameter can decode it from ABI-encoded calldata.
 func TestConstructorWithArrayParam(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
-  address first;
-  constructor(address[] tokens) {
+  agent first;
+  constructor(agent[] tokens) {
     set first = tokens[1];
     return;
   }
@@ -7397,13 +7397,13 @@ contract Demo {
 	L := NewState()
 	defer L.Close()
 
-	// ABI calldata for constructor(address[]) with tokens = [0x...abc]:
-	// offset (32 bytes = 0x20) + length (32 bytes = 1) + address padded to 32 bytes
+	// ABI calldata for constructor(agent[]) with tokens = [0x...abc]:
+	// offset (32 bytes = 0x20) + length (32 bytes = 1) + agent padded to 32 bytes
 	addrHex := "000000000000000000000000" + "0000000000000000000000000000000000000abc"
 	calldataHex := "0x" +
 		"0000000000000000000000000000000000000000000000000000000000000020" + // offset = 32
 		"0000000000000000000000000000000000000000000000000000000000000001" + // length = 1
-		addrHex // address element
+		addrHex // agent element
 
 	tosTable := L.NewTable()
 	L.SetField(tosTable, "calldata", LString(calldataHex))
@@ -7440,10 +7440,10 @@ contract Demo {
 	if err := L.PCall(1, 0, nil); err != nil {
 		t.Fatalf("oninvoke(run()) failed: %v", err)
 	}
-	// The stored address should be 0x + full 64-char hex (padded)
+	// The stored agent should be 0x + full 64-char hex (padded)
 	got := LVAsString(L.GetGlobal("out"))
 	if !strings.Contains(got, "abc") {
-		t.Errorf("constructor address[]: expected address containing 'abc', got %s", got)
+		t.Errorf("constructor agent[]: expected agent containing 'abc', got %s", got)
 	}
 }
 
@@ -7618,7 +7618,7 @@ contract Allowances {
 
 	// set m[1][2] = 100
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("set_val(address,address,u256)")))
+	L.Push(LString(selectorHexFromSignature("set_val(agent,agent,u256)")))
 	L.Push(lu256FromInt(1))
 	L.Push(lu256FromInt(2))
 	L.Push(lu256FromInt(100))
@@ -7628,7 +7628,7 @@ contract Allowances {
 
 	// get m[1][2] → 100
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("get_val(address,address)")))
+	L.Push(LString(selectorHexFromSignature("get_val(agent,agent)")))
 	L.Push(lu256FromInt(1))
 	L.Push(lu256FromInt(2))
 	if err := L.PCall(3, 0, nil); err != nil {
@@ -7640,7 +7640,7 @@ contract Allowances {
 
 	// get m[1][3] → 0 (not set)
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("get_val(address,address)")))
+	L.Push(LString(selectorHexFromSignature("get_val(agent,agent)")))
 	L.Push(lu256FromInt(1))
 	L.Push(lu256FromInt(3))
 	if err := L.PCall(3, 0, nil); err != nil {
@@ -7683,7 +7683,7 @@ contract Balances {
 
 	// set bal[0xAA][0] = 100
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("push_val(address,u256)")))
+	L.Push(LString(selectorHexFromSignature("push_val(agent,u256)")))
 	L.Push(lu256FromInt(0xAA))
 	L.Push(lu256FromInt(100))
 	if err := L.PCall(3, 0, nil); err != nil {
@@ -7692,7 +7692,7 @@ contract Balances {
 
 	// get bal[0xAA][0] → 100
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("get_val(address)")))
+	L.Push(LString(selectorHexFromSignature("get_val(agent)")))
 	L.Push(lu256FromInt(0xAA))
 	if err := L.PCall(2, 0, nil); err != nil {
 		t.Fatalf("get_val(0xAA) failed: %v", err)
@@ -7701,9 +7701,9 @@ contract Balances {
 		t.Fatalf("bal[0xAA][0]: expected 100, got %s", got)
 	}
 
-	// get bal[0xBB][0] → 0 (different address)
+	// get bal[0xBB][0] → 0 (different agent)
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("get_val(address)")))
+	L.Push(LString(selectorHexFromSignature("get_val(agent)")))
 	L.Push(lu256FromInt(0xBB))
 	if err := L.PCall(2, 0, nil); err != nil {
 		t.Fatalf("get_val(0xBB) failed: %v", err)
@@ -7968,7 +7968,7 @@ contract PayableDemo {
 
 	testAddr := "0x" + strings.Repeat("ab", 32)
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("getPayable(address)")))
+	L.Push(LString(selectorHexFromSignature("getPayable(agent)")))
 	L.Push(LString(testAddr))
 	if err := L.PCall(2, MultRet, nil); err != nil {
 		t.Fatalf("call getPayable failed: %v", err)
@@ -8042,25 +8042,25 @@ contract InterfaceIdDemo {
 		return ret
 	}
 
-	// ISimple has one function: transfer(address,u256)
-	// selector = keccak256("transfer(address,u256)")[0:4] = 0xf6136730
-	// interfaceId = 0xf6136730 (single function XOR = itself)
+	// ISimple has one function: transfer(agent,u256)
+	// selector = keccak256("transfer(agent,u256)")[0:4] = 0x02ab5f49
+	// interfaceId = 0x02ab5f49 (single function XOR = itself)
 	gotSimple := callFn("simpleId()")
-	if gotSimple != "0xf6136730" {
-		t.Errorf("type(ISimple).interfaceId: expected 0xf6136730, got %s", gotSimple)
+	if gotSimple != "0x02ab5f49" {
+		t.Errorf("type(ISimple).interfaceId: expected 0x02ab5f49, got %s", gotSimple)
 	}
 
 	// IERC20 has 6 functions; XOR of selectors:
 	//   totalSupply()                      -> 0x18160ddd
-	//   balanceOf(address)                 -> 0x70a08231
-	//   transfer(address,u256)             -> 0xf6136730
-	//   transferFrom(address,address,u256) -> 0x60e127fd
-	//   approve(address,u256)              -> 0x392f02d2
-	//   allowance(address,address)         -> 0xdd62ed3e
-	//   XOR = 0x1a0920cd
+	//   balanceOf(agent)                 -> 0x585ddc84
+	//   transfer(agent,u256)             -> 0x02ab5f49
+	//   transferFrom(agent,agent,u256) -> 0x586fd5f5
+	//   approve(agent,u256)              -> 0x59110f6a
+	//   allowance(agent,agent)         -> 0x08e201cc
+	//   XOR = 0x4b7c5543
 	gotERC20 := callFn("erc20Id()")
-	if gotERC20 != "0x1a0920cd" {
-		t.Errorf("type(IERC20).interfaceId: expected 0x1a0920cd, got %s", gotERC20)
+	if gotERC20 != "0x4b7c5543" {
+		t.Errorf("type(IERC20).interfaceId: expected 0x4b7c5543, got %s", gotERC20)
 	}
 }
 
@@ -8246,8 +8246,8 @@ contract Wallet {
 	}
 }
 
-// TestAgentTypeAnnotationCompiles verifies that "address payable" is
-// accepted as a type annotation and treated identically to "address" at runtime.
+// TestAgentTypeAnnotationCompiles verifies that "agent payable" is
+// accepted as a type annotation and treated identically to "agent" at runtime.
 func TestAgentTypeAnnotationCompiles(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
@@ -8261,7 +8261,7 @@ contract Test {
 `)
 	bc, err := CompileBytecode(src, "<tol>")
 	if err != nil {
-		t.Fatalf("address payable compile error: %v", err)
+		t.Fatalf("agent payable compile error: %v", err)
 	}
 	L := NewState()
 	defer L.Close()
@@ -8272,18 +8272,18 @@ contract Test {
 	tos := L.GetGlobal("tos")
 	oninvoke := L.GetField(tos, "oninvoke")
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("run(address)")))
+	L.Push(LString(selectorHexFromSignature("run(agent)")))
 	L.Push(LString(testAddr))
 	if err := L.PCall(2, 0, nil); err != nil {
 		t.Fatalf("oninvoke failed: %v", err)
 	}
 	if got := LVAsString(L.GetGlobal("out_addr")); got != testAddr {
-		t.Errorf("address payable: expected %s, got %s", testAddr, got)
+		t.Errorf("agent payable: expected %s, got %s", testAddr, got)
 	}
 }
 
 // TestAddrDotTransferCallsHostTransfer verifies that addr.transfer(amount) on an
-// "address payable" variable compiles and dispatches to the host transfer function.
+// "agent payable" variable compiles and dispatches to the host transfer function.
 func TestAddrDotTransferCallsHostTransfer(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
@@ -8319,7 +8319,7 @@ contract Wallet {
 
 	oninvoke := L.GetField(tos, "oninvoke")
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("doTransfer(address,u256)")))
+	L.Push(LString(selectorHexFromSignature("doTransfer(agent,u256)")))
 	L.Push(LString(testAddr))
 	L.Push(LString(testAmount))
 	if err := L.PCall(3, 0, nil); err != nil {
@@ -8333,7 +8333,7 @@ contract Wallet {
 	}
 }
 
-// TestAddrDotSendCallsHostSend verifies that addr.send(amount) on an "address payable"
+// TestAddrDotSendCallsHostSend verifies that addr.send(amount) on an "agent payable"
 // variable compiles and dispatches to the host send function.
 func TestAddrDotSendCallsHostSend(t *testing.T) {
 	src := []byte(`
@@ -8368,7 +8368,7 @@ contract Wallet {
 
 	oninvoke := L.GetField(tos, "oninvoke")
 	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("trySend(address,u256)")))
+	L.Push(LString(selectorHexFromSignature("trySend(agent,u256)")))
 	L.Push(LString(testAddr))
 	L.Push(LString(testAmount))
 	if err := L.PCall(3, 1, nil); err != nil {
@@ -9115,7 +9115,7 @@ contract Demo {
 	if err2 == nil {
 		t.Error("string decode should be rejected but compiled successfully")
 	}
-	if !strings.Contains(err2.Error(), "abi.decode typed local binding only supports bool/address/bytesN/uN") {
+	if !strings.Contains(err2.Error(), "abi.decode typed local binding only supports bool/agent/bytesN/uN") {
 		t.Errorf("unexpected error for string decode: %v", err2)
 	}
 }

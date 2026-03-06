@@ -704,9 +704,9 @@ func functionVisibilityFromModifiers(modifiers []string) string {
 
 func normalizeABIType(t string) string {
 	s := strings.Join(strings.Fields(t), " ")
-	// "address payable" and bare "address" normalize to "agent" — agent is TOL's
+	// "agent payable" and bare "agent" normalize to "agent" — agent is TOL's
 	// canonical identity type; .toc is a TOL-native format, not EVM ABI.
-	if s == "address payable" || s == "address" {
+	if s == "agent payable" || s == "agent" {
 		s = "agent"
 	}
 	repl := strings.NewReplacer(

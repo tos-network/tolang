@@ -856,7 +856,7 @@ func resolveKeyRef(e *ast.Expr, params map[string]bool) string {
 	case "call":
 		// address(this) → "this"
 		if e.Callee != nil && e.Callee.Kind == "ident" &&
-			strings.TrimSpace(e.Callee.Value) == "address" &&
+			strings.TrimSpace(e.Callee.Value) == "agent" &&
 			len(e.Args) == 1 {
 			if resolveKeyRef(e.Args[0], params) == "this" {
 				return "this"

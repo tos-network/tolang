@@ -2169,7 +2169,7 @@ func TestCallOptionsSingleOption(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  address token;
+  agent token;
   function run(agent to, uint256 amount) public {
     token.transfer{value: amount}(to);
   }
@@ -2910,14 +2910,14 @@ contract C {
 	}
 }
 
-// 7.9 — .address member access on keyword token.
+// 7.9 — .agent member access on keyword token.
 func TestMemberAccessAgentKeyword(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract C {
-    address tok;
-    function getAddress() external returns (agent a) {
-        a = tok.address;
+    agent tok;
+    function getAgent() external returns (agent a) {
+        a = tok.agent;
     }
 }
 `)
@@ -2938,12 +2938,12 @@ contract C {
 	if assignExpr == nil || assignExpr.Kind != "assign" {
 		t.Fatalf("assign expr: want 'assign', got %#v", assignExpr)
 	}
-	// The RHS should be a member access with member "address".
+	// The RHS should be a member access with member "agent".
 	rhs := assignExpr.Right
 	if rhs == nil || rhs.Kind != "member" {
 		t.Fatalf("rhs kind: want 'member', got %#v", rhs)
 	}
-	if rhs.Member != "address" {
+	if rhs.Member != "agent" {
 		t.Fatalf("member: want 'agent', got %q", rhs.Member)
 	}
 }
@@ -2970,7 +2970,7 @@ func TestFunctionTypeInParam(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract C {
-    function invoke(function(address, uint256) external returns (bool) fn) external {}
+    function invoke(function(agent, uint256) external returns (bool) fn) external {}
 }
 `)
 	mod, diags := ParseFile("<test>", src)
@@ -2981,7 +2981,7 @@ contract C {
 	if param.Name != "fn" {
 		t.Fatalf("param name: want 'fn', got %q", param.Name)
 	}
-	wantType := "function(address,u256) external returns(bool)"
+	wantType := "function(agent,u256) external returns(bool)"
 	if param.Type != wantType {
 		t.Fatalf("param type: want %q, got %q", wantType, param.Type)
 	}
@@ -3315,7 +3315,7 @@ contract Demo {
 	}
 }
 
-// Keyword promotion: address as type keyword
+// Keyword promotion: agent as type keyword
 func TestParseAgentKeyword(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;

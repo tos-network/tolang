@@ -1,0 +1,153 @@
+pragma tolang 0.3.0;
+
+// Tests for AgentWallet — AA wallet with session-key support.
+//
+// Address legend:
+//   OWNER = 0x…0001  — the agent's primary EOA (deployed the wallet)
+//   KEY_A = 0x…0002  — first session key (hot process)
+//   KEY_B = 0x…0003  — second session key (task module)
+//   ROGUE = 0x…0099  — unregistered address attempting unauthorised access
+
+test AgentWalletSuite {
+
+    let OWNER: address = "0x0000000000000000000000000000000000000000000000000000000000000001";
+    let KEY_A: address = "0x0000000000000000000000000000000000000000000000000000000000000002";
+    let KEY_B: address = "0x0000000000000000000000000000000000000000000000000000000000000003";
+    let ROGUE: address = "0x0000000000000000000000000000000000000000000000000000000000000099";
+    let ZERO:  address = "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+    setup {
+        deploy AgentWallet(OWNER) -> wallet;
+    }
+
+    // ── validate(): owner ─────────────────────────────────────────────────────
+
+    // The owner must always be accepted regardless of tx_hash / sig values.
+    function test_validate_owner_passes() {
+        with msg.sender = OWNER {
+            assert_eq(wallet.validate(ZERO, ""), true);
+        }
+    }
+
+    // An address that was never registered must be rejected.
+    function test_validate_unknown_address_fails() {
+        with msg.sender = ROGUE {
+            assert_eq(wallet.validate(ZERO, ""), false);
+        }
+    }
+
+    // ── validate(): session keys ──────────────────────────────────────────────
+
+    // A freshly registered session key (no expiry, no value cap) must pass.
+    function test_validate_session_key_passes() {
+        with msg.sender = OWNER {
+            wallet.addSessionKey(KEY_A, 0, 0);
+        }
+        with msg.sender = KEY_A {
+            assert_eq(wallet.validate(ZERO, ""), true);
+        }
+    }
+
+    // A revoked session key must be rejected immediately.
+    function test_validate_revoked_key_fails() {
+        with msg.sender = OWNER {
+            wallet.addSessionKey(KEY_A, 0, 0);
+            wallet.revokeSessionKey(KEY_A);
+        }
+        with msg.sender = KEY_A {
+            assert_eq(wallet.validate(ZERO, ""), false);
+        }
+    }
+
+    // A session key registered with expiry_ms = 1 (already past) must fail.
+    function test_validate_expired_key_fails() {
+        with msg.sender = OWNER {
+            wallet.addSessionKey(KEY_A, 1, 0);
+        }
+        with msg.sender = KEY_A {
+            assert_eq(wallet.validate(ZERO, ""), false);
+        }
+    }
+
+    // Two independent session keys must not interfere with each other.
+    function test_two_session_keys_independent() {
+        with msg.sender = OWNER {
+            wallet.addSessionKey(KEY_A, 0, 0);
+            wallet.addSessionKey(KEY_B, 0, 0);
+            wallet.revokeSessionKey(KEY_A);
+        }
+        with msg.sender = KEY_A {
+            assert_eq(wallet.validate(ZERO, ""), false);
+        }
+        with msg.sender = KEY_B {
+            assert_eq(wallet.validate(ZERO, ""), true);
+        }
+    }
+
+    // ── addSessionKey(): access control ──────────────────────────────────────
+
+    // Only the owner may register session keys.
+    function test_add_session_key_non_owner_reverts() {
+        with msg.sender = ROGUE {
+            assert_revert("OnlyOwner") {
+                wallet.addSessionKey(KEY_A, 0, 0);
+            }
+        }
+    }
+
+    // The owner must not be registered as a session key (it already has full access).
+    function test_add_session_key_owner_as_key_reverts() {
+        with msg.sender = OWNER {
+            assert_revert("CannotAddOwnerAsSessionKey") {
+                wallet.addSessionKey(OWNER, 0, 0);
+            }
+        }
+    }
+
+    // ── revokeSessionKey(): access control ───────────────────────────────────
+
+    // Only the owner may revoke session keys.
+    function test_revoke_session_key_non_owner_reverts() {
+        with msg.sender = OWNER {
+            wallet.addSessionKey(KEY_A, 0, 0);
+        }
+        with msg.sender = ROGUE {
+            assert_revert("OnlyOwner") {
+                wallet.revokeSessionKey(KEY_A);
+            }
+        }
+    }
+
+    // ── transferOwner() ───────────────────────────────────────────────────────
+
+    // After transferOwner(), the new owner passes validate() and the old one does not.
+    function test_transfer_owner_switches_control() {
+        with msg.sender = OWNER {
+            wallet.transferOwner(KEY_A);
+        }
+        with msg.sender = OWNER {
+            assert_eq(wallet.validate(ZERO, ""), false);
+        }
+        with msg.sender = KEY_A {
+            assert_eq(wallet.validate(ZERO, ""), true);
+        }
+    }
+
+    // Only the current owner may transfer ownership.
+    function test_transfer_owner_non_owner_reverts() {
+        with msg.sender = ROGUE {
+            assert_revert("OnlyOwner") {
+                wallet.transferOwner(ROGUE);
+            }
+        }
+    }
+
+    // Transferring to the zero address must revert.
+    function test_transfer_owner_zero_address_reverts() {
+        with msg.sender = OWNER {
+            assert_revert("ZeroAddress") {
+                wallet.transferOwner(ZERO);
+            }
+        }
+    }
+}

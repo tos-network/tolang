@@ -1,0 +1,209 @@
+pragma tolang 0.3.0;
+
+// AgentWallet — Account-Abstraction wallet with session-key support.
+//
+// OVERVIEW
+// ────────
+// An autonomous AI agent controls a keypair (addr_A).  Deploying this contract
+// creates a second, programmable identity (addr_wallet) that the agent uses as
+// its stable on-chain address.
+//
+// The gtos protocol recognises addr_wallet as an AA account contract because the
+// compiler writes a marker into storage during construction.  Before executing
+// any transaction directed at addr_wallet the protocol calls:
+//
+//   validate(tx_hash, sig)
+//
+// The transaction proceeds only when validate() returns true.
+//
+// SESSION KEYS
+// ────────────
+// The owner can grant temporary session keys to sub-processes, hot wallets, or
+// delegated modules.  A session key is a normal address whose transactions are
+// accepted by validate() until the key expires or is revoked.
+//
+// Typical use cases:
+//   • Hot key   — a key stored in memory; expires after a short window.
+//   • Task key  — scoped to a single task execution; revoked on completion.
+//   • Sub-agent — a child AI process that may spend up to a daily value cap.
+//
+// EXECUTION FLOW
+//   1. Agent (addr_A or a session key) sends tx → addr_wallet.execute(target, …)
+//   2. Protocol calls validate(); if it returns false the tx is dropped (no gas charge).
+//   3. execute() forwards the call; downstream contracts see msg.sender = addr_wallet.
+//
+// DEPLOYMENT
+//   tol compile AgentWallet.tol
+//   # send a contract-creation tx from addr_A with the compiled .toc as data
+//   # constructor argument: abi.encode(addr_A)
+
+account contract AgentWallet {
+
+    // ── Storage ───────────────────────────────────────────────────────────────
+
+    // Primary controlling address.  Only transferOwner() can change this, and
+    // that function itself requires validate() to pass first.
+    address owner;
+
+    // Session key registry — one flat mapping per attribute to avoid struct
+    // encoding complexity while keeping slot access O(1).
+    mapping(address => bool)  sk_active;    // false = not registered or revoked
+    mapping(address => u256)  sk_expiry;    // expiry in milliseconds (0 = never)
+    mapping(address => u256)  sk_value_cap; // max wei per execute() call (0 = no cap)
+
+    // ── Events ────────────────────────────────────────────────────────────────
+
+    event SessionKeyAdded(address indexed key, u256 expiry_ms, u256 value_cap)
+    event SessionKeyRevoked(address indexed key)
+    event Executed(address indexed target, u256 value, bool success)
+    event OwnerTransferred(address indexed prev_owner, address indexed new_owner)
+
+    // ── Constructor ───────────────────────────────────────────────────────────
+
+    /// @notice Deploy the wallet and set the initial owner.
+    /// @param  _owner  Address that controls this wallet (typically the agent's EOA).
+    constructor(address _owner) {
+        set owner = _owner;
+    }
+
+    // ── AA: Validate ──────────────────────────────────────────────────────────
+
+    /// @notice Called by the gtos protocol before executing any inbound transaction.
+    ///
+    /// The protocol passes msg.From of the outer transaction as msg.sender here,
+    /// so no off-chain signature parsing is required — the chain has already
+    /// authenticated the caller via their private key.
+    ///
+    /// @param  tx_hash  keccak256 of the transaction fields (from || to || nonce || …).
+    /// @param  sig      Raw transaction calldata (available for custom sig schemes).
+    /// @return ok       true → proceed; false → reject without charging gas.
+    ///
+    /// @effects reads:  storage.owner, storage.sk_active[caller], storage.sk_expiry[caller]
+    /// @effects writes: []
+    /// @effects emits:  []
+    function validate(bytes32 tx_hash, bytes sig) external returns (bool ok) {
+        // Owner always passes — no restrictions.
+        if (msg.sender == owner) {
+            return true;
+        }
+
+        // Session key: must be registered and active.
+        if (!sk_active[msg.sender]) {
+            return false;
+        }
+
+        // Session key: must not have expired.
+        let expiry: u256 = sk_expiry[msg.sender];
+        if (expiry > 0 && block.timestamp_ms >= expiry) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // ── Session Key Management ────────────────────────────────────────────────
+
+    /// @notice Register a temporary session key.
+    ///
+    /// Only the owner may call this function (validate() enforces that).
+    ///
+    /// @param  key        Address to authorise as a session key.
+    /// @param  expiry_ms  Unix timestamp in milliseconds when the key expires.
+    ///                    Pass 0 for a key that never expires (use with caution).
+    /// @param  value_cap  Maximum wei the key may attach to a single execute() call.
+    ///                    Pass 0 for no cap (owner-equivalent spending power).
+    ///
+    /// @effects reads:  storage.owner
+    /// @effects writes: storage.sk_active[key], storage.sk_expiry[key], storage.sk_value_cap[key]
+    /// @effects emits:  SessionKeyAdded
+    function addSessionKey(address key, u256 expiry_ms, u256 value_cap) external {
+        require(msg.sender == owner, "OnlyOwner");
+        require(key != owner, "CannotAddOwnerAsSessionKey");
+
+        set sk_active[key]    = true;
+        set sk_expiry[key]    = expiry_ms;
+        set sk_value_cap[key] = value_cap;
+
+        emit SessionKeyAdded(key, expiry_ms, value_cap);
+    }
+
+    /// @notice Immediately revoke a session key.
+    ///
+    /// The key's other stored attributes (expiry, value_cap) are preserved but
+    /// irrelevant once sk_active is false.
+    ///
+    /// @param  key  Session key address to deactivate.
+    ///
+    /// @effects reads:  storage.owner
+    /// @effects writes: storage.sk_active[key]
+    /// @effects emits:  SessionKeyRevoked
+    function revokeSessionKey(address key) external {
+        require(msg.sender == owner, "OnlyOwner");
+
+        set sk_active[key] = false;
+
+        emit SessionKeyRevoked(key);
+    }
+
+    // ── Execution ─────────────────────────────────────────────────────────────
+
+    /// @notice Forward a call to any target contract as this wallet's address.
+    ///
+    /// Downstream contracts see msg.sender = addr_wallet, giving the wallet a
+    /// stable on-chain identity regardless of which key signed the outer tx.
+    ///
+    /// Session keys are subject to their value_cap.  The owner has no cap.
+    /// The call result is emitted as an Executed event; execute() reverts if
+    /// the forwarded call fails so the outer tx is rolled back cleanly.
+    ///
+    /// @param  target  Contract address to call.
+    /// @param  data    ABI-encoded calldata (4-byte selector + encoded arguments).
+    /// @param  value   wei to attach to the forwarded call.
+    ///
+    /// @effects reads:  storage.owner, storage.sk_value_cap[caller]
+    /// @effects writes: []
+    /// @effects emits:  Executed
+    /// @effects calls:  *
+    function execute(address target, bytes data, u256 value) external payable {
+        // Enforce the session key value cap.  The owner is exempt.
+        if (msg.sender != owner) {
+            let cap: u256 = sk_value_cap[msg.sender];
+            if (cap > 0) {
+                require(value <= cap, "SessionKeyValueCapExceeded");
+            }
+        }
+
+        let ok: bool = target.call{value: value}(data);
+        emit Executed(target, value, ok);
+        require(ok, "ExecuteFailed");
+    }
+
+    // ── Owner Transfer ────────────────────────────────────────────────────────
+
+    /// @notice Transfer wallet ownership to a new address.
+    ///
+    /// Useful when rotating the main key, upgrading to a multi-sig, or handing
+    /// control to a different agent.  The old owner loses all privileges as soon
+    /// as this call succeeds.
+    ///
+    /// @param  new_owner  Address that will become the new owner.
+    ///
+    /// @effects reads:  storage.owner
+    /// @effects writes: storage.owner
+    /// @effects emits:  OwnerTransferred
+    function transferOwner(address new_owner) external {
+        require(msg.sender == owner, "OnlyOwner");
+        require(new_owner != address(0), "ZeroAddress");
+
+        let prev: address = owner;
+        set owner = new_owner;
+
+        emit OwnerTransferred(prev, new_owner);
+    }
+
+    // ── Receive ───────────────────────────────────────────────────────────────
+
+    // Accept plain TOS transfers so the wallet can hold a balance
+    // (e.g. task rewards deposited directly to addr_wallet).
+    receive() external payable {}
+}

@@ -1073,6 +1073,7 @@ if tx.origin == nil then tx.origin = msg.sender end
 if type(block) ~= "table" then block = {} end
 if block.number == nil then block.number = 0 end
 if block.timestamp == nil then block.timestamp = 0 end
+if block.timestamp_ms == nil then block.timestamp_ms = 1000000000000 end
 `); err != nil {
 		// Should never fail; panic would be overkill — continue without event capture.
 		_ = err

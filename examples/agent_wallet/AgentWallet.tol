@@ -88,7 +88,9 @@ account contract AgentWallet {
         }
 
         // Session key: must be registered and active.
-        if (!sk_active[msg.sender]) {
+        // Note: unregistered slots return uint256 0, not Lua false, so compare
+        // against true rather than using logical negation (!).
+        if (sk_active[msg.sender] != true) {
             return false;
         }
 
@@ -193,7 +195,7 @@ account contract AgentWallet {
     /// @effects emits:  OwnerTransferred
     function transferOwner(address new_owner) external {
         require(msg.sender == owner, "OnlyOwner");
-        require(new_owner != address(0), "ZeroAddress");
+        require(new_owner != "0x0000000000000000000000000000000000000000000000000000000000000000", "ZeroAddress");
 
         let prev: address = owner;
         set owner = new_owner;

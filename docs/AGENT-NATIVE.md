@@ -719,7 +719,7 @@ identity, not just raw addresses.
 
 ---
 
-### 9. `delegation` — Principal Tracking for AI-Mediated UX — 🔶 Partial
+### 9. `delegation` — Principal Tracking for AI-Mediated UX — 🔶 Partial (core done; sub-delegation not yet)
 
 **Relevance:** THESIS.md Pillar 5 — individuals delegate tasks to AI assistants that manage
 portfolios and execute transactions on their behalf. The language must express *who authorized
@@ -847,7 +847,7 @@ proposal.result       // → T     (winning option; runtime revert if not decide
 
 ---
 
-### 11. `account` Contract Type — Account Abstraction for Autonomous Agents — ❌ Not started
+### 11. `account` Contract Type — Account Abstraction for Autonomous Agents — ✅ Done
 
 **Relevance:** THESIS.md explicitly lists "Account abstraction allows programmable accounts
 suitable for autonomous agents" as a required enabling technology. An autonomous AI agent cannot
@@ -961,7 +961,7 @@ function verify_totalScoreOf(bytes proof, agent who, i256 expected_score) public
 
 ---
 
-### 13. Fixed Gas Price — Unique Language Features Unlocked — ❌ Not started
+### 13. Fixed Gas Price — Unique Language Features Unlocked — ✅ Done (`@quota`, `@total_cost` compiler support)
 
 gtos fixes the gas price at **10 gwei** at the consensus layer. This is not just an economic
 detail — it enables a class of language features that are impossible or unsound on variable-price
@@ -1043,12 +1043,12 @@ on a variable-price chain, the compensation formula would require a price oracle
 | **Done** | `@effects` / `@gas` / `@bounds` annotation system | Pillar 5: AI safety verification | ✅ Done |
 | P0 | `agent` native type + `msg.agent` (registry-backed; property caching; zero-agent semantics) | Pillar 4: Identity & reputation | ✅ Done — `agent(expr)` cast, property access, and `msg.agent` context var all implemented |
 | P0 | `capability` + `purpose` declared types; `@requires` (runtime, `msg.sender`-scoped) | Pillar 4: Trust | ✅ Done |
-| P1 | `account` contract type (AA wallet; `validate()` with 50k gas cap; validation fee ledger) | Tech: Account abstraction | ❌ Not started |
-| P1 | `delegation` type + `@delegated` + nonce/replay/domain-sep + revocation + sub-delegation | Pillar 5: AI-mediated UX | 🔶 Partial — `@delegated` annotation + ABI field + prelude stub done; `delegation` type, `delegation.verify()`, nonce/revocation not implemented |
+| P1 | `account` contract type (AA wallet; `validate()` with 50k gas cap; validation fee ledger) | Tech: Account abstraction | ✅ Done — `account contract` keyword, AA marker sstore in constructor, TOL2316 validate() check; gtos two-phase AA already in `state_transition.go` |
+| P1 | `delegation` type + `@delegated` + nonce/replay/domain-sep + revocation + sub-delegation | Pillar 5: AI-mediated UX | 🔶 Partial — `delegation` type, `delegation.verify()`, `delegation.consume()`, `@delegated` annotation, ABI field, gtos LVM hooks all done; sub-delegation chains not yet |
 | P1 | `manifest {}` block (`spec_hash`+`spec_uri`; per-function `price_per_call` map) | Pillar 4: Discoverability | ✅ Done (string/numeric/array values, `;` separator) |
 | P2 | `@pay(amount, recipient:)` — compile-time constant; non-view only; safe refund semantics | Pillar 2: M2M micropayments | ✅ Done — bare `@pay(amount)` and `@pay(amount, recipient: expr)` both implemented |
-| P2 | `@quota(calls:, price:)` — prepaid N-call bundles; exact depletion math (fixed gas) | Pillar 2: High-freq M2M | ❌ Not started |
-| P2 | `@total_cost(max:)` + cost-certifiable `.toc` ABI — machine-negotiable service market | Pillar 2 + Pillar 5 | ❌ Not started |
+| P2 | `@quota(calls:, price:)` — prepaid N-call bundles; exact depletion math (fixed gas) | Pillar 2: High-freq M2M | ✅ Done — compiler preamble (per-call decrement guard), ABI field `quota_calls`/`quota_price` emitted |
+| P2 | `@total_cost(max:)` + cost-certifiable `.toc` ABI — machine-negotiable service market | Pillar 2 + Pillar 5 | ✅ Done — TOL2209 validates `gas_upper * 10gwei + pay_amount ≤ max`; ABI field `declared_total_cost_max` emitted |
 | P2 | `escrow` / `slash(recipient:)` / `release(amount, purpose:)` — escrow-only slash | Pillar 3: Collateralized trust | ✅ Done (2-arg and 3-arg forms; purpose defaults to 0 when omitted) |
 | P2 | `task<T>` storage type (VM-native state machine; AgentRequired on post; runtime reverts) | Pillar 1: Agent hiring | ✅ Done (mapping-of-task OOP: `.new/.accept/.submit/.approve/.reject/.dispute/.cancel`; local handle `task<T> t = tasks[id]`) |
 | P3 | `oracle<T>` write-once (VM-level guard; `@requires` for access control) | Pillar 1: Prediction markets | ✅ Done (`.fulfill()`, `.is_set`, `.value`; write-once enforced in prelude) |

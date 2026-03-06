@@ -4962,6 +4962,11 @@ func (p *Parser) parsePostfixExpr(left *ast.Expr) (*ast.Expr, bool) {
 			return nil, false
 		}
 		p.next() // accept any non-EOF token as member name (including keywords like 'address')
+		// msg.agent → special Kind "msg_agent" (zero-agent fallback, no revert on unregistered).
+		if memberTok.Literal == "agent" &&
+			left != nil && left.Kind == "ident" && strings.TrimSpace(left.Value) == "msg" {
+			return &ast.Expr{Kind: "msg_agent"}, true
+		}
 		return &ast.Expr{Kind: "member", Object: left, Member: memberTok.Literal}, true
 	case lexer.TokenLBracket:
 		p.next()
@@ -5762,33 +5767,52 @@ func parseRequiresTag(meta *ast.DocMeta, rest string) {
 
 // parsePayTag parses "@pay(...)" into meta.PayAmount / PayRecipient.
 // Supported forms:
-//   @pay(amount=X, recipient=Y)  — named keys
-//   @pay(X)                      — bare amount (PayIsBare=true, PayRecipient left empty)
+//
+//	@pay(amount=X, recipient=Y)     — named keys with '='
+//	@pay(X)                         — bare amount (PayIsBare=true, PayRecipient left empty)
+//	@pay(X, recipient: Y)           — positional amount + named recipient with ':'
 func parsePayTag(meta *ast.DocMeta, rest string) {
 	meta.HasPay = true
 	s := strings.TrimSpace(rest)
 	s = strings.TrimPrefix(s, "(")
 	s = strings.TrimSuffix(s, ")")
 	s = strings.TrimSpace(s)
-	// If the content has no '=' it is a bare amount expression.
-	if !strings.Contains(s, "=") {
-		meta.PayAmount = s
-		meta.PayIsBare = true
+	// Named-key form: contains '=' separator.
+	if strings.Contains(s, "=") {
+		for _, part := range strings.Split(s, ",") {
+			part = strings.TrimSpace(part)
+			k, v, ok := strings.Cut(part, "=")
+			if !ok {
+				continue
+			}
+			switch strings.TrimSpace(k) {
+			case "amount":
+				meta.PayAmount = strings.TrimSpace(v)
+			case "recipient":
+				meta.PayRecipient = strings.TrimSpace(v)
+			}
+		}
 		return
 	}
-	for _, part := range strings.Split(s, ",") {
-		part = strings.TrimSpace(part)
-		k, v, ok := strings.Cut(part, "=")
+	// Mixed positional + named form: @pay(X, recipient: Y)
+	// Split on first ',' to get the positional amount and the rest.
+	if idx := strings.Index(s, ","); idx >= 0 {
+		amount := strings.TrimSpace(s[:idx])
+		tail := strings.TrimSpace(s[idx+1:])
+		// tail should be "recipient: Y" or "recipient = Y"
+		k, v, ok := strings.Cut(tail, ":")
 		if !ok {
-			continue
+			k, v, ok = strings.Cut(tail, "=")
 		}
-		switch strings.TrimSpace(k) {
-		case "amount":
-			meta.PayAmount = strings.TrimSpace(v)
-		case "recipient":
+		if ok && strings.TrimSpace(k) == "recipient" {
+			meta.PayAmount = amount
 			meta.PayRecipient = strings.TrimSpace(v)
+			return
 		}
 	}
+	// Bare amount: @pay(X)
+	meta.PayAmount = s
+	meta.PayIsBare = true
 }
 
 // parseCapabilityDecl parses "capability IDENT ;" at contract body level.

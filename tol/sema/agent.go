@@ -281,9 +281,9 @@ func checkAgentBodyCalls(filename string, stmts []ast.Statement, isDelegated, is
 			for arg != nil && arg.Kind == "paren" {
 				arg = arg.Left
 			}
-			if arg != nil && isNonAddressLiteralExpr(arg) {
+			if arg != nil && isNonAgentLiteralExpr(arg) {
 				*diags = append(*diags, diag.Diagnostic{
-					Code:    diag.CodeAgentCastNonAddress,
+					Code:    diag.CodeAgentCastNonAgent,
 					Message: "agent(expr): argument is a non-address literal; agent cast requires an address expression",
 					Span:    defaultSpan(filename),
 				})
@@ -316,9 +316,9 @@ func checkAgentBodyCalls(filename string, stmts []ast.Statement, isDelegated, is
 	})
 }
 
-// isNonAddressLiteralExpr returns true when expr is obviously not an address:
+// isNonAgentLiteralExpr returns true when expr is obviously not an address:
 // decimal integer literals and bool keywords. Hex literals might be valid 20-byte addresses.
-func isNonAddressLiteralExpr(e *ast.Expr) bool {
+func isNonAgentLiteralExpr(e *ast.Expr) bool {
 	if e == nil {
 		return false
 	}

@@ -1340,7 +1340,7 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		// New effect-check passes.
 		checkFunctionEffects(filename, fn, storageSlotNames, diags)
 		checkUninitializedReads(filename, fn.Name, fn.Params, fn.Body, diags, knownStructs)
-		checkAddressPayableTransferCalls(filename, fn.Params, fn.Body, diags)
+		checkAgentTransferCalls(filename, fn.Params, fn.Body, diags)
 		checkBytesStringEquality(filename, slotInfos, fn.Params, fn.Body, diags)
 	}
 
@@ -1366,7 +1366,7 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		if len(constantNames) > 0 {
 			checkConstantSetTargets(filename, constantNames, c.Constructor.Body, diags)
 		}
-		checkAddressPayableTransferCalls(filename, c.Constructor.Params, c.Constructor.Body, diags)
+		checkAgentTransferCalls(filename, c.Constructor.Params, c.Constructor.Body, diags)
 		checkBytesStringEquality(filename, slotInfos, c.Constructor.Params, c.Constructor.Body, diags)
 	}
 	if c.Fallback != nil {
@@ -1384,7 +1384,7 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		if len(constantNames) > 0 {
 			checkConstantSetTargets(filename, constantNames, c.Fallback.Body, diags)
 		}
-		checkAddressPayableTransferCalls(filename, nil, c.Fallback.Body, diags)
+		checkAgentTransferCalls(filename, nil, c.Fallback.Body, diags)
 		checkBytesStringEquality(filename, slotInfos, nil, c.Fallback.Body, diags)
 	}
 	if c.Receive != nil {
@@ -1400,7 +1400,7 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		if len(constantNames) > 0 {
 			checkConstantSetTargets(filename, constantNames, c.Receive.Body, diags)
 		}
-		checkAddressPayableTransferCalls(filename, nil, c.Receive.Body, diags)
+		checkAgentTransferCalls(filename, nil, c.Receive.Body, diags)
 		checkBytesStringEquality(filename, slotInfos, nil, c.Receive.Body, diags)
 	}
 
@@ -4250,28 +4250,27 @@ func selectorTypeList(params []ast.FieldDecl) string {
 	return strings.Join(types, ",")
 }
 
-// isPayableAddressType returns true if the raw (pre-normalization) type string
-// is "address payable". This qualifier is significant for .transfer()/.send() checks.
-func isPayableAddressType(t string) bool {
-	// In TOL, every address/agent is a potential transfer target — the
-	// "address payable" distinction from Solidity is not required.
+// isPayableAgentType returns true if the type is any agent/address — every
+// agent in TOL is a valid transfer target; Solidity's "address payable" distinction
+// is not required.
+func isPayableAgentType(t string) bool {
 	n := normalizeSelectorType(t)
 	return n == "address"
 }
 
-// checkAddressPayableTransferCalls validates that .transfer() and .send() are
-// only called on expressions of type "address payable", not plain "address".
-// This is a separate pass that builds its own flat type environment from params
+// checkAgentTransferCalls validates that .transfer() and .send() are called on
+// agent-typed expressions. This is a separate pass that builds its own flat type
+// environment from params
 // and let bindings, matching the checkDuplicateLocals pattern.
-func checkAddressPayableTransferCalls(filename string, params []ast.FieldDecl, body []ast.Statement, diags *diag.Diagnostics) {
+func checkAgentTransferCalls(filename string, params []ast.FieldDecl, body []ast.Statement, diags *diag.Diagnostics) {
 	typeEnv := make(map[string]string, len(params)+8)
 	for _, p := range params {
 		typeEnv[strings.TrimSpace(p.Name)] = strings.Join(strings.Fields(p.Type), " ")
 	}
-	checkAddressTransferInStmts(filename, typeEnv, body, diags)
+	checkAgentTransferInStmts(filename, typeEnv, body, diags)
 }
 
-func checkAddressTransferInStmts(filename string, typeEnv map[string]string, stmts []ast.Statement, diags *diag.Diagnostics) {
+func checkAgentTransferInStmts(filename string, typeEnv map[string]string, stmts []ast.Statement, diags *diag.Diagnostics) {
 	for _, s := range stmts {
 		// Accumulate let bindings into the type env for subsequent statements.
 		if s.Kind == "let" && s.Name != "" {
@@ -4288,27 +4287,27 @@ func checkAddressTransferInStmts(filename string, typeEnv map[string]string, stm
 		}
 		// Check expressions in this statement.
 		if s.Expr != nil {
-			checkAddressTransferInExpr(filename, typeEnv, s.Expr, diags)
+			checkAgentTransferInExpr(filename, typeEnv, s.Expr, diags)
 		}
 		if s.Target != nil {
-			checkAddressTransferInExpr(filename, typeEnv, s.Target, diags)
+			checkAgentTransferInExpr(filename, typeEnv, s.Target, diags)
 		}
 		if s.Cond != nil {
-			checkAddressTransferInExpr(filename, typeEnv, s.Cond, diags)
+			checkAgentTransferInExpr(filename, typeEnv, s.Cond, diags)
 		}
 		if s.Post != nil {
-			checkAddressTransferInExpr(filename, typeEnv, s.Post, diags)
+			checkAgentTransferInExpr(filename, typeEnv, s.Post, diags)
 		}
 		// Recurse into sub-blocks. Pass the same typeEnv (shadowing not allowed
 		// by checkDuplicateLocals, so a flat map is safe).
 		if s.Init != nil {
-			checkAddressTransferInStmts(filename, typeEnv, []ast.Statement{*s.Init}, diags)
+			checkAgentTransferInStmts(filename, typeEnv, []ast.Statement{*s.Init}, diags)
 		}
-		checkAddressTransferInStmts(filename, typeEnv, s.Then, diags)
-		checkAddressTransferInStmts(filename, typeEnv, s.Else, diags)
-		checkAddressTransferInStmts(filename, typeEnv, s.Body, diags)
+		checkAgentTransferInStmts(filename, typeEnv, s.Then, diags)
+		checkAgentTransferInStmts(filename, typeEnv, s.Else, diags)
+		checkAgentTransferInStmts(filename, typeEnv, s.Body, diags)
 		for _, clause := range s.Catches {
-			checkAddressTransferInStmts(filename, typeEnv, clause.Body, diags)
+			checkAgentTransferInStmts(filename, typeEnv, clause.Body, diags)
 		}
 	}
 }
@@ -4324,7 +4323,7 @@ func isPayableReceiverExpr(typeEnv map[string]string, e *ast.Expr) bool {
 	switch e.Kind {
 	case "ident":
 		rawType := typeEnv[strings.TrimSpace(e.Value)]
-		return isPayableAddressType(rawType)
+		return isPayableAgentType(rawType)
 	case "call":
 		// payable(addr) is an explicit cast to address payable.
 		if callee := e.Callee; callee != nil && callee.Kind == "ident" &&
@@ -4335,7 +4334,7 @@ func isPayableReceiverExpr(typeEnv map[string]string, e *ast.Expr) bool {
 	return false
 }
 
-func checkAddressTransferInExpr(filename string, typeEnv map[string]string, e *ast.Expr, diags *diag.Diagnostics) {
+func checkAgentTransferInExpr(filename string, typeEnv map[string]string, e *ast.Expr, diags *diag.Diagnostics) {
 	if e == nil {
 		return
 	}
@@ -4365,24 +4364,24 @@ func checkAddressTransferInExpr(filename string, typeEnv map[string]string, e *a
 				}
 				// Still recurse into args.
 				for _, a := range e.Args {
-					checkAddressTransferInExpr(filename, typeEnv, a, diags)
+					checkAgentTransferInExpr(filename, typeEnv, a, diags)
 				}
 				return
 			}
 		}
 		// Recurse into callee and args for non-transfer calls.
-		checkAddressTransferInExpr(filename, typeEnv, e.Callee, diags)
+		checkAgentTransferInExpr(filename, typeEnv, e.Callee, diags)
 		for _, a := range e.Args {
-			checkAddressTransferInExpr(filename, typeEnv, a, diags)
+			checkAgentTransferInExpr(filename, typeEnv, a, diags)
 		}
 	case "binary", "unary":
-		checkAddressTransferInExpr(filename, typeEnv, e.Left, diags)
-		checkAddressTransferInExpr(filename, typeEnv, e.Right, diags)
+		checkAgentTransferInExpr(filename, typeEnv, e.Left, diags)
+		checkAgentTransferInExpr(filename, typeEnv, e.Right, diags)
 	case "member":
-		checkAddressTransferInExpr(filename, typeEnv, e.Object, diags)
+		checkAgentTransferInExpr(filename, typeEnv, e.Object, diags)
 	case "index":
-		checkAddressTransferInExpr(filename, typeEnv, e.Object, diags)
-		checkAddressTransferInExpr(filename, typeEnv, e.Index, diags)
+		checkAgentTransferInExpr(filename, typeEnv, e.Object, diags)
+		checkAgentTransferInExpr(filename, typeEnv, e.Index, diags)
 	}
 }
 

@@ -6969,9 +6969,9 @@ func TestCheckReceivePayableValid(t *testing.T) {
 	}
 }
 
-// TestCheckTransferOnPayableAddressOK verifies that calling .transfer() on an
+// TestCheckTransferOnPayableAgentOK verifies that calling .transfer() on an
 // "address payable" variable is accepted with no diagnostics.
-func TestCheckTransferOnPayableAddressOK(t *testing.T) {
+func TestCheckTransferOnPayableAgentOK(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
 		Contract: &ast.ContractDecl{
@@ -7010,11 +7010,11 @@ func TestCheckTransferOnPayableAddressOK(t *testing.T) {
 	}
 }
 
-// TestCheckTransferOnAddressAllowed verifies that calling .transfer() on a plain
+// TestCheckTransferOnAgentAllowed verifies that calling .transfer() on a plain
 // "address" or "agent" variable is accepted in TOL. In TOL's agent-first model,
 // every address is an agent and can receive transfers — the Solidity "address payable"
 // distinction is not required.
-func TestCheckTransferOnAddressAllowed(t *testing.T) {
+func TestCheckTransferOnAgentAllowed(t *testing.T) {
 	for _, typ := range []string{"address", "agent", "address payable"} {
 		m := &ast.Module{
 			Version: "0.2.0",

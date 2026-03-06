@@ -38,7 +38,7 @@ contract TRC20 {
   }
 
   /// @notice Returns the token balance of `account`.
-  /// @param  account Address to query.
+  /// @param  account Agent to query.
   /// @return balance Token balance held by `account`.
   /// @effects reads:  storage.balances[account]
   /// @effects writes: []
@@ -50,8 +50,8 @@ contract TRC20 {
   }
 
   /// @notice Returns the remaining allowance that `spender` may use on behalf of `owner`.
-  /// @param  owner   Address that granted the allowance.
-  /// @param  spender Address permitted to spend.
+  /// @param  owner   Agent that granted the allowance.
+  /// @param  spender Agent permitted to spend.
   /// @return remaining Current allowance (0 if none set).
   /// @effects reads:  storage.allowances[owner,spender]
   /// @effects writes: []
@@ -81,7 +81,7 @@ contract TRC20 {
   }
 
   /// @notice Approves `spender` to transfer up to `value` tokens on the caller's behalf.
-  /// @param  spender Address authorized to spend (must not be the zero address).
+  /// @param  spender Agent authorized to spend (must not be the zero address).
   /// @param  value   Maximum number of tokens `spender` may transfer.
   /// @return ok      Always true on success; reverts on failure.
   /// @effects reads:  []

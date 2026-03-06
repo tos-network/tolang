@@ -229,7 +229,7 @@ func TestTRC20ConstructorCreditsOwner(t *testing.T) {
 
 // --- balanceOf ---
 
-func TestTRC20BalanceOfZeroForUnknownAddress(t *testing.T) {
+func TestTRC20BalanceOfZeroForUnknownAgent(t *testing.T) {
 	L, tos := deployTRC20(t, alice, 500)
 	defer L.Close()
 

@@ -2,7 +2,7 @@ pragma tolang 0.3.0;
 
 // Tests for AgentWallet — AA wallet with session-key support.
 //
-// Address legend:
+// Agent legend:
 //   OWNER = 0x…0001  — the agent's primary EOA (deployed the wallet)
 //   KEY_A = 0x…0002  — first session key (hot process)
 //   KEY_B = 0x…0003  — second session key (task module)

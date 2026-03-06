@@ -188,7 +188,7 @@ Task state enum:
 
 Type restriction: `T` should be a struct type — TOL2305.
 
-#### `agent` — Address subtype
+#### `agent` — native identity type
 
 ```tol
 agent worker;

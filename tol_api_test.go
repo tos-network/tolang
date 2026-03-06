@@ -3121,9 +3121,9 @@ contract Token {
 	}
 }
 
-// TestConstructorABIDecodeAddressAndU256FromCalldata verifies that a constructor
+// TestConstructorABIDecodeAgentAndU256FromCalldata verifies that a constructor
 // with multiple parameters (address, u256) correctly decodes both from calldata.
-func TestConstructorABIDecodeAddressAndU256FromCalldata(t *testing.T) {
+func TestConstructorABIDecodeAgentAndU256FromCalldata(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Wallet {
@@ -4304,7 +4304,7 @@ contract Demo {
 	}
 }
 
-func TestCompileBytecodeABIBuiltinDecodeTypedAddressLocal(t *testing.T) {
+func TestCompileBytecodeABIBuiltinDecodeTypedAgentLocal(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
@@ -5711,11 +5711,11 @@ contract Demo {
 // ABI decode tuple and multi-return let-tuple tests
 // =====================================================================
 
-// TestABIDecodeTupleU256AndAddress verifies that a tuple let-binding
+// TestABIDecodeTupleU256AndAgent verifies that a tuple let-binding
 // with abi.decode unpacks two slots correctly:
 //   let (v, a): (u256, address) = abi.decode(data);
 // decodes 64-byte ABI payload into u256=42 and address=0x...ab.
-func TestABIDecodeTupleU256AndAddress(t *testing.T) {
+func TestABIDecodeTupleU256AndAgent(t *testing.T) {
 	// 64-byte ABI payload: slot0 = u256(42), slot1 = address(0xab)
 	data := "0x" +
 		"000000000000000000000000000000000000000000000000000000000000002a" +
@@ -8246,9 +8246,9 @@ contract Wallet {
 	}
 }
 
-// TestAddressPayableTypeAnnotationCompiles verifies that "address payable" is
+// TestAgentTypeAnnotationCompiles verifies that "address payable" is
 // accepted as a type annotation and treated identically to "address" at runtime.
-func TestAddressPayableTypeAnnotationCompiles(t *testing.T) {
+func TestAgentTypeAnnotationCompiles(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Test {

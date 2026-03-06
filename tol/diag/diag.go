@@ -137,7 +137,7 @@ const (
 	CodeAgentOracleInvalidType      = "TOL2303" // oracle<T>: type parameter must be a value type
 	CodeAgentVoteInvalidType        = "TOL2304" // vote<T>: type parameter must be numeric
 	CodeAgentTaskInvalidType        = "TOL2305" // task<T>: T must be a struct type
-	CodeAgentCastNonAddress         = "TOL2306" // agent cast on non-address expression
+	CodeAgentCastNonAgent           = "TOL2306" // agent cast on non-agent expression
 	CodeAgentManifestDup            = "TOL2307" // manifest block already declared
 	CodeAgentPayBadAmount           = "TOL2308" // @pay: amount must be a uint256 expression
 	CodeAgentPayBadRecipient        = "TOL2309" // @pay: recipient must be an address expression

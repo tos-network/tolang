@@ -1241,7 +1241,7 @@ expression
     // Postfix / primary-with-suffix (highest precedence)
     : expression LBracket expression? RBracket                         # IndexAccess
     | expression LBracket expression? Colon expression? RBracket       # SliceAccess
-    | expression Dot (Identifier | Address)                            # MemberAccess
+    | expression Dot Identifier                                        # MemberAccess
     | expression LBrace namedArgument (Comma namedArgument)* RBrace callArgumentList # FunctionCallOptions
     // Call options followed by argument list: transfer{value: 1 ether}(recipient, amount)
     // The {key: value} block MUST be immediately followed by callArgumentList.

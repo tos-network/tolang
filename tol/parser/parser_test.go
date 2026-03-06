@@ -1986,8 +1986,8 @@ contract Demo {
 	}
 }
 
-// TestAddressCallNotTypeDecl tests that address(x) is NOT treated as a type-first var decl.
-func TestAddressCallNotTypeDecl(t *testing.T) {
+// TestAgentCallNotTypeDecl tests that address(x) is NOT treated as a type-first var decl.
+func TestAgentCallNotTypeDecl(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
@@ -2911,7 +2911,7 @@ contract C {
 }
 
 // 7.9 — .address member access on keyword token.
-func TestMemberAccessAddressKeyword(t *testing.T) {
+func TestMemberAccessAgentKeyword(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract C {
@@ -3316,7 +3316,7 @@ contract Demo {
 }
 
 // Keyword promotion: address as type keyword
-func TestParseAddressKeyword(t *testing.T) {
+func TestParseAgentKeyword(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {

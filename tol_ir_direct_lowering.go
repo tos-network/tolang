@@ -4170,7 +4170,7 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 			}
 			return cryptoExpr, nil
 		}
-		if transferExpr, ok, err := lowerAddressTransferSendCallExpr(ctx, e); ok || err != nil {
+		if transferExpr, ok, err := lowerAgentTransferSendCallExpr(ctx, e); ok || err != nil {
 			if err != nil {
 				return nil, err
 			}
@@ -4754,10 +4754,10 @@ func lowerCallWithOptionsExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 	return nil, false, nil
 }
 
-// lowerAddressTransferSendCallExpr handles addr.transfer(amount) and addr.send(amount),
+// lowerAgentTransferSendCallExpr handles addr.transfer(amount) and addr.send(amount),
 // lowering them to __tol_host_transfer(addr, amount) and __tol_host_send(addr, amount).
 // The sema pass (TOL2085) already guarantees addr is address payable; this handles lowering.
-func lowerAddressTransferSendCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
+func lowerAgentTransferSendCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
 	if e == nil || e.Kind != "call" {
 		return nil, false, nil
 	}

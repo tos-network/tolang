@@ -61,7 +61,7 @@ account contract AgentWallet {
     // ── Constructor ───────────────────────────────────────────────────────────
 
     /// @notice Deploy the wallet and set the initial owner.
-    /// @param  _owner  Address that controls this wallet (typically the agent's EOA).
+    /// @param  _owner  Agent that controls this wallet (typically the agent's EOA).
     constructor(agent _owner) {
         set owner = _owner;
     }
@@ -109,7 +109,7 @@ account contract AgentWallet {
     ///
     /// Only the owner may call this function (validate() enforces that).
     ///
-    /// @param  key        Address to authorise as a session key.
+    /// @param  key        Agent to authorise as a session key.
     /// @param  expiry_ms  Unix timestamp in milliseconds when the key expires.
     ///                    Pass 0 for a key that never expires (use with caution).
     /// @param  value_cap  Maximum wei the key may attach to a single execute() call.
@@ -188,7 +188,7 @@ account contract AgentWallet {
     /// control to a different agent.  The old owner loses all privileges as soon
     /// as this call succeeds.
     ///
-    /// @param  new_owner  Address that will become the new owner.
+    /// @param  new_owner  Agent that will become the new owner.
     ///
     /// @effects reads:  storage.owner
     /// @effects writes: storage.owner

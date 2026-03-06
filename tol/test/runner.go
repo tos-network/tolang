@@ -1060,7 +1060,14 @@ func injectAssertBuiltins(ls *lua.LState) {
 	if err := ls.DoString(`
 __tol_events = {}
 emit = function(name, ...)
-  local e = {name=name, args={...}}
+  -- __tol_emit passes alternating ("type [indexed]", value) pairs.
+  -- Extract only the values (odd-position args starting at arg 2).
+  local n = select("#", ...)
+  local vals = {}
+  for i = 1, n, 2 do
+    vals[#vals + 1] = select(i + 1, ...)
+  end
+  local e = {name=name, args=vals}
   table.insert(__tol_events, e)
 end
 if type(msg) ~= "table" then msg = {} end

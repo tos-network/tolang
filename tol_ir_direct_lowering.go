@@ -181,6 +181,7 @@ type dispatchFunc struct {
 	LuaName   string            // actual Lua global function name (may be mangled for overloads)
 	Signature string
 	Params    []tolast.FieldDecl // parameter list (needed for struct calldata decode)
+	Returns   []tolast.FieldDecl // return type list (needed for tos.result wrapping)
 }
 
 type loweringEnv struct {
@@ -1828,20 +1829,7 @@ func buildHostPrelude() ([]luast.Stmt, error) {
 	const src = `
 function __tol_emit(...)
   local n = select("#", ...)
-  local name = nil
-  if n >= 1 then
-    name = select(1, ...)
-  end
-  local sig = nil
-  local indexed = nil
-  if type(name) == "string" then
-    if type(__tol_event_sig) == "table" then
-      sig = __tol_event_sig[name]
-    end
-    if type(__tol_event_indexed) == "table" then
-      indexed = __tol_event_indexed[name]
-    end
-  end
+  local name = n >= 1 and select(1, ...) or nil
   local f = nil
   if tos ~= nil and type(tos) == "table" and type(tos.emit) == "function" then
     f = tos.emit
@@ -1851,13 +1839,19 @@ function __tol_emit(...)
   if f == nil then
     error("emit host function is not available")
   end
-  local args = {}
-  for i = 1, n do
-    args[i] = select(i, ...)
+  -- Build alternating ("type [indexed]", val) pairs required by tos.emit.
+  local types = type(__tol_event_types) == "table" and __tol_event_types[name] or nil
+  if types == nil or n <= 1 then
+    -- No params or no type info: just forward the name.
+    return f(name)
   end
-  args[n + 1] = sig
-  args[n + 2] = indexed
-  return f(unpack(args, 1, n + 2))
+  local args = {name}
+  for i = 2, n do
+    local t = types[i - 1]
+    args[#args + 1] = t or "uint256"
+    args[#args + 1] = select(i, ...)
+  end
+  return f(unpack(args))
 end
 
 local __tol_zero_addr = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -2201,6 +2195,7 @@ func buildEventPreludeFromLowered(events []lower.Event) ([]luast.Stmt, error) {
 	var sb strings.Builder
 	sb.WriteString("__tol_event_sig = __tol_event_sig or {}\n")
 	sb.WriteString("__tol_event_indexed = __tol_event_indexed or {}\n")
+	sb.WriteString("__tol_event_types = __tol_event_types or {}\n")
 	for _, ev := range events {
 		name := strings.TrimSpace(ev.Name)
 		if name == "" {
@@ -2212,6 +2207,17 @@ func buildEventPreludeFromLowered(events []lower.Event) ([]luast.Stmt, error) {
 		}
 		sb.WriteString(fmt.Sprintf("__tol_event_sig[%q] = %q\n", name, sig))
 		sb.WriteString(fmt.Sprintf("__tol_event_indexed[%q] = %q\n", name, mask))
+		// __tol_event_types["EventName"] = {"type [indexed]", ...}
+		// Used by __tol_emit to build the alternating (type, val) pairs for tos.emit.
+		typeEntries := make([]string, 0, len(ev.Params))
+		for _, p := range ev.Params {
+			t := normalizeSelectorType(p.Type)
+			if p.Indexed {
+				t += " indexed"
+			}
+			typeEntries = append(typeEntries, fmt.Sprintf("%q", t))
+		}
+		sb.WriteString(fmt.Sprintf("__tol_event_types[%q] = {%s}\n", name, strings.Join(typeEntries, ",")))
 	}
 	chunk, err := parse.Parse(bytes.NewReader([]byte(sb.String())), "<tol-event-prelude>")
 	if err != nil {
@@ -2265,6 +2271,7 @@ func collectDispatchFuncs(funcs []lower.Function) ([]dispatchFunc, error) {
 			LuaName:   luaName,
 			Signature: sig,
 			Params:    fn.Params,
+			Returns:   fn.Returns,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -2458,6 +2465,40 @@ func fnParamsHaveStructType(params []tolast.FieldDecl, structFields map[string][
 	return false
 }
 
+// buildTosResultSnippet returns a Lua snippet that calls tos.result(...) if it's
+// available (LVM context) so that ABI-encoded return data is delivered to the caller.
+// Returns "" when there are no return types (void functions).
+//
+// The snippet uses the local variable __tol_rv for single-return functions and
+// __tol_rv1, __tol_rv2, ... for multi-return functions.
+// It wraps the call with a type-check guard so that in test environments (where
+// tos.result is not registered), the code falls through to a plain Lua return.
+func buildTosResultSnippet(returns []tolast.FieldDecl) string {
+	if len(returns) == 0 {
+		return ""
+	}
+	if len(returns) == 1 {
+		typ := normalizeSelectorType(returns[0].Type)
+		return fmt.Sprintf("if type(tos.result) == \"function\" then tos.result(%q, __tol_rv) end", typ)
+	}
+	// Multi-return: reassign with indexed names.
+	var sb strings.Builder
+	rvNames := make([]string, len(returns))
+	for i := range returns {
+		rvNames[i] = fmt.Sprintf("__tol_rv%d", i+1)
+	}
+	sb.WriteString(fmt.Sprintf("local %s = __tol_rv\n", strings.Join(rvNames, ", ")))
+	sb.WriteString("if type(tos.result) == \"function\" then tos.result(")
+	for i, r := range returns {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(fmt.Sprintf("%q, %s", normalizeSelectorType(r.Type), rvNames[i]))
+	}
+	sb.WriteString(") end")
+	return sb.String()
+}
+
 func buildOnInvokeAssignStmt(dispatchFns []dispatchFunc, hasFallback bool, hasReceive bool, env *loweringEnv) luast.Stmt {
 	body := make([]luast.Stmt, 0, len(dispatchFns)+3)
 	// If receive() is declared, dispatch to it when selector is nil (empty calldata).
@@ -2488,15 +2529,40 @@ func buildOnInvokeAssignStmt(dispatchFns []dispatchFunc, hasFallback bool, hasRe
 		})
 
 		var branchStmts []luast.Stmt
+		// Build tos.result wrapping for functions that declare return types.
+		// When tos.result is available (LVM context), it ABI-encodes the return data.
+		// When not available (test context), the plain Lua `return` is used instead.
+		tosResultSnippet := buildTosResultSnippet(fn.Returns)
+
 		if len(fn.Params) == 0 {
 			// No parameters: call directly with no args.
-			call := withLineExpr(&luast.FuncCallExpr{
-				Func:      withLineExpr(&luast.IdentExpr{Value: fn.LuaName}),
-				Args:      []luast.Expr{},
-				AdjustRet: false,
-			})
-			branchStmts = []luast.Stmt{
-				withLineStmt(&luast.ReturnStmt{Exprs: []luast.Expr{call}}, 1),
+			var branchSrc string
+			if tosResultSnippet != "" {
+				branchSrc = fmt.Sprintf(`
+do
+  local __tol_rv = %s()
+  %s
+  return __tol_rv
+end
+`, fn.LuaName, tosResultSnippet)
+			} else {
+				branchSrc = fmt.Sprintf(`
+do
+  return %s()
+end
+`, fn.LuaName)
+			}
+			var parseErr error
+			branchStmts, parseErr = parse.Parse(bytes.NewReader([]byte(branchSrc)), "<tol-dispatch>")
+			if parseErr != nil {
+				call := withLineExpr(&luast.FuncCallExpr{
+					Func:      withLineExpr(&luast.IdentExpr{Value: fn.LuaName}),
+					Args:      []luast.Expr{},
+					AdjustRet: false,
+				})
+				branchStmts = []luast.Stmt{
+					withLineStmt(&luast.ReturnStmt{Exprs: []luast.Expr{call}}, 1),
+				}
 			}
 		} else {
 			// All functions with parameters decode args from tos.calldata.
@@ -2512,7 +2578,26 @@ func buildOnInvokeAssignStmt(dispatchFns []dispatchFunc, hasFallback bool, hasRe
 			callArgs := "__tol_cd, " + strings.Join(typeArgs, ", ")
 			fnCallArgs := strings.Join(paramNames, ", ")
 
-			branchSrc := fmt.Sprintf(`
+			var branchSrc string
+			if tosResultSnippet != "" {
+				branchSrc = fmt.Sprintf(`
+do
+  local __tol_cd = tos.calldata
+  if __tol_cd ~= nil and type(__tol_cd) == "string" and #__tol_cd > 10 then
+    -- skip "0x" prefix (2 chars) + 4-byte selector (8 hex chars) = 10 chars
+    __tol_cd = "0x" .. string.sub(__tol_cd, 11)
+    local %s = __tol_abi_decode_tuple(%s)
+    local __tol_rv = %s(%s)
+    %s
+    return __tol_rv
+  end
+  local __tol_rv = %s(...)
+  %s
+  return __tol_rv
+end
+`, lhsNames, callArgs, fn.LuaName, fnCallArgs, tosResultSnippet, fn.LuaName, tosResultSnippet)
+			} else {
+				branchSrc = fmt.Sprintf(`
 do
   local __tol_cd = tos.calldata
   if __tol_cd ~= nil and type(__tol_cd) == "string" and #__tol_cd > 10 then
@@ -2524,6 +2609,7 @@ do
   return %s(...)
 end
 `, lhsNames, callArgs, fn.LuaName, fnCallArgs, fn.LuaName)
+			}
 
 			var parseErr error
 			branchStmts, parseErr = parse.Parse(bytes.NewReader([]byte(branchSrc)), "<tol-dispatch>")

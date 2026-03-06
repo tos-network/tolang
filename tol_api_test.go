@@ -1078,12 +1078,16 @@ contract Demo {
 	defer L.Close()
 
 	tosTable := L.NewTable()
+	// tos.emit receives: (name, "type [indexed]", val, ...)
 	L.SetField(tosTable, "emit", L.NewFunction(func(L *LState) int {
 		if L.GetTop() >= 1 {
 			L.SetGlobal("__ev_name", L.CheckAny(1))
 		}
 		if L.GetTop() >= 2 {
-			L.SetGlobal("__ev_arg1", L.CheckAny(2))
+			L.SetGlobal("__ev_type1", L.CheckAny(2)) // "u256"
+		}
+		if L.GetTop() >= 3 {
+			L.SetGlobal("__ev_arg1", L.CheckAny(3)) // 7
 		}
 		return 0
 	}))
@@ -1105,6 +1109,9 @@ contract Demo {
 	}
 	if got := LVAsString(L.GetGlobal("__ev_name")); got != "Tick" {
 		t.Fatalf("unexpected event name via tos.emit: got=%s want=Tick", got)
+	}
+	if got := LVAsString(L.GetGlobal("__ev_type1")); got != "u256" {
+		t.Fatalf("unexpected event type via tos.emit: got=%s want=u256", got)
 	}
 	if got := LVAsString(L.GetGlobal("__ev_arg1")); got != "7" {
 		t.Fatalf("unexpected event arg via tos.emit: got=%s want=7", got)
@@ -1129,12 +1136,16 @@ contract Demo {
 	L := NewState()
 	defer L.Close()
 
+	// global emit also receives: (name, "type [indexed]", val, ...)
 	L.SetGlobal("emit", L.NewFunction(func(L *LState) int {
 		if L.GetTop() >= 1 {
 			L.SetGlobal("__ev_name", L.CheckAny(1))
 		}
 		if L.GetTop() >= 2 {
-			L.SetGlobal("__ev_arg1", L.CheckAny(2))
+			L.SetGlobal("__ev_type1", L.CheckAny(2)) // "u256"
+		}
+		if L.GetTop() >= 3 {
+			L.SetGlobal("__ev_arg1", L.CheckAny(3)) // 8
 		}
 		return 0
 	}))
@@ -1155,6 +1166,9 @@ contract Demo {
 	}
 	if got := LVAsString(L.GetGlobal("__ev_name")); got != "Tick" {
 		t.Fatalf("unexpected event name via global emit: got=%s want=Tick", got)
+	}
+	if got := LVAsString(L.GetGlobal("__ev_type1")); got != "u256" {
+		t.Fatalf("unexpected event type via global emit: got=%s want=u256", got)
 	}
 	if got := LVAsString(L.GetGlobal("__ev_arg1")); got != "8" {
 		t.Fatalf("unexpected event arg via global emit: got=%s want=8", got)
@@ -1199,6 +1213,9 @@ contract Demo {
 }
 
 func TestCompileBytecodeEmitAppendsEventMetadata(t *testing.T) {
+	// Verifies that tos.emit receives alternating ("type [indexed]", value) pairs.
+	// For Transfer(agent from indexed, agent to indexed, u256 amount):
+	//   tos.emit("Transfer", "agent indexed", "0x1", "agent indexed", "0x2", "u256", 7)
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
@@ -1217,18 +1234,20 @@ contract Demo {
 	defer L.Close()
 
 	tosTable := L.NewTable()
+	// tos.emit("Transfer", "agent indexed", "0x1", "agent indexed", "0x2", "u256", 7)
+	// arg1=name arg2=type1 arg3=val1 arg4=type2 arg5=val2 arg6=type3 arg7=val3
 	L.SetField(tosTable, "emit", L.NewFunction(func(L *LState) int {
 		if L.GetTop() >= 2 {
-			L.SetGlobal("__ev_arg1", L.CheckAny(2))
+			L.SetGlobal("__ev_type1", L.CheckAny(2)) // "agent indexed"
 		}
-		if L.GetTop() >= 4 {
-			L.SetGlobal("__ev_arg3", L.CheckAny(4))
-		}
-		if L.GetTop() >= 5 {
-			L.SetGlobal("__ev_sig", L.CheckAny(5))
+		if L.GetTop() >= 3 {
+			L.SetGlobal("__ev_val1", L.CheckAny(3)) // "0x1"
 		}
 		if L.GetTop() >= 6 {
-			L.SetGlobal("__ev_indexed", L.CheckAny(6))
+			L.SetGlobal("__ev_type3", L.CheckAny(6)) // "u256"
+		}
+		if L.GetTop() >= 7 {
+			L.SetGlobal("__ev_val3", L.CheckAny(7)) // 7
 		}
 		return 0
 	}))
@@ -1248,17 +1267,17 @@ contract Demo {
 	if err := L.PCall(1, 0, nil); err != nil {
 		t.Fatalf("oninvoke call failed: %v", err)
 	}
-	if got := LVAsString(L.GetGlobal("__ev_arg1")); got != "0x1" {
-		t.Fatalf("unexpected emit arg1 position: got=%s want=0x1", got)
+	if got := LVAsString(L.GetGlobal("__ev_type1")); got != "agent indexed" {
+		t.Fatalf("unexpected emit type1: got=%s want=agent indexed", got)
 	}
-	if got := LVAsString(L.GetGlobal("__ev_arg3")); got != "7" {
-		t.Fatalf("unexpected emit arg3 position: got=%s want=7", got)
+	if got := LVAsString(L.GetGlobal("__ev_val1")); got != "0x1" {
+		t.Fatalf("unexpected emit val1: got=%s want=0x1", got)
 	}
-	if got := LVAsString(L.GetGlobal("__ev_sig")); got != "Transfer(agent,agent,u256)" {
-		t.Fatalf("unexpected emit signature metadata: got=%s want=Transfer(agent,agent,u256)", got)
+	if got := LVAsString(L.GetGlobal("__ev_type3")); got != "u256" {
+		t.Fatalf("unexpected emit type3: got=%s want=u256", got)
 	}
-	if got := LVAsString(L.GetGlobal("__ev_indexed")); got != "110" {
-		t.Fatalf("unexpected emit indexed metadata: got=%s want=110", got)
+	if got := LVAsString(L.GetGlobal("__ev_val3")); got != "7" {
+		t.Fatalf("unexpected emit val3: got=%s want=7", got)
 	}
 }
 

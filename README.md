@@ -39,7 +39,7 @@ TOL functions carry compiler-verified `@effects` annotations directly in the `.t
  * @effects calls:  []
  * @gas     upper:  50000
  */
-function transfer(address to, u256 amount) external returns (bool ok) {
+function transfer(agent to, u256 amount) external returns (bool ok) {
     require(balances[msg.sender] >= amount, "INSUFFICIENT_BALANCE");
     balances[msg.sender] -= amount;
     balances[to] += amount;
@@ -156,7 +156,7 @@ function approveTask(u256 task_id) public {
 
 ### `agent` — Identity with Native Properties
 
-`agent` is a subtype of `address` that carries registry semantics. No manual `require(registry.isActive(addr))` needed:
+`agent` is TOL's native identity type — registry semantics are built in, no manual `require(registry.isActive(addr))` needed:
 
 ```tol
 function updateProfile(string metadata_uri) public {
@@ -196,7 +196,7 @@ Emitted verbatim into the `.toc` ABI JSON as a top-level `"manifest"` key — in
 
 ```tol
 @pay(10_000_000)                  // enforces msg.value >= fee at language level
-function createBinaryMarket(...) public returns (address market) { ... }
+function createBinaryMarket(...) public returns (agent market) { ... }
 
 @verifiable                       // result provable off-chain; ABI field "verifiable": true
 function totalScoreOf(agent who) public view returns (i256 score) { ... }
@@ -215,17 +215,19 @@ TOL is a statically-typed, Solidity-inspired language. Developers familiar with 
 pragma tolang 0.3.0;
 
 contract TRC20 {
-    u256                              total_supply;
-    mapping(address => u256)          balances;
-    mapping(address => mapping(address => u256)) allowances;
+    u256                             total_supply;
+    mapping(agent => u256)           balances;
+    mapping(agent => mapping(agent => u256)) allowances;
 
-    event Transfer(address indexed from, address indexed to, u256 value)
-    event Approval(address indexed owner, address indexed spender, u256 value)
+    constant NOBODY: agent = "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+    event Transfer(agent indexed from, agent indexed to, u256 value)
+    event Approval(agent indexed owner, agent indexed spender, u256 value)
 
     constructor(u256 initialSupply) {
         total_supply = initialSupply;
         balances[msg.sender] = initialSupply;
-        emit Transfer(address(0), msg.sender, initialSupply);
+        emit Transfer(NOBODY, msg.sender, initialSupply);
     }
 
     /**
@@ -234,7 +236,7 @@ contract TRC20 {
      * @effects emits:  Transfer
      * @gas     upper:  50000
      */
-    function transfer(address to, u256 amount) external returns (bool ok) {
+    function transfer(agent to, u256 amount) external returns (bool ok) {
         require(balances[msg.sender] >= amount, "INSUFFICIENT_BALANCE");
         balances[msg.sender] -= amount;
         balances[to] += amount;
@@ -242,7 +244,7 @@ contract TRC20 {
         return true;
     }
 
-    function balanceOf(address owner) external view returns (u256 balance) {
+    function balanceOf(agent owner) external view returns (u256 balance) {
         return balances[owner];
     }
 }
@@ -268,7 +270,7 @@ contract PredictionMarket is IPredictionMarket {
 
     oracle<u8> winning_outcome;            // write-once; second .fulfill() reverts
     mapping(u8 => u256)                    pool;
-    mapping(address => mapping(u8 => u256)) shares;
+    mapping(agent => mapping(u8 => u256)) shares;
 
     @requires(caller: OracleResolver)
     function resolve(u8 outcome) public {

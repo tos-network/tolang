@@ -445,5 +445,3 @@ err = L.DoBytecode(bc)
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
-The Lua VM implementation builds on the work of [yuin/gopher-lua](https://github.com/yuin/gopher-lua) (MIT).

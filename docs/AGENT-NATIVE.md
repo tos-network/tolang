@@ -41,7 +41,6 @@ low-cost opcode rather than a cross-contract call.
 |---|---|---|---|---|
 | `stake` | `u256` | `AGENT_REGISTRY` system contract (deposit/withdraw ops) | Protocol opcode (AGENTLOAD) | Slashing must be atomic with balance changes; cannot be split across a cross-contract call |
 | `suspended` | `bool` | `AGENT_REGISTRY` system contract (suspend/unsuspend ops) | Protocol opcode (AGENTLOAD) | Suspension check is on the hot path of every `agent(addr)` cast |
-| `validation_fee_balance` | `u256` | Account owner (top-up), mempool (deduct) | Protocol opcode | Separate from main balance to prevent AA fee exhaustion from draining operational funds |
 
 **New opcode: `AGENTLOAD <addr> <field_id>`**
 Returns the value of a protocol-native agent field for the given address in O(1), equivalent
@@ -212,20 +211,26 @@ transactions originating from `account contract` addresses.
 
 **Transaction phases:**
 
+On gtos, validators operate under DPoS and are compensated via block rewards plus the
+standard 10 gwei/gas fee on every executed transaction. There is no separate bundler
+deposit or validation fee ledger (unlike ERC-4337). Gas for `validate()` is charged
+from the account's main `balance`, just like any other call.
+
 ```
 Phase 1 — Validation (before inclusion in block):
-  1. Check account's validation_fee_balance > 0; reject if zero.
-  2. Deduct estimated validation fee from validation_fee_balance.
-  3. Call account.validate(tx_hash, sig) with hard gas cap = VALIDATION_GAS_CAP (50,000).
+  1. Check account.balance >= VALIDATION_GAS_CAP * GAS_PRICE_GWEI + estimated_execution_gas_cost.
+     Reject if insufficient funds (protects the validator from unpaid work).
+  2. Call account.validate(tx_hash, sig) with hard gas cap = VALIDATION_GAS_CAP (50,000).
      - If validate() returns false → reject transaction (no gas charge to account).
-     - If validate() exceeds gas cap → treat as false (reject).
-     - If validate() reverts → treat as false (reject).
-  4. If validate() returns true → proceed to Phase 2.
+     - If validate() exceeds gas cap → treat as false (reject; no charge).
+     - If validate() reverts → treat as false (reject; no charge).
+  3. Deduct actual validation gas cost from account.balance.
+  4. If validate() returned true → proceed to Phase 2.
 
 Phase 2 — Execution (normal transaction execution):
   1. Call account.beforeTransfer(to, amount) before any value transfer from this account.
   2. Execute the transaction payload.
-  3. Charge gas to account's main balance at 10 gwei/gas.
+  3. Charge execution gas to account's main balance at 10 gwei/gas.
 ```
 
 **Consensus constants required:**
@@ -307,7 +312,6 @@ so orchestrators can reason about registered identity rather than raw addresses.
 | Requirement | Owner |
 |---|---|
 | `stake` + `suspended` in account state | gtos consensus / state trie |
-| `validation_fee_balance` in account state | gtos consensus / state trie |
 | `AGENTLOAD` opcode | gtos VM |
 | `AGENT_REGISTRY` system contract | gtos protocol (TOL source, genesis deploy) |
 | `CAPABILITY_REGISTRY` system contract | gtos protocol (TOL source, genesis deploy) |

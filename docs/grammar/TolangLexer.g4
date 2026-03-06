@@ -1,6 +1,7 @@
 // ANTLR4 Lexer Grammar for the TOL (TOS Object Language) language.
 //
-// TOL v0.3 — see docs/TOL_SPEC.md for the full language specification.
+// TOL v0.3 / v0.4 (agent-native extension) — see docs/TOL_SPEC.md and
+// docs/AGENT-NATIVE.md for the full language specification.
 //
 // Alignment policy (see docs/grammar/diff.md):
 //   - All Solidity reserved keywords are reserved here as well.
@@ -35,6 +36,7 @@ Constructor : 'constructor' ;
 Continue    : 'continue'    ;
 Contract    : 'contract'    ;
 Delete      : 'delete'      ; // production: contextual
+Deploy      : 'deploy'      ; // TOL-specific: alias for 'new'; production: TokenKwDeploy
 Do          : 'do'          ;
 Else        : 'else'        ;
 Emit        : 'emit'        ;
@@ -274,8 +276,11 @@ fragment HexDigit : [0-9a-fA-F] ;
 //
 // Additionally, the following have no reserved token and remain
 // purely contextual:
-//   cases  deploy  fuzz  inspect  mock  nil  selector  setup
-//   setup_suite  skip  tag  teardown  teardown_suite  timeout  tolang  with
+//   agent  capability  cases  fuzz  inspect  mock  nil  oracle
+//   selector  setup  setup_suite  skip  tag  task  teardown
+//   teardown_suite  timeout  tolang  vote  with
+//
+// Note: 'deploy' was contextual; promoted to Deploy token (TokenKwDeploy).
 // ============================================================
 
 Identifier

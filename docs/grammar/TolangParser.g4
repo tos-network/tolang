@@ -1,6 +1,7 @@
 // ANTLR4 Parser Grammar for the TOL (TOS Object Language) language.
 //
-// TOL v0.3 — see docs/TOL_SPEC.md for the full language specification.
+// TOL v0.3 / v0.4 (agent-native extension) — see docs/TOL_SPEC.md and
+// docs/AGENT-NATIVE.md for the full language specification.
 //
 // This grammar is a specification document aligned with SolidityParser.g4
 // (see docs/grammar/diff.md for the full diff analysis).
@@ -136,6 +137,7 @@ topLevelDeclaration
     | eventDeclaration
     | userDefinedValueTypeDefinition
     | constantDeclaration
+    | capabilityDeclaration           // TOL agent-native: top-level shared capability set
     | functionDeclaration             // free function at file level // TODO: not yet in production
     | usingDeclaration                // top-level using              // TODO: not yet in production
     | testDeclaration
@@ -177,6 +179,9 @@ contractMember
     | constantDeclaration
     | usingDeclaration
     | structDeclaration
+    | capabilityDeclaration           // TOL agent-native: per-contract capability set
+    | agentNativeStorageDeclaration   // TOL agent-native: oracle<T>, vote<T> storage slots
+    | manifestDeclaration             // TOL agent-native: manifest {} metadata block
     ;
 
 // ============================================================
@@ -382,6 +387,73 @@ userDefinableOperator
     ;
 
 // ============================================================
+// Capability declaration  (TOL agent-native)
+//
+//   capability Resolver;                  — single capability
+//   capability Resolver, Poster, Worker;  — multiple capabilities (comma-separated)
+//
+// May appear at top-level (shared across contracts) or inside a contract body.
+// 'capability' is a contextual keyword (Identifier with literal "capability").
+// Production: parsed by parseCapabilityDecl() in parser.go.
+// ============================================================
+
+capabilityDeclaration
+    : Identifier Identifier (Comma Identifier)* Semicolon
+    ;
+    // Leading Identifier must equal "capability" (enforced by sema, not the lexer).
+
+// ============================================================
+// Agent-native storage slot declarations  (TOL agent-native)
+//
+//   oracle<uint256> price;
+//   oracle<bytes32> jobHash;
+//   vote<uint8>     proposal;
+//
+// 'oracle', 'vote', and 'task' are contextual keywords (Identifier).
+// The generic type parameter <T> is any valid typeName.
+// Storage slots of type mapping(K => task<T>) use the regular storageVariable rule.
+// ============================================================
+
+agentNativeStorageDeclaration
+    : Identifier Lt typeName Gt Identifier Semicolon
+    ;
+    // Leading Identifier: 'oracle' | 'vote'
+    // (task<T> slots use the storageVariable rule with genericTypeName inside mappingType)
+
+// ============================================================
+// Manifest declaration  (TOL agent-native)
+//
+//   manifest {
+//     name = "AgentProtocol";
+//     version = "1.0.0";
+//     capabilities = [Resolver, Poster, Worker];
+//     min_stake = 1000000000000000000;
+//     verifiable;
+//   }
+//
+// Key–value separator: either ';' or ',' (both accepted).
+// Values: string literal, decimal number, or array of identifiers/strings.
+// Boolean flags without a value (e.g. 'verifiable') are bare identifiers.
+// ============================================================
+
+manifestDeclaration
+    : Identifier LBrace manifestField* RBrace
+    ;
+    // Leading Identifier must equal "manifest" (production: contextual).
+
+manifestField
+    : Identifier (Assign manifestFieldValue)? (Semicolon | Comma)?
+    ;
+
+manifestFieldValue
+    : StringLiteral
+    | DecimalNumber
+    | HexNumber
+    | LBracket (Identifier | StringLiteral) (Comma (Identifier | StringLiteral))* RBracket
+    ;
+    // Array form: [A, B, C] or ["a", "b", "c"]
+
+// ============================================================
 // Modifier declaration
 //
 //   modifier onlyOwner() { require(msg.sender == owner, "NOT_OWNER"); _; }
@@ -429,7 +501,20 @@ functionDeclaration
 functionAttribute
     : At Identifier (LParen attributeArgumentList? RParen)?
     ;
-    // TOL-specific: @selector("0xAABBCCDD"), @skip, @tag("name"), @fuzz, @timeout(ms)
+    // TOL-specific attributes (all forms accepted):
+    //   Test / fuzz:   @skip, @tag("name"), @fuzz, @fuzz(count=N), @timeout(ms), @cases
+    //   ABI:           @selector("0xAABBCCDD")
+    //   Agent-native:  @requires(caller: CapabilityName)
+    //                  @pay(amount=expr, recipient=expr) or @pay(expr)
+    //                  @verifiable    — marks function as verifiably deterministic
+    //                  @delegated     — marks function as delegation-capable
+    //   Effects:       @effects(reads: [...], writes: [...], emits: [...])
+    //                  @gas(upper=N)
+    //                  @bounds(param: min..max)
+    //
+    // attributeArgument handles both positional (expr) and named (key=expr) forms.
+    // Agent-native annotations may appear as standalone attributes BEFORE the
+    // function keyword (no triple-slash doc comment required).
 
 attributeArgumentList
     : attributeArgument (Comma attributeArgument)*
@@ -532,9 +617,29 @@ typeName
     : elementaryTypeName
     | functionTypeName
     | mappingType
+    | genericTypeName                            // oracle<T>, task<T>, vote<T>
     | userDefinedTypeName
     | typeName LBracket expression? RBracket    // T[] or T[N]
     ;
+
+// Generic agent-native type names  (TOL agent-native)
+//
+//   oracle<uint256>       — oracle storage slot type
+//   task<bytes32>         — task slot type (used inside mapping value position)
+//   vote<uint8>           — vote slot type
+//   agent                 — agent handle type (no type parameter)
+//
+// 'oracle', 'task', 'vote', 'agent' are contextual keywords (Identifier tokens).
+// Production: parseField() and parseStatement() detect these by literal value.
+//
+// NOTE: In expressions, task<T>.new(...) is parsed as Identifier Lt typeName Gt
+//       Dot Identifier callArgumentList (handled specially in parsePrefixExpr).
+
+genericTypeName
+    : Identifier Lt typeName Gt     // oracle<T>, task<T>, vote<T>
+    | Identifier                    // agent (bare, no type param)
+    ;
+    // Leading Identifier: 'oracle' | 'task' | 'vote' | 'agent'
 
 elementaryTypeName
     : UnsignedIntegerType
@@ -844,6 +949,54 @@ catchClause
     //   catch                             { }   — bare
 
 // ============================================================
+// Agent-native builtin statements  (TOL agent-native)
+//
+// The following builtins are expressed as expression statements (expressionStatement).
+// They look like function calls but have special semantic rules enforced by sema.
+//
+//   escrow(agent, amount)                  — 2-arg form; purpose defaults to 0
+//   escrow(agent, amount, purpose)         — 3-arg form; explicit purpose literal
+//   release(agent, amount)                 — 2-arg form; purpose defaults to 0
+//   release(agent, amount, purpose)        — 3-arg form
+//   slash(agent, amount)                   — 2-arg form; recipient & purpose default to 0
+//   slash(agent, amount, recipient)        — 3-arg form; purpose defaults to 0
+//   slash(agent, amount, recipient, purpose) — 4-arg form
+//
+//   oracle_fulfill(oracleSlot, value)      — fulfill an oracle slot (via slot.fulfill(v))
+//   vote_cast(voteSlot, value)             — cast a vote (via slot.cast(v))
+//   task_transition(taskBase, tid, from, to, extra) — task state machine transition
+//
+// Agent property access:
+//   agent(addr).stake                      → __tol_agent_prop(addr, "stake")
+//   agent(addr).is_active                  → composite active check
+//   agent(addr).reputation                 → __tol_agent_prop(addr, "reputation")
+//   agent(addr).rating_count               → __tol_agent_prop(addr, "rating_count")
+//   agent(addr).suspended                  → __tol_agent_prop(addr, "suspended") ~= 0
+//
+// Oracle OOP member interface (on oracle<T> storage slots):
+//   price.fulfill(v)                       → oracle_fulfill(price_val_slot, price_set_slot, v)
+//   price.is_set                           → __tol_oracle_is_set(price_set_slot)
+//   price.value                            → __tol_oracle_value(price_val_slot)
+//
+// Task OOP member interface (on mapping(K => task<T>) storage slots):
+//   tasks[tid] = task<T>.new(poster, reward, deadline)  — create new task
+//   tasks[tid].accept(worker)              — transition Open → Accepted
+//   tasks[tid].submit(data)                — transition Accepted → Submitted
+//   tasks[tid].approve()                   — transition Submitted → Approved
+//   tasks[tid].reject()                    — transition Submitted → Rejected
+//   tasks[tid].dispute()                   — transition → Disputed
+//   tasks[tid].cancel()                    — transition → Cancelled
+//   tasks[tid].worker                      — read worker address
+//   tasks[tid].poster                      — read poster address
+//   tasks[tid].reward                      — read reward amount
+//   tasks[tid].is_expired                  — deadline < block.timestamp
+//
+// Task local handle:
+//   task<bytes32> t = tasks[tid];          — bind task handle to local variable
+//   t.approve();                           — call method on local handle
+// ============================================================
+
+// ============================================================
 // Test block  (TOL-specific)
 //
 //   test MyTests {
@@ -916,8 +1069,12 @@ testStatement
     ;
 
 deployStatement
-    : Identifier Identifier (LParen expressionList? RParen)? (Arrow Identifier)? Semicolon
+    : (Identifier | Deploy) Identifier (LParen expressionList? RParen)? (Arrow Identifier)? Semicolon
     ;
+    // Leading token: Identifier with literal "deploy" OR the Deploy keyword token.
+    // Both forms are equivalent; the production parser accepts either.
+    //   deploy Counter(0) -> c;
+    //   deploy Token(1_000_000) -> tok;
 
 withStatement
     : Identifier expression testBlock
@@ -969,8 +1126,10 @@ expression
     | (Bang | BitNot | Plus | Minus) expression                        # PrefixOp
     | Delete expression                                                 # DeleteExpr
 
-    // Object construction
+    // Object construction / deployment
     | New typeName callArgumentList                                     # NewExpr
+    | Deploy typeName callArgumentList                                  # DeployExpr
+    // 'deploy' is a TOL-specific alias for 'new'; both compile identically.
 
     // payable conversion: payable(addr)
     | Payable callArgumentList                                          # PayableConversion

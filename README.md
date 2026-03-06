@@ -21,7 +21,7 @@ Agents are different:
 
 The root problem is not that agents make mistakes. It is that **mistakes get automated and amplified.** A human auditor catching a bug in one contract saves one contract. An agent framework that can *verify* contracts before executing them saves every contract in the ecosystem.
 
-This is why TOL demands strict, machine-verifiable guarantees — not out of language purism, but because the failure modes at agent scale are categorically different from those at human scale.
+TOL elevates **identity, task, capability, payment, and trust** to first-class language primitives — the same leap Solidity made when it introduced `msg.sender`, `payable`, `transfer()`, and `msg.value`.
 
 ---
 
@@ -33,15 +33,18 @@ TOL functions carry compiler-verified `@effects` annotations directly in the `.t
 
 ```tol
 /**
- * @notice Transfers `amount` tokens from caller to `to`.
  * @effects reads:  storage.balances[caller], storage.allowances[caller,to]
  * @effects writes: storage.balances[caller], storage.balances[to]
  * @effects emits:  Transfer
  * @effects calls:  []
  * @gas     upper:  50000
  */
-fn transfer(to: address, amount: u256) -> (ok: bool) external {
-    ...
+function transfer(address to, u256 amount) external returns (bool ok) {
+    require(balances[msg.sender] >= amount, "INSUFFICIENT_BALANCE");
+    balances[msg.sender] -= amount;
+    balances[to] += amount;
+    emit Transfer(msg.sender, to, amount);
+    return true;
 }
 ```
 
@@ -53,8 +56,6 @@ An agent reading this ABI knows, before sending a single transaction:
 - No external calls — no re-entrancy risk.
 - Maximum gas to budget.
 
-Without verifiable effects, an agent must either *simulate blindly* (expensive and slow) or *call blindly* (risk at scale). TOL eliminates the dilemma.
-
 ### 2. Metered — Know the cost before committing
 
 Every bounded TOL function can carry a static gas upper bound:
@@ -62,18 +63,15 @@ Every bounded TOL function can carry a static gas upper bound:
 ```tol
 /// @bounds positions_len <= 64
 /// @gas     upper: 8200 + positions_len * 420 + OracleCap.max_gas
-fn settle(n: u256) external { ... }
+function settle(u256 n) external { ... }
 ```
 
 The compiler verifies this bound against a conservative cost model (SSTORE, SLOAD, LOG, external call budgets). If the declared bound is too low, compilation fails.
 
 For agents operating in task markets, oracle networks, or prediction markets, this matters enormously:
-
 - Estimate cost → decide whether to execute.
 - Compute fee, quote, or margin *before* the transaction.
 - Give external partners a verifiable SLA with a concrete price.
-
-Without a verified upper bound, agents must choose between being conservatively idle (low utilization) or being drained by gas-trap contracts (uncontrolled cost).
 
 ### 3. Composable — Combine modules with contracts, not conventions
 
@@ -85,78 +83,220 @@ External calls in TOL are expressed as capability references:
 
 This is not documentation — it is a machine-checkable authorization boundary. A module is only allowed to call `oracle.getPrice`, not any other method. It may call it at most once, with a bounded gas budget, at a call depth of at most 1.
 
-Without capability boundaries, composing contracts means trusting that every module behaves correctly by convention. Agents need *machine-checkable* authorization, because they cannot manually audit every call chain before orchestrating it.
-
 A function that makes arbitrary external calls is marked `non_composable: true` in the ABI JSON — a fast-path signal for tooling that this function requires additional human review before automation.
 
 ---
 
-## The Language
+## Agent-Native Primitives
 
-TOL (The Open Language) is a statically-typed, Solidity-inspired language. Developers familiar with Solidity will find the same type system, storage model, ABI, events, modifiers, and inheritance. The surface syntax is deliberately explicit:
+TOL 0.3 introduces five first-class primitives that eliminate boilerplate guards and manual state machines in agent contracts.
 
-- Storage writes require `set`.
-- Local variables require `let`.
-- No implicit casts, no hidden state transitions, no assembly escape hatches.
+### `capability` — Permission Declarations
 
 ```tol
-source tolang 0.2.0
+capability Registrar;    // may register / suspend agents
+capability Arbitrator;   // may rule on disputes
+capability OracleResolver;
+```
+
+Use `@requires(caller: X)` to gate a function. The compiler inserts the capability check automatically:
+
+```tol
+@requires(caller: Arbitrator)
+function rule(u256 dispute_id, agent winner, u16 slash_bps, string reason) public { ... }
+```
+
+Emitted in the `.toc` ABI as `"requires_capability": "Arbitrator"` — so any agent can check authorization without reading source.
+
+### `oracle<T>` — Write-Once Value Slot
+
+```tol
+oracle<u8> winning_outcome;   // write-once; second fulfill() is a hard revert
+```
+
+```tol
+@requires(caller: OracleResolver)
+function resolve(u8 outcome) public {
+    winning_outcome.fulfill(outcome);   // compiler prevents double-resolution
+    emit Resolved(outcome, agent(msg.sender));
+}
+
+function claim() public {
+    require(winning_outcome.is_set, "NotResolved");
+    u256 payout = shares[msg.sender][winning_outcome.value] * totalPool / totalShares;
+    release(agent(msg.sender), payout);
+}
+```
+
+### `task<T>` — Compiler-Enforced State Machine
+
+Replaces `mapping(u256 => u8)` + raw numeric codes. The compiler tracks valid transitions:
+
+```
+Open → Accepted → Submitted → Approved
+                ↘ Rejected  → Disputed
+Open → Cancelled
+```
+
+```tol
+mapping(u256 => task<bytes32>) tasks;
+
+function postTask(bytes32 spec_hash, u64 deadline_ms) public payable returns (u256 task_id) {
+    task_id = next_task_id++;
+    tasks[task_id] = task<bytes32>.new(agent(msg.sender), msg.value, deadline_ms);
+    escrow(agent(msg.sender), msg.value);
+}
+
+function approveTask(u256 task_id) public {
+    task<bytes32> t = tasks[task_id];
+    t.approve();                          // compile error if status != Submitted
+    release(t.worker, t.reward);
+}
+```
+
+### `agent` — Identity with Native Properties
+
+`agent` is a subtype of `address` that carries registry semantics. No manual `require(registry.isActive(addr))` needed:
+
+```tol
+function updateProfile(string metadata_uri) public {
+    require(agent(msg.sender).is_active, "NotActive");   // reads from protocol registry
+    emit AgentProfileUpdated(agent(msg.sender), metadata_uri);
+}
+
+function totalScoreOf(agent who) public view returns (i256 score) {
+    return who.reputation;       // agent property — no storage lookup boilerplate
+}
+```
+
+Available properties: `.stake`, `.is_active`, `.reputation`, `.rating_count`, `.suspended`.
+
+### `escrow` / `release` / `slash` — Intent-Explicit Payment
+
+```tol
+escrow(agent(msg.sender), msg.value);          // lock funds against agent identity
+release(t.worker, t.reward);                   // unlock reward to worker
+slash(loser, loser.stake * slash_bps / 10000); // penalize + route proceeds
+```
+
+### `manifest {}` — Machine-Readable Contract Metadata
+
+```tol
+manifest {
+    version:      "1.0.0";
+    capabilities: [Arbitrator];
+    spec:         "ipfs://Qm_task_escrow_spec";
+    sla_uptime:   9900;
+}
+```
+
+Emitted verbatim into the `.toc` ABI JSON as a top-level `"manifest"` key — inspectable by tooling without executing the contract.
+
+### `@pay` / `@verifiable` / `@delegated`
+
+```tol
+@pay(10_000_000)                  // enforces msg.value >= fee at language level
+function createBinaryMarket(...) public returns (address market) { ... }
+
+@verifiable                       // result provable off-chain; ABI field "verifiable": true
+function totalScoreOf(agent who) public view returns (i256 score) { ... }
+
+@delegated                        // accepts delegated calls; injects delegation verify
+function acceptJob(u256 tid) external payable { ... }
+```
+
+---
+
+## Language
+
+TOL is a statically-typed, Solidity-inspired language. Developers familiar with Solidity will recognize the same type system, storage model, ABI encoding, events, modifiers, and inheritance. The surface syntax is deliberately explicit — no implicit casts, no hidden state transitions.
+
+```tol
+pragma tolang 0.3.0;
 
 contract TRC20 {
-    storage {
-        slot total_supply: u256;
-        slot balances:     mapping(address => u256);
-        slot allowances:   mapping(address => mapping(address => u256));
-    }
+    u256                              total_supply;
+    mapping(address => u256)          balances;
+    mapping(address => mapping(address => u256)) allowances;
 
-    event Transfer(from: address indexed, to: address indexed, value: u256)
-    event Approval(owner: address indexed, spender: address indexed, value: u256)
+    event Transfer(address indexed from, address indexed to, u256 value)
+    event Approval(address indexed owner, address indexed spender, u256 value)
 
-    constructor(initialSupply: u256) {
-        let owner: address = msg.sender;
-        set total_supply = initialSupply;
-        set balances[owner] = initialSupply;
-        emit Transfer("0x0000000000000000000000000000000000000000", owner, initialSupply);
-        return;
-    }
-
-    /**
-     * @effects reads:  storage.balances[caller]
-     * @effects writes: []
-     * @effects emits:  []
-     * @effects calls:  []
-     * @gas     upper:  2500
-     */
-    fn balanceOf(owner: address) -> (balance: u256) public view {
-        return balances[owner];
+    constructor(u256 initialSupply) {
+        total_supply = initialSupply;
+        balances[msg.sender] = initialSupply;
+        emit Transfer(address(0), msg.sender, initialSupply);
     }
 
     /**
      * @effects reads:  storage.balances[caller]
      * @effects writes: storage.balances[caller], storage.balances[to]
      * @effects emits:  Transfer
-     * @effects calls:  []
      * @gas     upper:  50000
      */
-    fn transfer(to: address, amount: u256) -> (ok: bool) external {
+    function transfer(address to, u256 amount) external returns (bool ok) {
         require(balances[msg.sender] >= amount, "INSUFFICIENT_BALANCE");
-        set balances[msg.sender] -= amount;
-        set balances[to] += amount;
+        balances[msg.sender] -= amount;
+        balances[to] += amount;
         emit Transfer(msg.sender, to, amount);
         return true;
+    }
+
+    function balanceOf(address owner) external view returns (u256 balance) {
+        return balances[owner];
     }
 }
 ```
 
-See [`examples/trc20_tol/`](examples/trc20_tol/) for a complete TRC20 implementation.
+---
+
+## Agent-Native Example
+
+The following excerpt shows a prediction market where double-resolution is structurally impossible and payout is automatic — no manual guard required:
+
+```tol
+pragma tolang 0.3.0;
+
+capability OracleResolver;
+
+contract PredictionMarket is IPredictionMarket {
+    manifest {
+        version:      "1.0.0";
+        capabilities: [OracleResolver];
+        spec:         "ipfs://Qm_prediction_market_spec";
+    }
+
+    oracle<u8> winning_outcome;            // write-once; second .fulfill() reverts
+    mapping(u8 => u256)                    pool;
+    mapping(address => mapping(u8 => u256)) shares;
+
+    @requires(caller: OracleResolver)
+    function resolve(u8 outcome) public {
+        require(block.timestamp_ms >= close_time_ms, "MarketNotClosed");
+        winning_outcome.fulfill(outcome);  // compiler enforces single-write
+        emit Resolved(outcome, agent(msg.sender));
+    }
+
+    function claim() public {
+        require(winning_outcome.is_set, "NotResolved");
+        u256 payout = shares[msg.sender][winning_outcome.value]
+                      * (pool[0] + pool[1])
+                      / pool[winning_outcome.value];
+        release(agent(msg.sender), payout);
+        emit Claimed(agent(msg.sender), payout);
+    }
+}
+```
+
+See [`docs/AGENT_PROTOCOL_DRAFT2.tol`](docs/AGENT_PROTOCOL_DRAFT2.tol) for a complete agent economy protocol (registry, reputation, task escrow, dispute resolution, prediction market, reward vault).
 
 ---
 
 ## The VM
 
-TOL compiles to a hardened, deterministic Lua 5.4 VM. The VM is stripped of all non-deterministic operations — no I/O, no floating-point, no OS access — and extended with:
+TOL compiles to a hardened, deterministic Lua 5.4 VM. All non-deterministic operations are removed — no I/O, no floating-point, no OS access — and the VM is extended with:
 
-- **256-bit integer arithmetic** — `LUint256` is a native `struct{lo, ml, mh, hi uint64}`. All hot-path operations (add, sub, mul, bitwise, shift, compare) use `math/bits` with zero allocations. Division uses Knuth Algorithm D natively. No `math/big` in production paths.
+- **256-bit integer arithmetic** — `LUint256` is a native `struct{lo, ml, mh, hi uint64}`. All hot-path operations (add, sub, mul, bitwise, shift, compare) use `math/bits` with zero allocations. No `math/big` in production paths.
 - **Gas metering** — every VM instruction increments a counter; execution halts deterministically when the limit is reached.
 - **Signed integer intrinsics** — `i8..i256` two's-complement arithmetic built on the same native primitives.
 
@@ -167,7 +307,7 @@ Lua source  →                          Lua bytecode → VM
 
 Both paths produce the same bytecode format and run on the same VM.
 
-### Standard libraries
+### Standard Libraries
 
 | Library | Status |
 |---------|--------|
@@ -187,11 +327,26 @@ The TOL toolchain produces three artifact types:
 
 | Extension | Name | Contents |
 |-----------|------|----------|
-| `.toc` | Artifact | Compiled bytecode + ABI JSON (with `@effects`) + source/bytecode hashes |
+| `.toc` | Artifact | Compiled bytecode + ABI JSON (with `@effects`, `manifest`, capability fields) + source/bytecode hashes |
 | `.abi` | Interface | Human- and machine-readable interface definition for cross-contract typing |
 | `.tor` | Package | Deterministic ZIP archive: manifest + `.toc` + `.abi` + sources |
 
-All artifacts are content-addressed. The `.toc` `BytecodeHash` field covers exactly the bytecode that was verified against the effect declarations, making the ABI JSON as trustworthy as the bytecode itself.
+All artifacts are content-addressed. The `.toc` `BytecodeHash` field covers exactly the bytecode that was verified against the effect and capability declarations, making the ABI JSON as trustworthy as the bytecode itself.
+
+Example `.toc` ABI excerpt for an agent-native function:
+
+```json
+{
+  "name": "rule",
+  "visibility": "public",
+  "selector": "0x...",
+  "params": ["u256", "address", "u16", "string"],
+  "returns": [],
+  "requires_capability": "Arbitrator",
+  "verifiable": false,
+  "delegated": false
+}
+```
 
 ---
 
@@ -221,22 +376,22 @@ tol --help
 Write tests alongside contracts in `*_test.tol` files:
 
 ```tol
-source tolang 0.2.0
+pragma tolang 0.3.0;
 
 test TRC20Suite {
     setup {
         deploy TRC20(1000000) -> token;
     }
 
-    fn test_transfer() {
-        with msg.sender = "0x0000000000000000000000000000000000000001" {
-            assert_eq(token.transfer("0x0000000000000000000000000000000000000002", 100), true);
+    function test_transfer() {
+        with msg.sender = 0x0000000000000000000000000000000000000001 {
+            assert_eq(token.transfer(0x0000000000000000000000000000000000000002, 100), true);
         }
-        assert_eq(token.balanceOf("0x0000000000000000000000000000000000000002"), 100);
+        assert_eq(token.balanceOf(0x0000000000000000000000000000000000000002), 100);
     }
 
-    fn test_insufficient_balance() {
-        assert_revert(fn() { token.transfer("0x0000000000000000000000000000000000000002", 9999999); });
+    function test_insufficient_balance() {
+        assert_revert(function() { token.transfer(0x0000000000000000000000000000000000000002, 9999999); });
     }
 }
 ```
@@ -284,6 +439,25 @@ artifact, err := lua.CompileArtifact(src, "TRC20")
 bc, err := lua.CompileBytecode(src, "TRC20")
 err = L.DoBytecode(bc)
 ```
+
+---
+
+## Diagnostics Reference
+
+| Code | Meaning |
+|------|---------|
+| TOL2300 | Capability already declared in this contract |
+| TOL2301 | Purpose already declared in this contract |
+| TOL2302 | `@requires` references undeclared capability |
+| TOL2303 | `oracle<T>`: T must be a value type |
+| TOL2304 | `vote<T>`: T must be numeric (uint/int/bool) |
+| TOL2305 | `task<T>`: T should be a struct type |
+| TOL2306 | `agent` cast on non-address expression |
+| TOL2307 | Manifest block already declared |
+| TOL2308 | `@pay`: amount must be a uint256 expression |
+| TOL2309 | `@pay`: recipient must be an address expression |
+| TOL2311 | `escrow`/`release`/`slash` outside payable context |
+| TOL2314 | `@verifiable` requires `pure` or `view` function |
 
 ---
 

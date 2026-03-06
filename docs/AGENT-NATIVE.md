@@ -373,7 +373,7 @@ so orchestrators can reason about registered identity rather than raw addresses.
 
 ## What Is Missing
 
-### 1. `agent` — Native Data Type — 🔶 Partial
+### 1. `agent` — Native Data Type — ✅ Done
 
 **Current state:** agent identity is a bare `address`. All registry lookups, stake checks, and
 reputation reads are hand-written calls to external interfaces.
@@ -514,7 +514,7 @@ Compiler generates at function entry:
 
 ---
 
-### 4. `@pay(amount, recipient:)` Annotation — Micropayment Primitive — 🔶 Partial
+### 4. `@pay(amount, recipient:)` Annotation — Micropayment Primitive — ✅ Done
 
 **Current state:** per-call payments require manual `require(msg.value >= ...)` guards and explicit
 transfer logic in every function that charges a fee.
@@ -778,7 +778,7 @@ function rebalancePortfolio(delegation d, ...) public {
 
 ---
 
-### 10. `vote<T>` Type — Governance Coordination Primitive — 🔶 Partial
+### 10. `vote<T>` Type — Governance Coordination Primitive — ✅ Done
 
 **Relevance:** THESIS.md Pillar 6 — AI agents analyze proposals and recommend voting decisions
 in decentralized governance. The language needs a native governance primitive that is as safe
@@ -915,7 +915,7 @@ account contract AgentWallet {
 
 ---
 
-### 12. `@verifiable` Annotation — ZK Readiness — 🔶 Partial
+### 12. `@verifiable` Annotation — ZK Readiness — ✅ Done (stub)
 
 **Current state:** TOL has no concept of zero-knowledge proofs. THESIS.md lists
 **zero-knowledge payments** as a required enabling technology.
@@ -1041,19 +1041,19 @@ on a variable-price chain, the compensation formula would require a price oracle
 | Priority | Feature | THESIS.md Pillar / Tech | Status |
 |----------|---------|------------------------|--------|
 | **Done** | `@effects` / `@gas` / `@bounds` annotation system | Pillar 5: AI safety verification | ✅ Done |
-| P0 | `agent` native type + `msg.agent` (registry-backed; property caching; zero-agent semantics) | Pillar 4: Identity & reputation | 🔶 Partial — `agent(expr)` cast + `.stake/.is_active/.reputation/.rating_count` done; `msg.agent` context var not yet implemented |
+| P0 | `agent` native type + `msg.agent` (registry-backed; property caching; zero-agent semantics) | Pillar 4: Identity & reputation | ✅ Done — `agent(expr)` cast, property access, and `msg.agent` context var all implemented |
 | P0 | `capability` + `purpose` declared types; `@requires` (runtime, `msg.sender`-scoped) | Pillar 4: Trust | ✅ Done |
 | P1 | `account` contract type (AA wallet; `validate()` with 50k gas cap; validation fee ledger) | Tech: Account abstraction | ❌ Not started |
 | P1 | `delegation` type + `@delegated` + nonce/replay/domain-sep + revocation + sub-delegation | Pillar 5: AI-mediated UX | 🔶 Partial — `@delegated` annotation + ABI field + prelude stub done; `delegation` type, `delegation.verify()`, nonce/revocation not implemented |
 | P1 | `manifest {}` block (`spec_hash`+`spec_uri`; per-function `price_per_call` map) | Pillar 4: Discoverability | ✅ Done (string/numeric/array values, `;` separator) |
-| P2 | `@pay(amount, recipient:)` — compile-time constant; non-view only; safe refund semantics | Pillar 2: M2M micropayments | 🔶 Partial — bare `@pay(amount)` form done; named `recipient:` argument not yet enforced at sema/lower |
+| P2 | `@pay(amount, recipient:)` — compile-time constant; non-view only; safe refund semantics | Pillar 2: M2M micropayments | ✅ Done — bare `@pay(amount)` and `@pay(amount, recipient: expr)` both implemented |
 | P2 | `@quota(calls:, price:)` — prepaid N-call bundles; exact depletion math (fixed gas) | Pillar 2: High-freq M2M | ❌ Not started |
 | P2 | `@total_cost(max:)` + cost-certifiable `.toc` ABI — machine-negotiable service market | Pillar 2 + Pillar 5 | ❌ Not started |
 | P2 | `escrow` / `slash(recipient:)` / `release(amount, purpose:)` — escrow-only slash | Pillar 3: Collateralized trust | ✅ Done (2-arg and 3-arg forms; purpose defaults to 0 when omitted) |
 | P2 | `task<T>` storage type (VM-native state machine; AgentRequired on post; runtime reverts) | Pillar 1: Agent hiring | ✅ Done (mapping-of-task OOP: `.new/.accept/.submit/.approve/.reject/.dispute/.cancel`; local handle `task<T> t = tasks[id]`) |
 | P3 | `oracle<T>` write-once (VM-level guard; `@requires` for access control) | Pillar 1: Prediction markets | ✅ Done (`.fulfill()`, `.is_set`, `.value`; write-once enforced in prelude) |
-| P3 | `vote<T>` (snapshot quorum; tie param; non-bool ordinal tie-break; capability-gated) | Pillar 6: Governance | 🔶 Partial — storage slots + prelude helpers emitted; OOP call-site lowering (`proposal.cast()`, `proposal.is_decided`, `proposal.result`) not yet wired |
-| P3 | `@verifiable` on `view` only (ZK integrity, NOT ZK privacy); stub `verify_*`; constraints | Tech: ZK integrity | 🔶 Partial — annotation parsed, ABI field `"verifiable": true` emitted; companion `verify_*` stub entry point not generated |
+| P3 | `vote<T>` (snapshot quorum; tie param; non-bool ordinal tie-break; capability-gated) | Pillar 6: Governance | ✅ Done — `.cast()`, `.new()`, `.is_decided`, `.result`, `.vote_count`, `.yes_count`, `.no_count` all wired |
+| P3 | `@verifiable` on `view` only (ZK integrity, NOT ZK privacy); stub `verify_*`; constraints | Tech: ZK integrity | ✅ Done — annotation, ABI field, and auto-generated `verify_*` stub entry points all implemented |
 
 ---
 

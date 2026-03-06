@@ -1116,6 +1116,25 @@ local __tol_delegation_consume = function(sig_hex, principal, scope_hash, expiry
   end
   return d
 end
+
+local __tol_delegation_subdelegate = function(parent_d, sub_agent, sub_scope, expiry_ms)
+  if parent_d == nil or parent_d.is_valid ~= true then
+    error("SubdelegationInvalidParent")
+  end
+  local now_ms = block ~= nil and block.timestamp or 0
+  if expiry_ms ~= nil and expiry_ms > 0 and now_ms > 0 and expiry_ms < now_ms then
+    error("SubdelegationExpired")
+  end
+  return {principal=parent_d.principal, delegate=sub_agent, scope=sub_scope, is_valid=true, _parent=parent_d}
+end
+
+local __tol_delegation_revoke = function(principal, nonce)
+  if tos ~= nil and type(tos.delegationrevoke) == "function" then
+    tos.delegationrevoke(principal, nonce)
+  elseif tos ~= nil and type(tos.delegationmarkused) == "function" then
+    tos.delegationmarkused(principal, nonce)
+  end
+end
 `)
 	}
 
@@ -3117,7 +3136,8 @@ type loweringCtx struct {
 	localTypes []map[string]string // per-scope map: local name -> TOL type
 	unchecked  bool                // true when inside an unchecked {} block
 	ternarySeq int                 // counter for unique ternary temp names
-	taskLocals map[string]string   // local var name → storage slot name (for task<T> local handles)
+	taskLocals       map[string]string      // local var name → storage slot name (for task<T> local handles)
+	delegationLocals map[string]struct{}   // local var names that hold a delegation value
 }
 
 func newLoweringCtx(env *loweringEnv) *loweringCtx {
@@ -3345,6 +3365,12 @@ func tolStmtToLua(ctx *loweringCtx, stmt tolast.Statement) (luast.Stmt, error) {
 			typeTag = "__mem:" + typeTag
 		}
 		ctx.declareLocalWithType(stmt.Name, typeTag)
+		if typeTag == "delegation" {
+			if ctx.delegationLocals == nil {
+				ctx.delegationLocals = make(map[string]struct{})
+			}
+			ctx.delegationLocals[stmt.Name] = struct{}{}
+		}
 		return out, nil
 	case "let-tuple":
 		return lowerLetTupleStmt(ctx, stmt)
@@ -4239,6 +4265,12 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 			}
 			return agentPropExpr, nil
 		}
+		if delegExpr, ok, err := lowerDelegationMemberExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return delegExpr, nil
+		}
 		if taskExpr, ok, err := lowerTaskMappingMemberExpr(ctx, e); ok || err != nil {
 			if err != nil {
 				return nil, err
@@ -4838,34 +4870,80 @@ func lowerAgentNativeCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 
 	// delegation.verify(sig, principal, scope_hash, expiry_ms, nonce)
 	// delegation.consume(sig, principal, scope_hash, expiry_ms, nonce)
-	// — member calls on the "delegation" namespace.
+	// delegation.revoke(principal, nonce)
+	// d.subdelegate(sub_agent, scope, expiry_ms)  — method on delegation local variable
+	// — member calls on the "delegation" namespace or a delegation-typed local.
 	if callee.Kind == "member" {
 		obj := stripTolParens(callee.Object)
-		if obj != nil && obj.Kind == "ident" &&
-			strings.TrimSpace(obj.Value) == "delegation" {
+		if obj != nil && obj.Kind == "ident" {
+			objName := strings.TrimSpace(obj.Value)
 			method := strings.TrimSpace(callee.Member)
-			switch method {
-			case "verify", "consume":
-				if len(e.Args) != 5 {
-					return nil, true, fmt.Errorf("[%s] delegation.%s(sig, principal, scope_hash, expiry_ms, nonce) requires exactly 5 arguments", diag.CodeLowerUnsupportedFeature, method)
-				}
-				luaArgs := make([]luast.Expr, 0, 5)
-				for _, a := range e.Args {
-					la, err := tolExprToLua(ctx, a)
-					if err != nil {
-						return nil, true, err
+
+			// delegation namespace calls: verify / consume / revoke
+			if objName == "delegation" {
+				switch method {
+				case "verify", "consume":
+					if len(e.Args) != 5 {
+						return nil, true, fmt.Errorf("[%s] delegation.%s(sig, principal, scope_hash, expiry_ms, nonce) requires exactly 5 arguments", diag.CodeLowerUnsupportedFeature, method)
 					}
-					luaArgs = append(luaArgs, la)
+					luaArgs := make([]luast.Expr, 0, 5)
+					for _, a := range e.Args {
+						la, err := tolExprToLua(ctx, a)
+						if err != nil {
+							return nil, true, err
+						}
+						luaArgs = append(luaArgs, la)
+					}
+					hostFn := "__tol_delegation_verify"
+					if method == "consume" {
+						hostFn = "__tol_delegation_consume"
+					}
+					return withLineExpr(&luast.FuncCallExpr{
+						Func:      withLineExpr(&luast.IdentExpr{Value: hostFn}),
+						Args:      luaArgs,
+						AdjustRet: true,
+					}), true, nil
+				case "revoke":
+					if len(e.Args) != 2 {
+						return nil, true, fmt.Errorf("[%s] delegation.revoke(principal, nonce) requires exactly 2 arguments", diag.CodeLowerUnsupportedFeature)
+					}
+					luaArgs := make([]luast.Expr, 0, 2)
+					for _, a := range e.Args {
+						la, err := tolExprToLua(ctx, a)
+						if err != nil {
+							return nil, true, err
+						}
+						luaArgs = append(luaArgs, la)
+					}
+					return withLineExpr(&luast.FuncCallExpr{
+						Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_delegation_revoke"}),
+						Args:      luaArgs,
+						AdjustRet: true,
+					}), true, nil
 				}
-				hostFn := "__tol_delegation_verify"
-				if method == "consume" {
-					hostFn = "__tol_delegation_consume"
+			}
+
+			// delegation local variable: d.subdelegate(sub_agent, scope, expiry_ms)
+			if ctx.delegationLocals != nil {
+				if _, isDelegLocal := ctx.delegationLocals[objName]; isDelegLocal && method == "subdelegate" {
+					if len(e.Args) != 3 {
+						return nil, true, fmt.Errorf("[%s] d.subdelegate(sub_agent, scope, expiry_ms) requires exactly 3 arguments", diag.CodeLowerUnsupportedFeature)
+					}
+					parentExpr := withLineExpr(&luast.IdentExpr{Value: objName})
+					luaArgs := []luast.Expr{parentExpr}
+					for _, a := range e.Args {
+						la, err := tolExprToLua(ctx, a)
+						if err != nil {
+							return nil, true, err
+						}
+						luaArgs = append(luaArgs, la)
+					}
+					return withLineExpr(&luast.FuncCallExpr{
+						Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_delegation_subdelegate"}),
+						Args:      luaArgs,
+						AdjustRet: true,
+					}), true, nil
 				}
-				return withLineExpr(&luast.FuncCallExpr{
-					Func:      withLineExpr(&luast.IdentExpr{Value: hostFn}),
-					Args:      luaArgs,
-					AdjustRet: true,
-				}), true, nil
 			}
 		}
 		return nil, false, nil
@@ -6906,6 +6984,43 @@ func lowerAgentPropertyExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool,
 		}), true, nil
 	}
 	return nil, false, nil
+}
+
+// lowerDelegationMemberExpr handles property access on delegation-typed local variables:
+//
+//	d.principal  → d.principal   (direct Lua table field)
+//	d.delegate   → d.delegate
+//	d.scope      → d.scope
+//	d.is_valid   → d.is_valid
+//
+// The delegation table is created by __tol_delegation_verify / __tol_delegation_consume,
+// so the fields already exist as Lua table keys.
+func lowerDelegationMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
+	if e == nil || e.Kind != "member" {
+		return nil, false, nil
+	}
+	knownProps := map[string]bool{
+		"principal": true, "delegate": true, "scope": true, "is_valid": true,
+	}
+	if !knownProps[e.Member] {
+		return nil, false, nil
+	}
+	if ctx.delegationLocals == nil {
+		return nil, false, nil
+	}
+	obj := stripTolParens(e.Object)
+	if obj == nil || obj.Kind != "ident" {
+		return nil, false, nil
+	}
+	varName := strings.TrimSpace(obj.Value)
+	if _, isDelegLocal := ctx.delegationLocals[varName]; !isDelegLocal {
+		return nil, false, nil
+	}
+	// Emit d["field"] — direct Lua table field access via AttrGetExpr.
+	return withLineExpr(&luast.AttrGetExpr{
+		Object: withLineExpr(&luast.IdentExpr{Value: varName}),
+		Key:    withLineExpr(&luast.StringExpr{Value: e.Member}),
+	}), true, nil
 }
 
 func lowerStoragePushCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {

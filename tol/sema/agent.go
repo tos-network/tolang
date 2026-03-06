@@ -223,12 +223,23 @@ func checkAgentBodyCalls(filename string, stmts []ast.Statement, isDelegated, is
 			if obj != nil && obj.Kind == "ident" &&
 				strings.TrimSpace(obj.Value) == "delegation" {
 				method := strings.TrimSpace(callee.Member)
-				if (method == "verify" || method == "consume") && len(e.Args) != 5 {
-					*diags = append(*diags, diag.Diagnostic{
-						Code:    diag.CodeAgentDelegateVerifyOutside,
-						Message: fmt.Sprintf("delegation.%s() requires exactly 5 arguments: (sig, principal, scope_hash, expiry_ms, nonce)", method),
-						Span:    defaultSpan(filename),
-					})
+				switch method {
+				case "verify", "consume":
+					if len(e.Args) != 5 {
+						*diags = append(*diags, diag.Diagnostic{
+							Code:    diag.CodeAgentDelegateVerifyOutside,
+							Message: fmt.Sprintf("delegation.%s() requires exactly 5 arguments: (sig, principal, scope_hash, expiry_ms, nonce)", method),
+							Span:    defaultSpan(filename),
+						})
+					}
+				case "revoke":
+					if len(e.Args) != 2 {
+						*diags = append(*diags, diag.Diagnostic{
+							Code:    diag.CodeAgentDelegateVerifyOutside,
+							Message: "delegation.revoke() requires exactly 2 arguments: (principal, nonce)",
+							Span:    defaultSpan(filename),
+						})
+					}
 				}
 			}
 		}

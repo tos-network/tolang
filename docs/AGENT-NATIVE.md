@@ -719,7 +719,7 @@ identity, not just raw addresses.
 
 ---
 
-### 9. `delegation` — Principal Tracking for AI-Mediated UX — 🔶 Partial (core done; sub-delegation not yet)
+### 9. `delegation` — Principal Tracking for AI-Mediated UX — ✅ Done
 
 **Relevance:** THESIS.md Pillar 5 — individuals delegate tasks to AI assistants that manage
 portfolios and execute transactions on their behalf. The language must express *who authorized
@@ -1044,7 +1044,7 @@ on a variable-price chain, the compensation formula would require a price oracle
 | P0 | `agent` native type + `msg.agent` (registry-backed; property caching; zero-agent semantics) | Pillar 4: Identity & reputation | ✅ Done — `agent(expr)` cast, property access, and `msg.agent` context var all implemented |
 | P0 | `capability` + `purpose` declared types; `@requires` (runtime, `msg.sender`-scoped) | Pillar 4: Trust | ✅ Done |
 | P1 | `account` contract type (AA wallet; `validate()` with 50k gas cap; validation fee ledger) | Tech: Account abstraction | ✅ Done — `account contract` keyword, AA marker sstore in constructor, TOL2316 validate() check; gtos two-phase AA already in `state_transition.go` |
-| P1 | `delegation` type + `@delegated` + nonce/replay/domain-sep + revocation + sub-delegation | Pillar 5: AI-mediated UX | 🔶 Partial — `delegation` type, `delegation.verify()`, `delegation.consume()`, `@delegated` annotation, ABI field, gtos LVM hooks all done; sub-delegation chains not yet |
+| P1 | `delegation` type + `@delegated` + nonce/replay/domain-sep + revocation + sub-delegation | Pillar 5: AI-mediated UX | ✅ Done — `delegation` type, `delegation.verify/consume/revoke()`, `d.subdelegate()`, `d.principal/delegate/scope/is_valid` properties, `@delegated` annotation, ABI field, gtos LVM hooks all implemented |
 | P1 | `manifest {}` block (`spec_hash`+`spec_uri`; per-function `price_per_call` map) | Pillar 4: Discoverability | ✅ Done (string/numeric/array values, `;` separator) |
 | P2 | `@pay(amount, recipient:)` — compile-time constant; non-view only; safe refund semantics | Pillar 2: M2M micropayments | ✅ Done — bare `@pay(amount)` and `@pay(amount, recipient: expr)` both implemented |
 | P2 | `@quota(calls:, price:)` — prepaid N-call bundles; exact depletion math (fixed gas) | Pillar 2: High-freq M2M | ✅ Done — compiler preamble (per-call decrement guard), ABI field `quota_calls`/`quota_price` emitted |

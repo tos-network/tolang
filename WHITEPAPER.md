@@ -29,7 +29,7 @@ Tolang, TOS Network, agent economy, smart contract language, agent-native, capab
 1. [Vision](#1-vision)  
 2. [Present Architecture](#2-present-architecture)  
 3. [Agent-Native Semantics](#3-agent-native-semantics)  
-4. [ABI — Agent Behavior Interface](#4-aci--agent-coordination-interface)  
+4. [ABI — Agent Behavior Interface](#4-abi--agent-behavior-interface)  
 5. [Security Doctrine](#5-security-doctrine)  
 6. [Roadmap](#6-roadmap)  
 7. [Feature Maturity Model](#7-feature-maturity-model)  
@@ -440,7 +440,7 @@ In practical terms, ABI is how Tolang stops being “a language with useful meta
 
 ## 4.6 Immediate next step
 
-A formal `ACI_SPEC.md` should be written and versioned. It should define:
+A formal `ABI_SPEC.md` should be written and versioned. It should define:
 
 - schema,
 - required vs optional fields,
@@ -609,7 +609,7 @@ Tolang stops looking like “a language that may become agent-native someday” 
 
 ### Deliverables
 
-- `ACI_SPEC.md`,
+- `ABI_SPEC.md`,
 - schema examples,
 - serialization rules,
 - compatibility policy,
@@ -861,7 +861,7 @@ The settlement and execution environment in which Tolang contracts are deployed 
 
 To complete the Tolang documentation stack, the following companion documents are recommended:
 
-- `docs/ACI_SPEC.md`
+- `docs/ABI_SPEC.md`
 - `docs/SECURITY_DOCTRINE.md`
 - `docs/FEATURE_MATURITY_MATRIX.md`
 - `docs/LANGUAGE_SPEC.md`

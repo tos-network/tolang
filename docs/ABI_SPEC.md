@@ -3,7 +3,7 @@
 
 **Status:** Draft  
 **Version:** 0.1  
-**Intended location:** `docs/ACI_SPEC.md`
+**Intended location:** `docs/ABI_SPEC.md`
 
 ## 1. Purpose
 
@@ -50,14 +50,14 @@ ABI is designed to satisfy six goals:
 6. **Versioned compatibility**  
    ABI must include explicit versioning to allow forward evolution.
 
-## 3. Relationship to ABI
+## 3. Relationship to the Traditional ABI
 
-ABI is a strict superset of ABI.
+Tolang's ABI (Agent Behavior Interface) is a strict superset of the traditional ABI (Application Binary Interface) used in Solidity and EVM-compatible systems.
 
-- **ABI** describes call encoding and decoding.
-- **ABI** describes economic, authority, and execution semantics around the call.
+- The **traditional ABI** (Application Binary Interface) describes call encoding and decoding: function selectors, input types, and output types.
+- The **Agent Behavior Interface** extends this to describe the economic, authority, and execution semantics that surround each call.
 
-An ABI record may include a standard ABI object, but an ABI object alone is not a complete ABI description.
+An Agent Behavior Interface record may embed a traditional ABI-compatible object, but a traditional ABI object alone is not a complete Agent Behavior Interface description.
 
 ## 4. Top-Level ABI Object
 
@@ -65,7 +65,7 @@ A contract or package should expose a top-level ABI object like this:
 
 ```json
 {
-  "aci_version": "0.1",
+  "abi_version": "0.1",
   "language": "tolang",
   "language_version": "0.3",
   "bytecode_hash": "0x...",
@@ -95,7 +95,7 @@ A contract or package should expose a top-level ABI object like this:
 
 The following fields should be required in all ABI objects:
 
-- `aci_version`
+- `abi_version`
 - `language`
 - `language_version`
 - `bytecode_hash` (where deployed/runtime artifact exists)
@@ -312,7 +312,7 @@ ABI should support agent-native endpoint descriptors.
 
 ## 10. Versioning
 
-Every ABI object must declare `aci_version`.
+Every ABI object must declare `abi_version`.
 
 Compatibility rules:
 
@@ -381,7 +381,7 @@ ABI exists to make executable policy and coordination semantics explicit.
 
 ABI is the next layer of interface standardization for Tolang.
 
-ABI made contracts callable.  
-ABI makes contracts understandable to agents.
+The traditional ABI made contracts callable.
+The Agent Behavior Interface makes contracts understandable to agents.
 
 That difference is what turns a contract language into a language for the Agent Economy.

@@ -6,11 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	tolast "github.com/tos-network/tolang/tol/ast"
 	"golang.org/x/crypto/sha3"
 )
+
+// gweiPerGas is the assumed gas price for total_cost_wei computation: 10 gwei per gas unit.
+const gweiPerGas = uint64(10_000_000_000)
 
 var tocMagic = [4]byte{'T', 'O', 'C', 0}
 
@@ -62,19 +66,35 @@ type tocABIGasModel struct {
 	LogBase uint64 `json:"log_base"`
 }
 
+// tocABIManifest holds the optional manifest section of the .toc ABI JSON.
+type tocABIManifest struct {
+	Name        string            `json:"name,omitempty"`
+	Version     string            `json:"version,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Tags        []string          `json:"tags,omitempty"`
+	Extra       map[string]string `json:"extra,omitempty"`
+}
+
 type tocABI struct {
 	GasModel  tocABIGasModel   `json:"gas_model"`
 	Functions []tocABIFunction `json:"functions"`
 	Events    []tocABIEvent    `json:"events"`
+	Manifest  *tocABIManifest  `json:"manifest,omitempty"`
 }
 
 type tocABIFunction struct {
-	Name       string     `json:"name"`
-	Visibility string     `json:"visibility"`
-	Selector   string     `json:"selector"`
-	Params     []string   `json:"params,omitempty"`
-	Returns    []string   `json:"returns,omitempty"`
-	Doc        *tocABIDoc `json:"doc,omitempty"`
+	Name               string     `json:"name"`
+	Visibility         string     `json:"visibility"`
+	Selector           string     `json:"selector"`
+	Params             []string   `json:"params,omitempty"`
+	Returns            []string   `json:"returns,omitempty"`
+	Doc                *tocABIDoc `json:"doc,omitempty"`
+	// Agent-native ABI extensions
+	RequiresCapability string     `json:"requires_capability,omitempty"`
+	PayAmountWei       string     `json:"pay_amount_wei,omitempty"`
+	TotalCostWei       string     `json:"total_cost_wei,omitempty"`
+	Verifiable         bool       `json:"verifiable,omitempty"`
+	Delegated          bool       `json:"delegated,omitempty"`
 }
 
 type tocABIEvent struct {
@@ -493,14 +513,35 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 		if selector == "" {
 			selector = abiSelectorHex(fn.Name, paramTypes)
 		}
-		abi.Functions = append(abi.Functions, tocABIFunction{
+		abiFn := tocABIFunction{
 			Name:       fn.Name,
 			Visibility: vis,
 			Selector:   selector,
 			Params:     paramTypes,
 			Returns:    returnTypes,
 			Doc:        docMetaToABI(fn.Doc),
-		})
+		}
+		if fn.Doc != nil {
+			if len(fn.Doc.RequiresCap) > 0 {
+				abiFn.RequiresCapability = strings.Join(fn.Doc.RequiresCap, ",")
+			}
+			if fn.Doc.PayAmount != "" {
+				abiFn.PayAmountWei = fn.Doc.PayAmount
+			}
+			// total_cost_wei = pay_amount_wei + gas_upper × 10gwei (when both are known).
+			if fn.Doc.HasPay && fn.Doc.PayAmount != "" && fn.Doc.Gas != nil && fn.Doc.Gas.Upper > 0 {
+				if payInt, err := strconv.ParseUint(fn.Doc.PayAmount, 10, 64); err == nil {
+					gasCost := fn.Doc.Gas.Upper * gweiPerGas
+					total := payInt + gasCost
+					if total >= payInt { // overflow guard
+						abiFn.TotalCostWei = strconv.FormatUint(total, 10)
+					}
+				}
+			}
+			abiFn.Verifiable = fn.Doc.Verifiable
+			abiFn.Delegated = fn.Doc.Delegated
+		}
+		abi.Functions = append(abi.Functions, abiFn)
 	}
 	for _, ev := range c.Events {
 		paramTypes := make([]string, 0, len(ev.Params))
@@ -526,6 +567,33 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 				CanonicalHash: keccak256Hex([]byte(fmt.Sprintf("tol.slot.%s.%s", contractName, name))),
 			})
 		}
+	}
+
+	// Populate manifest section if the contract declares one.
+	if c.Manifest != nil && len(c.Manifest.Fields) > 0 {
+		manifest := &tocABIManifest{}
+		extra := make(map[string]string)
+		for _, f := range c.Manifest.Fields {
+			// Strip surrounding quotes from string literal values stored by the parser.
+			val := f.Value
+			if len(val) >= 2 && val[0] == '"' && val[len(val)-1] == '"' {
+				val = val[1 : len(val)-1]
+			}
+			switch f.Key {
+			case "name":
+				manifest.Name = val
+			case "version":
+				manifest.Version = val
+			case "description":
+				manifest.Description = val
+			default:
+				extra[f.Key] = val
+			}
+		}
+		if len(extra) > 0 {
+			manifest.Extra = extra
+		}
+		abi.Manifest = manifest
 	}
 
 	abiJSON, err := json.Marshal(abi)

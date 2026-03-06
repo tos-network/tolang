@@ -129,7 +129,25 @@ const (
 	CodeEffectEmptyCalls     = "TOL2204" // @effects calls:[] declared but external call found in IR
 	CodeEffectSelectorNoSite = "TOL2205" // @effects calls: declared selector has no matching IR call site
 
-	CodeLowerNotImplemented                     = "TOL3001"
+	// Agent-native diagnostics (TOL2300–TOL2315)
+	CodeAgentCapabilityDup          = "TOL2300" // capability already declared in this contract
+	CodeAgentPurposeDup             = "TOL2301" // purpose already declared in this contract
+	CodeAgentRequiresUnknownCap     = "TOL2302" // @requires references undeclared capability
+	CodeAgentOracleInvalidType      = "TOL2303" // oracle<T>: type parameter must be a value type
+	CodeAgentVoteInvalidType        = "TOL2304" // vote<T>: type parameter must be numeric
+	CodeAgentTaskInvalidType        = "TOL2305" // task<T>: T must be a struct type
+	CodeAgentCastNonAddress         = "TOL2306" // agent cast on non-address expression
+	CodeAgentManifestDup            = "TOL2307" // manifest block already declared
+	CodeAgentPayBadAmount           = "TOL2308" // @pay: amount must be a uint256 expression
+	CodeAgentPayBadRecipient        = "TOL2309" // @pay: recipient must be an address expression
+	CodeAgentDelegateVerifyOutside  = "TOL2310" // delegation.verify() outside @delegated function
+	CodeAgentEscrowNonPayable       = "TOL2311" // escrow/release/slash outside payable context
+	CodeAgentPurposeOrdinalOverflow = "TOL2312" // purpose ordinal overflow (max 255 purposes per contract)
+	CodeAgentCapabilityNameNotLit   = "TOL2313" // capability name must be a string literal
+	CodeAgentVerifiableNonPure      = "TOL2314" // @verifiable requires pure or view function
+	CodeAgentTaskInvalidTransition  = "TOL2315" // task state transition invalid
+
+	CodeLowerNotImplemented      = "TOL3001"
 	CodeLowerUnsupportedFeature  = "TOL3002"
 	CodeCodegenNotImplemented    = "TOL4001"
 )

@@ -72,6 +72,12 @@ func buildBootstrapChunkFromLowered(p *lower.Program, mode bootstrapMode) ([]lua
 	if err != nil {
 		return nil, err
 	}
+	if len(p.Purposes) > 0 {
+		env.purposeNames = make(map[string]int, len(p.Purposes))
+		for i, name := range p.Purposes {
+			env.purposeNames[name] = i
+		}
+	}
 
 	chunk := make([]luast.Stmt, 0, len(p.Functions)+16)
 	selectorPrelude, err := buildSelectorPrelude()
@@ -102,6 +108,13 @@ func buildBootstrapChunkFromLowered(p *lower.Program, mode bootstrapMode) ([]lua
 			return nil, err
 		}
 		chunk = append(chunk, prelude...)
+	}
+	if len(p.Capabilities) > 0 || len(p.Purposes) > 0 || hasAgentNativeSlots(p.StorageSlots) {
+		agentPrelude, err := buildAgentNativePrelude(p)
+		if err != nil {
+			return nil, err
+		}
+		chunk = append(chunk, agentPrelude...)
 	}
 	// Emit library functions first so they are available when contract functions call them.
 	for _, lib := range p.Libraries {
@@ -199,6 +212,8 @@ type loweringEnv struct {
 	contractByInterface map[string]string
 	// typeAliases maps user-defined value type name → underlying type (e.g. "MyInt" → "uint256").
 	typeAliases        map[string]string
+	// purposeNames maps purpose declaration name → ordinal (0-based), for escrow/release/slash lowering.
+	purposeNames       map[string]int
 }
 
 type storageSlotKind string
@@ -654,6 +669,195 @@ end
 	chunk, err := parse.Parse(bytes.NewReader([]byte(sb.String())), "<tol-storage-prelude>")
 	if err != nil {
 		return nil, fmt.Errorf("[%s] failed to build storage prelude: %w", diag.CodeLowerUnsupportedFeature, err)
+	}
+	return chunk, nil
+}
+
+// hasAgentNativeSlots reports whether any storage slot uses an agent-native type
+// (oracle<T>, vote<T>, task<T>, agent).
+func hasAgentNativeSlots(slots []lower.StorageSlot) bool {
+	for _, s := range slots {
+		t := s.Type
+		if t == "agent" ||
+			strings.HasPrefix(t, "oracle<") ||
+			strings.HasPrefix(t, "vote<") ||
+			strings.HasPrefix(t, "task<") {
+			return true
+		}
+	}
+	return false
+}
+
+// agentNativeSlotKind returns "oracle", "vote", "task", or "agent" for agent-native
+// storage slot types, or "" for ordinary types.
+func agentNativeSlotKind(typ string) string {
+	switch {
+	case strings.HasPrefix(typ, "oracle<"):
+		return "oracle"
+	case strings.HasPrefix(typ, "vote<"):
+		return "vote"
+	case strings.HasPrefix(typ, "task<"):
+		return "task"
+	case typ == "agent":
+		return "agent"
+	}
+	return ""
+}
+
+// computeAgentSlotHash computes keccak256(path) where path is the fully-qualified slot
+// key (e.g. "tol.oracle.TaskBoard.priceOracle.value"). Callers build the full path.
+func computeAgentSlotHash(path string) string {
+	h := sha3.NewLegacyKeccak256()
+	_, _ = h.Write([]byte(path))
+	return "0x" + hex.EncodeToString(h.Sum(nil))
+}
+
+// buildAgentNativePrelude emits:
+//  1. Capability bit locals: local __tol_cap_X = tos.capabilitybit and tos.capabilitybit("X") or 0
+//  2. Purpose ordinal locals: local __tol_pur_Y = N  (compile-time constant)
+//  3. Per oracle/vote/task slot sub-slot hash constants
+//  4. Oracle, vote, task helper functions (once, if any such slots exist)
+func buildAgentNativePrelude(p *lower.Program) ([]luast.Stmt, error) {
+	var sb strings.Builder
+
+	// 1. Capability bit locals.
+	for _, cap := range p.Capabilities {
+		luaName := "__tol_cap_" + cap
+		sb.WriteString(fmt.Sprintf("local %s = tos and type(tos.capabilitybit)==\"function\" and tos.capabilitybit(%q) or 0\n", luaName, cap))
+	}
+
+	// 2. Purpose ordinal locals.
+	for i, pur := range p.Purposes {
+		luaName := "__tol_pur_" + pur
+		sb.WriteString(fmt.Sprintf("local %s = %d\n", luaName, i))
+	}
+
+	// 3. Sub-slot hash constants for oracle/vote/task slots.
+	hasOracle := false
+	hasVote := false
+	hasTask := false
+	for _, slot := range p.StorageSlots {
+		kind := agentNativeSlotKind(slot.Type)
+		if kind == "" {
+			continue
+		}
+		switch kind {
+		case "oracle":
+			hasOracle = true
+			valSlot := computeAgentSlotHash("tol.oracle." + p.ContractName + "." + slot.Name + ".value")
+			setSlot := computeAgentSlotHash("tol.oracle." + p.ContractName + "." + slot.Name + ".set")
+			sb.WriteString(fmt.Sprintf("local __tol_s_%s_val = %q\n", slot.Name, valSlot))
+			sb.WriteString(fmt.Sprintf("local __tol_s_%s_set = %q\n", slot.Name, setSlot))
+		case "vote":
+			hasVote = true
+			for _, sub := range []string{"tally", "eligible", "voted", "threshold", "deadline", "result"} {
+				h := computeAgentSlotHash("tol.vote." + p.ContractName + "." + slot.Name + "." + sub)
+				sb.WriteString(fmt.Sprintf("local __tol_s_%s_%s = %q\n", slot.Name, sub, h))
+			}
+		case "task":
+			hasTask = true
+			h := computeAgentSlotHash("tol.task." + p.ContractName + "." + slot.Name)
+			sb.WriteString(fmt.Sprintf("local __tol_s_%s_base = %q\n", slot.Name, h))
+		}
+	}
+
+	// 4. Oracle helper functions.
+	if hasOracle {
+		sb.WriteString(`
+local __tol_oracle_fulfill = tos and type(tos.oracle_fulfill)=="function" and tos.oracle_fulfill or function(val_slot, set_slot, value)
+  if __tol_sload(set_slot) ~= 0 then error("OracleAlreadySet") end
+  __tol_sstore(set_slot, 1)
+  __tol_sstore(val_slot, value)
+end
+local __tol_oracle_is_set = function(set_slot) return __tol_sload(set_slot) ~= 0 end
+local __tol_oracle_value  = function(val_slot) return __tol_sload(val_slot) end
+`)
+	}
+
+	// 5. Vote helper functions.
+	if hasVote {
+		sb.WriteString(`
+local __tol_vote_new = function(elig_slot, thresh_slot, ddl_slot, cap_bit, threshold, deadline)
+  local elig = tos and type(tos.totaleligible)=="function" and tos.totaleligible(cap_bit) or 0
+  __tol_sstore(elig_slot, elig)
+  __tol_sstore(thresh_slot, threshold)
+  __tol_sstore(ddl_slot, deadline)
+end
+local __tol_vote_cast = tos and type(tos.vote_cast)=="function" and tos.vote_cast or function(voted_base, tally_slot, voter, choice)
+  local key = __tol_mkey(voter, voted_base)
+  if __tol_sload(key) ~= 0 then error("AlreadyVoted") end
+  __tol_sstore(key, 1)
+  __tol_sstore(tally_slot, __tol_sload(tally_slot) + choice)
+end
+local __tol_vote_tally   = function(tally_slot) return __tol_sload(tally_slot) end
+local __tol_vote_decided = function(tally_slot, thresh_slot) return __tol_sload(tally_slot) >= __tol_sload(thresh_slot) end
+`)
+	}
+
+	// 6. Task helper functions.
+	if hasTask {
+		sb.WriteString(`
+local __tol_task_post = function(task_base, poster)
+  local tid = keccak256(tostring(poster) .. tostring(block and block.number or 0))
+  local state_slot = __tol_mkey(tid, task_base)
+  __tol_sstore(state_slot, 1)
+  return tid
+end
+local __tol_task_transition = tos and type(tos.task_transition)=="function" and tos.task_transition or function(task_base, tid, from_state, to_state, guard_addr)
+  local slot = __tol_mkey(tid, task_base)
+  local cur = __tol_sload(slot)
+  if cur ~= from_state then error("TaskInvalidTransition") end
+  if guard_addr ~= nil and guard_addr ~= 0 and guard_addr ~= msg.sender then error("TaskUnauthorized") end
+  __tol_sstore(slot, to_state)
+end
+local __tol_task_state = function(task_base, tid) return __tol_sload(__tol_mkey(tid, task_base)) end
+`)
+	}
+
+	// 7. Agent cast helper — always emitted when any agent-native content is present.
+	// __tol_agent_cast(addr) verifies the address is a registered agent via tos.agentload.
+	sb.WriteString(`
+local __tol_agent_cast = tos and type(tos.agentload)=="function" and function(a)
+  if tos.agentload(a) == 0 then error("AgentNotFound") end
+  return a
+end or function(a) return a end
+`)
+
+	// 8. Escrow/release/slash helpers — emitted when purposes are declared.
+	if len(p.Purposes) > 0 {
+		sb.WriteString(`
+local __tol_escrow  = tos and type(tos.escrow)=="function"  and tos.escrow  or function(...) error("escrow: tos unavailable") end
+local __tol_release = tos and type(tos.release)=="function" and tos.release or function(...) error("release: tos unavailable") end
+local __tol_slash   = tos and type(tos.slash)=="function"   and tos.slash   or function(...) error("slash: tos unavailable") end
+`)
+	}
+
+	// 9. Delegation verify helper (emitted if any function is @delegated).
+	hasDelegated := false
+	for _, fn := range p.Functions {
+		if fn.Doc != nil && fn.Doc.Delegated {
+			hasDelegated = true
+			break
+		}
+	}
+	if hasDelegated {
+		sb.WriteString(`
+local __tol_delegation_verify = tos and type(tos.delegationused)=="function" and function(nonce, sig)
+  if tos.delegationused(nonce) ~= 0 then error("DelegationNonceUsed") end
+  if tos and type(tos.verify_sig)=="function" then
+    if not tos.verify_sig(msg.sender, nonce, sig) then error("DelegationInvalidSig") end
+  end
+  if tos and type(tos.setdelegationused)=="function" then tos.setdelegationused(nonce) end
+end or function(nonce, sig) error("delegation.verify: tos unavailable") end
+`)
+	}
+
+	if sb.Len() == 0 {
+		return []luast.Stmt{}, nil
+	}
+	chunk, err := parse.Parse(bytes.NewReader([]byte(sb.String())), "<tol-agent-native-prelude>")
+	if err != nil {
+		return nil, fmt.Errorf("[%s] failed to build agent-native prelude: %w", diag.CodeLowerUnsupportedFeature, err)
 	}
 	return chunk, nil
 }
@@ -2206,6 +2410,31 @@ func defaultValueExprForTypeWithStructs(typeName string, structFieldTypes map[st
 	return withLineExpr(&luast.TableExpr{Fields: luaFields}), true
 }
 
+// buildRequiresCapPreamble emits Lua guard statements for @requires(caller: X) annotations.
+// For each capability name, emits:
+//
+//	if not (tos and type(tos.hascapability)=="function" and tos.hascapability(msg.sender, __tol_cap_X)) then
+//	  error("CapabilityDenied:X")
+//	end
+func buildRequiresCapPreamble(caps []string) ([]luast.Stmt, error) {
+	var sb strings.Builder
+	for _, cap := range caps {
+		luaCapVar := "__tol_cap_" + cap
+		sb.WriteString(fmt.Sprintf(
+			"if not (tos and type(tos.hascapability)==\"function\" and tos.hascapability(msg.sender, %s)) then error(%q) end\n",
+			luaCapVar, "CapabilityDenied:"+cap,
+		))
+	}
+	if sb.Len() == 0 {
+		return nil, nil
+	}
+	stmts, err := parse.Parse(bytes.NewReader([]byte(sb.String())), "<tol-requires-cap-preamble>")
+	if err != nil {
+		return nil, fmt.Errorf("[%s] failed to build @requires preamble: %w", diag.CodeLowerUnsupportedFeature, err)
+	}
+	return stmts, nil
+}
+
 func lowerFunctionToLua(fn lower.Function, env *loweringEnv) (luast.Stmt, error) {
 	if strings.TrimSpace(fn.Name) == "" {
 		return nil, fmt.Errorf("[%s] function name cannot be empty", diag.CodeLowerUnsupportedFeature)
@@ -2230,6 +2459,15 @@ func lowerFunctionToLua(fn lower.Function, env *loweringEnv) (luast.Stmt, error)
 	body, err := tolStmtsToLuaWithCtx(ctx, fn.Body)
 	if err != nil {
 		return nil, err
+	}
+
+	// Inject agent-native preamble guards based on doc annotations.
+	if fn.Doc != nil && len(fn.Doc.RequiresCap) > 0 {
+		preamble, pErr := buildRequiresCapPreamble(fn.Doc.RequiresCap)
+		if pErr != nil {
+			return nil, pErr
+		}
+		body = append(preamble, body...)
 	}
 
 	// Use LuaName if set, otherwise fall back to Name.
@@ -3414,6 +3652,13 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 				return tolExprToLua(ctx, e.Args[0])
 			}
 		}
+		// Intercept agent-native calls: agent(expr), escrow/release/slash, delegation.verify().
+		if agentExpr, ok, err := lowerAgentNativeCallExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return agentExpr, nil
+		}
 		if gasExpr, ok, err := lowerGasLeftBuiltinExpr(ctx, e); ok || err != nil {
 			if err != nil {
 				return nil, err
@@ -4075,6 +4320,116 @@ func lowerHostBuiltinCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 		Args:      args,
 		AdjustRet: true,
 	}), true, nil
+}
+
+// lowerAgentNativeCallExpr handles agent-native call expressions:
+//   - agent(expr)                            → __tol_agent_cast(expr)
+//   - escrow(agent, amount, purpose)         → __tol_escrow(agent, amount, __tol_pur_purpose)
+//   - release(agent, amount, purpose)        → __tol_release(agent, amount, __tol_pur_purpose)
+//   - slash(agent, amount, recipient, purp)  → __tol_slash(agent, amount, recipient, __tol_pur_purpose)
+//   - delegation.verify(nonce, sig)          → __tol_delegation_verify(nonce, sig)
+//
+// Returns (expr, true, nil) on match, (nil, false, nil) if not an agent-native call.
+func lowerAgentNativeCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
+	if e == nil || e.Kind != "call" {
+		return nil, false, nil
+	}
+	callee := stripTolParens(e.Callee)
+	if callee == nil {
+		return nil, false, nil
+	}
+
+	// delegation.verify(nonce, sig) — member call on "delegation" object.
+	if callee.Kind == "member" {
+		obj := stripTolParens(callee.Object)
+		if obj != nil && obj.Kind == "ident" &&
+			strings.TrimSpace(obj.Value) == "delegation" &&
+			strings.TrimSpace(callee.Member) == "verify" {
+			if len(e.Args) != 2 {
+				return nil, true, fmt.Errorf("[%s] delegation.verify(nonce, sig) requires exactly 2 arguments", diag.CodeLowerUnsupportedFeature)
+			}
+			nonce, err := tolExprToLua(ctx, e.Args[0])
+			if err != nil {
+				return nil, true, err
+			}
+			sig, err := tolExprToLua(ctx, e.Args[1])
+			if err != nil {
+				return nil, true, err
+			}
+			return withLineExpr(&luast.FuncCallExpr{
+				Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_delegation_verify"}),
+				Args:      []luast.Expr{nonce, sig},
+				AdjustRet: true,
+			}), true, nil
+		}
+		return nil, false, nil
+	}
+
+	if callee.Kind != "ident" {
+		return nil, false, nil
+	}
+	name := strings.TrimSpace(callee.Value)
+
+	// agent(expr) cast — inline agentload guard.
+	if name == "agent" {
+		if len(e.Args) != 1 {
+			return nil, true, fmt.Errorf("[%s] agent(expr) requires exactly 1 argument", diag.CodeLowerUnsupportedFeature)
+		}
+		inner, err := tolExprToLua(ctx, e.Args[0])
+		if err != nil {
+			return nil, true, err
+		}
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_agent_cast"}),
+			Args:      []luast.Expr{inner},
+			AdjustRet: true,
+		}), true, nil
+	}
+
+	// escrow / release / slash builtins.
+	type escrowSpec struct {
+		helperName  string
+		arity       int
+		purposeIdx  int // index of the purpose argument
+	}
+	var spec *escrowSpec
+	switch name {
+	case "escrow":
+		spec = &escrowSpec{helperName: "__tol_escrow", arity: 3, purposeIdx: 2}
+	case "release":
+		spec = &escrowSpec{helperName: "__tol_release", arity: 3, purposeIdx: 2}
+	case "slash":
+		spec = &escrowSpec{helperName: "__tol_slash", arity: 4, purposeIdx: 3}
+	}
+	if spec != nil {
+		if len(e.Args) != spec.arity {
+			return nil, true, fmt.Errorf("[%s] %s(...) requires exactly %d arguments", diag.CodeLowerUnsupportedFeature, name, spec.arity)
+		}
+		args := make([]luast.Expr, spec.arity)
+		for i, a := range e.Args {
+			if i == spec.purposeIdx {
+				// Purpose argument: transform ident "PurposeName" → "__tol_pur_PurposeName".
+				purIdent := stripTolParens(a)
+				if purIdent != nil && purIdent.Kind == "ident" {
+					purName := strings.TrimSpace(purIdent.Value)
+					args[i] = withLineExpr(&luast.IdentExpr{Value: "__tol_pur_" + purName})
+					continue
+				}
+			}
+			x, err := tolExprToLua(ctx, a)
+			if err != nil {
+				return nil, true, err
+			}
+			args[i] = x
+		}
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: spec.helperName}),
+			Args:      args,
+			AdjustRet: true,
+		}), true, nil
+	}
+
+	return nil, false, nil
 }
 
 // lowerQualifiedMemberExpr handles package-qualified constant and enum access:

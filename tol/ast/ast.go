@@ -12,6 +12,35 @@ type StructDecl struct {
 	Fields []FieldDecl // reuse existing FieldDecl{Name, Type string}
 }
 
+// CapabilityDecl is an agent-native capability declaration inside a contract.
+// Syntax: capability Foo;
+// The capability name is resolved at runtime via tos.capabilitybit("Foo").
+type CapabilityDecl struct {
+	Name string
+	Line int
+}
+
+// PurposeDecl is an agent-native purpose declaration inside a contract.
+// Syntax: purpose WorkEscrow;
+// The compiler assigns ordinals 0–255 in declaration order.
+type PurposeDecl struct {
+	Name string
+	Line int
+}
+
+// ManifestField is one key-value pair in a manifest block.
+type ManifestField struct {
+	Key   string
+	Value string // string literal value
+}
+
+// ManifestDecl is a manifest block declaration inside a contract.
+// Syntax: manifest { name: "TaskBoard", version: "1.0.0" }
+type ManifestDecl struct {
+	Fields []ManifestField
+	Line   int
+}
+
 // ImportAlias is a single symbol in a named import list with an optional local alias.
 // Syntax: import { A, B as BB } from "path";
 // When Alias is empty, the symbol is imported under its original Name.
@@ -260,6 +289,10 @@ type ContractDecl struct {
 	Constructor    *ConstructorDecl
 	Fallback       *FallbackDecl
 	Receive        *ReceiveDecl
+	// Agent-native declarations
+	Capabilities []CapabilityDecl // capability declarations (resolved at runtime via tos.capabilitybit)
+	Purposes     []PurposeDecl    // purpose declarations (ordinals assigned in declaration order)
+	Manifest     *ManifestDecl    // optional manifest block
 }
 
 type SkippedContractDecl struct {
@@ -339,6 +372,13 @@ type DocMeta struct {
 	Effects *EffectDecl
 	Bounds  *BoundsDecl
 	Gas     *GasDecl
+	// Agent-native annotations
+	RequiresCap  []string // @requires(caller: X) — list of capability names
+	HasPay       bool     // true when @pay(...) annotation is present
+	PayAmount    string   // @pay(amount=expr) — amount expression text (literal if known)
+	PayRecipient string   // @pay(recipient=expr) — recipient expression text
+	Delegated    bool     // @delegated — function accepts delegated calls
+	Verifiable   bool     // @verifiable — function result is verifiable off-chain
 }
 
 // EffectDecl is the structured representation of @effects annotations.

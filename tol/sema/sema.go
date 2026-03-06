@@ -1423,6 +1423,14 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 			checkUsingCallsInStmts(filename, c.Fallback.Body, usingDecls, libFuncs, diags)
 		}
 	}
+
+	// Agent-native validation. Pass the set of known struct names so that
+	// task<T> type-parameter checks can verify T is a declared struct.
+	structNameSet := make(map[string]bool, len(knownStructs))
+	for name := range knownStructs {
+		structNameSet[name] = true
+	}
+	checkAgentNativeDecls(filename, c, diags, structNameSet)
 }
 
 func checkStatements(filename string, contractName string, funcVis map[string]string, funcArity map[string]int, eventArity map[string]int, stmts []ast.Statement, loopDepth int, diags *diag.Diagnostics, knownStructs ...map[string][]ast.FieldDecl) {
@@ -4509,6 +4517,13 @@ func isValidTOLType(typeName string, allowMapping bool) bool {
 	t := strings.TrimSpace(typeName)
 	if t == "" {
 		return false
+	}
+	// Agent-native parameterized types: oracle<T>, vote<T>, task<T>, agent.
+	if t == "agent" ||
+		strings.HasPrefix(t, "oracle<") ||
+		strings.HasPrefix(t, "vote<") ||
+		strings.HasPrefix(t, "task<") {
+		return true
 	}
 	// Function types: "function(...) modifiers returns (...)"
 	// These are first-class types (Task #10). Accept any string starting with "function(".

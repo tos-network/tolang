@@ -1725,6 +1725,68 @@ func (p *Parser) parseContractMember(contract *ast.ContractDecl) {
 		return
 	}
 
+	// Handle agent-native contextual keywords: capability, purpose, manifest,
+	// oracle<T>, vote<T>, task<T>, agent.
+	if p.cur.Type == lexer.TokenIdent {
+		switch p.cur.Literal {
+		case "capability":
+			cd := p.parseCapabilityDecl()
+			if cd != nil {
+				for _, existing := range contract.Capabilities {
+					if existing.Name == cd.Name {
+						p.addDiag(diag.Diagnostic{
+							Code:    diag.CodeAgentCapabilityDup,
+							Message: fmt.Sprintf("capability '%s' already declared in this contract", cd.Name),
+							Span:    diag.Span{File: p.filename, Start: diag.Position{Line: cd.Line}},
+						})
+						return
+					}
+				}
+				contract.Capabilities = append(contract.Capabilities, *cd)
+			}
+			return
+		case "purpose":
+			pd := p.parsePurposeDecl()
+			if pd != nil {
+				for _, existing := range contract.Purposes {
+					if existing.Name == pd.Name {
+						p.addDiag(diag.Diagnostic{
+							Code:    diag.CodeAgentPurposeDup,
+							Message: fmt.Sprintf("purpose '%s' already declared in this contract", pd.Name),
+							Span:    diag.Span{File: p.filename, Start: diag.Position{Line: pd.Line}},
+						})
+						return
+					}
+				}
+				contract.Purposes = append(contract.Purposes, *pd)
+			}
+			return
+		case "manifest":
+			md := p.parseManifestDecl()
+			if md != nil {
+				if contract.Manifest != nil {
+					p.addDiag(diag.Diagnostic{
+						Code:    diag.CodeAgentManifestDup,
+						Message: "manifest block already declared in this contract",
+						Span:    diag.Span{File: p.filename, Start: diag.Position{Line: md.Line}},
+					})
+				} else {
+					contract.Manifest = md
+				}
+			}
+			return
+		case "oracle", "vote", "task", "agent":
+			slot := p.parseAgentTypeSlot()
+			if slot != nil {
+				if contract.Storage == nil {
+					contract.Storage = &ast.StorageDecl{}
+				}
+				contract.Storage.Slots = append(contract.Storage.Slots, *slot)
+			}
+			return
+		}
+	}
+
 	switch p.cur.Type {
 	case lexer.TokenKwTransient:
 		// transient Type name; — EIP-1153 transient state variable at contract body level
@@ -5132,6 +5194,23 @@ func (p *Parser) next() {
 			if parsed.Gas != nil {
 				p.pendingDoc.Gas = parsed.Gas
 			}
+			// Agent-native annotation fields.
+			p.pendingDoc.RequiresCap = append(p.pendingDoc.RequiresCap, parsed.RequiresCap...)
+			if parsed.Delegated {
+				p.pendingDoc.Delegated = true
+			}
+			if parsed.Verifiable {
+				p.pendingDoc.Verifiable = true
+			}
+			if parsed.HasPay {
+				p.pendingDoc.HasPay = true
+			}
+			if parsed.PayAmount != "" {
+				p.pendingDoc.PayAmount = parsed.PayAmount
+			}
+			if parsed.PayRecipient != "" {
+				p.pendingDoc.PayRecipient = parsed.PayRecipient
+			}
 		}
 	}
 	// Clear pendingDoc if the token is not part of a declaration preamble.
@@ -5192,19 +5271,25 @@ func parseDocMeta(raw string) *ast.DocMeta {
 		if line == "" {
 			continue
 		}
-		// Match @tag or @tag key: value
+		// Match @tag or @tag key: value or @tag(args)
 		if !strings.HasPrefix(line, "@") {
 			continue
 		}
 		line = line[1:] // strip @
-		// Split into tag and rest
-		spaceIdx := strings.IndexAny(line, " \t")
+		// Split into tag and rest.
+		// Delimiters: space, tab, or '(' (for @requires(caller: X) style).
+		splitIdx := strings.IndexAny(line, " \t(")
 		var tag, rest string
-		if spaceIdx < 0 {
+		if splitIdx < 0 {
 			tag = line
 		} else {
-			tag = line[:spaceIdx]
-			rest = strings.TrimSpace(line[spaceIdx+1:])
+			tag = line[:splitIdx]
+			if line[splitIdx] == '(' {
+				// Keep the '(' as part of rest so parseRequiresTag/parsePayTag can strip it.
+				rest = strings.TrimSpace(line[splitIdx:])
+			} else {
+				rest = strings.TrimSpace(line[splitIdx+1:])
+			}
 		}
 		switch tag {
 		case "notice":
@@ -5221,11 +5306,20 @@ func parseDocMeta(raw string) *ast.DocMeta {
 			parseBoundsTag(meta, rest)
 		case "gas":
 			parseGasTag(meta, rest)
+		case "requires":
+			parseRequiresTag(meta, rest)
+		case "pay":
+			parsePayTag(meta, rest)
+		case "delegated":
+			meta.Delegated = true
+		case "verifiable":
+			meta.Verifiable = true
 		}
 	}
 	// Return nil if nothing was parsed.
 	if meta.Notice == "" && len(meta.Params) == 0 && len(meta.Returns) == 0 &&
-		meta.Effects == nil && meta.Bounds == nil && meta.Gas == nil {
+		meta.Effects == nil && meta.Bounds == nil && meta.Gas == nil &&
+		len(meta.RequiresCap) == 0 && !meta.Delegated && !meta.Verifiable && meta.PayAmount == "" {
 		return nil
 	}
 	return meta
@@ -5409,6 +5503,233 @@ func parseGasTag(meta *ast.DocMeta, rest string) {
 		meta.Gas.Upper = n
 	} else {
 		meta.Gas.Expr = val
+	}
+}
+
+// parseRequiresTag parses "@requires(caller: X)" into meta.RequiresCap.
+// Multiple @requires lines accumulate capability names.
+func parseRequiresTag(meta *ast.DocMeta, rest string) {
+	// rest is like "(caller: CapName)" or "caller: CapName"
+	s := strings.TrimSpace(rest)
+	s = strings.TrimPrefix(s, "(")
+	s = strings.TrimSuffix(s, ")")
+	colonIdx := strings.Index(s, ":")
+	if colonIdx < 0 {
+		// bare name: @requires CapName
+		name := strings.TrimSpace(s)
+		if name != "" {
+			meta.RequiresCap = append(meta.RequiresCap, name)
+		}
+		return
+	}
+	// key: value — key should be "caller"
+	val := strings.TrimSpace(s[colonIdx+1:])
+	if val != "" {
+		meta.RequiresCap = append(meta.RequiresCap, val)
+	}
+}
+
+// parsePayTag parses "@pay(amount=expr, recipient=expr)" into meta.PayAmount / PayRecipient.
+func parsePayTag(meta *ast.DocMeta, rest string) {
+	meta.HasPay = true
+	s := strings.TrimSpace(rest)
+	s = strings.TrimPrefix(s, "(")
+	s = strings.TrimSuffix(s, ")")
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		k, v, ok := strings.Cut(part, "=")
+		if !ok {
+			continue
+		}
+		switch strings.TrimSpace(k) {
+		case "amount":
+			meta.PayAmount = strings.TrimSpace(v)
+		case "recipient":
+			meta.PayRecipient = strings.TrimSpace(v)
+		}
+	}
+}
+
+// parseCapabilityDecl parses "capability IDENT ;" at contract body level.
+// The "capability" contextual keyword has NOT been consumed yet.
+func (p *Parser) parseCapabilityDecl() *ast.CapabilityDecl {
+	line := p.cur.Start.Line
+	p.next() // consume 'capability'
+	if p.cur.Type != lexer.TokenIdent {
+		p.addDiag(diag.Diagnostic{
+			Code:    diag.CodeParseUnexpected,
+			Message: "expected capability name (identifier) after 'capability'",
+			Span:    p.span(p.cur),
+		})
+		p.syncUntilAfterSemicolon()
+		return nil
+	}
+	name := p.cur.Literal
+	p.next()
+	if !p.expect(lexer.TokenSemicolon, diag.CodeParseUnexpected, "expected ';' after capability declaration") {
+		return nil
+	}
+	return &ast.CapabilityDecl{Name: name, Line: line}
+}
+
+// parsePurposeDecl parses "purpose IDENT ;" at contract body level.
+func (p *Parser) parsePurposeDecl() *ast.PurposeDecl {
+	line := p.cur.Start.Line
+	p.next() // consume 'purpose'
+	if p.cur.Type != lexer.TokenIdent {
+		p.addDiag(diag.Diagnostic{
+			Code:    diag.CodeParseUnexpected,
+			Message: "expected purpose name (identifier) after 'purpose'",
+			Span:    p.span(p.cur),
+		})
+		p.syncUntilAfterSemicolon()
+		return nil
+	}
+	name := p.cur.Literal
+	p.next()
+	if !p.expect(lexer.TokenSemicolon, diag.CodeParseUnexpected, "expected ';' after purpose declaration") {
+		return nil
+	}
+	return &ast.PurposeDecl{Name: name, Line: line}
+}
+
+// parseManifestDecl parses "manifest { key: "value", ... }" at contract body level.
+func (p *Parser) parseManifestDecl() *ast.ManifestDecl {
+	line := p.cur.Start.Line
+	p.next() // consume 'manifest'
+	if !p.expect(lexer.TokenLBrace, diag.CodeParseUnexpected, "expected '{' after 'manifest'") {
+		return nil
+	}
+	md := &ast.ManifestDecl{Line: line}
+	for p.cur.Type != lexer.TokenRBrace && p.cur.Type != lexer.TokenEOF {
+		// key must be an identifier
+		if p.cur.Type != lexer.TokenIdent {
+			p.addDiag(diag.Diagnostic{
+				Code:    diag.CodeParseUnexpected,
+				Message: fmt.Sprintf("expected manifest key (identifier), got '%s'", p.cur.Literal),
+				Span:    p.span(p.cur),
+			})
+			p.syncUntil(lexer.TokenRBrace, lexer.TokenEOF)
+			break
+		}
+		key := p.cur.Literal
+		p.next()
+		if !p.expect(lexer.TokenColon, diag.CodeParseUnexpected, "expected ':' after manifest key") {
+			p.syncUntil(lexer.TokenRBrace, lexer.TokenEOF)
+			break
+		}
+		if p.cur.Type != lexer.TokenString {
+			p.addDiag(diag.Diagnostic{
+				Code:    diag.CodeParseUnexpected,
+				Message: fmt.Sprintf("expected string literal for manifest value, got '%s'", p.cur.Literal),
+				Span:    p.span(p.cur),
+			})
+			p.syncUntil(lexer.TokenRBrace, lexer.TokenEOF)
+			break
+		}
+		val := p.cur.Literal
+		p.next()
+		md.Fields = append(md.Fields, ast.ManifestField{Key: key, Value: val})
+		// Optional trailing comma
+		if p.cur.Type == lexer.TokenComma {
+			p.next()
+		}
+	}
+	if !p.expect(lexer.TokenRBrace, diag.CodeParseUnexpected, "expected '}' to close manifest block") {
+		return nil
+	}
+	return md
+}
+
+// parseAgentTypeSlot parses an agent-native typed storage slot:
+//
+//	oracle<T> name;
+//	vote<T>   name;
+//	task<T>   name;
+//	agent     name;
+//
+// The type keyword has NOT been consumed yet.
+func (p *Parser) parseAgentTypeSlot() *ast.StorageSlot {
+	typeName := p.cur.Literal // "oracle", "vote", "task", or "agent"
+	p.next()                  // consume the type keyword
+
+	fullType := typeName
+	if p.cur.Type == lexer.TokenLT {
+		// Consume '<T>'
+		p.next() // consume '<'
+		var innerParts []string
+		depth := 0
+		for p.cur.Type != lexer.TokenEOF {
+			if p.cur.Type == lexer.TokenLT {
+				depth++
+				innerParts = append(innerParts, "<")
+				p.next()
+				continue
+			}
+			if p.cur.Type == lexer.TokenGT {
+				if depth == 0 {
+					p.next() // consume '>'
+					break
+				}
+				depth--
+				innerParts = append(innerParts, ">")
+				p.next()
+				continue
+			}
+			innerParts = append(innerParts, p.cur.Literal)
+			p.next()
+		}
+		fullType = typeName + "<" + strings.Join(innerParts, "") + ">"
+	}
+
+	// Parse optional visibility modifiers (public/private/internal/override)
+	visibility := ""
+	isOverride := false
+	for {
+		switch p.cur.Type {
+		case lexer.TokenKwPublic:
+			visibility = "public"
+			p.next()
+			continue
+		case lexer.TokenKwPrivate:
+			visibility = "private"
+			p.next()
+			continue
+		case lexer.TokenKwInternal:
+			visibility = "internal"
+			p.next()
+			continue
+		case lexer.TokenKwOverride:
+			isOverride = true
+			p.next()
+			continue
+		}
+		break
+	}
+	_ = isOverride // stored on slot via existing fields if needed
+
+	if p.cur.Type != lexer.TokenIdent {
+		p.addDiag(diag.Diagnostic{
+			Code:    diag.CodeParseUnexpected,
+			Message: fmt.Sprintf("expected variable name after agent type '%s', got '%s'", fullType, p.cur.Literal),
+			Span:    p.span(p.cur),
+		})
+		p.syncUntil(lexer.TokenSemicolon, lexer.TokenRBrace, lexer.TokenEOF)
+		if p.cur.Type == lexer.TokenSemicolon {
+			p.next()
+		}
+		return nil
+	}
+	name := p.cur.Literal
+	p.next()
+
+	if !p.expect(lexer.TokenSemicolon, diag.CodeParseUnexpected, fmt.Sprintf("expected ';' after agent-native slot '%s'", name)) {
+		return nil
+	}
+	return &ast.StorageSlot{
+		Name:       name,
+		Type:       fullType,
+		Visibility: visibility,
 	}
 }
 

@@ -74,6 +74,10 @@ type Program struct {
 	FallbackBody      []ast.Statement
 	HasReceive        bool
 	ReceiveBody       []ast.Statement
+	// Agent-native declarations
+	Capabilities []string          // ordered capability names (resolved at runtime via tos.capabilitybit)
+	Purposes     []string          // ordered purpose names (index = bit ordinal, compile-time constant)
+	Manifest     map[string]string // manifest key→value pairs
 }
 
 // Library is the lowered form of a library declaration.
@@ -116,6 +120,7 @@ type Function struct {
 	Returns          []ast.FieldDecl
 	Modifiers        []string
 	Body             []ast.Statement
+	Doc              *ast.DocMeta // structured doc comment metadata (optional); carries @requires, @pay, etc.
 }
 
 // MangledLuaName returns a Lua-safe mangled name for a function given its parameter types.
@@ -327,6 +332,7 @@ func FromTypedContract(typed *sema.TypedModule, c *ast.ContractDecl) (*Program, 
 			Returns:          cloneFields(fn.Returns),
 			Modifiers:        builtinMods,
 			Body:             expandedBody,
+			Doc:              fn.Doc,
 		})
 	}
 	// Collect inline state variable initializers as constructor preamble statements.
@@ -385,6 +391,22 @@ func FromTypedContract(typed *sema.TypedModule, c *ast.ContractDecl) (*Program, 
 			Library: strings.TrimSpace(ud.Library),
 			Type:    strings.TrimSpace(ud.Type),
 		})
+	}
+
+	// Lower agent-native declarations.
+	out.Capabilities = make([]string, 0, len(c.Capabilities))
+	for _, cd := range c.Capabilities {
+		out.Capabilities = append(out.Capabilities, cd.Name)
+	}
+	out.Purposes = make([]string, 0, len(c.Purposes))
+	for _, pd := range c.Purposes {
+		out.Purposes = append(out.Purposes, pd.Name)
+	}
+	if c.Manifest != nil {
+		out.Manifest = make(map[string]string, len(c.Manifest.Fields))
+		for _, f := range c.Manifest.Fields {
+			out.Manifest[f.Key] = f.Value
+		}
 	}
 
 	return out, nil

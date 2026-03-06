@@ -775,6 +775,7 @@ statement
     | letTupleStatement
     | variableDeclarationStatement    // type-first local var (Solidity-compatible)
     | setStatement
+    | prefixIncDecStatement           // ++x; / --x; (prefix-only, not an expression)
     | ifStatement
     | whileStatement
     | forStatement
@@ -802,8 +803,12 @@ statement
 // ============================================================
 
 letStatement
-    : Let Identifier Colon typeName (Assign expression)? Semicolon
+    : Let Identifier (Colon typeName)? (Assign expression)? Semicolon
     ;
+    // Type annotation is OPTIONAL — production accepts both:
+    //   let x: uint256 = 1;   — type-annotated
+    //   let x = 1;            — type inferred (no colon+typeName)
+    //   let x: uint256;       — zero-initialised, explicit type
 
 letTupleStatement
     : Let LParen Identifier (Comma Identifier)+ RParen
@@ -945,9 +950,11 @@ assertStatement
 // ============================================================
 
 emitStatement
-    : Emit expression callArgumentList Semicolon
+    : Emit expression Semicolon
     ;
-    // callArgumentList is now separate from the expression (Solidity-aligned).
+    // 'expression' includes the event call and its argument list:
+    //   emit Transfer(from, to, amount);  — expression = Transfer(from, to, amount)
+    // Production: parseUnaryCallLikeStatement("emit", ...) consumes Emit + expression.
 
 // ============================================================
 // delete  (Solidity-aligned statement form)
@@ -959,7 +966,25 @@ emitStatement
 deleteStatement
     : Delete expression Semicolon
     ;
-    // 'delete' is now a reserved keyword.
+    // 'delete' is a reserved keyword.
+    // NOTE: 'delete' is a STATEMENT-ONLY construct in TOL — it cannot appear
+    // as a sub-expression (no DeleteExpr in expression grammar).
+
+// ============================================================
+// Prefix increment / decrement statement  (TOL-specific form)
+//
+//   ++x;    — equivalent to x = x + 1
+//   --y;    — equivalent to y = y - 1
+//
+// Production: parsePrefixIncDecStatement() in parser.go.
+// NOTE: prefix '++' / '--' are STATEMENT-ONLY — they are not valid
+// as sub-expressions in TOL (unlike Solidity / C).
+// Postfix form (x++, x--) IS valid as an expression (PostfixOp).
+// ============================================================
+
+prefixIncDecStatement
+    : (PlusPlus | MinusMinus) expression Semicolon
+    ;
 
 uncheckedStatement
     : Unchecked block
@@ -1214,16 +1239,22 @@ expression
     : expression LBracket expression? RBracket                         # IndexAccess
     | expression LBracket expression? Colon expression? RBracket       # SliceAccess
     | expression Dot (Identifier | Address)                            # MemberAccess
-    | expression LBrace namedArgument (Comma namedArgument)* RBrace    # FunctionCallOptions
+    | expression LBrace namedArgument (Comma namedArgument)* RBrace callArgumentList # FunctionCallOptions
+    // Call options followed by argument list: transfer{value: 1 ether}(recipient, amount)
+    // The {key: value} block MUST be immediately followed by callArgumentList.
+    // Valid keys: 'gas' and 'value' (checked by sema; not enforced by the grammar).
     | expression callArgumentList                                       # FunctionCall
     | expression (PlusPlus | MinusMinus)                               # PostfixOp
 
     // Prefix / unary
     | (Bang | BitNot | Plus | Minus) expression                        # PrefixOp
-    | Delete expression                                                 # DeleteExpr
+    // NOTE: '++' / '--' prefix form is STATEMENT-ONLY in TOL (not a sub-expression).
+    // Standalone ++x; / --x; is handled by prefixIncDecStatement in statement context.
 
     // Object construction / deployment
     | New typeName callArgumentList                                     # NewExpr
+    | New Identifier LBracket RBracket callArgumentList                # NewArrayExpr
+    // new T[](size) — dynamic memory array allocation: new uint256[](100)
     | Deploy typeName callArgumentList                                  # DeployExpr
     // 'deploy' is a TOL-specific alias for 'new'; both compile identically.
 
@@ -1273,7 +1304,9 @@ expressionList
 // ============================================================
 
 primary
-    : Identifier
+    : inspectExpression       // MUST come before Identifier: inspect is contextual keyword
+    | structLiteralExpression // MUST come before Identifier: StructName { field: expr }
+    | Identifier
     | DecimalNumber (SubDenomination)?
     | HexNumber
     | StringLiteral+
@@ -1283,9 +1316,15 @@ primary
     | tupleExpression
     | inlineArrayExpression
     | typeExpression          // type(I).interfaceId — also type(T) for MetaType
-    | inspectExpression       // inspect binding.slotName (test blocks only)
     | elementaryTypeName      // type name used as cast: uint256(x), address(y)
     ;
+    // IMPORTANT ordering note:
+    //   inspectExpression must precede Identifier because 'inspect' is a contextual
+    //   keyword — the production parser checks (literal == "inspect") before treating
+    //   the token as a plain identifier.
+    //   structLiteralExpression must precede Identifier because disambiguation
+    //   requires lookahead: StructName '{' only matches if StructName is a known
+    //   struct type (tracked in parser.structNames).
 
 BooleanLiteral
     : True | False
@@ -1302,6 +1341,21 @@ inlineArrayExpression
     : LBracket (expression (Comma expression)*) RBracket
     ;
 
+// Struct literal: StructName { field: expr, field2: expr }
+//
+// Only parsed when StructName is a declared struct type — the production parser
+// tracks known struct names in parser.structNames to disambiguate from blocks.
+// Field separator is Colon (:), same as named arguments.
+//
+// Examples:
+//   Point { x: 1, y: 2 }
+//   Order { buyer: msg.sender, amount: 100 ether, deadline: block.timestamp + 1 days }
+
+structLiteralExpression
+    : Identifier LBrace (structFieldInit (Comma structFieldInit)* Comma?)? RBrace
+    ;
+    // Identifier = struct type name (must be a declared struct in scope).
+
 // type(I).interfaceId  or  type(T)  (MetaType primary form)
 typeExpression
     : Identifier LParen typeName RParen (Dot Identifier)?
@@ -1315,15 +1369,7 @@ inspectExpression
     ;
 
 // ============================================================
-// Struct literal field initialisation  (TOL-specific)
-//
-//   Point { x: 1, y: 2 }
-// ============================================================
-
-structFieldInitList
-    : structFieldInit (Comma structFieldInit)*
-    ;
-
+// structFieldInit is the shared field initializer rule used by structLiteralExpression.
 structFieldInit
     : Identifier Colon expression
     ;

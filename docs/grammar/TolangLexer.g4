@@ -47,7 +47,8 @@ External    : 'external'    ; // production: contextual
 Fallback    : 'fallback'    ;
 False       : 'false'       ; // production: contextual
 For         : 'for'         ;
-From        : 'from'        ; // production: contextual (used in legacy import)
+From        : 'from'        ; // production: NOT a keyword token — emitted as TokenIdent
+                               // The production lexer checks (p.cur.Literal == "from") directly.
 Function    : 'function'    ;
 Global      : 'global'      ; // production: contextual
 If          : 'if'          ;

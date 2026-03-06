@@ -30,7 +30,7 @@ test AgentWalletSuite {
     }
 
     // An agent that was never registered must be rejected.
-    function test_validate_unknown_address_fails() {
+    function test_validate_unknown_agent_fails() {
         with msg.sender = ROGUE {
             assert_eq(wallet.validate(ZERO, ""), false);
         }
@@ -142,8 +142,8 @@ test AgentWalletSuite {
         }
     }
 
-    // Transferring to the zero address must revert.
-    function test_transfer_owner_zero_address_reverts() {
+    // Transferring to the nobody must revert.
+    function test_transfer_owner_nobody_reverts() {
         with msg.sender = OWNER {
             assert_revert("ZeroAddress") {
                 wallet.transferOwner(ZERO);

@@ -5,11 +5,11 @@ contract TRC20 {
   mapping(agent => u256) balances;
   mapping(agent => mapping(agent => u256)) allowances;
 
-  // 32-byte GTOS zero address (spec §6.1: address is fixed 32 bytes).
-  constant ZERO_ADDRESS: agent = "0x0000000000000000000000000000000000000000000000000000000000000000";
+  // Sentinel for "no agent" — 32-byte all-zeros identity.
+  constant NOBODY: agent = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
   // TRC20 standard events.
-  // 'from', 'to', 'owner', 'spender' are indexed so explorers can filter by address.
+  // 'from', 'to', 'owner', 'spender' are indexed so explorers can filter by agent.
   event Transfer(agent from indexed, agent to indexed, u256 value)
   event Approval(agent owner indexed, agent spender indexed, u256 value)
 
@@ -22,7 +22,7 @@ contract TRC20 {
   constructor(u256 initialSupply) {
     set total_supply = initialSupply;
     set balances[msg.sender] = initialSupply;
-    emit Transfer(ZERO_ADDRESS, msg.sender, initialSupply);
+    emit Transfer(NOBODY, msg.sender, initialSupply);
     return;
   }
 
@@ -63,7 +63,7 @@ contract TRC20 {
   }
 
   /// @notice Transfers `value` tokens from the caller to `to`.
-  /// @param  to    Recipient address (must not be the zero address).
+  /// @param  to    Recipient agent (must not be nobody).
   /// @param  value Number of tokens to transfer.
   /// @return ok    Always true on success; reverts on failure.
   /// @effects reads:  storage.balances[caller], storage.balances[to]
@@ -72,7 +72,7 @@ contract TRC20 {
   /// @effects calls:  []
   /// @gas     upper:  50000
   function transfer(agent to, u256 value) external returns (bool ok) {
-    require(to != ZERO_ADDRESS, "ZERO_ADDRESS");
+    require(to != NOBODY, "NOBODY");
     require(balances[msg.sender] >= value, "INSUFFICIENT_BALANCE");
     set balances[msg.sender] -= value;
     set balances[to] += value;
@@ -81,7 +81,7 @@ contract TRC20 {
   }
 
   /// @notice Approves `spender` to transfer up to `value` tokens on the caller's behalf.
-  /// @param  spender Agent authorized to spend (must not be the zero address).
+  /// @param  spender Agent authorized to spend (must not be the nobody).
   /// @param  value   Maximum number of tokens `spender` may transfer.
   /// @return ok      Always true on success; reverts on failure.
   /// @effects reads:  []
@@ -90,15 +90,15 @@ contract TRC20 {
   /// @effects calls:  []
   /// @gas     upper:  25000
   function approve(agent spender, u256 value) external returns (bool ok) {
-    require(spender != ZERO_ADDRESS, "ZERO_ADDRESS");
+    require(spender != NOBODY, "NOBODY");
     set allowances[msg.sender][spender] = value;
     emit Approval(msg.sender, spender, value);
     return true;
   }
 
   /// @notice Transfers `value` tokens from `from` to `to` using the caller's allowance.
-  /// @param  from  Source address (must not be the zero address).
-  /// @param  to    Destination address (must not be the zero address).
+  /// @param  from  Source agent (must not be nobody).
+  /// @param  to    Destination agent (must not be nobody).
   /// @param  value Number of tokens to transfer.
   /// @return ok    Always true on success; reverts on failure.
   /// @effects reads:  storage.allowances[from,caller], storage.balances[from], storage.balances[to]
@@ -107,8 +107,8 @@ contract TRC20 {
   /// @effects calls:  []
   /// @gas     upper:  75000
   function transferFrom(agent from, agent to, u256 value) external returns (bool ok) {
-    require(from != ZERO_ADDRESS, "ZERO_ADDRESS");
-    require(to != ZERO_ADDRESS, "ZERO_ADDRESS");
+    require(from != NOBODY, "NOBODY");
+    require(to != NOBODY, "NOBODY");
 
     let allowed: u256 = allowances[from][msg.sender];
     require(allowed >= value, "INSUFFICIENT_ALLOWANCE");

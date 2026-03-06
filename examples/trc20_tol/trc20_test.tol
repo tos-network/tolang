@@ -36,9 +36,9 @@ test TRC20Suite {
     }
   }
 
-  function test_transfer_zero_address_revert() {
+  function test_transfer_nobody_revert() {
     with msg.sender = DEPLOYER {
-      assert_revert("ZERO_ADDRESS") {
+      assert_revert("NOBODY") {
         token.transfer(ZERO, 1);
       }
     }

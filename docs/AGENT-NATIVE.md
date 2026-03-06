@@ -75,15 +75,35 @@ Interface:
   register(metadata_uri: string) payable               — msg.value becomes stake (AGENTLOAD write)
   updateProfile(metadata_uri: string)
   increaseStake() payable
-  decreaseStake(amount: u256)                           — reverts if stake - amount < MIN_AGENT_STAKE
+  decreaseStake(amount: u256)                           — reverts if stake - amount < MIN_AGENT_STAKE;
+                                                          stake enters UNSTAKE_FREEZE_BLOCKS cooldown
+                                                          before it is withdrawable (see design note below)
+  withdraw()                                            — transfers unfrozen stake to caller; reverts if
+                                                          cooldown not elapsed
   suspend(addr: address, reason: string)                — requires Registrar capability
   unsuspend(addr: address)                              — requires Registrar capability
 
   isRegistered(addr: address) → bool
   isSuspended(addr: address) → bool
   stakeOf(addr: address) → u256                        — reads protocol-native account state
+  frozenStakeOf(addr: address) → u256                  — stake in cooldown (still slashable)
+  unstakeUnlocksAt(addr: address) → u64                — block number when frozen stake becomes withdrawable
   metadataOf(addr: address) → string
 ```
+
+**Exit cooldown (design note):** When an agent calls `decreaseStake` or deregisters, the
+withdrawn amount enters a **freeze period** of `UNSTAKE_FREEZE_BLOCKS` blocks (consensus
+constant; recommended value: ~7 days at the target block time). During the freeze period the
+stake is still visible via `stakeOf` (it remains slashable) but cannot be transferred out.
+`withdraw()` transfers the unfrozen amount and reverts if `block.number < unstakeUnlocksAt`.
+This prevents the attack pattern of: register → acquire capability → act maliciously →
+immediately unstake to escape slashing. An agent's `is_active` returns false as soon as
+`decreaseStake` drops the remaining unfrozen stake below `MIN_AGENT_STAKE`.
+
+**Registrar bootstrap:** The genesis block sets a protocol-owned multisig address as the
+initial holder of the `Registrar` capability. This address can then grant `Registrar` to
+governance-approved contracts or committees, and eventually to a fully on-chain governance
+contract. The genesis Registrar address is a consensus constant (`tol.lang.GENESIS_REGISTRAR`).
 
 The `agent(addr)` cast in TOL compiles to: `require(AGENT_REGISTRY.isRegistered(addr))`.
 The `agent(addr).stake` property compiles to: `AGENTLOAD addr STAKE_FIELD` (no external call).
@@ -105,6 +125,13 @@ Interface:
                                                           (used by vote<T> for quorum snapshot)
   capabilityBit(name: string) → u8                      — name → bit index lookup (compile-time use)
 ```
+
+**Who maintains the capability bitmap:** Only addresses holding the `Registrar` capability can
+call `grantCapability` and `revokeCapability`. An agent **cannot grant or revoke its own
+capabilities** — self-authorization would defeat the purpose of the permission system. The
+`Registrar` role itself is bootstrapped at genesis (see `AGENT_REGISTRY` design note above).
+In practice, `Registrar` will be held by: the genesis multisig initially, then transferred to
+a governance contract that votes on capability grants through a `vote<bool>` proposal.
 
 `@requires(caller: Arbitrator)` compiles to:
 `require(CAPABILITY_REGISTRY.hasCapability(msg.sender, ARBITRATOR_BIT))`.
@@ -146,6 +173,22 @@ Interface:
   totalScoreOf(who: address) → i256
   ratingCountOf(who: address) → u256
 ```
+
+**Who are the Scorers:** The `Scorer` capability is granted by `Registrar` to specific
+addresses. In the initial protocol deployment, Scorers are expected to be:
+
+1. **Protocol system contracts** — `TaskEscrow` and `DisputeResolver` are granted `Scorer`
+   at genesis. When a task is `approve`d, `TaskEscrow` calls `recordScore(worker, +1, "task_approved", task_id)`.
+   When a dispute is ruled, `DisputeResolver` calls `recordScore(winner, +1, ...)` and
+   `recordScore(loser, -1, ...)` automatically. No human intervention required.
+2. **Governance-approved committee** — for edge cases, appeals, and off-chain-evidenced events
+   that no contract can automatically adjudicate. Committee membership is controlled by `Registrar`.
+3. **Future: oracle-backed Scorer** — a Scorer contract that accepts ZK-verified proofs of
+   off-chain quality metrics (e.g., verified delivery confirmations) and records scores based
+   on proof validation. This requires the `@verifiable` ZK backend (P3 roadmap item).
+
+An agent **cannot score itself** (only `Scorer`-capable addresses can call `recordScore`).
+Scorer addresses are published on-chain via events and indexable by any off-chain monitor.
 
 `agent(addr).reputation` compiles to: `REPUTATION_HUB.totalScoreOf(addr)` (one STATICCALL).
 `agent(addr).rating_count` compiles to: `REPUTATION_HUB.ratingCountOf(addr)`.

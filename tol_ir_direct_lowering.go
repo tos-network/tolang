@@ -915,20 +915,44 @@ local __tol_oracle_value  = function(val_slot) return __tol_sload(val_slot) end
 	// 5. Vote helper functions.
 	if hasVote {
 		sb.WriteString(`
-local __tol_vote_new = function(elig_slot, thresh_slot, ddl_slot, cap_bit, threshold, deadline)
-  local elig = tos and type(tos.totaleligible)=="function" and tos.totaleligible(cap_bit) or 0
+local __tol_vote_new = function(elig_slot, thresh_slot, ddl_slot, result_slot, quorum, deadline_ms, tie)
+  local elig = tos and type(tos.totaleligible)=="function" and tos.totaleligible() or 0
   __tol_sstore(elig_slot, elig)
-  __tol_sstore(thresh_slot, threshold)
-  __tol_sstore(ddl_slot, deadline)
+  __tol_sstore(thresh_slot, quorum)
+  __tol_sstore(ddl_slot, deadline_ms)
+  __tol_sstore(result_slot, 0)
 end
-local __tol_vote_cast = tos and type(tos.vote_cast)=="function" and tos.vote_cast or function(voted_base, tally_slot, voter, choice)
+local __tol_vote_cast = tos and type(tos.vote_cast)=="function" and tos.vote_cast or function(voted_base, tally_slot, elig_slot, voter, choice)
   local key = __tol_mkey(voter, voted_base)
   if __tol_sload(key) ~= 0 then error("AlreadyVoted") end
   __tol_sstore(key, 1)
-  __tol_sstore(tally_slot, __tol_sload(tally_slot) + choice)
+  local opt = choice and 1 or 0
+  local opt_key = __tol_mkey(opt, tally_slot)
+  __tol_sstore(opt_key, __tol_sload(opt_key) + 1)
 end
 local __tol_vote_tally   = function(tally_slot) return __tol_sload(tally_slot) end
-local __tol_vote_decided = function(tally_slot, thresh_slot) return __tol_sload(tally_slot) >= __tol_sload(thresh_slot) end
+local __tol_vote_decided = function(tally_slot, thresh_slot, ddl_slot, elig_slot)
+  local yes = __tol_sload(__tol_mkey(1, tally_slot))
+  local no  = __tol_sload(__tol_mkey(0, tally_slot))
+  local total = yes + no
+  local thresh = __tol_sload(thresh_slot)
+  local elig   = __tol_sload(elig_slot)
+  local deadline = __tol_sload(ddl_slot)
+  local now = block and block.timestamp_ms or 0
+  if elig > 0 and total * 10000 >= thresh * elig then return true end
+  if now >= deadline and deadline > 0 then return true end
+  return false
+end
+local __tol_vote_result = function(result_slot, tally_slot, thresh_slot, ddl_slot, elig_slot)
+  if not __tol_vote_decided(tally_slot, thresh_slot, ddl_slot, elig_slot) then
+    error("VoteNotDecided")
+  end
+  local stored = __tol_sload(result_slot)
+  if stored ~= 0 then return stored end
+  local yes = __tol_sload(__tol_mkey(1, tally_slot))
+  local no  = __tol_sload(__tol_mkey(0, tally_slot))
+  return yes > no and 1 or 0
+end
 `)
 	}
 
@@ -3857,6 +3881,13 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 			}
 			return oracleExpr, nil
 		}
+		// Intercept vote<T> OOP method calls: proposal.cast(voter, choice) / proposal.new(...).
+		if voteExpr, ok, err := lowerVoteSlotExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return voteExpr, nil
+		}
 		// Intercept task OOP method calls: tasks[tid].accept(worker) etc.
 		if taskExpr, ok, err := lowerTaskMappingCallExpr(ctx, e); ok || err != nil {
 			if err != nil {
@@ -3966,6 +3997,12 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 				return nil, err
 			}
 			return oracleExpr, nil
+		}
+		if voteExpr, ok, err := lowerVoteSlotExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return voteExpr, nil
 		}
 		if agentPropExpr, ok, err := lowerAgentPropertyExpr(ctx, e); ok || err != nil {
 			if err != nil {
@@ -5973,6 +6010,164 @@ func lowerOracleSlotExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, er
 			},
 			AdjustRet: true,
 		}), true, nil
+	}
+	return nil, false, nil
+}
+
+// lowerVoteSlotExpr handles vote<T> OOP member and method expressions:
+//
+//	proposal.vote_count  → __tol_sload(__tol_mkey(1,..)) + __tol_sload(__tol_mkey(0,..))
+//	proposal.yes_count   → __tol_sload(__tol_mkey(1, __tol_s_proposal_tally))
+//	proposal.no_count    → __tol_sload(__tol_mkey(0, __tol_s_proposal_tally))
+//	proposal.is_decided  → __tol_vote_decided(tally, thresh, ddl, elig)
+//	proposal.result      → __tol_vote_result(result, tally, thresh, ddl, elig)
+//	proposal.cast(v, c)  → __tol_vote_cast(voted, tally, elig, v, c)
+//	proposal.new(q,d,t)  → __tol_vote_new(elig, thresh, ddl, result, q, d, t)
+func lowerVoteSlotExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
+	if e == nil {
+		return nil, false, nil
+	}
+	// Member read: proposal.is_decided / proposal.result / proposal.vote_count etc.
+	if e.Kind == "member" {
+		slotName, keys, ok := ctx.storagePathFromExpr(e.Object)
+		if !ok || len(keys) != 0 {
+			return nil, false, nil
+		}
+		info, hasInfo := ctx.storageInfoByName(slotName)
+		if !hasInfo || !strings.HasPrefix(info.typ, "vote<") {
+			return nil, false, nil
+		}
+		n := slotName
+		slotIdent := func(suffix string) luast.Expr {
+			return withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_" + suffix})
+		}
+		mkeyCall := func(opt int, tallySlot luast.Expr) luast.Expr {
+			return withLineExpr(&luast.FuncCallExpr{
+				Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_mkey"}),
+				Args:      []luast.Expr{withLineExpr(&luast.NumberExpr{Value: fmt.Sprintf("%d", opt)}), tallySlot},
+				AdjustRet: true,
+			})
+		}
+		sload := func(slot luast.Expr) luast.Expr {
+			return withLineExpr(&luast.FuncCallExpr{
+				Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_sload"}),
+				Args:      []luast.Expr{slot},
+				AdjustRet: true,
+			})
+		}
+		switch e.Member {
+		case "vote_count":
+			// yes + no
+			yesExpr := sload(mkeyCall(1, slotIdent("tally")))
+			noExpr := sload(mkeyCall(0, slotIdent("tally")))
+			return withLineExpr(&luast.ArithmeticOpExpr{Operator: "+", Lhs: yesExpr, Rhs: noExpr}), true, nil
+		case "yes_count":
+			return sload(mkeyCall(1, slotIdent("tally"))), true, nil
+		case "no_count":
+			return sload(mkeyCall(0, slotIdent("tally"))), true, nil
+		case "is_decided":
+			return withLineExpr(&luast.FuncCallExpr{
+				Func: withLineExpr(&luast.IdentExpr{Value: "__tol_vote_decided"}),
+				Args: []luast.Expr{
+					slotIdent("tally"),
+					slotIdent("threshold"),
+					slotIdent("deadline"),
+					slotIdent("eligible"),
+				},
+				AdjustRet: true,
+			}), true, nil
+		case "result":
+			return withLineExpr(&luast.FuncCallExpr{
+				Func: withLineExpr(&luast.IdentExpr{Value: "__tol_vote_result"}),
+				Args: []luast.Expr{
+					slotIdent("result"),
+					slotIdent("tally"),
+					slotIdent("threshold"),
+					slotIdent("deadline"),
+					slotIdent("eligible"),
+				},
+				AdjustRet: true,
+			}), true, nil
+		}
+		return nil, false, nil
+	}
+	// Method call: proposal.cast(voter, choice) / proposal.new(quorum, deadline_ms, tie)
+	if e.Kind == "call" && e.Callee != nil && e.Callee.Kind == "member" {
+		method := e.Callee.Member
+		if method != "cast" && method != "new" {
+			return nil, false, nil
+		}
+		slotName, keys, ok := ctx.storagePathFromExpr(e.Callee.Object)
+		if !ok || len(keys) != 0 {
+			return nil, false, nil
+		}
+		info, hasInfo := ctx.storageInfoByName(slotName)
+		if !hasInfo || !strings.HasPrefix(info.typ, "vote<") {
+			return nil, false, nil
+		}
+		n := slotName
+		slotIdent := func(suffix string) luast.Expr {
+			return withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + n + "_" + suffix})
+		}
+		switch method {
+		case "cast":
+			if len(e.Args) != 2 {
+				return nil, true, fmt.Errorf("[%s] vote.cast(voter, choice) requires exactly 2 arguments", diag.CodeLowerUnsupportedFeature)
+			}
+			voter, err := tolExprToLua(ctx, e.Args[0])
+			if err != nil {
+				return nil, true, err
+			}
+			choice, err := tolExprToLua(ctx, e.Args[1])
+			if err != nil {
+				return nil, true, err
+			}
+			return withLineExpr(&luast.FuncCallExpr{
+				Func: withLineExpr(&luast.IdentExpr{Value: "__tol_vote_cast"}),
+				Args: []luast.Expr{
+					slotIdent("voted"),
+					slotIdent("tally"),
+					slotIdent("eligible"),
+					voter,
+					choice,
+				},
+				AdjustRet: true,
+			}), true, nil
+		case "new":
+			if len(e.Args) < 2 {
+				return nil, true, fmt.Errorf("[%s] vote.new(quorum, deadline_ms[, tie]) requires at least 2 arguments", diag.CodeLowerUnsupportedFeature)
+			}
+			quorum, err := tolExprToLua(ctx, e.Args[0])
+			if err != nil {
+				return nil, true, err
+			}
+			deadline, err := tolExprToLua(ctx, e.Args[1])
+			if err != nil {
+				return nil, true, err
+			}
+			var tieExpr luast.Expr
+			if len(e.Args) >= 3 {
+				tieExpr, err = tolExprToLua(ctx, e.Args[2])
+				if err != nil {
+					return nil, true, err
+				}
+			} else {
+				tieExpr = withLineExpr(&luast.IdentExpr{Value: "false"})
+			}
+			return withLineExpr(&luast.FuncCallExpr{
+				Func: withLineExpr(&luast.IdentExpr{Value: "__tol_vote_new"}),
+				Args: []luast.Expr{
+					slotIdent("eligible"),
+					slotIdent("threshold"),
+					slotIdent("deadline"),
+					slotIdent("result"),
+					quorum,
+					deadline,
+					tieExpr,
+				},
+				AdjustRet: true,
+			}), true, nil
+		}
 	}
 	return nil, false, nil
 }

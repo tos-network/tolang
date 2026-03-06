@@ -3223,6 +3223,19 @@ func checkStorageExpr(filename string, ctx *storageCheckCtx, e *ast.Expr, use st
 					return
 				}
 			}
+			// Allow vote<T> OOP methods: .cast(voter, choice) and .new(quorum, deadline_ms, tie)
+			voteMethods := map[string]bool{"cast": true, "new": true}
+			if voteMethods[e.Callee.Member] {
+				if slotName, _, ok := ctx.storagePathFromExpr(e.Callee.Object); ok {
+					info := ctx.slots[slotName]
+					if strings.HasPrefix(info.typeName, "vote<") {
+						for _, a := range e.Args {
+							checkStorageExpr(filename, ctx, a, storageUseValue, diags)
+						}
+						return
+					}
+				}
+			}
 		}
 		checkStorageExpr(filename, ctx, e.Callee, storageUseCallCallee, diags)
 		for _, a := range e.Args {
@@ -3244,6 +3257,13 @@ func checkStorageExpr(filename string, ctx *storageCheckCtx, e *ast.Expr, use st
 				switch e.Member {
 				case "is_set", "value":
 					return // valid oracle property access
+				}
+			}
+			// Allow vote<T> OOP members: .vote_count, .yes_count, .no_count, .is_decided, .result
+			if strings.HasPrefix(info.typeName, "vote<") {
+				switch e.Member {
+				case "vote_count", "yes_count", "no_count", "is_decided", "result":
+					return // valid vote property access
 				}
 			}
 			// Allow task<T> mapping OOP members when accessed via index (tasks[tid].worker etc.)

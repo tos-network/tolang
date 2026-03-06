@@ -442,25 +442,6 @@ err = L.DoBytecode(bc)
 
 ---
 
-## Diagnostics Reference
-
-| Code | Meaning |
-|------|---------|
-| TOL2300 | Capability already declared in this contract |
-| TOL2301 | Purpose already declared in this contract |
-| TOL2302 | `@requires` references undeclared capability |
-| TOL2303 | `oracle<T>`: T must be a value type |
-| TOL2304 | `vote<T>`: T must be numeric (uint/int/bool) |
-| TOL2305 | `task<T>`: T should be a struct type |
-| TOL2306 | `agent` cast on non-address expression |
-| TOL2307 | Manifest block already declared |
-| TOL2308 | `@pay`: amount must be a uint256 expression |
-| TOL2309 | `@pay`: recipient must be an address expression |
-| TOL2311 | `escrow`/`release`/`slash` outside payable context |
-| TOL2314 | `@verifiable` requires `pure` or `view` function |
-
----
-
 ## License
 
 MIT. See [LICENSE](LICENSE).

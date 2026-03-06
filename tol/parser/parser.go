@@ -5319,7 +5319,8 @@ func parseDocMeta(raw string) *ast.DocMeta {
 	// Return nil if nothing was parsed.
 	if meta.Notice == "" && len(meta.Params) == 0 && len(meta.Returns) == 0 &&
 		meta.Effects == nil && meta.Bounds == nil && meta.Gas == nil &&
-		len(meta.RequiresCap) == 0 && !meta.Delegated && !meta.Verifiable && meta.PayAmount == "" {
+		len(meta.RequiresCap) == 0 && !meta.Delegated && !meta.Verifiable &&
+		!meta.HasPay && meta.PayAmount == "" {
 		return nil
 	}
 	return meta

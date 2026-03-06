@@ -24,6 +24,52 @@ parser grammar TolangParser;
 options { tokenVocab = TolangLexer; }
 
 // ============================================================
+// Doc-comment annotation system  (@effects / @bounds / @gas / agent-native)
+//
+// TOL uses triple-slash (///) and block (/** */) doc comments to attach structured
+// metadata to functions, constructors, fallback, and receive declarations.
+// These are emitted as DocLineComment / DocBlockComment tokens by the lexer and
+// parsed by parseDocMeta() in the production parser.
+//
+// Each doc-comment line that starts with '@' is a structured tag:
+//
+//   @notice    Free-text human description of the function.
+//   @param     name description — documents one parameter.
+//   @return    name description — documents one return value.
+//
+//   @effects   reads:  storage.x, storage.m[caller]
+//   @effects   writes: storage.x
+//   @effects   emits:  Transfer, Approval
+//   @effects   calls:  Cap[IFace.method; max_gas=N; max_calls=M]
+//              (TOL verification system; see docs/TOL_EFFECTS.md)
+//
+//   @bounds    param <= N              — upper bound on a parameter or loop var
+//   @bounds    param == N             — exact bound
+//
+//   @gas       upper = N              — maximum gas cost assertion
+//
+//   @requires  (caller: CapabilityName)  — access control via capability bit
+//                                          equivalent to: require(tos.hascap(msg.sender, CapabilityName))
+//   @pay       (amount=expr)           — expected payment amount
+//   @pay       (amount=expr, recipient=expr) — payment with explicit recipient
+//   @pay       (expr)                  — bare form: expr is the amount
+//
+//   @verifiable    — marks function result as verifiable off-chain (ZK-ready)
+//   @delegated     — marks function as delegation-capable (accepts delegated calls)
+//
+// Standalone '@' annotations (without '///') are also accepted by the parser
+// immediately before a function declaration:
+//   @requires(caller: Registrar)
+//   @pay(1_000_000)
+//   @verifiable
+//   @delegated
+//   @selector("0xAABBCCDD")
+//
+// These are parsed by parseFunctionAttributes() and populate DocMeta identically
+// to the triple-slash form.  Both forms may be combined on the same declaration.
+// ============================================================
+
+// ============================================================
 // Top-level source unit
 // ============================================================
 
@@ -142,6 +188,7 @@ topLevelDeclaration
     | usingDeclaration                // top-level using              // TODO: not yet in production
     | testDeclaration
     ;
+    // Note: purposeDeclaration is only valid inside a contract body (not top-level).
 
 // ============================================================
 // Contract declaration
@@ -179,7 +226,8 @@ contractMember
     | constantDeclaration
     | usingDeclaration
     | structDeclaration
-    | capabilityDeclaration           // TOL agent-native: per-contract capability set
+    | capabilityDeclaration           // TOL agent-native: capability Foo;
+    | purposeDeclaration              // TOL agent-native: purpose WorkEscrow;
     | agentNativeStorageDeclaration   // TOL agent-native: oracle<T>, vote<T> storage slots
     | manifestDeclaration             // TOL agent-native: manifest {} metadata block
     ;
@@ -389,18 +437,37 @@ userDefinableOperator
 // ============================================================
 // Capability declaration  (TOL agent-native)
 //
-//   capability Resolver;                  — single capability
-//   capability Resolver, Poster, Worker;  — multiple capabilities (comma-separated)
+//   capability Resolver;
+//   capability Poster;
 //
+// ONE capability name per declaration (multiple capabilities require separate lines).
 // May appear at top-level (shared across contracts) or inside a contract body.
 // 'capability' is a contextual keyword (Identifier with literal "capability").
-// Production: parsed by parseCapabilityDecl() in parser.go.
+// Production: parseCapabilityDecl() in parser.go.
 // ============================================================
 
 capabilityDeclaration
-    : Identifier Identifier (Comma Identifier)* Semicolon
+    : Identifier Identifier Semicolon
     ;
-    // Leading Identifier must equal "capability" (enforced by sema, not the lexer).
+    // First Identifier = "capability"; second Identifier = capability name.
+    // Example: capability Registrar;
+
+// ============================================================
+// Purpose declaration  (TOL agent-native)
+//
+//   purpose WorkEscrow;
+//   purpose RewardPool;
+//
+// Declares a named escrow purpose bucket.  The compiler assigns ordinals 0–255
+// in declaration order.  References as the third argument of escrow()/release()/slash().
+// 'purpose' is a contextual keyword (Identifier with literal "purpose").
+// Production: parsePurposeDecl() in parser.go.
+// ============================================================
+
+purposeDeclaration
+    : Identifier Identifier Semicolon
+    ;
+    // First Identifier = "purpose"; second Identifier = purpose name.
 
 // ============================================================
 // Agent-native storage slot declarations  (TOL agent-native)
@@ -408,32 +475,36 @@ capabilityDeclaration
 //   oracle<uint256> price;
 //   oracle<bytes32> jobHash;
 //   vote<uint8>     proposal;
+//   agent           admin;          — agent handle (no type parameter)
 //
-// 'oracle', 'vote', and 'task' are contextual keywords (Identifier).
-// The generic type parameter <T> is any valid typeName.
+// 'oracle', 'vote', 'task', 'agent' are contextual keywords (Identifier tokens).
+// Optional visibility modifier (public/private/internal) and override may follow
+// the type before the slot name.
 // Storage slots of type mapping(K => task<T>) use the regular storageVariable rule.
+// Production: parseAgentTypeSlot() in parser.go.
 // ============================================================
 
 agentNativeStorageDeclaration
-    : Identifier Lt typeName Gt Identifier Semicolon
+    : Identifier (Lt typeName Gt)? stateVariableModifier* Identifier Semicolon
     ;
-    // Leading Identifier: 'oracle' | 'vote'
-    // (task<T> slots use the storageVariable rule with genericTypeName inside mappingType)
+    // Leading Identifier: 'oracle' | 'vote' | 'task' | 'agent'
+    // Lt typeName Gt is present for oracle<T>/vote<T>/task<T>; absent for bare 'agent'.
+    // stateVariableModifier allows public/private/internal/override (same as storageVariable).
 
 // ============================================================
 // Manifest declaration  (TOL agent-native)
 //
 //   manifest {
-//     name = "AgentProtocol";
-//     version = "1.0.0";
-//     capabilities = [Resolver, Poster, Worker];
-//     min_stake = 1000000000000000000;
-//     verifiable;
+//     name:         "AgentProtocol";
+//     version:      "1.0.0";
+//     capabilities: [Resolver, Poster, Worker];
+//     min_stake:    1000000000000000000;
 //   }
 //
-// Key–value separator: either ';' or ',' (both accepted).
+// Key–value separator: COLON (not equals).
+// Field terminator: either ';' or ',' (both optional before '}'.
 // Values: string literal, decimal number, or array of identifiers/strings.
-// Boolean flags without a value (e.g. 'verifiable') are bare identifiers.
+// Production: parseManifestDecl() in parser.go.
 // ============================================================
 
 manifestDeclaration
@@ -442,8 +513,9 @@ manifestDeclaration
     // Leading Identifier must equal "manifest" (production: contextual).
 
 manifestField
-    : Identifier (Assign manifestFieldValue)? (Semicolon | Comma)?
+    : Identifier Colon manifestFieldValue (Semicolon | Comma)?
     ;
+    // Key: Colon separator (NOT Assign '=').
 
 manifestFieldValue
     : StringLiteral
@@ -1048,12 +1120,25 @@ testFunction
     ;
 
 casesTable
-    : Identifier LBrace casesRow* RBrace
+    : Identifier LBrace casesHeaderRow casesDataRow* RBrace
     ;
+    // Identifier = "cases" (contextual).
+    // Full syntax:
+    //   cases {
+    //     | col1   | col2   |          ← header: identifiers only
+    //     | expr1  | expr2  |          ← data rows: expressions
+    //     | expr3  | expr4  |
+    //   }
 
-casesRow
+casesHeaderRow
+    : BitOr (Identifier BitOr)+
+    ;
+    // Column names are identifiers (not expressions).
+
+casesDataRow
     : BitOr (expression BitOr)+
     ;
+    // One expression per column, leading and trailing | required.
 
 testBlock
     : LBrace testStatement* RBrace
@@ -1079,10 +1164,21 @@ deployStatement
 withStatement
     : Identifier expression testBlock
     ;
+    // Identifier = "with" (contextual).
+    // expression is an assignment expression overriding a context variable:
+    //   with msg.sender = alice { ... }
+    //   with msg.value = 1 ether { ... }
+    // Production: parseWithStatement() in parser.go.
 
 assertRevertStatement
-    : Identifier (LParen expression RParen)? testBlock
+    : Identifier (LParen expression? RParen)? testBlock
     ;
+    // Identifier = "assert_revert" (contextual).
+    // Forms:
+    //   assert_revert { ... }            — any revert
+    //   assert_revert() { ... }          — any revert (empty parens)
+    //   assert_revert("msg") { ... }     — revert message must contain "msg"
+    //   assert_revert(ErrorName(...)) { ... } — revert must match custom error
 
 assertAllStatement
     : Identifier testBlock

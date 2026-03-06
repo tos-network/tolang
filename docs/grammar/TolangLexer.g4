@@ -383,8 +383,24 @@ SubDenomination
 
 // ============================================================
 // Whitespace and Comments
+//
+// ORDERING NOTE (ANTLR longest-match):
+//   DocLineComment  must precede LineComment  (both start with '//')
+//   DocBlockComment must precede BlockComment (both start with '/*')
+//
+// Doc comments are NOT sent to the hidden channel — they are emitted as
+// visible tokens so the parser can bind them to the immediately following
+// declaration (TokenDocComment in the production lexer).
+//
+// Production lexer behaviour (tol/lexer/lexer.go):
+//   '///'  → TokenDocComment  (triple-slash; any following content on same line)
+//   '/**'  → TokenDocComment  (block; terminated by '*/')
+//   '//'   → skipped           (regular line comment)
+//   '/*'   → skipped           (regular block comment, NOT '/**')
 // ============================================================
 
-Whitespace   : [ \t\r\n\u000C]+ -> skip ;
-LineComment  : '//' ~[\r\n]*     -> channel(HIDDEN) ;
-BlockComment : '/*' .*? '*/'    -> channel(HIDDEN) ;
+Whitespace      : [ \t\r\n\u000C]+ -> skip ;
+DocLineComment  : '///' ~[\r\n]*    ;                  // triple-slash — emitted as TokenDocComment
+DocBlockComment : '/**' .*? '*/'    ;                  // block doc   — emitted as TokenDocComment
+LineComment     : '//' ~[\r\n]*     -> channel(HIDDEN) ; // must appear AFTER DocLineComment
+BlockComment    : '/*' .*? '*/'     -> channel(HIDDEN) ; // must appear AFTER DocBlockComment

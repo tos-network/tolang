@@ -499,19 +499,8 @@ func (r *Runner) runTestFn(testFile, sourceDir string, mod *ast.Module, td ast.T
 	// Use a very large limit to avoid blocking normal tests.
 	ls.SetGasLimit(1 << 48)
 
-	// Install line hook when in coverage mode.
-	if r.lineHits != nil {
-		hits := r.lineHits
-		ls.SetLineHook(func(src string, line int) {
-			if line <= 0 {
-				return
-			}
-			if hits[src] == nil {
-				hits[src] = make(map[int]bool)
-			}
-			hits[src][line] = true
-		})
-	}
+	// Install line hook: combines cancellation (for @timeout) and coverage tracking.
+	cancelCh := installCancellableHook(ls, r.lineHits)
 
 	injectAssertBuiltins(ls)
 
@@ -560,6 +549,8 @@ func (r *Runner) runTestFn(testFile, sourceDir string, mod *ast.Module, td ast.T
 		select {
 		case testErr = <-done:
 		case <-time.After(time.Duration(fn.Timeout) * time.Millisecond):
+			close(cancelCh) // interrupt the VM via line hook
+			<-done          // wait for goroutine to finish before ls.Close() runs
 			testErr = fmt.Errorf("timeout: test exceeded %dms", fn.Timeout)
 		}
 	} else {
@@ -590,18 +581,7 @@ func (r *Runner) runTestFnWithRow(testFile, sourceDir string, mod *ast.Module, t
 
 	ls.SetGasLimit(1 << 48)
 
-	if r.lineHits != nil {
-		hits := r.lineHits
-		ls.SetLineHook(func(src string, line int) {
-			if line <= 0 {
-				return
-			}
-			if hits[src] == nil {
-				hits[src] = make(map[int]bool)
-			}
-			hits[src][line] = true
-		})
-	}
+	cancelCh := installCancellableHook(ls, r.lineHits)
 
 	injectAssertBuiltins(ls)
 
@@ -660,6 +640,8 @@ func (r *Runner) runTestFnWithRow(testFile, sourceDir string, mod *ast.Module, t
 		select {
 		case testErr = <-done:
 		case <-time.After(time.Duration(fn.Timeout) * time.Millisecond):
+			close(cancelCh)
+			<-done
 			testErr = fmt.Errorf("timeout: test exceeded %dms", fn.Timeout)
 		}
 	} else {
@@ -698,6 +680,7 @@ func (r *Runner) runFuzzFn(testFile, sourceDir string, mod *ast.Module, td ast.T
 	for i := 0; i < count; i++ {
 		ls := lua.NewState()
 		ls.SetGasLimit(1 << 48)
+		fuzzCancelCh := installCancellableHook(ls, nil)
 		injectAssertBuiltins(ls)
 
 		if err := injectTestLets(ls, td.Lets); err != nil {
@@ -752,6 +735,8 @@ func (r *Runner) runFuzzFn(testFile, sourceDir string, mod *ast.Module, td ast.T
 			select {
 			case runErr = <-done:
 			case <-time.After(time.Duration(fn.Timeout) * time.Millisecond):
+				close(fuzzCancelCh)
+				<-done
 				runErr = fmt.Errorf("timeout: test exceeded %dms", fn.Timeout)
 			}
 		} else {
@@ -1048,6 +1033,29 @@ func (r *Runner) executeMockDeploy(ls *lua.LState, md *ast.MockDecl, bindingName
 		}
 	}
 	return nil
+}
+
+// installCancellableHook installs a line hook on ls that can be cancelled by
+// closing the returned channel. When cancelled, it raises a Lua error to
+// interrupt execution, allowing the goroutine to exit cleanly.
+// If hits is non-nil, coverage tracking is included in the same hook.
+// Callers must close the returned channel when they are done (or on timeout).
+func installCancellableHook(ls *lua.LState, hits map[string]map[int]bool) chan struct{} {
+	cancelCh := make(chan struct{})
+	ls.SetLineHook(func(src string, line int) {
+		select {
+		case <-cancelCh:
+			ls.RaiseError("__tol_timeout__")
+		default:
+		}
+		if hits != nil && line > 0 {
+			if hits[src] == nil {
+				hits[src] = make(map[int]bool)
+			}
+			hits[src][line] = true
+		}
+	})
+	return cancelCh
 }
 
 // injectAssertBuiltins registers assert_eq, assert_ne, assert_gt, assert_lt,

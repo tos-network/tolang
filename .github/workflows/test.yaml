@@ -19,8 +19,8 @@ jobs:
       run: go test -v ./... -covermode=count -coverprofile=coverage.out
     - name: Send coverage
       if: matrix.platform == 'ubuntu-latest' && matrix.go-version == '1.23.x'
-      env:
-        COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        go install github.com/mattn/goveralls@latest
-        goveralls -coverprofile=coverage.out -service=github
+      uses: coverallsapp/github-action@v2
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        file: coverage.out
+        format: golang

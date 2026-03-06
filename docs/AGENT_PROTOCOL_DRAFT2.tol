@@ -3,7 +3,7 @@ pragma tolang 0.3.0;
 // GTOS Agent + Task + Prediction Market protocol — Agent-Native rewrite (v2).
 //
 // What changed vs v1 (AGENT_PROTOCOL_DRAFT.tol):
-//   address → agent          identity carries .stake / .reputation / .is_active natively
+//   agent → agent          identity carries .stake / .reputation / .is_active natively
 //   mapping(u256 => u8)      task status → task<T> with compiler-enforced state machine
 //   require(registry...)     → @requires(caller: CapabilityName)  — compiler-inserted
 //   require(msg.value >= ...) → @pay(amount)                      — compiler-inserted
@@ -29,7 +29,7 @@ capability RewardSigner;    // may allocate reward campaign funds
 // ═══════════════════════════════════════════════════════════════════════════════
 
 interface IAgentRegistry {
-  // agent replaces address — the type carries registry semantics
+  // agent replaces agent — the type carries registry semantics
   event AgentRegistered(agent indexed who, string metadata_uri, u256 stake)
   event AgentProfileUpdated(agent indexed who, string metadata_uri)
   event AgentStakeChanged(agent indexed who, i256 delta, u256 total)
@@ -364,7 +364,7 @@ contract DisputeResolver is IDisputeResolver {
 
 interface IPredictionMarketFactory {
   event MarketCreated(
-    address indexed market,
+    agent indexed market,
     agent   indexed creator,
     bytes32 indexed question_id,
     u64     close_time_ms,
@@ -379,7 +379,7 @@ interface IPredictionMarketFactory {
     u64     close_time_ms,
     agent   oracle_agent,
     u16     fee_bps
-  ) public returns (address market);
+  ) public returns (agent market);
 }
 
 contract PredictionMarketFactory is IPredictionMarketFactory {
@@ -392,10 +392,10 @@ contract PredictionMarketFactory is IPredictionMarketFactory {
   agent   admin;
   agent   fee_recipient;
   u256    market_count;
-  mapping(bytes32 => address) market_by_question;
+  mapping(bytes32 => agent) market_by_question;
 
   event MarketCreated(
-    address indexed market,
+    agent indexed market,
     agent   indexed creator,
     bytes32 indexed question_id,
     u64     close_time_ms,
@@ -409,9 +409,9 @@ contract PredictionMarketFactory is IPredictionMarketFactory {
     u64     close_time_ms,
     agent   oracle_agent,
     u16     fee_bps
-  ) public returns (address market) {
-    require(market_by_question[question_id] == address(0), "MarketExists");
-    // deploy PredictionMarket child contract (address returned by runtime)
+  ) public returns (agent market) {
+    require(market_by_question[question_id] == agent(0), "MarketExists");
+    // deploy PredictionMarket child contract (agent returned by runtime)
     market = deploy PredictionMarket(question_id, close_time_ms, oracle_agent, fee_bps, fee_recipient);
     market_by_question[question_id] = market;
     market_count = market_count + 1;
@@ -470,10 +470,10 @@ contract PredictionMarket is IPredictionMarket {
   oracle<u8> winning_outcome;   // write-once; second fulfill() → compile-guarded revert
 
   mapping(u8 => u256)                       pool;
-  mapping(address => mapping(u8 => u256))   shares;
-  mapping(address => u256)                  lp_shares;
+  mapping(agent => mapping(u8 => u256))   shares;
+  mapping(agent => u256)                  lp_shares;
   u256                                      total_lp_shares;
-  mapping(address => bool)                  claimed;
+  mapping(agent => bool)                  claimed;
 
   event LiquidityAdded(agent indexed provider, u256 amount, u256 minted_shares)
   event LiquidityRemoved(agent indexed provider, u256 burned_shares, u256 amount_out)
@@ -552,7 +552,7 @@ contract PredictionMarket is IPredictionMarket {
 
   @verifiable
   function sharesOf(agent user, u8 outcome) public view returns (u256 shares_out) {
-    return shares[address(user)][outcome];
+    return shares[agent(user)][outcome];
   }
 }
 
@@ -597,8 +597,8 @@ contract RewardVault is IRewardVault {
   agent admin;
   mapping(bytes32 => u256)                     campaign_fund;
   mapping(bytes32 => u256)                     campaign_allocated_total;
-  mapping(bytes32 => mapping(address => u256)) allocated;
-  mapping(bytes32 => mapping(address => u256)) claimed_amount;
+  mapping(bytes32 => mapping(agent => u256)) allocated;
+  mapping(bytes32 => mapping(agent => u256)) claimed_amount;
 
   event RewardFunded(bytes32 indexed campaign_id, agent indexed from, u256 amount)
   event RewardAllocated(bytes32 indexed campaign_id, agent indexed user, u256 amount, string reason)
@@ -614,7 +614,7 @@ contract RewardVault is IRewardVault {
   @requires(caller: RewardSigner)
   function allocate(bytes32 campaign_id, agent user, u256 amount, string reason) public {
     require(remainingOf(campaign_id) >= amount, "InsufficientFund");
-    allocated[campaign_id][address(user)] = allocated[campaign_id][address(user)] + amount;
+    allocated[campaign_id][agent(user)] = allocated[campaign_id][agent(user)] + amount;
     campaign_allocated_total[campaign_id] = campaign_allocated_total[campaign_id] + amount;
     emit RewardAllocated(campaign_id, user, amount, reason);
   }
@@ -635,12 +635,12 @@ contract RewardVault is IRewardVault {
 
   @verifiable
   function allocatedOf(bytes32 campaign_id, agent user) public view returns (u256 amount) {
-    return allocated[campaign_id][address(user)];
+    return allocated[campaign_id][agent(user)];
   }
 
   @verifiable
   function claimedOf(bytes32 campaign_id, agent user) public view returns (u256 amount) {
-    return claimed_amount[campaign_id][address(user)];
+    return claimed_amount[campaign_id][agent(user)];
   }
 
   @verifiable

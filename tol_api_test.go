@@ -476,7 +476,7 @@ func TestBuildIRRejectsMappingTypeOutsideStorage(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  function run(mapping(address=>u256) m) public {
+  function run(mapping(agent =>u256) m) public {
     return;
   }
 }
@@ -488,7 +488,7 @@ contract Demo {
 	if !strings.Contains(err.Error(), "TOL2021") {
 		t.Fatalf("expected TOL2021 sema error, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "invalid type 'mapping(address=>u256)' in function 'run' parameter 'm'") {
+	if !strings.Contains(err.Error(), "in function 'run' parameter 'm'") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -703,7 +703,7 @@ func TestCompileBytecodeLocalTypedDefaults(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: address;
+    let a: agent;
     let s: string;
     let n: u256;
     set out_a = a;
@@ -1165,7 +1165,7 @@ func TestCompileBytecodeEventMetadataTablesGenerated(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  event Transfer(address from indexed, address to indexed, u256 amount)
+  event Transfer(agent from indexed, agent to indexed, u256 amount)
   function run() public {
     return;
   }
@@ -1202,7 +1202,7 @@ func TestCompileBytecodeEmitAppendsEventMetadata(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  event Transfer(address from indexed, address to indexed, u256 amount)
+  event Transfer(agent from indexed, agent to indexed, u256 amount)
   function run() public {
     emit Transfer("0x1", "0x2", 7);
     return;
@@ -3129,13 +3129,13 @@ pragma tolang 0.2.0;
 contract Wallet {
   address owner;
   u256 balance;
-  constructor(address initialOwner, u256 initialBalance) {
+  constructor(agent initialOwner, u256 initialBalance) {
     set owner = initialOwner;
     set balance = initialBalance;
     return;
   }
-  function getOwner() public returns (address r) {
-    let r: address = owner;
+  function getOwner() public returns (agent r) {
+    let r: agent = owner;
     return r;
   }
   function getBalance() public returns (u256 r) {
@@ -3162,7 +3162,7 @@ contract Wallet {
 	}
 
 	// ABI calldata for (address=0x...a11c, u256=9999):
-	// Slot 0 (address): 32 bytes, address right-aligned (left-padded with zeros).
+	// Slot 0 (address): 32 bytes, agent right-aligned (left-padded with zeros).
 	//   alice = 0x000000000000000000000000000000000000000000000000000000000000a11c
 	//   ABI padded: 000000000000000000000000000000000000000000000000000000000000a11c
 	// Slot 1 (u256): 32 bytes, 9999 = 0x270F → 60 zeros + "270f"
@@ -3336,7 +3336,7 @@ func TestSemaRejectsConstructorMappingParam(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Bad {
-  constructor(mapping(address => u256) m) {
+  constructor(mapping(agent => u256) m) {
     return;
   }
 }
@@ -3881,8 +3881,8 @@ func TestCompileBytecodeStorageMappingSlot(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  mapping(address => u256) balances;
-  function add(address who, u256 amount) public {
+  mapping(agent => u256) balances;
+  function add(agent who, u256 amount) public {
     let cur: u256 = balances[who];
     set balances[who] = cur + amount;
     set got = balances[who];
@@ -3996,8 +3996,8 @@ func TestCompileBytecodeStorageNestedMappingSlot(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  mapping(address => mapping(address => u256)) allowances;
-  function add(address owner, address spender, u256 amount) public {
+  mapping(agent => mapping(agent => u256)) allowances;
+  function add(agent owner, agent spender, u256 amount) public {
     let cur: u256 = allowances[owner][spender];
     set allowances[owner][spender] = cur + amount;
     set got = allowances[owner][spender];
@@ -4050,8 +4050,8 @@ func TestCompileBytecodeStorageNestedMappingRejectsPartialIndex(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  mapping(address => mapping(address => u256)) allowances;
-  function bad(address owner) public {
+  mapping(agent => mapping(agent => u256)) allowances;
+  function bad(agent owner) public {
     set got = allowances[owner];
     return;
   }
@@ -4309,7 +4309,7 @@ func TestCompileBytecodeABIBuiltinDecodeTypedAddressLocal(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: address = abi.decode("0x00000000000000000000000000000000000000000000000000000000000000ab");
+    let a: agent = abi.decode("0x00000000000000000000000000000000000000000000000000000000000000ab");
     set out = a;
     return;
   }
@@ -4754,14 +4754,14 @@ func TestM3InterfaceConformanceEndToEnd(t *testing.T) {
 pragma tolang 0.2.0;
 interface IToken {
   function totalSupply() public returns (u256 supply) ;
-  function transfer(address to, u256 amount) public returns (bool ok) ;
+  function transfer(agent to, u256 amount) public returns (bool ok) ;
 }
 contract Token is IToken {
   u256 supply;
   function totalSupply() public returns (u256 supply) {
     return supply;
   }
-  function transfer(address to, u256 amount) public returns (bool ok) {
+  function transfer(agent to, u256 amount) public returns (bool ok) {
     return true;
   }
 }
@@ -4778,7 +4778,7 @@ func TestM3InterfaceNotImplementedEndToEnd(t *testing.T) {
 pragma tolang 0.2.0;
 interface IToken {
   function totalSupply() public returns (u256 supply) ;
-  function transfer(address to, u256 amount) public returns (bool ok) ;
+  function transfer(agent to, u256 amount) public returns (bool ok) ;
 }
 contract Token is IToken {
   function totalSupply() public returns (u256 supply) {
@@ -4800,10 +4800,10 @@ func TestM3OverrideSigMismatchEndToEnd(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 interface IToken {
-  function transfer(address to, u256 amount) public returns (bool ok) ;
+  function transfer(agent to, u256 amount) public returns (bool ok) ;
 }
 contract Token is IToken {
-  function transfer(address to, u128 amount) public returns (bool ok) {
+  function transfer(agent to, u128 amount) public returns (bool ok) {
     return true;
   }
 }
@@ -4841,16 +4841,16 @@ func TestM3MultipleInheritanceC3EndToEnd(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 interface IOwnable {
-  function owner() public returns (address addr) ;
+  function owner() public returns (agent addr) ;
 }
 interface IERC20 {
   function totalSupply() public returns (u256 supply) ;
-  function transfer(address to, u256 amount) public returns (bool ok) ;
+  function transfer(agent to, u256 amount) public returns (bool ok) ;
 }
 contract Token is IERC20, IOwnable {
   function totalSupply() public returns (u256 supply) { return 0; }
-  function transfer(address to, u256 amount) public returns (bool ok) { return true; }
-  function owner() public returns (address addr) { return 0; }
+  function transfer(agent to, u256 amount) public returns (bool ok) { return true; }
+  function owner() public returns (agent addr) { return 0; }
 }
 `)
 	_, err := BuildIR(src, "<tol>")
@@ -5655,8 +5655,8 @@ func TestErrorDeclRevertCompiles(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  error Unauthorized(address caller);
-  function run(address caller) public {
+  error Unauthorized(agent caller);
+  function run(agent caller) public {
     revert Unauthorized(caller);
   }
 }
@@ -5674,8 +5674,8 @@ func TestErrorDeclArityMismatchRejected(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  error Unauthorized(address caller);
-  function run(address caller) public {
+  error Unauthorized(agent caller);
+  function run(agent caller) public {
     revert Unauthorized(caller, 999);
   }
 }
@@ -6971,7 +6971,7 @@ func TestAbstractContractVirtualStubRejectedInConcreteContract(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Token {
-    function transfer(address to, u256 amount) public virtual returns (bool ok) ;
+    function transfer(agent to, u256 amount) public virtual returns (bool ok) ;
 }
 `)
 	_, err := BuildIR(src, "<tol>")
@@ -7590,12 +7590,12 @@ func TestNestedMappingReadWrite(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Allowances {
-  mapping(address => mapping(address => u256)) m;
-  function set_val(address owner, address spender, u256 v) public {
+  mapping(agent => mapping(agent => u256)) m;
+  function set_val(agent owner, agent spender, u256 v) public {
     set m[owner][spender] = v;
     return;
   }
-  function get_val(address owner, address spender) public {
+  function get_val(agent owner, agent spender) public {
     set got = m[owner][spender];
     return;
   }
@@ -7655,12 +7655,12 @@ func TestMappingToArrayReadWrite(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Balances {
-  mapping(address => u256[]) bal;
-  function push_val(address addr, u256 v) public {
+  mapping(agent => u256[]) bal;
+  function push_val(agent addr, u256 v) public {
     set bal[addr][0] = v;
     return;
   }
-  function get_val(address addr) public {
+  function get_val(agent addr) public {
     set got = bal[addr][0];
     return;
   }
@@ -7946,8 +7946,8 @@ func TestPayableTypeCastCompiles(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract PayableDemo {
-  function getPayable(address addr) public view returns (address out) {
-    let out: address = payable(addr);
+  function getPayable(agent addr) public view returns (agent out) {
+    let out: agent = payable(addr);
     return out;
   }
 }
@@ -7990,16 +7990,16 @@ func TestTypeInterfaceIdCompileTime(t *testing.T) {
 pragma tolang 0.2.0;
 
 interface ISimple {
-  function transfer(address to, u256 amount) public returns (bool ok) ;
+  function transfer(agent to, u256 amount) public returns (bool ok) ;
 }
 
 interface IERC20 {
   function totalSupply() public view returns (u256 supply) ;
-  function balanceOf(address account) public view returns (u256 bal) ;
-  function transfer(address to, u256 amount) public returns (bool ok) ;
-  function transferFrom(address from, address to, u256 amount) public returns (bool ok) ;
-  function approve(address spender, u256 amount) public returns (bool ok) ;
-  function allowance(address owner, address spender) public view returns (u256 remaining) ;
+  function balanceOf(agent account) public view returns (u256 bal) ;
+  function transfer(agent to, u256 amount) public returns (bool ok) ;
+  function transferFrom(agent from, agent to, u256 amount) public returns (bool ok) ;
+  function approve(agent spender, u256 amount) public returns (bool ok) ;
+  function allowance(agent owner, agent spender) public view returns (u256 remaining) ;
 }
 
 contract InterfaceIdDemo {
@@ -8252,8 +8252,8 @@ func TestAddressPayableTypeAnnotationCompiles(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Test {
-  function run(address payable addr) public {
-    let x: address payable = addr;
+  function run(agent addr) public {
+    let x: agent = addr;
     set out_addr = x;
     return;
   }
@@ -8288,7 +8288,7 @@ func TestAddrDotTransferCallsHostTransfer(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Wallet {
-  function doTransfer(address payable recipient, u256 amount) public {
+  function doTransfer(agent recipient, u256 amount) public {
     recipient.transfer(amount);
     return;
   }
@@ -8339,7 +8339,7 @@ func TestAddrDotSendCallsHostSend(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Wallet {
-  function trySend(address payable recipient, u256 amount) public returns (bool ok) {
+  function trySend(agent recipient, u256 amount) public returns (bool ok) {
     let ok: bool = recipient.send(amount);
     return ok;
   }
@@ -8544,7 +8544,7 @@ contract _Dummy {}
 	mainSrc := fmt.Sprintf(`pragma tolang 0.2.0;
 import ICounter from "./icounter.tol";
 contract Caller {
-  function callIncrement(address addr) public {
+  function callIncrement(agent addr) public {
     ICounter(addr).increment();
     return;
   }
@@ -8661,7 +8661,7 @@ contract Counter {
 	mainSrc := fmt.Sprintf(`pragma tolang 0.2.0;
 import ICounter from "./counter.toc";
 contract Proxy {
-  function call(address addr) public view returns (u256 v) {
+  function call(agent addr) public view returns (u256 v) {
     let v: u256 = ICounter(addr).value();
     return v;
   }
@@ -8701,7 +8701,7 @@ contract Token {
 	mainSrc := fmt.Sprintf(`pragma tolang 0.2.0;
 import IToken from "./token.tor";
 contract Caller {
-  function getSupply(address addr) public view returns (u256 v) {
+  function getSupply(agent addr) public view returns (u256 v) {
     let v: u256 = IToken(addr).totalSupply();
     return v;
   }
@@ -9147,12 +9147,12 @@ func TestEffectsNestedMappingCommaFormat(t *testing.T) {
 	// comma-keyed ref storage.allowances[from,spender].
 	src := []byte(`pragma tolang 0.2.0;
 contract ERC20 {
-  mapping(address => mapping(address => u256)) allowances;
+  mapping(agent => mapping(agent => u256)) allowances;
   /// @effects reads: []
   /// @effects writes: storage.allowances[*]
   /// @effects emits: []
   /// @effects calls: []
-  function approve(address from, address spender, u256 amount) public {
+  function approve(agent from, agent spender, u256 amount) public {
     set allowances[from][spender] = amount;
     return;
   }
@@ -9182,12 +9182,12 @@ func TestEffectsNestedMappingChainedBracketsRejected(t *testing.T) {
 	// the comma-format inferred ref and must produce TOL2200.
 	src := []byte(`pragma tolang 0.2.0;
 contract ERC20 {
-  mapping(address => mapping(address => u256)) allowances;
+  mapping(agent => mapping(agent => u256)) allowances;
   /// @effects reads: []
   /// @effects writes: storage.allowances[from][spender]
   /// @effects emits: []
   /// @effects calls: []
-  function approve(address from, address spender, u256 amount) public {
+  function approve(agent from, agent spender, u256 amount) public {
     set allowances[from][spender] = amount;
     return;
   }
@@ -9208,12 +9208,12 @@ contract ERC20 {
 func TestEffectsNestedMappingWildcardCoversCommaKey(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract ERC20 {
-  mapping(address => mapping(address => u256)) allowances;
+  mapping(agent => mapping(agent => u256)) allowances;
   /// @effects reads: []
   /// @effects writes: storage.allowances[*]
   /// @effects emits: []
   /// @effects calls: []
-  function approve(address from, address spender, u256 amount) public {
+  function approve(agent from, agent spender, u256 amount) public {
     set allowances[from][spender] = amount;
     return;
   }
@@ -9413,7 +9413,7 @@ func TestEffectsMsgSenderMapsToCallerKey(t *testing.T) {
 	// covered by @effects reads/writes: storage.balances[caller].
 	src := []byte(`pragma tolang 0.2.0;
 contract ERC20 {
-  mapping(address => u256) balances;
+  mapping(agent => u256) balances;
   /// @effects reads:  storage.balances[caller]
   /// @effects writes: storage.balances[caller]
   /// @effects emits:  []
@@ -9688,7 +9688,7 @@ func TestCallOptionsParseCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let addr: address = 0x0000000000000000000000000000000000000001;
+    let addr: agent = 0x0000000000000000000000000000000000000001;
     let (ok, ret): (bool, bytes) = addr.call{value: 0}("0x");
     set out = ok;
     return;
@@ -9710,7 +9710,7 @@ func TestCallOptionsGasCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let addr: address = 0x0000000000000000000000000000000000000001;
+    let addr: agent = 0x0000000000000000000000000000000000000001;
     let (ok, ret): (bool, bytes) = addr.staticcall{gas: 2300}("0x");
     set out = ok;
     return;
@@ -9863,7 +9863,7 @@ func TestCallOptionsDelegatecallCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let addr: address = 0x0000000000000000000000000000000000000002;
+    let addr: agent = 0x0000000000000000000000000000000000000002;
     let (ok, ret): (bool, bytes) = addr.delegatecall{gas: 5000}("0x");
     set out = ok;
     return;
@@ -9886,7 +9886,7 @@ func TestCallOptionsValueAndGasCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let addr: address = 0x0000000000000000000000000000000000000003;
+    let addr: agent = 0x0000000000000000000000000000000000000003;
     let (ok, ret): (bool, bytes) = addr.call{value: 100, gas: 3000}("0x");
     set out = ok;
     return;

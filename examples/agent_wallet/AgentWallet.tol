@@ -6,7 +6,7 @@ pragma tolang 0.3.0;
 // ────────
 // An autonomous AI agent controls a keypair (addr_A).  Deploying this contract
 // creates a second, programmable identity (addr_wallet) that the agent uses as
-// its stable on-chain address.
+// its stable on-chain identity.
 //
 // The gtos protocol recognises addr_wallet as an AA account contract because the
 // compiler writes a marker into storage during construction.  Before executing
@@ -19,7 +19,7 @@ pragma tolang 0.3.0;
 // SESSION KEYS
 // ────────────
 // The owner can grant temporary session keys to sub-processes, hot wallets, or
-// delegated modules.  A session key is a normal address whose transactions are
+// delegated modules.  A session key is a normal agent whose transactions are
 // accepted by validate() until the key expires or is revoked.
 //
 // Typical use cases:
@@ -41,7 +41,7 @@ account contract AgentWallet {
 
     // ── Storage ───────────────────────────────────────────────────────────────
 
-    // Primary controlling address.  Only transferOwner() can change this, and
+    // Primary controlling agent identity.  Only transferOwner() can change this, and
     // that function itself requires validate() to pass first.
     agent owner;
 
@@ -134,7 +134,7 @@ account contract AgentWallet {
     /// The key's other stored attributes (expiry, value_cap) are preserved but
     /// irrelevant once sk_active is false.
     ///
-    /// @param  key  Session key address to deactivate.
+    /// @param  key  Session key agent to deactivate.
     ///
     /// @effects reads:  storage.owner
     /// @effects writes: storage.sk_active[key]
@@ -149,7 +149,7 @@ account contract AgentWallet {
 
     // ── Execution ─────────────────────────────────────────────────────────────
 
-    /// @notice Forward a call to any target contract as this wallet's address.
+    /// @notice Forward a call to any target contract as this wallet's identity.
     ///
     /// Downstream contracts see msg.sender = addr_wallet, giving the wallet a
     /// stable on-chain identity regardless of which key signed the outer tx.
@@ -158,7 +158,7 @@ account contract AgentWallet {
     /// The call result is emitted as an Executed event; execute() reverts if
     /// the forwarded call fails so the outer tx is rolled back cleanly.
     ///
-    /// @param  target  Contract address to call.
+    /// @param  target  Contract (agent) to call.
     /// @param  data    ABI-encoded calldata (4-byte selector + encoded arguments).
     /// @param  value   wei to attach to the forwarded call.
     ///
@@ -182,7 +182,7 @@ account contract AgentWallet {
 
     // ── Owner Transfer ────────────────────────────────────────────────────────
 
-    /// @notice Transfer wallet ownership to a new address.
+    /// @notice Transfer wallet ownership to a new agent.
     ///
     /// Useful when rotating the main key, upgrading to a multi-sig, or handing
     /// control to a different agent.  The old owner loses all privileges as soon

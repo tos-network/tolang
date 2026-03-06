@@ -98,13 +98,13 @@ func TestBytecodeErrorDeclRevertCompiles(t *testing.T) {
 	p := &lower.Program{
 		ContractName: "Demo",
 		Errors: []lower.ErrorDecl{
-			{Name: "Unauthorized", Params: []ast.FieldDecl{{Name: "caller", Type: "address"}}},
+			{Name: "Unauthorized", Params: []ast.FieldDecl{{Name: "caller", Type: "agent"}}},
 		},
 		Functions: []lower.Function{
 			{
 				Name:      "doSomething",
 				Modifiers: []string{"public"},
-				Params:    []ast.FieldDecl{{Name: "caller", Type: "address"}},
+				Params:    []ast.FieldDecl{{Name: "caller", Type: "agent"}},
 				Body: []ast.Statement{
 					{
 						Kind: "revert",

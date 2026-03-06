@@ -22,7 +22,9 @@ lexer grammar TolangLexer;
 // ============================================================
 
 Abstract    : 'abstract'    ; // production: contextual
-Address     : 'address'     ; // production: contextual
+// Address token removed — 'address' is a deprecated alias for 'agent'.
+// The production lexer still accepts 'address' for backward compatibility
+// and normalises it to 'agent' via normalizeSelectorType().
 Anonymous   : 'anonymous'   ; // production: contextual
 As          : 'as'          ;
 Assert      : 'assert'      ; // TOL-specific (Solidity: contextual builtin)
@@ -280,6 +282,11 @@ fragment HexDigit : [0-9a-fA-F] ;
 //   agent  capability  cases  fuzz  inspect  mock  nil  oracle
 //   selector  setup  setup_suite  skip  tag  task  teardown
 //   teardown_suite  timeout  tolang  vote  with
+//
+// 'agent' is TOL's primary identity type — equivalent to Solidity's 'address'
+// but semantically richer (carries .stake, .is_active, .reputation etc.).
+// The deprecated 'address' and 'address payable' spellings are still accepted
+// and silently normalised to 'agent' throughout the pipeline.
 //
 // Note: 'deploy' was contextual; promoted to Deploy token (TokenKwDeploy).
 // ============================================================

@@ -50,7 +50,7 @@ func TestCheckAllowsConstructorParams(t *testing.T) {
 			Name: "Demo",
 			Constructor: &ast.ConstructorDecl{
 				Params: []ast.FieldDecl{
-					{Name: "owner", Type: "address"},
+					{Name: "owner", Type: "agent"},
 				},
 			},
 		},
@@ -1333,8 +1333,8 @@ func TestCheckRejectsDuplicateConstructorParams(t *testing.T) {
 			Name: "Demo",
 			Constructor: &ast.ConstructorDecl{
 				Params: []ast.FieldDecl{
-					{Name: "owner", Type: "address"},
-					{Name: "owner", Type: "address"},
+					{Name: "owner", Type: "agent"},
+					{Name: "owner", Type: "agent"},
 				},
 			},
 		},
@@ -2073,14 +2073,14 @@ func TestCheckRejectsPartialNestedMappingIndex(t *testing.T) {
 			Name: "Demo",
 			Storage: &ast.StorageDecl{
 				Slots: []ast.StorageSlot{
-					{Name: "allowances", Type: "mapping(address => mapping(address => u256))"},
+					{Name: "allowances", Type: "mapping(agent => mapping(agent => u256))"},
 				},
 			},
 			Functions: []ast.FunctionDecl{
 				{
 					Name: "f",
 					Params: []ast.FieldDecl{
-						{Name: "owner", Type: "address"},
+						{Name: "owner", Type: "agent"},
 					},
 					Body: []ast.Statement{
 						{
@@ -4356,7 +4356,7 @@ func TestCheckInterfaceConformanceOK(t *testing.T) {
 				Functions: []ast.FuncSigDecl{
 					{
 						Name:      "transfer",
-						Params:    []ast.FieldDecl{{Name: "to", Type: "address"}, {Name: "amount", Type: "u256"}},
+						Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
 						Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 						Modifiers: []string{"public"},
 					},
@@ -4369,7 +4369,7 @@ func TestCheckInterfaceConformanceOK(t *testing.T) {
 			Functions: []ast.FunctionDecl{
 				{
 					Name:      "transfer",
-					Params:    []ast.FieldDecl{{Name: "to", Type: "address"}, {Name: "amount", Type: "u256"}},
+					Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
 					Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 					Modifiers: []string{"public"},
 					Body: []ast.Statement{
@@ -4395,7 +4395,7 @@ func TestCheckInterfaceNotImplemented(t *testing.T) {
 				Functions: []ast.FuncSigDecl{
 					{
 						Name:      "transfer",
-						Params:    []ast.FieldDecl{{Name: "to", Type: "address"}, {Name: "amount", Type: "u256"}},
+						Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
 						Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 						Modifiers: []string{"public"},
 					},
@@ -4430,7 +4430,7 @@ func TestCheckOverrideSignatureMismatch(t *testing.T) {
 				Functions: []ast.FuncSigDecl{
 					{
 						Name:      "transfer",
-						Params:    []ast.FieldDecl{{Name: "to", Type: "address"}, {Name: "amount", Type: "u256"}},
+						Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
 						Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 						Modifiers: []string{"public"},
 					},
@@ -4444,7 +4444,7 @@ func TestCheckOverrideSignatureMismatch(t *testing.T) {
 				{
 					// Wrong: param type u128 instead of u256.
 					Name:      "transfer",
-					Params:    []ast.FieldDecl{{Name: "to", Type: "address"}, {Name: "amount", Type: "u128"}},
+					Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u128"}},
 					Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 					Modifiers: []string{"public"},
 					Body: []ast.Statement{
@@ -4651,13 +4651,13 @@ func TestCheckMultipleInterfacesConformance(t *testing.T) {
 			{
 				Name: "IOwnable",
 				Functions: []ast.FuncSigDecl{
-					{Name: "owner", Returns: []ast.FieldDecl{{Name: "addr", Type: "address"}}, Modifiers: []string{"public"}},
+					{Name: "owner", Returns: []ast.FieldDecl{{Name: "addr", Type: "agent"}}, Modifiers: []string{"public"}},
 				},
 			},
 			{
 				Name: "IToken",
 				Functions: []ast.FuncSigDecl{
-					{Name: "transfer", Params: []ast.FieldDecl{{Name: "to", Type: "address"}, {Name: "amount", Type: "u256"}}, Returns: []ast.FieldDecl{{Name: "ok", Type: "bool"}}, Modifiers: []string{"public"}},
+					{Name: "transfer", Params: []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}}, Returns: []ast.FieldDecl{{Name: "ok", Type: "bool"}}, Modifiers: []string{"public"}},
 				},
 			},
 		},
@@ -4667,14 +4667,14 @@ func TestCheckMultipleInterfacesConformance(t *testing.T) {
 			Functions: []ast.FunctionDecl{
 				{
 					Name:      "transfer",
-					Params:    []ast.FieldDecl{{Name: "to", Type: "address"}, {Name: "amount", Type: "u256"}},
+					Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
 					Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 					Modifiers: []string{"public"},
 					Body:      []ast.Statement{{Kind: "return", Expr: &ast.Expr{Kind: "ident", Value: "true"}}},
 				},
 				{
 					Name:      "owner",
-					Returns:   []ast.FieldDecl{{Name: "addr", Type: "address"}},
+					Returns:   []ast.FieldDecl{{Name: "addr", Type: "agent"}},
 					Modifiers: []string{"public"},
 					Body:      []ast.Statement{{Kind: "return", Expr: &ast.Expr{Kind: "number", Value: "0"}}},
 				},
@@ -4698,7 +4698,7 @@ func TestCheckErrorDeclArityMismatch(t *testing.T) {
 		Contract: &ast.ContractDecl{
 			Name: "Demo",
 			Errors: []ast.ErrorDecl{
-				{Name: "Unauthorized", Params: []ast.FieldDecl{{Name: "caller", Type: "address"}}},
+				{Name: "Unauthorized", Params: []ast.FieldDecl{{Name: "caller", Type: "agent"}}},
 			},
 			Functions: []ast.FunctionDecl{
 				{
@@ -4737,7 +4737,7 @@ func TestCheckErrorDeclArityCorrect(t *testing.T) {
 		Contract: &ast.ContractDecl{
 			Name: "Demo",
 			Errors: []ast.ErrorDecl{
-				{Name: "Unauthorized", Params: []ast.FieldDecl{{Name: "caller", Type: "address"}}},
+				{Name: "Unauthorized", Params: []ast.FieldDecl{{Name: "caller", Type: "agent"}}},
 			},
 			Functions: []ast.FunctionDecl{
 				{
@@ -6061,7 +6061,7 @@ func TestCheckStructDeclValid(t *testing.T) {
 					Name: "Point",
 					Fields: []ast.FieldDecl{
 						{Name: "x", Type: "u256"},
-						{Name: "y", Type: "address"},
+						{Name: "y", Type: "agent"},
 					},
 				},
 			},
@@ -6335,7 +6335,7 @@ func TestCheckAbstractContractAccepted(t *testing.T) {
 			Functions: []ast.FunctionDecl{
 				{
 					Name:      "transfer",
-					Params:    []ast.FieldDecl{{Name: "to", Type: "address"}, {Name: "amount", Type: "u256"}},
+					Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
 					Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 					Modifiers: []string{"public"},
 					Virtual:   true,
@@ -6361,7 +6361,7 @@ func TestCheckAbstractFunctionInConcreteContractRejected(t *testing.T) {
 			Functions: []ast.FunctionDecl{
 				{
 					Name:      "transfer",
-					Params:    []ast.FieldDecl{{Name: "to", Type: "address"}, {Name: "amount", Type: "u256"}},
+					Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
 					Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 					Modifiers: []string{"public"},
 					Virtual:   true,
@@ -6395,7 +6395,7 @@ func TestCheckConcreteContractMustImplementAbstractFunctions(t *testing.T) {
 				Functions: []ast.FunctionDecl{
 					{
 						Name:      "transfer",
-						Params:    []ast.FieldDecl{{Name: "to", Type: "address"}, {Name: "amount", Type: "u256"}},
+						Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
 						Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 						Modifiers: []string{"public"},
 						Virtual:   true,
@@ -6435,7 +6435,7 @@ func TestCheckConcreteContractImplementsAllAbstractFunctions(t *testing.T) {
 				Functions: []ast.FunctionDecl{
 					{
 						Name:      "transfer",
-						Params:    []ast.FieldDecl{{Name: "to", Type: "address"}, {Name: "amount", Type: "u256"}},
+						Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
 						Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 						Modifiers: []string{"public"},
 						Virtual:   true,
@@ -6451,7 +6451,7 @@ func TestCheckConcreteContractImplementsAllAbstractFunctions(t *testing.T) {
 			Functions: []ast.FunctionDecl{
 				{
 					Name:      "transfer",
-					Params:    []ast.FieldDecl{{Name: "to", Type: "address"}, {Name: "amount", Type: "u256"}},
+					Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
 					Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 					Modifiers: []string{"public"},
 					Override:  true,
@@ -6511,18 +6511,18 @@ func TestCheckNestedArrayIndexAccepted(t *testing.T) {
 }
 
 func TestCheckNestedMappingAccepted(t *testing.T) {
-	// mapping(address => mapping(address => u256)) m; fn f(a: address, b: address) { set got = m[a][b]; }
+	// mapping(agent => mapping(agent => u256)) m; fn f(a: address, b: address) { set got = m[a][b]; }
 	m := &ast.Module{
 		Version: "0.2.0",
 		Contract: &ast.ContractDecl{
 			Name: "Demo",
 			Storage: &ast.StorageDecl{
-				Slots: []ast.StorageSlot{{Name: "m", Type: "mapping(address => mapping(address => u256))"}},
+				Slots: []ast.StorageSlot{{Name: "m", Type: "mapping(agent => mapping(agent => u256))"}},
 			},
 			Functions: []ast.FunctionDecl{
 				{
 					Name:   "f",
-					Params: []ast.FieldDecl{{Name: "a", Type: "address"}, {Name: "b", Type: "address"}},
+					Params: []ast.FieldDecl{{Name: "a", Type: "agent"}, {Name: "b", Type: "agent"}},
 					Body: []ast.Statement{
 						{
 							Kind:   "set",
@@ -6541,18 +6541,18 @@ func TestCheckNestedMappingAccepted(t *testing.T) {
 }
 
 func TestCheckMappingToArrayAccepted(t *testing.T) {
-	// mapping(address => u256[]) bal; fn f(addr: address, i: u256) { set got = bal[addr][i]; }
+	// mapping(agent => u256[]) bal; fn f(addr: address, i: u256) { set got = bal[addr][i]; }
 	m := &ast.Module{
 		Version: "0.2.0",
 		Contract: &ast.ContractDecl{
 			Name: "Demo",
 			Storage: &ast.StorageDecl{
-				Slots: []ast.StorageSlot{{Name: "bal", Type: "mapping(address => u256[])"}},
+				Slots: []ast.StorageSlot{{Name: "bal", Type: "mapping(agent => u256[])"}},
 			},
 			Functions: []ast.FunctionDecl{
 				{
 					Name:   "f",
-					Params: []ast.FieldDecl{{Name: "addr", Type: "address"}, {Name: "i", Type: "u256"}},
+					Params: []ast.FieldDecl{{Name: "addr", Type: "agent"}, {Name: "i", Type: "u256"}},
 					Body: []ast.Statement{
 						{
 							Kind:   "set",
@@ -7065,7 +7065,7 @@ func TestCheckPayableCastAllowsTransfer(t *testing.T) {
 			Functions: []ast.FunctionDecl{
 				{
 					Name:      "sendViaPayable",
-					Params:    []ast.FieldDecl{{Name: "recipient", Type: "address"}, {Name: "amount", Type: "u256"}},
+					Params:    []ast.FieldDecl{{Name: "recipient", Type: "agent"}, {Name: "amount", Type: "u256"}},
 					Modifiers: []string{"public"},
 					Body: []ast.Statement{
 						{
@@ -7528,7 +7528,7 @@ func TestUDVTInvalidUnderlyingMapping(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
 		TypeDecls: []ast.TypeDecl{
-			{Name: "MyMap", Underlying: "mapping(address=>uint256)"},
+			{Name: "MyMap", Underlying: "mapping(agent =>uint256)"},
 		},
 		Contract: &ast.ContractDecl{
 			Name: "Demo",
@@ -7624,7 +7624,7 @@ func TestCheckStateVarVisibilityOK(t *testing.T) {
 				Slots: []ast.StorageSlot{
 					// Use TOL canonical form u256 (uint256 is normalized by the lexer at parse time).
 					{Name: "totalSupply", Type: "u256", Visibility: "public"},
-					{Name: "owner", Type: "address", Visibility: "private"},
+					{Name: "owner", Type: "agent", Visibility: "private"},
 					{Name: "counter", Type: "u256", Visibility: "internal"},
 				},
 			},
@@ -7677,8 +7677,8 @@ func TestCheckTopLevelEventsNoContract(t *testing.T) {
 			{
 				Name: "Transfer",
 				Params: []ast.FieldDecl{
-					{Name: "from", Type: "address", Indexed: true},
-					{Name: "to", Type: "address", Indexed: true},
+					{Name: "from", Type: "agent", Indexed: true},
+					{Name: "to", Type: "agent", Indexed: true},
 					{Name: "value", Type: "u256"},
 				},
 			},

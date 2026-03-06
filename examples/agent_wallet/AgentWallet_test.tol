@@ -6,15 +6,15 @@ pragma tolang 0.3.0;
 //   OWNER = 0x…0001  — the agent's primary EOA (deployed the wallet)
 //   KEY_A = 0x…0002  — first session key (hot process)
 //   KEY_B = 0x…0003  — second session key (task module)
-//   ROGUE = 0x…0099  — unregistered address attempting unauthorised access
+//   ROGUE = 0x…0099  — unregistered agent attempting unauthorised access
 
 test AgentWalletSuite {
 
-    let OWNER: address = "0x0000000000000000000000000000000000000000000000000000000000000001";
-    let KEY_A: address = "0x0000000000000000000000000000000000000000000000000000000000000002";
-    let KEY_B: address = "0x0000000000000000000000000000000000000000000000000000000000000003";
-    let ROGUE: address = "0x0000000000000000000000000000000000000000000000000000000000000099";
-    let ZERO:  address = "0x0000000000000000000000000000000000000000000000000000000000000000";
+    let OWNER: agent = "0x0000000000000000000000000000000000000000000000000000000000000001";
+    let KEY_A: agent = "0x0000000000000000000000000000000000000000000000000000000000000002";
+    let KEY_B: agent = "0x0000000000000000000000000000000000000000000000000000000000000003";
+    let ROGUE: agent = "0x0000000000000000000000000000000000000000000000000000000000000099";
+    let ZERO:  agent = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
     setup {
         deploy AgentWallet(OWNER) -> wallet;
@@ -29,7 +29,7 @@ test AgentWalletSuite {
         }
     }
 
-    // An address that was never registered must be rejected.
+    // An agent that was never registered must be rejected.
     function test_validate_unknown_address_fails() {
         with msg.sender = ROGUE {
             assert_eq(wallet.validate(ZERO, ""), false);

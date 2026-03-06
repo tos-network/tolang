@@ -11,13 +11,13 @@ const trc20Source = `
 pragma tolang 0.2.0;
 contract TRC20 {
   u256 total_supply;
-  mapping(address => u256) balances;
-  mapping(address => mapping(address => u256)) allowances;
+  mapping(agent => u256) balances;
+  mapping(agent => mapping(agent => u256)) allowances;
 
-  event Transfer(address from indexed, address to indexed, u256 value)
-  event Approval(address owner indexed, address spender indexed, u256 value)
+  event Transfer(agent from indexed, agent to indexed, u256 value)
+  event Approval(agent owner indexed, agent spender indexed, u256 value)
 
-  constructor(address owner, u256 supply) {
+  constructor(agent owner, u256 supply) {
     set total_supply = supply;
     set balances[owner] = supply;
     return;
@@ -28,13 +28,13 @@ contract TRC20 {
     return s;
   }
 
-  function balanceOf(address owner) public view returns (u256 balance) {
+  function balanceOf(agent owner) public view returns (u256 balance) {
     let b: u256 = balances[owner];
     return b;
   }
 
-  function transfer(address to, u256 amount) public returns (bool ok) {
-    let from: address = msg.sender;
+  function transfer(agent to, u256 amount) public returns (bool ok) {
+    let from: agent = msg.sender;
     let from_bal: u256 = balances[from];
     require(from_bal >= amount, "INSUFFICIENT_BALANCE");
     set balances[from] = from_bal - amount;
@@ -44,15 +44,15 @@ contract TRC20 {
     return true;
   }
 
-  function approve(address spender, u256 amount) public returns (bool ok) {
-    let owner: address = msg.sender;
+  function approve(agent spender, u256 amount) public returns (bool ok) {
+    let owner: agent = msg.sender;
     set allowances[owner][spender] = amount;
     emit Approval(owner, spender, amount);
     return true;
   }
 
-  function transferFrom(address from, address to, u256 amount) public returns (bool ok) {
-    let spender: address = msg.sender;
+  function transferFrom(agent from, agent to, u256 amount) public returns (bool ok) {
+    let spender: agent = msg.sender;
     let allow: u256 = allowances[from][spender];
     require(allow >= amount, "INSUFFICIENT_ALLOWANCE");
     set allowances[from][spender] = allow - amount;

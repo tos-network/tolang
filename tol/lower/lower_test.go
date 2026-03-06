@@ -23,7 +23,7 @@ func TestFromTypedBuildsProgram(t *testing.T) {
 						Name:             "transfer",
 						SelectorOverride: "0x1234abcd",
 						Params: []ast.FieldDecl{
-							{Name: "to", Type: "address"},
+							{Name: "to", Type: "agent"},
 							{Name: "amount", Type: "u256"},
 						},
 						Body: []ast.Statement{
@@ -69,7 +69,7 @@ func TestFromTypedClonesConstructorBody(t *testing.T) {
 				Name: "Demo",
 				Constructor: &ast.ConstructorDecl{
 					Params: []ast.FieldDecl{
-						{Name: "owner", Type: "address"},
+						{Name: "owner", Type: "agent"},
 					},
 					Body: []ast.Statement{
 						{Kind: "set", Name: "x"},
@@ -104,8 +104,8 @@ func TestFromTypedIncludesEvents(t *testing.T) {
 					{
 						Name: "Transfer",
 						Params: []ast.FieldDecl{
-							{Name: "from", Type: "address", Indexed: true},
-							{Name: "to", Type: "address", Indexed: true},
+							{Name: "from", Type: "agent", Indexed: true},
+							{Name: "to", Type: "agent", Indexed: true},
 							{Name: "amount", Type: "u256", Indexed: false},
 						},
 					},

@@ -236,7 +236,7 @@ contractMember
 // Interface declaration
 //
 //   interface IERC20 {
-//     function transfer(address to, uint256 amount) external returns (bool ok);
+//     function transfer(agent to, uint256 amount) external returns (bool ok);
 //   }
 // ============================================================
 
@@ -298,7 +298,7 @@ userDefinedValueTypeDefinition
 // Storage variable  (directly in contract body, Solidity-style)
 //
 //   uint256 totalSupply;
-//   mapping(address => uint256) balances;
+//   mapping(agent => u256) balances;
 //   uint256 public maxSupply = 1000000;
 //   transient uint256 lockStatus;
 // ============================================================
@@ -328,8 +328,8 @@ stateVariableModifier
 // ============================================================
 // Immutable and constant declarations  (both TOL-native and Solidity-style)
 //
-//   TOL-native:   immutable owner: address;
-//   Solidity:     address immutable owner;  (via storageVariable above)
+//   TOL-native:   immutable owner: agent;
+//   Solidity:     address immutable owner;  — normalised to agent (backward compat)
 //
 //   TOL-native:   constant MAX: uint256 = 1000000;
 //   Solidity:     uint256 constant MAX = 1000000;  (via storageVariable above)
@@ -357,8 +357,8 @@ overrideSpecifier
 // ============================================================
 // Event declaration
 //
-//   event Transfer(address indexed from, address indexed to, uint256 value);
-//   event Approval(address owner, address spender, uint256 value) anonymous;
+//   event Transfer(agent indexed from, agent indexed to, uint256 value);
+//   event Approval(agent owner, agent spender, uint256 value) anonymous;
 // ============================================================
 
 eventDeclaration
@@ -378,7 +378,7 @@ eventParameter
 // ============================================================
 // Error declaration
 //
-//   error InsufficientBalance(address account, uint256 needed);
+//   error InsufficientBalance(agent account, uint256 needed);
 // ============================================================
 
 errorDeclaration
@@ -558,7 +558,7 @@ placeholderStatement
 // ============================================================
 // Function declaration
 //
-//   function transfer(address to, uint256 amount) external returns (bool ok) { … }
+//   function transfer(agent to, u256 amount) external returns (bool ok) { … }
 //   function name() virtual;   — abstract
 // ============================================================
 
@@ -717,13 +717,15 @@ elementaryTypeName
     : UnsignedIntegerType
     | SignedIntegerType
     | FixedBytesType
-    | Address
     | Bool
     | Bytes
     | String
     | Fixed
     | Ufixed
-    | Address Payable              // address payable (Solidity-compatible)
+    // NOTE: 'agent' is NOT listed here — it is an Identifier token (contextual
+    // keyword) parsed as a genericTypeName or userDefinedTypeName.
+    // 'address' and 'address payable' are accepted by the production lexer for
+    // backward compatibility and silently normalised to 'agent'.
     ;
 
 userDefinedTypeName
@@ -736,7 +738,7 @@ mappingType
     : Mapping LParen mappingKeyType Identifier? FatArrow typeName Identifier? RParen
     ;
     // Named key and named value are optional (Solidity 0.8.18+, EIP-4200):
-    //   mapping(address from => uint256 balance)
+    //   mapping(agent from => u256 balance)
     // The second Identifier (after key type) is the optional key name;
     // the Identifier after typeName is the optional value name.
 
@@ -744,16 +746,17 @@ mappingKeyType
     : UnsignedIntegerType
     | SignedIntegerType
     | FixedBytesType
-    | Address
     | Bool
     | String
     | Bytes
-    | identifierPath              // user-defined types (enums) as mapping keys
+    | identifierPath              // user-defined types, enums, and 'agent' as mapping keys
     ;
+    // 'agent' is recognised via identifierPath (it is a contextual Identifier token).
+    // 'address' is still accepted by the production parser and normalised to 'agent'.
 
 // Function type
 //
-//   function(address, uint256) external returns (bool)
+//   function(agent, u256) external returns (bool)
 //   function(bytes memory) internal pure
 functionTypeName
     : Function LParen parameterList? RParen
@@ -821,7 +824,7 @@ letTupleStatement
 // Type-first local variable declaration  (Solidity-compatible)
 //
 //   uint256 x = 1;
-//   address owner;
+//   agent owner;
 //   (uint256 a, bool b) = abi.decode(data, (uint256, bool));
 // ============================================================
 
@@ -1083,8 +1086,8 @@ catchClause
 //   tasks[tid].reject()                    — transition Submitted → Rejected
 //   tasks[tid].dispute()                   — transition → Disputed
 //   tasks[tid].cancel()                    — transition → Cancelled
-//   tasks[tid].worker                      — read worker address
-//   tasks[tid].poster                      — read poster address
+//   tasks[tid].worker                      — read worker agent
+//   tasks[tid].poster                      — read poster agent
 //   tasks[tid].reward                      — read reward amount
 //   tasks[tid].is_expired                  — deadline < block.timestamp
 //
@@ -1316,7 +1319,7 @@ primary
     | tupleExpression
     | inlineArrayExpression
     | typeExpression          // type(I).interfaceId — also type(T) for MetaType
-    | elementaryTypeName      // type name used as cast: uint256(x), address(y)
+    | elementaryTypeName      // type name used as cast: uint256(x), agent(y)
     ;
     // IMPORTANT ordering note:
     //   inspectExpression must precede Identifier because 'inspect' is a contextual

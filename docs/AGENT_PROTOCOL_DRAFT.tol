@@ -4,56 +4,56 @@ pragma tolang 0.2.0;
 // Scope: signatures/events/storage only (no function bodies yet).
 
 interface IAgentRegistry {
-  event AgentRegistered(address indexed agent, string metadata_uri, u256 stake)
-  event AgentProfileUpdated(address indexed agent, string metadata_uri)
-  event AgentStakeIncreased(address indexed agent, u256 amount)
-  event AgentStakeDecreased(address indexed agent, u256 amount)
-  event AgentStatusChanged(address indexed agent, u8 status, string reason)
+  event AgentRegistered(agent indexed agent, string metadata_uri, u256 stake)
+  event AgentProfileUpdated(agent indexed agent, string metadata_uri)
+  event AgentStakeIncreased(agent indexed agent, u256 amount)
+  event AgentStakeDecreased(agent indexed agent, u256 amount)
+  event AgentStatusChanged(agent indexed agent, u8 status, string reason)
 
   function register(string metadata_uri, u256 stake) public;
   function updateProfile(string metadata_uri) public;
   function increaseStake(u256 amount) public;
   function decreaseStake(u256 amount) public;
-  function suspend(address agent, string reason) public;
-  function unsuspend(address agent) public;
+  function suspend(agent agent, string reason) public;
+  function unsuspend(agent agent) public;
 
-  function isRegistered(address agent) public view returns (bool ok);
-  function isSuspended(address agent) public view returns (bool ok);
-  function stakeOf(address agent) public view returns (u256 stake);
-  function metadataOf(address agent) public view returns (string metadata_uri);
+  function isRegistered(agent agent) public view returns (bool ok);
+  function isSuspended(agent agent) public view returns (bool ok);
+  function stakeOf(agent agent) public view returns (u256 stake);
+  function metadataOf(agent agent) public view returns (string metadata_uri);
 }
 
 interface IReputationHub {
-  event ScorerAuthorized(address indexed scorer, bool enabled)
+  event ScorerAuthorized(agent indexed scorer, bool enabled)
   event ReputationChanged(
-    address indexed agent,
-    address indexed scorer,
+    agent indexed agent,
+    agent indexed scorer,
     i256 delta,
     i256 total,
     string reason,
     bytes32 ref_id
   )
 
-  function setScorer(address scorer, bool enabled) public;
-  function recordScore(address agent, i256 delta, string reason, bytes32 ref_id) public;
-  function totalScoreOf(address agent) public view returns (i256 score);
-  function ratingCountOf(address agent) public view returns (u256 n);
+  function setScorer(agent scorer, bool enabled) public;
+  function recordScore(agent agent, i256 delta, string reason, bytes32 ref_id) public;
+  function totalScoreOf(agent agent) public view returns (i256 score);
+  function ratingCountOf(agent agent) public view returns (u256 n);
 }
 
 interface ITaskEscrow {
   event TaskPosted(
     u256 indexed task_id,
-    address indexed poster,
+    agent indexed poster,
     u256 reward,
     u64 deadline_ms,
     bytes32 spec_hash
   )
-  event TaskAccepted(u256 indexed task_id, address indexed worker)
-  event TaskSubmitted(u256 indexed task_id, address indexed worker, bytes32 result_hash)
-  event TaskApproved(u256 indexed task_id, address indexed poster, address indexed worker, u256 reward)
-  event TaskRejected(u256 indexed task_id, address indexed poster, address indexed worker, string reason)
-  event TaskCancelled(u256 indexed task_id, address indexed poster)
-  event TaskReclaimed(u256 indexed task_id, address indexed poster, u256 reward)
+  event TaskAccepted(u256 indexed task_id, agent indexed worker)
+  event TaskSubmitted(u256 indexed task_id, agent indexed worker, bytes32 result_hash)
+  event TaskApproved(u256 indexed task_id, agent indexed poster, agent indexed worker, u256 reward)
+  event TaskRejected(u256 indexed task_id, agent indexed poster, agent indexed worker, string reason)
+  event TaskCancelled(u256 indexed task_id, agent indexed poster)
+  event TaskReclaimed(u256 indexed task_id, agent indexed poster, u256 reward)
 
   function postTask(bytes32 spec_hash, u256 reward, u64 deadline_ms) public payable returns (u256 task_id);
   function acceptTask(u256 task_id) public;
@@ -64,20 +64,20 @@ interface ITaskEscrow {
   function reclaimExpired(u256 task_id) public;
 
   function statusOf(u256 task_id) public view returns (u8 status);
-  function posterOf(u256 task_id) public view returns (address poster);
-  function workerOf(u256 task_id) public view returns (address worker);
+  function posterOf(u256 task_id) public view returns (agent poster);
+  function workerOf(u256 task_id) public view returns (agent worker);
   function rewardOf(u256 task_id) public view returns (u256 reward);
 }
 
 interface IDisputeResolver {
-  event DisputeOpened(u256 indexed dispute_id, u256 indexed task_id, address indexed opener, u256 bond)
-  event DisputeRuled(u256 indexed dispute_id, address indexed winner, string reason)
-  event ArbitratorSet(address indexed arbitrator, bool enabled)
+  event DisputeOpened(u256 indexed dispute_id, u256 indexed task_id, agent indexed opener, u256 bond)
+  event DisputeRuled(u256 indexed dispute_id, agent indexed winner, string reason)
+  event ArbitratorSet(agent indexed arbitrator, bool enabled)
 
   function openDispute(u256 task_id, bytes32 evidence_hash) public payable returns (u256 dispute_id);
   function submitEvidence(u256 dispute_id, bytes32 evidence_hash) public;
-  function rule(u256 dispute_id, address winner, u16 slash_bps, string reason) public;
-  function setArbitrator(address arbitrator, bool enabled) public;
+  function rule(u256 dispute_id, agent winner, u16 slash_bps, string reason) public;
+  function setArbitrator(agent arbitrator, bool enabled) public;
 
   function statusOf(u256 dispute_id) public view returns (u8 status);
   function taskIdOf(u256 dispute_id) public view returns (u256 task_id);
@@ -85,41 +85,41 @@ interface IDisputeResolver {
 
 interface IPredictionMarketFactory {
   event MarketCreated(
-    address indexed market,
-    address indexed creator,
+    agent indexed market,
+    agent indexed creator,
     bytes32 indexed question_id,
     u64 close_time_ms,
-    address oracle,
+    agent oracle,
     u16 fee_bps
   )
 
   function createBinaryMarket(
     bytes32 question_id,
     u64 close_time_ms,
-    address oracle,
+    agent oracle,
     u16 fee_bps
-  ) public returns (address market);
+  ) public returns (agent market);
 }
 
 interface IPredictionMarket {
-  event LiquidityAdded(address indexed provider, u256 amount, u256 minted_shares)
-  event LiquidityRemoved(address indexed provider, u256 burned_shares, u256 amount_out)
+  event LiquidityAdded(agent indexed provider, u256 amount, u256 minted_shares)
+  event LiquidityRemoved(agent indexed provider, u256 burned_shares, u256 amount_out)
   event Bought(
-    address indexed trader,
+    agent indexed trader,
     u8 indexed outcome,
     u256 amount_in,
     u256 shares_out,
     u256 fee_paid
   )
   event Sold(
-    address indexed trader,
+    agent indexed trader,
     u8 indexed outcome,
     u256 shares_in,
     u256 amount_out,
     u256 fee_paid
   )
-  event Resolved(u8 indexed outcome, address indexed resolver)
-  event Claimed(address indexed user, u256 payout)
+  event Resolved(u8 indexed outcome, agent indexed resolver)
+  event Claimed(agent indexed user, u256 payout)
 
   function addLiquidity(u256 amount) public payable;
   function removeLiquidity(u256 lp_shares) public;
@@ -131,95 +131,95 @@ interface IPredictionMarket {
   function isResolved() public view returns (bool ok);
   function winningOutcome() public view returns (u8 outcome);
   function poolOf(u8 outcome) public view returns (u256 amount);
-  function sharesOf(address user, u8 outcome) public view returns (u256 shares);
+  function sharesOf(agent user, u8 outcome) public view returns (u256 shares);
 }
 
 interface IRewardVault {
-  event RewardFunded(bytes32 indexed campaign_id, address indexed from, u256 amount)
-  event RewardAllocated(bytes32 indexed campaign_id, address indexed user, u256 amount, string reason)
-  event RewardClaimed(bytes32 indexed campaign_id, address indexed user, u256 amount)
-  event SignerSet(address indexed signer, bool enabled)
+  event RewardFunded(bytes32 indexed campaign_id, agent indexed from, u256 amount)
+  event RewardAllocated(bytes32 indexed campaign_id, agent indexed user, u256 amount, string reason)
+  event RewardClaimed(bytes32 indexed campaign_id, agent indexed user, u256 amount)
+  event SignerSet(agent indexed signer, bool enabled)
 
   function fund(bytes32 campaign_id, u256 amount) public payable;
-  function allocate(bytes32 campaign_id, address user, u256 amount, string reason) public;
+  function allocate(bytes32 campaign_id, agent user, u256 amount, string reason) public;
   function claim(bytes32 campaign_id) public;
-  function setSigner(address signer, bool enabled) public;
+  function setSigner(agent signer, bool enabled) public;
 
-  function allocatedOf(bytes32 campaign_id, address user) public view returns (u256 amount);
-  function claimedOf(bytes32 campaign_id, address user) public view returns (u256 amount);
+  function allocatedOf(bytes32 campaign_id, agent user) public view returns (u256 amount);
+  function claimedOf(bytes32 campaign_id, agent user) public view returns (u256 amount);
   function remainingOf(bytes32 campaign_id) public view returns (u256 amount);
 }
 
 contract AgentRegistry is IAgentRegistry {
-  address admin;
+  agent admin;
   u256 min_stake;
-  mapping(address => u8) agent_status;            // 0:none,1:active,2:suspended
-  mapping(address => u256) agent_stake;
-  mapping(address => string) agent_metadata;
+  mapping(agent => u8) agent_status;            // 0:none,1:active,2:suspended
+  mapping(agent => u256) agent_stake;
+  mapping(agent => string) agent_metadata;
   u256 registered_count;
 
-  event AgentRegistered(address indexed agent, string metadata_uri, u256 stake)
-  event AgentProfileUpdated(address indexed agent, string metadata_uri)
-  event AgentStakeIncreased(address indexed agent, u256 amount)
-  event AgentStakeDecreased(address indexed agent, u256 amount)
-  event AgentStatusChanged(address indexed agent, u8 status, string reason)
+  event AgentRegistered(agent indexed agent, string metadata_uri, u256 stake)
+  event AgentProfileUpdated(agent indexed agent, string metadata_uri)
+  event AgentStakeIncreased(agent indexed agent, u256 amount)
+  event AgentStakeDecreased(agent indexed agent, u256 amount)
+  event AgentStatusChanged(agent indexed agent, u8 status, string reason)
 
   function register(string metadata_uri, u256 stake) public;
   function updateProfile(string metadata_uri) public;
   function increaseStake(u256 amount) public;
   function decreaseStake(u256 amount) public;
-  function suspend(address agent, string reason) public;
-  function unsuspend(address agent) public;
-  function isRegistered(address agent) public view returns (bool ok);
-  function isSuspended(address agent) public view returns (bool ok);
-  function stakeOf(address agent) public view returns (u256 stake);
-  function metadataOf(address agent) public view returns (string metadata_uri);
+  function suspend(agent agent, string reason) public;
+  function unsuspend(agent agent) public;
+  function isRegistered(agent agent) public view returns (bool ok);
+  function isSuspended(agent agent) public view returns (bool ok);
+  function stakeOf(agent agent) public view returns (u256 stake);
+  function metadataOf(agent agent) public view returns (string metadata_uri);
 }
 
 contract ReputationHub is IReputationHub {
-  address admin;
-  mapping(address => bool) scorer_enabled;
-  mapping(address => i256) total_score;
-  mapping(address => u256) rating_count;
-  mapping(address => bytes32) last_ref;
+  agent admin;
+  mapping(agent => bool) scorer_enabled;
+  mapping(agent => i256) total_score;
+  mapping(agent => u256) rating_count;
+  mapping(agent => bytes32) last_ref;
 
-  event ScorerAuthorized(address indexed scorer, bool enabled)
+  event ScorerAuthorized(agent indexed scorer, bool enabled)
   event ReputationChanged(
-    address indexed agent,
-    address indexed scorer,
+    agent indexed agent,
+    agent indexed scorer,
     i256 delta,
     i256 total,
     string reason,
     bytes32 ref_id
   )
 
-  function setScorer(address scorer, bool enabled) public;
-  function recordScore(address agent, i256 delta, string reason, bytes32 ref_id) public;
-  function totalScoreOf(address agent) public view returns (i256 score);
-  function ratingCountOf(address agent) public view returns (u256 n);
+  function setScorer(agent scorer, bool enabled) public;
+  function recordScore(agent agent, i256 delta, string reason, bytes32 ref_id) public;
+  function totalScoreOf(agent agent) public view returns (i256 score);
+  function ratingCountOf(agent agent) public view returns (u256 n);
 }
 
 contract TaskEscrow is ITaskEscrow {
-  address admin;
-  address registry;
-  address reputation_hub;
-  address dispute_resolver;
+  agent admin;
+  agent registry;
+  agent reputation_hub;
+  agent dispute_resolver;
   u256 next_task_id;
   mapping(u256 => u8) task_status;                // 0:none,1:open,2:accepted,3:submitted,4:approved,5:rejected,6:disputed,7:cancelled,8:reclaimed
-  mapping(u256 => address) task_poster;
-  mapping(u256 => address) task_worker;
+  mapping(u256 => agent) task_poster;
+  mapping(u256 => agent) task_worker;
   mapping(u256 => u256) task_reward;
   mapping(u256 => u64) task_deadline_ms;
   mapping(u256 => bytes32) task_spec_hash;
   mapping(u256 => bytes32) task_result_hash;
 
-  event TaskPosted(u256 indexed task_id, address indexed poster, u256 reward, u64 deadline_ms, bytes32 spec_hash)
-  event TaskAccepted(u256 indexed task_id, address indexed worker)
-  event TaskSubmitted(u256 indexed task_id, address indexed worker, bytes32 result_hash)
-  event TaskApproved(u256 indexed task_id, address indexed poster, address indexed worker, u256 reward)
-  event TaskRejected(u256 indexed task_id, address indexed poster, address indexed worker, string reason)
-  event TaskCancelled(u256 indexed task_id, address indexed poster)
-  event TaskReclaimed(u256 indexed task_id, address indexed poster, u256 reward)
+  event TaskPosted(u256 indexed task_id, agent indexed poster, u256 reward, u64 deadline_ms, bytes32 spec_hash)
+  event TaskAccepted(u256 indexed task_id, agent indexed worker)
+  event TaskSubmitted(u256 indexed task_id, agent indexed worker, bytes32 result_hash)
+  event TaskApproved(u256 indexed task_id, agent indexed poster, agent indexed worker, u256 reward)
+  event TaskRejected(u256 indexed task_id, agent indexed poster, agent indexed worker, string reason)
+  event TaskCancelled(u256 indexed task_id, agent indexed poster)
+  event TaskReclaimed(u256 indexed task_id, agent indexed poster, u256 reward)
 
   function postTask(bytes32 spec_hash, u256 reward, u64 deadline_ms) public payable returns (u256 task_id);
   function acceptTask(u256 task_id) public;
@@ -229,67 +229,67 @@ contract TaskEscrow is ITaskEscrow {
   function cancelTask(u256 task_id) public;
   function reclaimExpired(u256 task_id) public;
   function statusOf(u256 task_id) public view returns (u8 status);
-  function posterOf(u256 task_id) public view returns (address poster);
-  function workerOf(u256 task_id) public view returns (address worker);
+  function posterOf(u256 task_id) public view returns (agent poster);
+  function workerOf(u256 task_id) public view returns (agent worker);
   function rewardOf(u256 task_id) public view returns (u256 reward);
 }
 
 contract DisputeResolver is IDisputeResolver {
-  address admin;
-  address escrow;
-  mapping(address => bool) arbitrator_enabled;
+  agent admin;
+  agent escrow;
+  mapping(agent => bool) arbitrator_enabled;
   u256 next_dispute_id;
   mapping(u256 => u8) dispute_status;             // 0:none,1:open,2:ruled
   mapping(u256 => u256) dispute_task_id;
-  mapping(u256 => address) dispute_opener;
+  mapping(u256 => agent) dispute_opener;
   mapping(u256 => u256) dispute_bond;
-  mapping(u256 => address) dispute_winner;
+  mapping(u256 => agent) dispute_winner;
 
-  event DisputeOpened(u256 indexed dispute_id, u256 indexed task_id, address indexed opener, u256 bond)
-  event DisputeRuled(u256 indexed dispute_id, address indexed winner, string reason)
-  event ArbitratorSet(address indexed arbitrator, bool enabled)
+  event DisputeOpened(u256 indexed dispute_id, u256 indexed task_id, agent indexed opener, u256 bond)
+  event DisputeRuled(u256 indexed dispute_id, agent indexed winner, string reason)
+  event ArbitratorSet(agent indexed arbitrator, bool enabled)
 
   function openDispute(u256 task_id, bytes32 evidence_hash) public payable returns (u256 dispute_id);
   function submitEvidence(u256 dispute_id, bytes32 evidence_hash) public;
-  function rule(u256 dispute_id, address winner, u16 slash_bps, string reason) public;
-  function setArbitrator(address arbitrator, bool enabled) public;
+  function rule(u256 dispute_id, agent winner, u16 slash_bps, string reason) public;
+  function setArbitrator(agent arbitrator, bool enabled) public;
   function statusOf(u256 dispute_id) public view returns (u8 status);
   function taskIdOf(u256 dispute_id) public view returns (u256 task_id);
 }
 
 contract PredictionMarketFactory is IPredictionMarketFactory {
-  address admin;
-  address market_impl;
+  agent admin;
+  agent market_impl;
   u256 market_count;
-  mapping(bytes32 => address) market_by_question;
-  address fee_recipient;
+  mapping(bytes32 => agent) market_by_question;
+  agent fee_recipient;
 
-  event MarketCreated(address indexed market, address indexed creator, bytes32 indexed question_id, u64 close_time_ms, address oracle, u16 fee_bps)
+  event MarketCreated(agent indexed market, agent indexed creator, bytes32 indexed question_id, u64 close_time_ms, agent oracle, u16 fee_bps)
 
-  function createBinaryMarket(bytes32 question_id, u64 close_time_ms, address oracle, u16 fee_bps) public returns (address market);
+  function createBinaryMarket(bytes32 question_id, u64 close_time_ms, agent oracle, u16 fee_bps) public returns (agent market);
 }
 
 contract PredictionMarket is IPredictionMarket {
-  address factory;
-  address oracle;
-  address fee_recipient;
+  agent factory;
+  agent oracle;
+  agent fee_recipient;
   bytes32 question_id;
   u64 close_time_ms;
   u16 fee_bps;
   bool resolved;
   u8 winning_outcome;                             // 0 or 1
   mapping(u8 => u256) pool;                       // outcome -> collateral pool
-  mapping(address => mapping(u8 => u256)) shares; // user -> outcome -> shares
-  mapping(address => u256) lp_shares;
+  mapping(agent => mapping(u8 => u256)) shares; // user -> outcome -> shares
+  mapping(agent => u256) lp_shares;
   u256 total_lp_shares;
-  mapping(address => bool) claimed;
+  mapping(agent => bool) claimed;
 
-  event LiquidityAdded(address indexed provider, u256 amount, u256 minted_shares)
-  event LiquidityRemoved(address indexed provider, u256 burned_shares, u256 amount_out)
-  event Bought(address indexed trader, u8 indexed outcome, u256 amount_in, u256 shares_out, u256 fee_paid)
-  event Sold(address indexed trader, u8 indexed outcome, u256 shares_in, u256 amount_out, u256 fee_paid)
-  event Resolved(u8 indexed outcome, address indexed resolver)
-  event Claimed(address indexed user, u256 payout)
+  event LiquidityAdded(agent indexed provider, u256 amount, u256 minted_shares)
+  event LiquidityRemoved(agent indexed provider, u256 burned_shares, u256 amount_out)
+  event Bought(agent indexed trader, u8 indexed outcome, u256 amount_in, u256 shares_out, u256 fee_paid)
+  event Sold(agent indexed trader, u8 indexed outcome, u256 shares_in, u256 amount_out, u256 fee_paid)
+  event Resolved(u8 indexed outcome, agent indexed resolver)
+  event Claimed(agent indexed user, u256 payout)
 
   function addLiquidity(u256 amount) public payable;
   function removeLiquidity(u256 lp_shares) public;
@@ -300,26 +300,26 @@ contract PredictionMarket is IPredictionMarket {
   function isResolved() public view returns (bool ok);
   function winningOutcome() public view returns (u8 outcome);
   function poolOf(u8 outcome) public view returns (u256 amount);
-  function sharesOf(address user, u8 outcome) public view returns (u256 shares);
+  function sharesOf(agent user, u8 outcome) public view returns (u256 shares);
 }
 
 contract RewardVault is IRewardVault {
-  address admin;
-  mapping(address => bool) signer_enabled;
+  agent admin;
+  mapping(agent => bool) signer_enabled;
   mapping(bytes32 => u256) campaign_fund;
-  mapping(bytes32 => mapping(address => u256)) allocated;
-  mapping(bytes32 => mapping(address => u256)) claimed;
+  mapping(bytes32 => mapping(agent => u256)) allocated;
+  mapping(bytes32 => mapping(agent => u256)) claimed;
 
-  event RewardFunded(bytes32 indexed campaign_id, address indexed from, u256 amount)
-  event RewardAllocated(bytes32 indexed campaign_id, address indexed user, u256 amount, string reason)
-  event RewardClaimed(bytes32 indexed campaign_id, address indexed user, u256 amount)
-  event SignerSet(address indexed signer, bool enabled)
+  event RewardFunded(bytes32 indexed campaign_id, agent indexed from, u256 amount)
+  event RewardAllocated(bytes32 indexed campaign_id, agent indexed user, u256 amount, string reason)
+  event RewardClaimed(bytes32 indexed campaign_id, agent indexed user, u256 amount)
+  event SignerSet(agent indexed signer, bool enabled)
 
   function fund(bytes32 campaign_id, u256 amount) public payable;
-  function allocate(bytes32 campaign_id, address user, u256 amount, string reason) public;
+  function allocate(bytes32 campaign_id, agent user, u256 amount, string reason) public;
   function claim(bytes32 campaign_id) public;
-  function setSigner(address signer, bool enabled) public;
-  function allocatedOf(bytes32 campaign_id, address user) public view returns (u256 amount);
-  function claimedOf(bytes32 campaign_id, address user) public view returns (u256 amount);
+  function setSigner(agent signer, bool enabled) public;
+  function allocatedOf(bytes32 campaign_id, agent user) public view returns (u256 amount);
+  function claimedOf(bytes32 campaign_id, agent user) public view returns (u256 amount);
   function remainingOf(bytes32 campaign_id) public view returns (u256 amount);
 }

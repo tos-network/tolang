@@ -27,20 +27,20 @@ contract Demo {}
 func TestParseContractSubset(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
-interface ITRC20 { function transfer(address to, u256 amount) public; }
+interface ITRC20 { function transfer(agent to, u256 amount) public; }
 library MathX { function dummy() { } }
 contract Demo {
-  mapping(address => u256) balances;
+  mapping(agent => u256) balances;
   u256 total_supply;
 
-  event Transfer(address from indexed, address to indexed, u256 value)
+  event Transfer(agent from indexed, agent to indexed, u256 value)
 
-  function transfer(address to, u256 amount) public returns (bool ok) {
+  function transfer(agent to, u256 amount) public returns (bool ok) {
     if (amount > 0) { return true; }
     return false;
   }
 
-  constructor(address owner) public { }
+  constructor(agent owner) public { }
   fallback { revert "UNKNOWN_SELECTOR"; }
 }
 `)
@@ -126,7 +126,7 @@ func TestParseSkippedContractDecls(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  error Unauthorized(address sender);
+  error Unauthorized(agent sender);
   enum Mode { A, B }
   modifier onlyOwner() { _; }
 }
@@ -497,10 +497,10 @@ func TestParseContractSingleInheritance(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 interface IToken {
-  function transfer(address to, u256 amount) public returns (bool ok) ;
+  function transfer(agent to, u256 amount) public returns (bool ok) ;
 }
 contract Token is IToken {
-  function transfer(address to, u256 amount) public returns (bool ok) {
+  function transfer(agent to, u256 amount) public returns (bool ok) {
     return true;
   }
 }
@@ -527,16 +527,16 @@ func TestParseContractMultipleInheritance(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 interface IOwnable {
-  function owner() public returns (address addr) ;
+  function owner() public returns (agent addr) ;
 }
 interface IToken {
-  function transfer(address to, u256 amount) public returns (bool ok) ;
+  function transfer(agent to, u256 amount) public returns (bool ok) ;
 }
 contract Token is IToken, IOwnable {
-  function transfer(address to, u256 amount) public returns (bool ok) {
+  function transfer(agent to, u256 amount) public returns (bool ok) {
     return true;
   }
-  function owner() public returns (address addr) {
+  function owner() public returns (agent addr) {
     return 0;
   }
 }
@@ -564,13 +564,13 @@ func TestParseInterfaceMultipleFunctions(t *testing.T) {
 pragma tolang 0.2.0;
 interface IERC20 {
   function totalSupply() public returns (u256 supply) ;
-  function balanceOf(address owner) public returns (u256 balance) ;
-  function transfer(address to, u256 amount) public returns (bool ok) ;
+  function balanceOf(agent owner) public returns (u256 balance) ;
+  function transfer(agent to, u256 amount) public returns (bool ok) ;
 }
 contract Token is IERC20 {
   function totalSupply() public returns (u256 supply) { return 0; }
-  function balanceOf(address owner) public returns (u256 balance) { return 0; }
-  function transfer(address to, u256 amount) public returns (bool ok) { return false; }
+  function balanceOf(agent owner) public returns (u256 balance) { return 0; }
+  function transfer(agent to, u256 amount) public returns (bool ok) { return false; }
 }
 `)
 	mod, diags := ParseFile("<test>", src)
@@ -637,7 +637,7 @@ func TestParseErrorDecl(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  error Unauthorized(address caller, u256 value);
+  error Unauthorized(agent caller, u256 value);
   error Empty();
 }
 `)
@@ -657,7 +657,7 @@ contract Demo {
 	if len(mod.Contract.Errors[0].Params) != 2 {
 		t.Fatalf("expected 2 params, got %d", len(mod.Contract.Errors[0].Params))
 	}
-	if mod.Contract.Errors[0].Params[0].Name != "caller" || mod.Contract.Errors[0].Params[0].Type != "address" {
+	if mod.Contract.Errors[0].Params[0].Name != "caller" || mod.Contract.Errors[0].Params[0].Type != "agent" {
 		t.Fatalf("unexpected first param: %#v", mod.Contract.Errors[0].Params[0])
 	}
 	if mod.Contract.Errors[0].Params[1].Name != "value" || mod.Contract.Errors[0].Params[1].Type != "u256" {
@@ -983,7 +983,7 @@ func TestParseStructDeclContractLevel(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  struct Point { u256 x; address y; }
+  struct Point { u256 x; agent y; }
   function getPoint() public returns (Point p) {
     return p;
   }
@@ -1009,7 +1009,7 @@ contract Demo {
 	if sd.Fields[0].Name != "x" || sd.Fields[0].Type != "u256" {
 		t.Fatalf("unexpected field 0: %#v", sd.Fields[0])
 	}
-	if sd.Fields[1].Name != "y" || sd.Fields[1].Type != "address" {
+	if sd.Fields[1].Name != "y" || sd.Fields[1].Type != "agent" {
 		t.Fatalf("unexpected field 1: %#v", sd.Fields[1])
 	}
 }
@@ -1149,10 +1149,10 @@ func TestParseAbstractContractWithConcreteContract(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 abstract contract Base {
-    function transfer(address to, u256 amount) public virtual returns (bool ok) ;
+    function transfer(agent to, u256 amount) public virtual returns (bool ok) ;
 }
 contract Token is Base {
-    function transfer(address to, u256 amount) public override returns (bool ok) {
+    function transfer(agent to, u256 amount) public override returns (bool ok) {
         return true;
     }
 }
@@ -1776,7 +1776,7 @@ func TestParseConstantTypeFirst(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   uint256 constant MAX_SUPPLY = 1000000;
-  address constant ZERO = 0x0000000000000000000000000000000000000000;
+  constant ZERO: agent = "0x0000000000000000000000000000000000000000000000000000000000000000";
   function run() public { return; }
 }
 `)
@@ -1801,7 +1801,7 @@ contract Demo {
 	if c1.Name != "ZERO" {
 		t.Fatalf("unexpected constant name: %q", c1.Name)
 	}
-	if c1.Type != "address" {
+	if c1.Type != "agent" {
 		t.Fatalf("unexpected constant type: %q", c1.Type)
 	}
 }
@@ -1812,8 +1812,8 @@ func TestParseImmutableTypeFirst(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   uint256 immutable maxAmount;
-  address immutable owner;
-  constructor(address o, uint256 m) public {
+  immutable owner: agent;
+  constructor(agent o, uint256 m) public {
     set owner = o;
     set maxAmount = m;
   }
@@ -1838,7 +1838,7 @@ contract Demo {
 	if i1.Name != "owner" {
 		t.Fatalf("unexpected immutable name: %q", i1.Name)
 	}
-	if i1.Type != "address" {
+	if i1.Type != "agent" {
 		t.Fatalf("unexpected immutable type: %q", i1.Type)
 	}
 }
@@ -1878,7 +1878,7 @@ contract Demo {
   function run(u256 n) public {
     uint256 x = 1;
     uint256 y;
-    address owner = msg.sender;
+    agent owner = msg.sender;
     bool flag = true;
     return;
   }
@@ -1892,7 +1892,7 @@ contract Demo {
 		t.Fatalf("expected exactly one function")
 	}
 	body := mod.Contract.Functions[0].Body
-	// Expect 5 statements: uint256 x=1, uint256 y, address owner, bool flag, return
+	// Expect 5 statements: uint256 x=1, uint256 y, agent owner, bool flag, return
 	if len(body) != 5 {
 		t.Fatalf("expected 5 stmts in body, got %d: %#v", len(body), body)
 	}
@@ -1927,7 +1927,7 @@ contract Demo {
 		t.Fatalf("stmt[1] should have no initializer, got %#v", s1.Expr)
 	}
 
-	// address owner = msg.sender;
+	// agent owner = msg.sender;
 	s2 := body[2]
 	if s2.Kind != "let" {
 		t.Fatalf("stmt[2] kind: want 'let', got '%s'", s2.Kind)
@@ -1935,8 +1935,8 @@ contract Demo {
 	if s2.Name != "owner" {
 		t.Fatalf("stmt[2] name: want 'owner', got '%s'", s2.Name)
 	}
-	if s2.Type != "address" {
-		t.Fatalf("stmt[2] type: want 'address', got '%s'", s2.Type)
+	if s2.Type != "agent" {
+		t.Fatalf("stmt[2] type: want 'agent', got '%s'", s2.Type)
 	}
 
 	// bool flag = true;
@@ -1991,8 +1991,8 @@ func TestAddressCallNotTypeDecl(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  function run(address x) public {
-    let y: address = address(x);
+  function run(agent x) public {
+    let y: agent = address(x);
     return;
   }
 }
@@ -2074,9 +2074,9 @@ func TestImplicitAssignMemberAndIndex(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  mapping(address => u256) balances;
+  mapping(agent => u256) balances;
 
-  function run(address who, u256 value) public {
+  function run(agent who, u256 value) public {
     balances[who] = value;
     balances[who] -= value;
     return;
@@ -2117,8 +2117,8 @@ func TestCallOptionsTwoOptions(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  address addr;
-  function run(address recipient) public {
+  agent addr;
+  function run(agent recipient) public {
     addr.call{gas: 2300, value: 1}("");
   }
 }
@@ -2170,7 +2170,7 @@ func TestCallOptionsSingleOption(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   address token;
-  function run(address to, uint256 amount) public {
+  function run(agent to, uint256 amount) public {
     token.transfer{value: amount}(to);
   }
 }
@@ -2210,7 +2210,7 @@ func TestCallOptionsNone(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  address addr;
+  agent addr;
   function run() public {
     addr.call("");
   }
@@ -2275,7 +2275,7 @@ func TestParseStateVarVisibility(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
     uint256 public totalSupply;
-    address private owner;
+    agent private owner;
     uint256 internal counter;
     uint256 public override balance;
 }
@@ -2394,10 +2394,10 @@ pragma tolang 0.2.0;
 interface IFull {
     struct Point { uint256 x; uint256 y; }
     type Price is uint256;
-    event Transfer(address from, address to, uint256 value);
-    error InsufficientBalance(address account);
+    event Transfer(agent from, agent to, uint256 value);
+    error InsufficientBalance(agent account);
     enum Status { Active, Inactive }
-    function transfer(address to, uint256 amount) external returns (bool ok);
+    function transfer(agent to, uint256 amount) external returns (bool ok);
 }
 contract Demo {}
 `)
@@ -2568,7 +2568,7 @@ contract Demo {}
 func TestParseTopLevelError(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
-error InsufficientBalance(address account, u256 needed);
+error InsufficientBalance(agent account, u256 needed);
 contract Demo {}
 `)
 	mod, diags := ParseFile("<test>", src)
@@ -2585,7 +2585,7 @@ contract Demo {}
 	if len(ed.Params) != 2 {
 		t.Fatalf("expected 2 params, got %d", len(ed.Params))
 	}
-	if ed.Params[0].Name != "account" || ed.Params[0].Type != "address" {
+	if ed.Params[0].Name != "account" || ed.Params[0].Type != "agent" {
 		t.Fatalf("unexpected first param: %+v", ed.Params[0])
 	}
 	if ed.Params[1].Name != "needed" || ed.Params[1].Type != "u256" {
@@ -2598,7 +2598,7 @@ contract Demo {}
 func TestParseTopLevelEvent(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
-event Transfer(address from indexed, address to indexed, u256 value)
+event Transfer(agent from indexed, agent to indexed, u256 value)
 contract Demo {}
 `)
 	mod, diags := ParseFile("<test>", src)
@@ -2743,8 +2743,8 @@ func TestNamedMappingKeyValue(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract C {
-    mapping(address key => uint256 value) balances;
-    function run(mapping(address key => uint256 value) storage m) external {}
+    mapping(agent key => uint256 value) balances;
+    function run(mapping(agent key => uint256 value) storage m) external {}
 }
 `)
 	mod, diags := ParseFile("<test>", src)
@@ -2752,7 +2752,7 @@ contract C {
 		t.Fatalf("unexpected diagnostics: %v", diags)
 	}
 	slot := mod.Contract.Storage.Slots[0]
-	const want = "mapping(address => u256)"
+	const want = "mapping(agent => u256)"
 	if slot.Type != want {
 		t.Fatalf("slot type: want %q, got %q", want, slot.Type)
 	}
@@ -2882,7 +2882,7 @@ func TestNamedCallArguments(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract C {
-    function execute(address alice) external {
+    function execute(agent alice) external {
         transfer({to: alice, amount: 100});
     }
 }
@@ -2916,7 +2916,7 @@ func TestMemberAccessAddressKeyword(t *testing.T) {
 pragma tolang 0.2.0;
 contract C {
     address tok;
-    function getAddress() external returns (address a) {
+    function getAddress() external returns (agent a) {
         a = tok.address;
     }
 }
@@ -2944,7 +2944,7 @@ contract C {
 		t.Fatalf("rhs kind: want 'member', got %#v", rhs)
 	}
 	if rhs.Member != "address" {
-		t.Fatalf("member: want 'address', got %q", rhs.Member)
+		t.Fatalf("member: want 'agent', got %q", rhs.Member)
 	}
 }
 
@@ -3107,7 +3107,7 @@ func TestParseIndexedKeyword(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  event Transfer(address from indexed, address to indexed, u256 value);
+  event Transfer(agent from indexed, agent to indexed, u256 value);
 }
 `)
 	mod, diags := ParseFile("<test>", src)
@@ -3320,8 +3320,8 @@ func TestParseAddressKeyword(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  address owner;
-  function getOwner() public returns (address a) {
+  agent owner;
+  function getOwner() public returns (agent a) {
     return owner;
   }
 }
@@ -3337,10 +3337,10 @@ func TestParseIsKeyword(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 interface IERC20 {
-  function transfer(address to, u256 amount) external returns (bool ok);
+  function transfer(agent to, u256 amount) external returns (bool ok);
 }
 contract Token is IERC20 {
-  function transfer(address to, u256 amount) external returns (bool ok) {
+  function transfer(agent to, u256 amount) external returns (bool ok) {
     return true;
   }
 }

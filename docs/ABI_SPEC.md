@@ -1,5 +1,5 @@
-# ACI Specification
-## Agent Coordination Interface for Tolang and TOS Network
+# ABI Specification
+## Agent Behavior Interface for Tolang and TOS Network
 
 **Status:** Draft  
 **Version:** 0.1  
@@ -7,7 +7,7 @@
 
 ## 1. Purpose
 
-ACI (Agent Coordination Interface) is the machine-readable interface standard for Tolang contracts and packages.
+ABI (Agent Behavior Interface) is the machine-readable interface standard for Tolang contracts and packages.
 
 Traditional ABI tells a caller:
 
@@ -15,7 +15,7 @@ Traditional ABI tells a caller:
 - how to encode inputs,
 - how to decode outputs.
 
-ACI extends this model so that autonomous agents can also know:
+ABI extends this model so that autonomous agents can also know:
 
 - what authority is required,
 - what side effects may occur,
@@ -26,42 +26,42 @@ ACI extends this model so that autonomous agents can also know:
 - whether the output is verifiable,
 - and what policy conditions govern execution.
 
-ACI is intended to make Tolang contracts discoverable, analyzable, and automatable in the Agent Economy.
+ABI is intended to make Tolang contracts discoverable, analyzable, and automatable in the Agent Economy.
 
 ## 2. Design Goals
 
-ACI is designed to satisfy six goals:
+ABI is designed to satisfy six goals:
 
 1. **Machine readability**  
    The interface must be directly consumable by agents, SDKs, verifiers, wallets, marketplaces, and policy engines.
 
 2. **Bytecode-bound trust**  
-   ACI metadata should be emitted by the compiler and bound to the deployed bytecode hash where applicable.
+   ABI metadata should be emitted by the compiler and bound to the deployed bytecode hash where applicable.
 
 3. **Safety before execution**  
    A caller should be able to understand capability requirements, side effects, and resource bounds before making a call.
 
 4. **Extensibility**  
-   ACI should support task, oracle, proof, attestation, escrow, and future agent-market patterns without breaking existing consumers.
+   ABI should support task, oracle, proof, attestation, escrow, and future agent-market patterns without breaking existing consumers.
 
 5. **Deterministic semantics**  
    Fields that affect settlement, authorization, and execution safety must have deterministic meaning.
 
 6. **Versioned compatibility**  
-   ACI must include explicit versioning to allow forward evolution.
+   ABI must include explicit versioning to allow forward evolution.
 
 ## 3. Relationship to ABI
 
-ACI is a strict superset of ABI.
+ABI is a strict superset of ABI.
 
 - **ABI** describes call encoding and decoding.
-- **ACI** describes economic, authority, and execution semantics around the call.
+- **ABI** describes economic, authority, and execution semantics around the call.
 
-An ACI record may include a standard ABI object, but an ABI object alone is not a complete ACI description.
+An ABI record may include a standard ABI object, but an ABI object alone is not a complete ABI description.
 
-## 4. Top-Level ACI Object
+## 4. Top-Level ABI Object
 
-A contract or package should expose a top-level ACI object like this:
+A contract or package should expose a top-level ABI object like this:
 
 ```json
 {
@@ -93,7 +93,7 @@ A contract or package should expose a top-level ACI object like this:
 
 ### 5.1 Required fields
 
-The following fields should be required in all ACI objects:
+The following fields should be required in all ABI objects:
 
 - `aci_version`
 - `language`
@@ -113,9 +113,9 @@ The following fields are strongly recommended:
 - `security_profile`
 - `notes`
 
-## 6. Function-Level ACI Schema
+## 6. Function-Level ABI Schema
 
-Each callable function should have an ACI entry.
+Each callable function should have an ABI entry.
 
 Example:
 
@@ -231,7 +231,7 @@ Example:
 
 ## 8. Contract-Level Fields
 
-The top-level ACI object may also describe contract-wide semantics.
+The top-level ABI object may also describe contract-wide semantics.
 
 ### 8.1 Manifest
 
@@ -257,7 +257,7 @@ Suggested fields:
 
 ### 8.4 Account profile
 
-For account-like contracts or agent accounts, the ACI object may include:
+For account-like contracts or agent accounts, the ABI object may include:
 
 ```json
 {
@@ -271,7 +271,7 @@ For account-like contracts or agent accounts, the ACI object may include:
 
 ## 9. Agent-Specific Extensions
 
-ACI should support agent-native endpoint descriptors.
+ABI should support agent-native endpoint descriptors.
 
 ### 9.1 Agent descriptor
 
@@ -312,7 +312,7 @@ ACI should support agent-native endpoint descriptors.
 
 ## 10. Versioning
 
-Every ACI object must declare `aci_version`.
+Every ABI object must declare `aci_version`.
 
 Compatibility rules:
 
@@ -330,7 +330,7 @@ Optional field:
 
 ## 11. Trust Model
 
-ACI metadata should be treated as trustworthy only when:
+ABI metadata should be treated as trustworthy only when:
 
 1. It is compiler-emitted or compiler-verified.
 2. It is bound to the deployed bytecode hash.
@@ -340,7 +340,7 @@ Human-authored or off-chain rewritten metadata must not be treated as authoritat
 
 ## 12. Recommended Implementation Strategy
 
-Tolang should evolve ACI in three stages.
+Tolang should evolve ABI in three stages.
 
 ### Stage 1 — Canonical emitted fields
 Normalize current emitted metadata:
@@ -354,34 +354,34 @@ Normalize current emitted metadata:
 - `@pay`
 - `manifest`
 
-### Stage 2 — Unified ACI JSON schema
-Emit a single normalized ACI object from the compiler or packer.
+### Stage 2 — Unified ABI JSON schema
+Emit a single normalized ABI object from the compiler or packer.
 
 ### Stage 3 — Ecosystem tooling
 Build:
 
-- ACI validators
-- ACI diff tools
+- ABI validators
+- ABI diff tools
 - service discovery indexers
 - agent preflight analyzers
 - marketplace compatibility checkers
 
 ## 13. Non-Goals
 
-ACI does not attempt to:
+ABI does not attempt to:
 
 - replace source code review,
 - model arbitrary off-chain legal contracts,
 - guarantee economic profitability,
 - or encode non-deterministic behavior as if it were trustworthy.
 
-ACI exists to make executable policy and coordination semantics explicit.
+ABI exists to make executable policy and coordination semantics explicit.
 
 ## 14. Summary
 
-ACI is the next layer of interface standardization for Tolang.
+ABI is the next layer of interface standardization for Tolang.
 
 ABI made contracts callable.  
-ACI makes contracts understandable to agents.
+ABI makes contracts understandable to agents.
 
 That difference is what turns a contract language into a language for the Agent Economy.

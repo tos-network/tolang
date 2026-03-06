@@ -335,6 +335,43 @@ func FromTypedContract(typed *sema.TypedModule, c *ast.ContractDecl) (*Program, 
 			Doc:              fn.Doc,
 		})
 	}
+	// Synthesize verify_* stub functions for each @verifiable function.
+	// These stubs always revert with "ZKBackendNotImplemented" and are callable
+	// as external functions so that verifier backends can be plugged in later.
+	for _, fn := range out.Functions {
+		if fn.Doc == nil || !fn.Doc.Verifiable {
+			continue
+		}
+		// Build stub parameters: (bytes proof, <original params>, <expected_* returns>)
+		stubParams := []ast.FieldDecl{{Name: "proof", Type: "bytes"}}
+		for _, p := range fn.Params {
+			stubParams = append(stubParams, ast.FieldDecl{Name: p.Name, Type: p.Type})
+		}
+		for _, r := range fn.Returns {
+			name := r.Name
+			if name == "" {
+				name = "expected_ret"
+			}
+			stubParams = append(stubParams, ast.FieldDecl{Name: "expected_" + name, Type: r.Type})
+		}
+		stubReturns := []ast.FieldDecl{{Name: "ok", Type: "bool"}}
+		// Body: revert("ZKBackendNotImplemented")
+		stubBody := []ast.Statement{{
+			Kind: "revert",
+			Expr: &ast.Expr{Kind: "string", Value: "ZKBackendNotImplemented"},
+		}}
+		stubDoc := &ast.DocMeta{VerifiableStub: true}
+		out.Functions = append(out.Functions, Function{
+			Name:      "verify_" + fn.Name,
+			LuaName:   "verify_" + fn.LuaName,
+			Params:    stubParams,
+			Returns:   stubReturns,
+			Modifiers: []string{"external", "view"},
+			Body:      stubBody,
+			Doc:       stubDoc,
+		})
+	}
+
 	// Collect inline state variable initializers as constructor preamble statements.
 	var slotInitStmts []ast.Statement
 	if c.Storage != nil {

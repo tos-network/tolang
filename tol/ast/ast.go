@@ -381,8 +381,9 @@ type DocMeta struct {
 	PayAmount    string   // @pay(amount=expr) — amount expression text (literal if known)
 	PayRecipient string   // @pay(recipient=expr) — recipient expression text
 	PayIsBare    bool     // true when @pay(expr) bare form used (no named keys)
-	Delegated    bool     // @delegated — function accepts delegated calls
-	Verifiable   bool     // @verifiable — function result is verifiable off-chain
+	Delegated      bool     // @delegated — function accepts delegated calls
+	Verifiable     bool     // @verifiable — function result is verifiable off-chain
+	VerifiableStub bool     // true for auto-generated verify_* stub functions
 }
 
 // EffectDecl is the structured representation of @effects annotations.

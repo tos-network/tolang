@@ -95,6 +95,7 @@ type tocABIFunction struct {
 	TotalCostWei       string     `json:"total_cost_wei,omitempty"`
 	Verifiable         bool       `json:"verifiable,omitempty"`
 	Delegated          bool       `json:"delegated,omitempty"`
+	VerifiableStub     bool       `json:"verifiable_stub,omitempty"`
 }
 
 type tocABIEvent struct {
@@ -542,6 +543,33 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 			abiFn.Delegated = fn.Doc.Delegated
 		}
 		abi.Functions = append(abi.Functions, abiFn)
+	}
+	// Synthesize verify_* stub ABI entries for @verifiable functions.
+	for _, fn := range c.Functions {
+		if fn.Doc == nil || !fn.Doc.Verifiable {
+			continue
+		}
+		vis := functionVisibilityFromModifiers(fn.Modifiers)
+		if vis != "public" && vis != "external" {
+			continue
+		}
+		// Stub params: bytes proof, then original params, then expected_<ret> for each return.
+		stubParams := []string{"bytes"}
+		for _, p := range fn.Params {
+			stubParams = append(stubParams, normalizeABIType(p.Type))
+		}
+		for _, r := range fn.Returns {
+			stubParams = append(stubParams, normalizeABIType(r.Type))
+		}
+		stubSelector := abiSelectorHex("verify_"+fn.Name, stubParams)
+		abi.Functions = append(abi.Functions, tocABIFunction{
+			Name:           "verify_" + fn.Name,
+			Visibility:     "external",
+			Selector:       stubSelector,
+			Params:         stubParams,
+			Returns:        []string{"bool"},
+			VerifiableStub: true,
+		})
 	}
 	for _, ev := range c.Events {
 		paramTypes := make([]string, 0, len(ev.Params))

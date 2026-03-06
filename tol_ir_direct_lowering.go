@@ -2637,6 +2637,38 @@ func lowerFunctionToLua(fn lower.Function, env *loweringEnv) (luast.Stmt, error)
 		parNames = append(parNames, name)
 	}
 
+	// Use LuaName if set, otherwise fall back to Name.
+	luaFuncName := fn.LuaName
+	if luaFuncName == "" {
+		luaFuncName = fn.Name
+	}
+
+	// @verifiable stub: emit error("ZKBackendNotImplemented") body directly without
+	// going through the full statement lowering pipeline.
+	if fn.Doc != nil && fn.Doc.VerifiableStub {
+		errorBody := withLineStmt(&luast.FuncCallStmt{
+			Expr: withLineExpr(&luast.FuncCallExpr{
+				Func: withLineExpr(&luast.IdentExpr{Value: "error"}),
+				Args: []luast.Expr{
+					withLineExpr(&luast.StringExpr{Value: "ZKBackendNotImplemented"}),
+				},
+				AdjustRet: true,
+			}),
+		}, 1)
+		nameExpr := withLineExpr(&luast.IdentExpr{Value: luaFuncName})
+		fnExpr := withLineExpr(&luast.FunctionExpr{
+			ParList: &luast.ParList{
+				HasVargs: false,
+				Names:    parNames,
+			},
+			Stmts: []luast.Stmt{errorBody},
+		})
+		return withLineStmt(&luast.FuncDefStmt{
+			Name: &luast.FuncName{Func: nameExpr},
+			Func: fnExpr,
+		}, 1), nil
+	}
+
 	ctx := newLoweringCtx(env)
 	for i, name := range parNames {
 		ctx.declareLocalWithType(name, normalizeSelectorType(fn.Params[i].Type))
@@ -2655,11 +2687,6 @@ func lowerFunctionToLua(fn lower.Function, env *loweringEnv) (luast.Stmt, error)
 		body = append(preamble, body...)
 	}
 
-	// Use LuaName if set, otherwise fall back to Name.
-	luaFuncName := fn.LuaName
-	if luaFuncName == "" {
-		luaFuncName = fn.Name
-	}
 	nameExpr := withLineExpr(&luast.IdentExpr{Value: luaFuncName})
 	fnExpr := withLineExpr(&luast.FunctionExpr{
 		ParList: &luast.ParList{

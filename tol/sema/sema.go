@@ -4253,7 +4253,10 @@ func selectorTypeList(params []ast.FieldDecl) string {
 // isPayableAddressType returns true if the raw (pre-normalization) type string
 // is "address payable". This qualifier is significant for .transfer()/.send() checks.
 func isPayableAddressType(t string) bool {
-	return strings.Join(strings.Fields(t), " ") == "address payable"
+	// In TOL, every address/agent is a potential transfer target — the
+	// "address payable" distinction from Solidity is not required.
+	n := normalizeSelectorType(t)
+	return n == "address"
 }
 
 // checkAddressPayableTransferCalls validates that .transfer() and .send() are
@@ -4520,10 +4523,10 @@ func normalizeSelectorType(t string) string {
 	result := repl.Replace(s)
 	result = strings.ReplaceAll(result, " (", "(")
 	result = strings.ReplaceAll(result, " [", "[")
-	// Normalize "address payable" → "address": both encode identically in ABI
-	// and have the same runtime representation. The "payable" qualifier is a
-	// compile-time safety annotation only.
-	if result == "address payable" {
+	// Normalize "address payable" → "address": same runtime representation.
+	// Normalize "agent" → "address": agent is TOL's preferred spelling of the
+	// identity type; both compile identically and share all methods.
+	if result == "address payable" || result == "agent" {
 		result = "address"
 	}
 	return result

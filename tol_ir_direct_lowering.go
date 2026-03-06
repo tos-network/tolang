@@ -1331,7 +1331,7 @@ function __tol_abi_encode_slot(v, typ)
     end
     return string.rep("0", 64)
   end
-  if typ == "address" then
+  if typ == "address" or typ == "agent" then
     local hex = "0"
     if type(v) == "string" and string.sub(v, 1, 2) == "0x" then
       hex = string.sub(v, 3)
@@ -1575,9 +1575,9 @@ function __tol_abi_encode_packed_v2(...)
       out = out .. data
     elseif typ == "bool" then
       if v then out = out .. "01" else out = out .. "00" end
-    elseif typ == "address" then
+    elseif typ == "address" or typ == "agent" then
       -- 20 bytes right-aligned (strip leading zeros from full 32-byte slot to 20 bytes)
-      local slot = __tol_abi_slot_static(v, "address")
+      local slot = __tol_abi_slot_static(v, "agent")
       out = out .. string.sub(slot, 25)  -- last 40 hex chars = 20 bytes
     else
       -- uN, iN: use full 32-byte slot (packed for uint256 is still 32 bytes in Solidity)
@@ -1596,7 +1596,7 @@ function __tol_abi_decode_typed(data, typ)
   if typ == "bool" then
     return not __tol_all_zero_hex(payload)
   end
-  if typ == "address" then
+  if typ == "address" or typ == "agent" then
     if #payload ~= 64 then
       error("abi.decode typed address expects 32-byte hex payload")
     end
@@ -2617,8 +2617,9 @@ func normalizeSelectorType(t string) string {
 		b.WriteString(cur)
 	}
 	result := b.String()
-	// "address payable" and "address" have identical ABI and runtime representation.
-	if result == "address payable" {
+	// Normalize "address payable" and "agent" → "address": same runtime
+	// representation and ABI encoding. "agent" is TOL's preferred spelling.
+	if result == "address payable" || result == "agent" {
 		result = "address"
 	}
 	return result
@@ -6898,10 +6899,11 @@ func lowerAgentPropertyExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool,
 			}
 		}
 	}
-	// Case 2: ident of agent type (function param or local)
+	// Case 2: ident of agent/address type (function param or local).
+	// "agent" normalizes to "address" in typeOfLocal, so check both.
 	if addrExpr == nil && obj.Kind == "ident" {
 		localType := ctx.typeOfLocal(strings.TrimSpace(obj.Value))
-		if strings.TrimSpace(localType) == "agent" {
+		if strings.TrimSpace(localType) == "agent" || strings.TrimSpace(localType) == "address" {
 			inner, err := tolExprToLua(ctx, obj)
 			if err != nil {
 				return nil, true, err
@@ -6909,11 +6911,11 @@ func lowerAgentPropertyExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool,
 			addrExpr = inner
 		}
 	}
-	// Case 3: agent-typed storage slot (scalar)
+	// Case 3: agent/address-typed storage slot (scalar)
 	if addrExpr == nil {
 		if slotName, keys, ok := ctx.storagePathFromExpr(obj); ok && len(keys) == 0 {
 			info, hasInfo := ctx.storageInfoByName(slotName)
-			if hasInfo && info.typ == "agent" {
+			if hasInfo && (info.typ == "agent" || info.typ == "address") {
 				inner, err := tolExprToLua(ctx, obj)
 				if err != nil {
 					return nil, true, err
@@ -7138,7 +7140,7 @@ func unsignedIntBits(typName string) int {
 func isTypeCastCallName(name string) bool {
 	n := strings.TrimSpace(name)
 	switch n {
-	case "bool", "address", "bytes", "string":
+	case "bool", "agent", "address", "bytes", "string":
 		return true
 	}
 	if strings.HasPrefix(n, "bytes") {

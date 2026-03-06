@@ -7010,47 +7010,48 @@ func TestCheckTransferOnPayableAddressOK(t *testing.T) {
 	}
 }
 
-// TestCheckTransferOnPlainAddressRejected verifies that calling .transfer() on a
-// plain "address" variable is rejected with TOL2085.
-func TestCheckTransferOnPlainAddressRejected(t *testing.T) {
-	m := &ast.Module{
-		Version: "0.2.0",
-		Contract: &ast.ContractDecl{
-			Name: "Wallet",
-			Functions: []ast.FunctionDecl{
-				{
-					Name: "badSend",
-					Params: []ast.FieldDecl{
-						{Name: "recipient", Type: "address"},
-						{Name: "amount", Type: "u256"},
-					},
-					Modifiers: []string{"public"},
-					Body: []ast.Statement{
-						{
-							Kind: "expr",
-							Expr: &ast.Expr{
-								Kind: "call",
-								Callee: &ast.Expr{
-									Kind:   "member",
-									Object: &ast.Expr{Kind: "ident", Value: "recipient"},
-									Member: "transfer",
-								},
-								Args: []*ast.Expr{
-									{Kind: "ident", Value: "amount"},
+// TestCheckTransferOnAddressAllowed verifies that calling .transfer() on a plain
+// "address" or "agent" variable is accepted in TOL. In TOL's agent-first model,
+// every address is an agent and can receive transfers — the Solidity "address payable"
+// distinction is not required.
+func TestCheckTransferOnAddressAllowed(t *testing.T) {
+	for _, typ := range []string{"address", "agent", "address payable"} {
+		m := &ast.Module{
+			Version: "0.2.0",
+			Contract: &ast.ContractDecl{
+				Name: "Wallet",
+				Functions: []ast.FunctionDecl{
+					{
+						Name: "send",
+						Params: []ast.FieldDecl{
+							{Name: "recipient", Type: typ},
+							{Name: "amount", Type: "u256"},
+						},
+						Modifiers: []string{"public"},
+						Body: []ast.Statement{
+							{
+								Kind: "expr",
+								Expr: &ast.Expr{
+									Kind: "call",
+									Callee: &ast.Expr{
+										Kind:   "member",
+										Object: &ast.Expr{Kind: "ident", Value: "recipient"},
+										Member: "transfer",
+									},
+									Args: []*ast.Expr{
+										{Kind: "ident", Value: "amount"},
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-		},
-	}
-	_, diags := Check("<test>", m)
-	if !diags.HasErrors() {
-		t.Fatal("expected TOL2085 for .transfer() on plain address, got no errors")
-	}
-	if !strings.Contains(diags.Error(), "TOL2085") {
-		t.Fatalf("expected TOL2085 in diagnostics, got: %v", diags)
+		}
+		_, diags := Check("<test>", m)
+		if diags.HasErrors() {
+			t.Fatalf("type %q: expected .transfer() to be allowed, got: %v", typ, diags)
+		}
 	}
 }
 

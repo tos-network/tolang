@@ -43,26 +43,26 @@ account contract AgentWallet {
 
     // Primary controlling address.  Only transferOwner() can change this, and
     // that function itself requires validate() to pass first.
-    address owner;
+    agent owner;
 
     // Session key registry — one flat mapping per attribute to avoid struct
     // encoding complexity while keeping slot access O(1).
-    mapping(address => bool)  sk_active;    // false = not registered or revoked
-    mapping(address => u256)  sk_expiry;    // expiry in milliseconds (0 = never)
-    mapping(address => u256)  sk_value_cap; // max wei per execute() call (0 = no cap)
+    mapping(agent => bool)  sk_active;    // false = not registered or revoked
+    mapping(agent => u256)  sk_expiry;    // expiry in milliseconds (0 = never)
+    mapping(agent => u256)  sk_value_cap; // max wei per execute() call (0 = no cap)
 
     // ── Events ────────────────────────────────────────────────────────────────
 
-    event SessionKeyAdded(address indexed key, u256 expiry_ms, u256 value_cap)
-    event SessionKeyRevoked(address indexed key)
-    event Executed(address indexed target, u256 value, bool success)
-    event OwnerTransferred(address indexed prev_owner, address indexed new_owner)
+    event SessionKeyAdded(agent indexed key, u256 expiry_ms, u256 value_cap)
+    event SessionKeyRevoked(agent indexed key)
+    event Executed(agent indexed target, u256 value, bool success)
+    event OwnerTransferred(agent indexed prev_owner, agent indexed new_owner)
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
     /// @notice Deploy the wallet and set the initial owner.
     /// @param  _owner  Address that controls this wallet (typically the agent's EOA).
-    constructor(address _owner) {
+    constructor(agent _owner) {
         set owner = _owner;
     }
 
@@ -118,7 +118,7 @@ account contract AgentWallet {
     /// @effects reads:  storage.owner
     /// @effects writes: storage.sk_active[key], storage.sk_expiry[key], storage.sk_value_cap[key]
     /// @effects emits:  SessionKeyAdded
-    function addSessionKey(address key, u256 expiry_ms, u256 value_cap) external {
+    function addSessionKey(agent key, u256 expiry_ms, u256 value_cap) external {
         require(msg.sender == owner, "OnlyOwner");
         require(key != owner, "CannotAddOwnerAsSessionKey");
 
@@ -139,7 +139,7 @@ account contract AgentWallet {
     /// @effects reads:  storage.owner
     /// @effects writes: storage.sk_active[key]
     /// @effects emits:  SessionKeyRevoked
-    function revokeSessionKey(address key) external {
+    function revokeSessionKey(agent key) external {
         require(msg.sender == owner, "OnlyOwner");
 
         set sk_active[key] = false;
@@ -166,7 +166,7 @@ account contract AgentWallet {
     /// @effects writes: []
     /// @effects emits:  Executed
     /// @effects calls:  *
-    function execute(address target, bytes data, u256 value) external payable {
+    function execute(agent target, bytes data, u256 value) external payable {
         // Enforce the session key value cap.  The owner is exempt.
         if (msg.sender != owner) {
             let cap: u256 = sk_value_cap[msg.sender];
@@ -193,11 +193,11 @@ account contract AgentWallet {
     /// @effects reads:  storage.owner
     /// @effects writes: storage.owner
     /// @effects emits:  OwnerTransferred
-    function transferOwner(address new_owner) external {
+    function transferOwner(agent new_owner) external {
         require(msg.sender == owner, "OnlyOwner");
         require(new_owner != "0x0000000000000000000000000000000000000000000000000000000000000000", "ZeroAddress");
 
-        let prev: address = owner;
+        let prev: agent = owner;
         set owner = new_owner;
 
         emit OwnerTransferred(prev, new_owner);

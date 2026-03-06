@@ -704,6 +704,10 @@ func functionVisibilityFromModifiers(modifiers []string) string {
 
 func normalizeABIType(t string) string {
 	s := strings.Join(strings.Fields(t), " ")
+	// "agent" and "address payable" both map to "address" in standard ABI encoding.
+	if s == "agent" || s == "address payable" {
+		s = "address"
+	}
 	repl := strings.NewReplacer(
 		"( ", "(",
 		" )", ")",

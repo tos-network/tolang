@@ -177,8 +177,8 @@ func buildBootstrapChunkFromLowered(p *lower.Program, mode bootstrapMode) ([]lua
 }
 
 type dispatchFunc struct {
-	Name      string            // TOL source name (for error messages)
-	LuaName   string            // actual Lua global function name (may be mangled for overloads)
+	Name      string // TOL source name (for error messages)
+	LuaName   string // actual Lua global function name (may be mangled for overloads)
 	Signature string
 	Params    []tolast.FieldDecl // parameter list (needed for struct calldata decode)
 	Returns   []tolast.FieldDecl // return type list (needed for tos.result wrapping)
@@ -189,32 +189,32 @@ type loweringEnv struct {
 	selectorByFunction map[string]string
 	functionByName     map[string]struct{}
 	// functionsByName maps source name → all overloads (for internal call resolution).
-	functionsByName    map[string][]lower.Function
-	storageByName      map[string]storageSlotInfo
+	functionsByName map[string][]lower.Function
+	storageByName   map[string]storageSlotInfo
 	// libraryByName maps library name → (function name → arity) for library call lowering.
-	libraryByName      map[string]map[string]int
+	libraryByName map[string]map[string]int
 	// usingTypeToLib maps a TOL type string → library name for 'using X for T' expansion.
-	usingTypeToLib     map[string]string
+	usingTypeToLib map[string]string
 	// enumByName maps enum name → (member name → integer value).
-	enumByName         map[string]map[string]int
+	enumByName map[string]map[string]int
 	// errorSigByName maps error name → canonical ABI signature string (e.g. "Unauthorized(agent,uint256)").
-	errorSigByName     map[string]string
+	errorSigByName map[string]string
 	// structFields maps struct name → ordered list of field names.
-	structFields       map[string][]string
+	structFields map[string][]string
 	// structFieldTypes maps struct name → ordered list of fields (name+type).
-	structFieldTypes   map[string][]tolast.FieldDecl
+	structFieldTypes map[string][]tolast.FieldDecl
 	// constantByName maps constant name → its AST literal expression for inline substitution.
-	constantByName     map[string]*tolast.Expr
+	constantByName map[string]*tolast.Expr
 	// interfaceByName maps interface name → list of function signatures (for type(I).interfaceId).
-	interfaceByName    map[string][]lower.InterfaceFuncSig
+	interfaceByName map[string][]lower.InterfaceFuncSig
 	// packageByInterface maps interface local name → origin package path (e.g. "AgentRegistry" → "tos.registry").
 	packageByInterface map[string]string
 	// contractByInterface maps interface local name → concrete contract name (e.g. "IRegistry" → "AgentRegistry").
 	contractByInterface map[string]string
 	// typeAliases maps user-defined value type name → underlying type (e.g. "MyInt" → "uint256").
-	typeAliases        map[string]string
+	typeAliases map[string]string
 	// purposeNames maps purpose declaration name → ordinal (0-based), for escrow/release/slash lowering.
-	purposeNames       map[string]int
+	purposeNames map[string]int
 }
 
 type storageSlotKind string
@@ -442,18 +442,18 @@ func buildLoweringEnv(contractName string, dispatchFns []dispatchFunc, funcs []l
 		}
 	}
 	return &loweringEnv{
-		contractName:       contractName,
-		selectorByFunction: m,
-		functionByName:     fm,
-		functionsByName:    fnsByName,
-		storageByName:      sm,
-		libraryByName:      lm,
-		usingTypeToLib:     um,
-		enumByName:         enumByName,
-		errorSigByName:     errorSigByName,
-		structFields:       sfm,
-		structFieldTypes:   sftm,
-		constantByName:     constByName,
+		contractName:        contractName,
+		selectorByFunction:  m,
+		functionByName:      fm,
+		functionsByName:     fnsByName,
+		storageByName:       sm,
+		libraryByName:       lm,
+		usingTypeToLib:      um,
+		enumByName:          enumByName,
+		errorSigByName:      errorSigByName,
+		structFields:        sfm,
+		structFieldTypes:    sftm,
+		constantByName:      constByName,
 		interfaceByName:     ifaceByName,
 		packageByInterface:  pkgByIface,
 		contractByInterface: ctByIface,
@@ -1912,7 +1912,7 @@ function __tol_host_create(value, init_code)
     f = create
   end
   if f ~= nil then
-    local addr = f(value, init_code)
+    local addr = f(init_code, value)
     if addr == nil then addr = __tol_zero_addr end
     return addr
   end
@@ -1927,11 +1927,41 @@ function __tol_host_create2(value, salt, init_code)
     f = create2
   end
   if f ~= nil then
-    local addr = f(value, salt, init_code)
+    local addr = f(init_code, salt, value)
     if addr == nil then addr = __tol_zero_addr end
     return addr
   end
   error("host function 'create2' is not available")
+end
+
+function __tol_host_createx(value, init_code, lease_blocks, lease_owner)
+  local f = nil
+  if tos ~= nil and type(tos) == "table" and type(tos.createx) == "function" then
+    f = tos.createx
+  elseif type(createx) == "function" then
+    f = createx
+  end
+  if f ~= nil then
+    local addr = f(init_code, lease_blocks, lease_owner, value)
+    if addr == nil then addr = __tol_zero_addr end
+    return addr
+  end
+  error("host function 'createx' is not available")
+end
+
+function __tol_host_create2x(value, salt, init_code, lease_blocks, lease_owner)
+  local f = nil
+  if tos ~= nil and type(tos) == "table" and type(tos.create2x) == "function" then
+    f = tos.create2x
+  elseif type(create2x) == "function" then
+    f = create2x
+  end
+  if f ~= nil then
+    local addr = f(init_code, salt, lease_blocks, lease_owner, value)
+    if addr == nil then addr = __tol_zero_addr end
+    return addr
+  end
+  error("host function 'create2x' is not available")
 end
 
 function __tol_host_transfer(addr, amount)
@@ -3214,16 +3244,16 @@ type loweringLoop struct {
 }
 
 type loweringCtx struct {
-	labelSeq   int
-	trySeq     int
-	loops      []loweringLoop
-	env        *loweringEnv
-	scopes     []map[string]struct{}
-	localTypes []map[string]string // per-scope map: local name -> TOL type
-	unchecked  bool                // true when inside an unchecked {} block
-	ternarySeq int                 // counter for unique ternary temp names
-	taskLocals       map[string]string      // local var name → storage slot name (for task<T> local handles)
-	delegationLocals map[string]struct{}   // local var names that hold a delegation value
+	labelSeq         int
+	trySeq           int
+	loops            []loweringLoop
+	env              *loweringEnv
+	scopes           []map[string]struct{}
+	localTypes       []map[string]string // per-scope map: local name -> TOL type
+	unchecked        bool                // true when inside an unchecked {} block
+	ternarySeq       int                 // counter for unique ternary temp names
+	taskLocals       map[string]string   // local var name → storage slot name (for task<T> local handles)
+	delegationLocals map[string]struct{} // local var names that hold a delegation value
 }
 
 func newLoweringCtx(env *loweringEnv) *loweringCtx {
@@ -4909,6 +4939,12 @@ func lowerHostBuiltinCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 	case "create2":
 		hostFn = "__tol_host_create2"
 		wantArity = 3
+	case "createx":
+		hostFn = "__tol_host_createx"
+		wantArity = 4
+	case "create2x":
+		hostFn = "__tol_host_create2x"
+		wantArity = 5
 	case "transfer":
 		hostFn = "__tol_host_transfer"
 		wantArity = 2
@@ -5899,7 +5935,9 @@ func lowerMemArrayIndexExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool,
 }
 
 // lowerMemArrayStoreStmt lowers a bounds-checked memory array write:
-//   set arr[i] = v  →  __tol_array_set(arr, i, v)  (FuncCallStmt)
+//
+//	set arr[i] = v  →  __tol_array_set(arr, i, v)  (FuncCallStmt)
+//
 // Fires only when stmt.Target is an index expression on a memory array local (type "__mem:*").
 // Returns (stmt, true, nil) if handled, (nil, false, nil) if not a memory array store.
 func lowerMemArrayStoreStmt(ctx *loweringCtx, s tolast.Statement, target *tolast.Expr, valExpr *tolast.Expr) (luast.Stmt, bool, error) {
@@ -6354,9 +6392,10 @@ func lowerStorageLengthMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr,
 }
 
 // lowerOracleSlotExpr handles oracle<T> OOP member and method expressions:
-//   price.is_set   → __tol_oracle_is_set(__tol_s_price_set)
-//   price.value    → __tol_oracle_value(__tol_s_price_val)
-//   price.fulfill(v) → __tol_oracle_fulfill(__tol_s_price_val, __tol_s_price_set, v)
+//
+//	price.is_set   → __tol_oracle_is_set(__tol_s_price_set)
+//	price.value    → __tol_oracle_value(__tol_s_price_val)
+//	price.fulfill(v) → __tol_oracle_fulfill(__tol_s_price_val, __tol_s_price_set, v)
 func lowerOracleSlotExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
 	if e == nil {
 		return nil, false, nil
@@ -6576,8 +6615,9 @@ func lowerVoteSlotExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, erro
 }
 
 // taskSlotForExpr tries to determine (slotName, tidExpr, ok) for a task-mapping indexed expression:
-//   tasks[tid]         → (slotName="tasks", tidExpr, true)
-//   t (task local)     → (slotName from ctx.taskLocals, nil, true) — tidExpr returned as special marker
+//
+//	tasks[tid]         → (slotName="tasks", tidExpr, true)
+//	t (task local)     → (slotName from ctx.taskLocals, nil, true) — tidExpr returned as special marker
 //
 // Returns ok=false if expression is not a task-mapping access.
 func taskSlotForExpr(ctx *loweringCtx, e *tolast.Expr) (slotName string, keys []*tolast.Expr, isLocal bool, ok bool) {
@@ -6602,8 +6642,9 @@ func taskSlotForExpr(ctx *loweringCtx, e *tolast.Expr) (slotName string, keys []
 }
 
 // buildTaskFieldRef builds the Lua expression to read a task field for a given slot and key:
-//   isLocal=false → __tol_sload(__tol_mkey(tidExpr, __tol_s_<slotName>_<field>))
-//   isLocal=true  → __tol_sload(__tol_mkey(localVar._tid, localVar._base_<field>))
+//
+//	isLocal=false → __tol_sload(__tol_mkey(tidExpr, __tol_s_<slotName>_<field>))
+//	isLocal=true  → __tol_sload(__tol_mkey(localVar._tid, localVar._base_<field>))
 func buildTaskFieldExpr(ctx *loweringCtx, slotName string, keys []*tolast.Expr, isLocal bool, localObjName string, field string) (luast.Expr, error) {
 	fieldConst := withLineExpr(&luast.IdentExpr{Value: "__tol_s_" + slotName + "_" + field})
 	var tidExpr luast.Expr
@@ -6633,7 +6674,9 @@ func buildTaskFieldExpr(ctx *loweringCtx, slotName string, keys []*tolast.Expr, 
 }
 
 // lowerTaskMappingStoreStmt handles:
-//   tasks[tid] = task<T>.new(poster, reward, deadline)
+//
+//	tasks[tid] = task<T>.new(poster, reward, deadline)
+//
 // → __tol_task_new(base, poster_base, worker_base, reward_base, ddl_base, data_base, tid, poster, reward, deadline)
 func lowerTaskMappingStoreStmt(ctx *loweringCtx, target *tolast.Expr, valueExpr *tolast.Expr, line int) (luast.Stmt, bool, error) {
 	if target == nil || valueExpr == nil {
@@ -6706,11 +6749,12 @@ func lowerTaskMappingStoreStmt(ctx *loweringCtx, target *tolast.Expr, valueExpr 
 }
 
 // lowerTaskMappingMemberExpr handles property reads on task mappings:
-//   tasks[tid].worker    → __tol_sload(__tol_mkey(tid, __tol_s_tasks_worker))
-//   tasks[tid].poster    → __tol_sload(__tol_mkey(tid, __tol_s_tasks_poster))
-//   tasks[tid].reward    → __tol_sload(__tol_mkey(tid, __tol_s_tasks_reward))
-//   tasks[tid].is_expired → deadline < block.timestamp
-//   t.worker             → same but via local handle t._tid and slot constants
+//
+//	tasks[tid].worker    → __tol_sload(__tol_mkey(tid, __tol_s_tasks_worker))
+//	tasks[tid].poster    → __tol_sload(__tol_mkey(tid, __tol_s_tasks_poster))
+//	tasks[tid].reward    → __tol_sload(__tol_mkey(tid, __tol_s_tasks_reward))
+//	tasks[tid].is_expired → deadline < block.timestamp
+//	t.worker             → same but via local handle t._tid and slot constants
 func lowerTaskMappingMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
 	if e == nil || e.Kind != "member" {
 		return nil, false, nil
@@ -6782,12 +6826,14 @@ func lowerTaskMappingMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, b
 }
 
 // lowerTaskMappingCallExpr handles method calls on task mappings:
-//   tasks[tid].accept(worker)  → __tol_task_transition(base, tid, 1, 2, worker) + store worker
-//   tasks[tid].submit(data)    → __tol_task_transition(base, tid, 2, 3, nil) + store data
-//   tasks[tid].approve()       → __tol_task_transition(base, tid, 3, 4, nil)
-//   tasks[tid].reject()        → __tol_task_transition(base, tid, 3, 5, nil)
-//   tasks[tid].dispute()       → __tol_task_transition (runtime state-agnostic to 6)
-//   tasks[tid].cancel()        → __tol_task_transition (runtime state-agnostic to 7)
+//
+//	tasks[tid].accept(worker)  → __tol_task_transition(base, tid, 1, 2, worker) + store worker
+//	tasks[tid].submit(data)    → __tol_task_transition(base, tid, 2, 3, nil) + store data
+//	tasks[tid].approve()       → __tol_task_transition(base, tid, 3, 4, nil)
+//	tasks[tid].reject()        → __tol_task_transition(base, tid, 3, 5, nil)
+//	tasks[tid].dispute()       → __tol_task_transition (runtime state-agnostic to 6)
+//	tasks[tid].cancel()        → __tol_task_transition (runtime state-agnostic to 7)
+//
 // Also: task<T>.new(poster, reward, ddl) → __tol_task_new(...)
 func lowerTaskMappingCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
 	if e == nil || e.Kind != "call" || e.Callee == nil || e.Callee.Kind != "member" {
@@ -6948,11 +6994,13 @@ func lowerTaskMappingCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 }
 
 // lowerAgentPropertyExpr handles agent property access:
-//   agent(expr).stake        → __tol_agent_prop(expr, "stake")
-//   agent(expr).is_active    → compound boolean expression
-//   agent(expr).reputation   → __tol_agent_prop(expr, "reputation")
-//   agent(expr).rating_count → __tol_agent_prop(expr, "rating_count")
-//   agent(expr).suspended    → __tol_agent_prop(expr, "suspended") ~= 0
+//
+//	agent(expr).stake        → __tol_agent_prop(expr, "stake")
+//	agent(expr).is_active    → compound boolean expression
+//	agent(expr).reputation   → __tol_agent_prop(expr, "reputation")
+//	agent(expr).rating_count → __tol_agent_prop(expr, "rating_count")
+//	agent(expr).suspended    → __tol_agent_prop(expr, "suspended") ~= 0
+//
 // Also handles: localAgentVar.property (when object ident is agent-typed local or param).
 func lowerAgentPropertyExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
 	if e == nil || e.Kind != "member" {

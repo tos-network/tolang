@@ -1950,6 +1950,10 @@ func builtinCallArity(name string) (int, bool) {
 		return 2, true
 	case "create2":
 		return 3, true
+	case "createx":
+		return 4, true
+	case "create2x":
+		return 5, true
 	case "transfer":
 		return 2, true
 	case "bytes_eq", "string_eq":

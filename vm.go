@@ -46,6 +46,14 @@ func mainLoop(L *LState, baseframe *callFrame) {
 			}
 			L.lineHook(source, line)
 		}
+		if L.interruptCh != nil {
+			select {
+			case <-L.interruptCh:
+				L.RaiseError("execution aborted")
+				return
+			default:
+			}
+		}
 		if jumpTable[int(inst>>26)](L, inst, baseframe) == 1 {
 			return
 		}

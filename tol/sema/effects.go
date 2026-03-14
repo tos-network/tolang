@@ -60,6 +60,8 @@ var externalStateCallNames = map[string]bool{
 	"call":         true,
 	"create":       true,
 	"create2":      true,
+	"createx":      true,
+	"create2x":     true,
 	"transfer":     true,
 	"delegatecall": true,
 }
@@ -747,7 +749,7 @@ func inferFromExpr(e *ast.Expr, slots map[string]bool, params map[string]bool, i
 		if callee != nil && callee.Kind == "ident" {
 			name := strings.TrimSpace(callee.Value)
 			switch name {
-			case "call", "delegatecall", "staticcall", "create", "create2", "transfer", "send":
+			case "call", "delegatecall", "staticcall", "create", "create2", "createx", "create2x", "transfer", "send":
 				inf.Calls = append(inf.Calls, CallSite{Target: "dynamic"})
 			}
 		}

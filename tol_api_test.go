@@ -1291,6 +1291,8 @@ contract Demo {
     set d = delegatecall("0x03", "0xcc");
     set a = create(0, "0x6000");
     set b = create2(0, "0x01", "0x6001");
+    set x = createx(7, "0x6002", 42, "0x0000000000000000000000000000000000000005");
+    set y = create2x(8, "0x02", "0x6003", 43, "0x0000000000000000000000000000000000000006");
     transfer("0x04", 9);
     return;
   }
@@ -1308,6 +1310,8 @@ contract Demo {
 	delegateCount := 0
 	createCount := 0
 	create2Count := 0
+	createXCount := 0
+	create2XCount := 0
 	transferCount := 0
 
 	tosTable := L.NewTable()
@@ -1331,12 +1335,64 @@ contract Demo {
 	}))
 	L.SetField(tosTable, "create", L.NewFunction(func(L *LState) int {
 		createCount++
+		if L.GetTop() >= 1 {
+			L.SetGlobal("__create_arg1", L.CheckAny(1))
+		}
+		if L.GetTop() >= 2 {
+			L.SetGlobal("__create_arg2", L.CheckAny(2))
+		}
 		L.Push(LString("0x100"))
 		return 1
 	}))
 	L.SetField(tosTable, "create2", L.NewFunction(func(L *LState) int {
 		create2Count++
+		if L.GetTop() >= 1 {
+			L.SetGlobal("__create2_arg1", L.CheckAny(1))
+		}
+		if L.GetTop() >= 2 {
+			L.SetGlobal("__create2_arg2", L.CheckAny(2))
+		}
+		if L.GetTop() >= 3 {
+			L.SetGlobal("__create2_arg3", L.CheckAny(3))
+		}
 		L.Push(LString("0x200"))
+		return 1
+	}))
+	L.SetField(tosTable, "createx", L.NewFunction(func(L *LState) int {
+		createXCount++
+		if L.GetTop() >= 1 {
+			L.SetGlobal("__createx_arg1", L.CheckAny(1))
+		}
+		if L.GetTop() >= 2 {
+			L.SetGlobal("__createx_arg2", L.CheckAny(2))
+		}
+		if L.GetTop() >= 3 {
+			L.SetGlobal("__createx_arg3", L.CheckAny(3))
+		}
+		if L.GetTop() >= 4 {
+			L.SetGlobal("__createx_arg4", L.CheckAny(4))
+		}
+		L.Push(LString("0x300"))
+		return 1
+	}))
+	L.SetField(tosTable, "create2x", L.NewFunction(func(L *LState) int {
+		create2XCount++
+		if L.GetTop() >= 1 {
+			L.SetGlobal("__create2x_arg1", L.CheckAny(1))
+		}
+		if L.GetTop() >= 2 {
+			L.SetGlobal("__create2x_arg2", L.CheckAny(2))
+		}
+		if L.GetTop() >= 3 {
+			L.SetGlobal("__create2x_arg3", L.CheckAny(3))
+		}
+		if L.GetTop() >= 4 {
+			L.SetGlobal("__create2x_arg4", L.CheckAny(4))
+		}
+		if L.GetTop() >= 5 {
+			L.SetGlobal("__create2x_arg5", L.CheckAny(5))
+		}
+		L.Push(LString("0x400"))
 		return 1
 	}))
 	L.SetField(tosTable, "transfer", L.NewFunction(func(L *LState) int {
@@ -1375,12 +1431,60 @@ contract Demo {
 	if got := LVAsString(L.GetGlobal("b")); got != "0x200" {
 		t.Fatalf("unexpected create2() return: got=%s want=0x200", got)
 	}
+	if got := LVAsString(L.GetGlobal("x")); got != "0x300" {
+		t.Fatalf("unexpected createx() return: got=%s want=0x300", got)
+	}
+	if got := LVAsString(L.GetGlobal("y")); got != "0x400" {
+		t.Fatalf("unexpected create2x() return: got=%s want=0x400", got)
+	}
+	if got := LVAsString(L.GetGlobal("__create_arg1")); got != "0x6000" {
+		t.Fatalf("unexpected create() arg1: got=%s want=0x6000", got)
+	}
+	if got := LVAsString(L.GetGlobal("__create_arg2")); got != "0" {
+		t.Fatalf("unexpected create() arg2: got=%s want=0", got)
+	}
+	if got := LVAsString(L.GetGlobal("__create2_arg1")); got != "0x6001" {
+		t.Fatalf("unexpected create2() arg1: got=%s want=0x6001", got)
+	}
+	if got := LVAsString(L.GetGlobal("__create2_arg2")); got != "0x01" {
+		t.Fatalf("unexpected create2() arg2: got=%s want=0x01", got)
+	}
+	if got := LVAsString(L.GetGlobal("__create2_arg3")); got != "0" {
+		t.Fatalf("unexpected create2() arg3: got=%s want=0", got)
+	}
+	if got := LVAsString(L.GetGlobal("__createx_arg1")); got != "0x6002" {
+		t.Fatalf("unexpected createx() arg1: got=%s want=0x6002", got)
+	}
+	if got := LVAsString(L.GetGlobal("__createx_arg2")); got != "42" {
+		t.Fatalf("unexpected createx() arg2: got=%s want=42", got)
+	}
+	if got := LVAsString(L.GetGlobal("__createx_arg3")); got != "0x0000000000000000000000000000000000000005" {
+		t.Fatalf("unexpected createx() arg3: got=%s want=0x0000000000000000000000000000000000000005", got)
+	}
+	if got := LVAsString(L.GetGlobal("__createx_arg4")); got != "7" {
+		t.Fatalf("unexpected createx() arg4: got=%s want=7", got)
+	}
+	if got := LVAsString(L.GetGlobal("__create2x_arg1")); got != "0x6003" {
+		t.Fatalf("unexpected create2x() arg1: got=%s want=0x6003", got)
+	}
+	if got := LVAsString(L.GetGlobal("__create2x_arg2")); got != "0x02" {
+		t.Fatalf("unexpected create2x() arg2: got=%s want=0x02", got)
+	}
+	if got := LVAsString(L.GetGlobal("__create2x_arg3")); got != "43" {
+		t.Fatalf("unexpected create2x() arg3: got=%s want=43", got)
+	}
+	if got := LVAsString(L.GetGlobal("__create2x_arg4")); got != "0x0000000000000000000000000000000000000006" {
+		t.Fatalf("unexpected create2x() arg4: got=%s want=0x0000000000000000000000000000000000000006", got)
+	}
+	if got := LVAsString(L.GetGlobal("__create2x_arg5")); got != "8" {
+		t.Fatalf("unexpected create2x() arg5: got=%s want=8", got)
+	}
 	if got := LVAsString(L.GetGlobal("__transfer_amt")); got != "9" {
 		t.Fatalf("unexpected transfer amount: got=%s want=9", got)
 	}
-	if callCount != 1 || staticCount != 1 || delegateCount != 1 || createCount != 1 || create2Count != 1 || transferCount != 1 {
-		t.Fatalf("unexpected hook call counts: call=%d static=%d delegate=%d create=%d create2=%d transfer=%d",
-			callCount, staticCount, delegateCount, createCount, create2Count, transferCount)
+	if callCount != 1 || staticCount != 1 || delegateCount != 1 || createCount != 1 || create2Count != 1 || createXCount != 1 || create2XCount != 1 || transferCount != 1 {
+		t.Fatalf("unexpected hook call counts: call=%d static=%d delegate=%d create=%d create2=%d createx=%d create2x=%d transfer=%d",
+			callCount, staticCount, delegateCount, createCount, create2Count, createXCount, create2XCount, transferCount)
 	}
 }
 
@@ -1394,6 +1498,8 @@ contract Demo {
     set d = delegatecall("0x03", "0xcc");
     set a = create(0, "0x6000");
     set b = create2(0, "0x01", "0x6001");
+    set x = createx(7, "0x6002", 42, "0x0000000000000000000000000000000000000005");
+    set y = create2x(8, "0x02", "0x6003", 43, "0x0000000000000000000000000000000000000006");
     return;
   }
 }
@@ -1411,6 +1517,8 @@ contract Demo {
 	L.SetField(tosTable, "delegatecall", L.NewFunction(func(L *LState) int { return 0 }))
 	L.SetField(tosTable, "create", L.NewFunction(func(L *LState) int { return 0 }))
 	L.SetField(tosTable, "create2", L.NewFunction(func(L *LState) int { return 0 }))
+	L.SetField(tosTable, "createx", L.NewFunction(func(L *LState) int { return 0 }))
+	L.SetField(tosTable, "create2x", L.NewFunction(func(L *LState) int { return 0 }))
 	L.SetGlobal("tos", tosTable)
 
 	if err := L.DoBytecode(bc); err != nil {
@@ -1443,6 +1551,12 @@ contract Demo {
 	if got := LVAsString(L.GetGlobal("b")); got != wantZeroAddr {
 		t.Fatalf("unexpected normalized create2() addr: got=%s want=%s", got, wantZeroAddr)
 	}
+	if got := LVAsString(L.GetGlobal("x")); got != wantZeroAddr {
+		t.Fatalf("unexpected normalized createx() addr: got=%s want=%s", got, wantZeroAddr)
+	}
+	if got := LVAsString(L.GetGlobal("y")); got != wantZeroAddr {
+		t.Fatalf("unexpected normalized create2x() addr: got=%s want=%s", got, wantZeroAddr)
+	}
 }
 
 func TestCompileBytecodeHostBuiltinsFallbackToGlobalFunctions(t *testing.T) {
@@ -1451,6 +1565,8 @@ pragma tolang 0.2.0;
 contract Demo {
   function run() public {
     set a = create(0, "0x6000");
+    set x = createx(7, "0x6002", 42, "0x0000000000000000000000000000000000000005");
+    set y = create2x(8, "0x02", "0x6003", 43, "0x0000000000000000000000000000000000000006");
     transfer("0x04", 11);
     return;
   }
@@ -1464,10 +1580,22 @@ contract Demo {
 	defer L.Close()
 
 	createCount := 0
+	createXCount := 0
+	create2XCount := 0
 	transferCount := 0
 	L.SetGlobal("create", L.NewFunction(func(L *LState) int {
 		createCount++
 		L.Push(LString("0xabc"))
+		return 1
+	}))
+	L.SetGlobal("createx", L.NewFunction(func(L *LState) int {
+		createXCount++
+		L.Push(LString("0xdef"))
+		return 1
+	}))
+	L.SetGlobal("create2x", L.NewFunction(func(L *LState) int {
+		create2XCount++
+		L.Push(LString("0x123"))
 		return 1
 	}))
 	L.SetGlobal("transfer", L.NewFunction(func(L *LState) int {
@@ -1493,11 +1621,17 @@ contract Demo {
 	if got := LVAsString(L.GetGlobal("a")); got != "0xabc" {
 		t.Fatalf("unexpected create() global fallback return: got=%s want=0xabc", got)
 	}
+	if got := LVAsString(L.GetGlobal("x")); got != "0xdef" {
+		t.Fatalf("unexpected createx() global fallback return: got=%s want=0xdef", got)
+	}
+	if got := LVAsString(L.GetGlobal("y")); got != "0x123" {
+		t.Fatalf("unexpected create2x() global fallback return: got=%s want=0x123", got)
+	}
 	if got := LVAsString(L.GetGlobal("__transfer_amt")); got != "11" {
 		t.Fatalf("unexpected transfer() global fallback amount: got=%s want=11", got)
 	}
-	if createCount != 1 || transferCount != 1 {
-		t.Fatalf("unexpected global fallback call counts: create=%d transfer=%d", createCount, transferCount)
+	if createCount != 1 || createXCount != 1 || create2XCount != 1 || transferCount != 1 {
+		t.Fatalf("unexpected global fallback call counts: create=%d createx=%d create2x=%d transfer=%d", createCount, createXCount, create2XCount, transferCount)
 	}
 }
 
@@ -1519,6 +1653,28 @@ contract Demo {
 		t.Fatalf("expected TOL2019 error, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "builtin 'call' expects 3 argument") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCompileBytecodeHostBuiltinCreateXRejectsBadArity(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract Demo {
+  function bad() public {
+    createx(0, "0x6000", 42);
+    return;
+  }
+}
+`)
+	_, err := CompileBytecode(src, "<tol>")
+	if err == nil {
+		t.Fatalf("expected compile error")
+	}
+	if !strings.Contains(err.Error(), "TOL2019") {
+		t.Fatalf("expected TOL2019 error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "builtin 'createx' expects 4 argument") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -4762,7 +4918,6 @@ contract Demo {
 	}
 }
 
-
 // =============================================================================
 // M3: Inheritance and interface conformance end-to-end tests (full pipeline).
 // =============================================================================
@@ -4910,7 +5065,6 @@ contract Child is ExternalContract {
 		t.Fatalf("unexpected compile error for unknown base: %v", err)
 	}
 }
-
 
 // =============================================================================
 // Signed integer arithmetic tests (TOL M2)
@@ -5732,7 +5886,9 @@ contract Demo {
 
 // TestABIDecodeTupleU256AndAgent verifies that a tuple let-binding
 // with abi.decode unpacks two slots correctly:
-//   let (v, a): (u256, agent) = abi.decode(data);
+//
+//	let (v, a): (u256, agent) = abi.decode(data);
+//
 // decodes 64-byte ABI payload into u256=42 and address=0x...ab.
 func TestABIDecodeTupleU256AndAgent(t *testing.T) {
 	// 64-byte ABI payload: slot0 = u256(42), slot1 = address(0xab)
@@ -8635,7 +8791,6 @@ contract C {
 	}
 }
 
-
 func TestImportGitHubMissingRevError(t *testing.T) {
 	// github.com paths without @rev must be rejected.
 	src := `pragma tolang 0.2.0;
@@ -9148,9 +9303,9 @@ contract Demo {
 // @effects doc-comment parser splits on commas (it cannot represent
 // comma-keys in the declaration itself without extra bracket-awareness).
 // What we test is that:
-//   1. The inferred write ref for allowances[from][spender] is
-//      storage.allowances[from,spender] (comma format, not chained brackets).
-//   2. That ref is covered by the wildcard storage.allowances[*].
+//  1. The inferred write ref for allowances[from][spender] is
+//     storage.allowances[from,spender] (comma format, not chained brackets).
+//  2. That ref is covered by the wildcard storage.allowances[*].
 //
 // If the old chained format (storage.allowances[from][*]) were still being
 // generated, it would NOT be covered by storage.allowances[*] (because the
@@ -9256,11 +9411,12 @@ contract ERC20 {
 // @bounds i <= 9 is equivalent to "i iterates at most 10 times" (Value+1 = 10).
 //
 // Gas budget for this function body:
-//   let total: u256 = 0   → gasCostInstr(1) + exprGas(0: number→1)         = 2
-//   for (let i ... i<=9; i++) body_gas = 10 × 4                              = 40
-//     set total = total+1  → gasCostInstr(1) + binaryGas(ident+number: 3)   = 4
-//   return;                → gasCostInstr(1) + exprGas(nil: 0)              = 1
-//   Total                                                                    = 43
+//
+//	let total: u256 = 0   → gasCostInstr(1) + exprGas(0: number→1)         = 2
+//	for (let i ... i<=9; i++) body_gas = 10 × 4                              = 40
+//	  set total = total+1  → gasCostInstr(1) + binaryGas(ident+number: 3)   = 4
+//	return;                → gasCostInstr(1) + exprGas(nil: 0)              = 1
+//	Total                                                                    = 43
 func TestBoundsGasEstimationBounded(t *testing.T) {
 	// This should compile: @gas upper 43 covers the exact bounded estimate.
 	srcOK := []byte(`pragma tolang 0.2.0;

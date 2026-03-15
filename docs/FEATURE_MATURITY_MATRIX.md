@@ -1,9 +1,8 @@
 # Feature Maturity Matrix
 ## Tolang Implementation Status
 
-**Status:** Draft  
-**Version:** 0.1  
-**Intended location:** `docs/FEATURE_MATURITY_MATRIX.md`
+**Status:** Updated 2026-03-15
+**Version:** 0.2
 
 ## Purpose
 
@@ -39,8 +38,8 @@ This distinction is essential for technical credibility. Tolang already has a st
 | `capability` declarations | ✅ | ✅ | ✅ | ✅ | partial | Compiler-Complete / Runtime-Dependent |
 | `@requires(...)` | ✅ | ✅ | ✅ | ✅ | partial | Compiler-Complete / Runtime-Dependent |
 | `agent` type | ✅ | ✅ | ✅ | partial | depends on registry | Compiler-Complete / Runtime-Dependent |
-| `oracle<T>` | ✅ | ✅ | ✅ | partial | partial host support | In Progress |
-| `task<T>` | ✅ | ✅ | ✅ | partial | partial host support | In Progress |
+| `oracle<T>` | ✅ | ✅ | ✅ | ✅ | partial host support | Compiler-Complete / Runtime-Dependent |
+| `task<T>` | ✅ | ✅ | ✅ | ✅ | partial host support | Compiler-Complete / Runtime-Dependent |
 | `@delegated` | ✅ | ✅ | ✅ | ✅ | depends on delegation infra | Compiler-Complete / Runtime-Dependent |
 | `@verifiable` | ✅ | ✅ | ✅ | ✅ | depends on verifier/proof flow | Compiler-Complete / Runtime-Dependent |
 | `@pay` | ✅ | ✅ | ✅ | ✅ | depends on settlement rules | Compiler-Complete / Runtime-Dependent |

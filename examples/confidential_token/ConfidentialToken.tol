@@ -2,21 +2,16 @@ pragma tolang 0.4.0;
 
 // ConfidentialToken — fully private TRC20-style token.
 //
-// All balances are Twisted ElGamal ciphertexts. The contract never sees any
-// plaintext amount — it only performs homomorphic operations on ciphertexts
-// and verifies ZK proofs of validity.
+// All balances are Uno (Twisted ElGamal ciphertexts). The contract never sees
+// any plaintext amount — it only does encrypted arithmetic and verifies proofs
+// via the proof bundle mechanism.
 //
 // What's public:  transfer events (from, to)
 // What's hidden:  all balances, all transfer amounts
-//
-// Design:
-//   - mint() takes a pre-encrypted ciphertext (minter encrypts off-chain)
-//   - transfer() swaps ciphertexts with ZK validity proofs
-//   - No encrypt/decrypt ever happens inside the contract
 
 contract ConfidentialToken {
     agent minter;
-    mapping(agent => ciphertext) balances;
+    mapping(agent => Uno) balances;
     mapping(agent => bytes32) publicKeys;
 
     event PublicKeyRegistered(agent indexed account, bytes32 pubkey)
@@ -33,122 +28,40 @@ contract ConfidentialToken {
         emit PublicKeyRegistered(msg.sender, pubkey);
     }
 
-    // Mint: the minter creates an encrypted ciphertext off-chain and submits
-    // it with a range proof. The contract only verifies and accumulates.
-    function mint(
-        agent to,
-        ciphertext mintCt,
-        bytes rangeProof
-    ) external {
+    // Mint: minter creates encrypted amount off-chain, submits as Uno.
+    function mint(agent to, Uno mintAmount) external {
         require(msg.sender == minter, "OnlyMinter");
-        bytes32 pubkey = publicKeys[to];
-        require(pubkey != bytes32(0), "RecipientNotRegistered");
-
-        // Verify the minted amount is non-negative
-        bytes32 commit = tos.ciphertext.commitment(mintCt);
-        bytes32 t = tos.transcript.new("confidential-mint");
-        require(
-            tos.proof.verify_range(commit, rangeProof, 64, t),
-            "BadRangeProof"
-        );
-
-        // Homomorphic accumulation: balance += mintCt
-        balances[to] = tos.ciphertext.add(balances[to], mintCt);
+        require(publicKeys[to] != bytes32(0), "NotRegistered");
+        balances[to] = balances[to].add(mintAmount);
         emit Mint(to);
     }
 
-    // Confidential transfer: move an encrypted amount from sender to receiver.
-    // All inputs are ciphertexts or proofs — no plaintext amount anywhere.
-    function confidentialTransfer(
-        agent to,
-        bytes32 commitment,
-        bytes32 senderHandle,
-        bytes32 receiverHandle,
-        bytes32 sourceCommitment,
-        bytes ctValidityProof,
-        bytes commitmentEqProof,
-        bytes rangeProof
-    ) external {
-        bytes32 senderPub = publicKeys[msg.sender];
-        bytes32 receiverPub = publicKeys[to];
-        require(senderPub != bytes32(0), "SenderNotRegistered");
-        require(receiverPub != bytes32(0), "ReceiverNotRegistered");
+    // Transfer: pure encrypted arithmetic. SDK generates proof bundle.
+    function transfer(agent to, Uno amount) external {
+        require(publicKeys[msg.sender] != bytes32(0), "SenderNotRegistered");
+        require(publicKeys[to] != bytes32(0), "ReceiverNotRegistered");
 
-        bytes32 t = tos.transcript.new("confidential-transfer");
+        Uno newBal = balances[msg.sender].sub(amount);
+        require(newBal.gt(Uno.zero()), "InsufficientBalance");
 
-        // Verify ciphertext validity: commitment and both handles encrypt
-        // the same amount under the correct keys
-        require(
-            tos.proof.verify_ct_validity(
-                commitment, senderHandle, receiverHandle,
-                senderPub, receiverPub,
-                ctValidityProof, t
-            ),
-            "BadCTValidityProof"
-        );
-
-        // Subtract transfer ciphertext from sender's balance (ct - ct)
-        ciphertext transferCt = tos.ciphertext.from_parts(commitment, senderHandle);
-        ciphertext newSenderBal = tos.ciphertext.sub(balances[msg.sender], transferCt);
-
-        // Verify sender's remaining balance commits to sourceCommitment
-        require(
-            tos.proof.verify_commitment_eq(
-                senderPub, newSenderBal, sourceCommitment,
-                commitmentEqProof, t
-            ),
-            "BadCommitmentEqProof"
-        );
-
-        // Range proof: sender's remaining balance is in [0, 2^64)
-        require(
-            tos.proof.verify_range(sourceCommitment, rangeProof, 64, t),
-            "BadRangeProof"
-        );
-
-        // Update balances: all ciphertext operations
-        balances[msg.sender] = newSenderBal;
-
-        ciphertext recvTransferCt = tos.ciphertext.from_parts(commitment, receiverHandle);
-        balances[to] = tos.ciphertext.add(balances[to], recvTransferCt);
+        balances[msg.sender] = newBal;
+        balances[to] = balances[to].add(amount);
 
         emit ConfidentialTransfer(msg.sender, to);
     }
 
-    // Burn: subtract an encrypted amount from sender's balance.
-    // The burned ciphertext + proofs are created off-chain.
-    function burn(
-        ciphertext burnCt,
-        bytes32 sourceCommitment,
-        bytes commitmentEqProof,
-        bytes rangeProof
-    ) external {
-        bytes32 pubkey = publicKeys[msg.sender];
-        require(pubkey != bytes32(0), "NotRegistered");
+    // Burn: subtract encrypted amount from sender's balance.
+    function burn(Uno burnAmount) external {
+        require(publicKeys[msg.sender] != bytes32(0), "NotRegistered");
 
-        bytes32 t = tos.transcript.new("confidential-burn");
-
-        // Subtract burned amount from balance (ct - ct)
-        ciphertext newBal = tos.ciphertext.sub(balances[msg.sender], burnCt);
-
-        // Prove remaining balance is non-negative
-        require(
-            tos.proof.verify_commitment_eq(
-                pubkey, newBal, sourceCommitment,
-                commitmentEqProof, t
-            ),
-            "BadCommitmentEqProof"
-        );
-        require(
-            tos.proof.verify_range(sourceCommitment, rangeProof, 64, t),
-            "BadRangeProof"
-        );
+        Uno newBal = balances[msg.sender].sub(burnAmount);
+        require(newBal.gt(Uno.zero()), "InsufficientBalance");
 
         balances[msg.sender] = newBal;
         emit Burn(msg.sender);
     }
 
-    function balanceOf(agent account) public view returns (ciphertext) {
+    function balanceOf(agent account) public view returns (Uno) {
         return balances[account];
     }
 

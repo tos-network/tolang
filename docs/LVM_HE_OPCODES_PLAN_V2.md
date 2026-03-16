@@ -6,15 +6,18 @@ GTOS privacy (UNO) currently works only at the protocol level — Shield/Transfe
 are native tx types. Smart contracts cannot manipulate encrypted values, meaning no
 confidential tokens, no private voting, no private OTC via contracts.
 
-We add a unified `tos.ciphertext.*` namespace to the LVM (Lua VM) with 22 functions that
-give TOL contracts **Fhenix-equivalent encrypted arithmetic** — add, sub, mul, div,
-compare, select, min, max — all on Twisted ElGamal ciphertexts (64 bytes = commitment 32B
-+ handle 32B, Ristretto255).
+We add the `Uno` type to TOL — a first-class encrypted integer backed by Twisted ElGamal
+ciphertexts (64 bytes = commitment 32B + handle 32B, Ristretto255). The `Uno` type
+exposes 22 methods giving TOL contracts **Fhenix-equivalent encrypted arithmetic** — add,
+sub, mul, div, compare, select, min, max — with clean method-call syntax.
 
-**Key design choice**: operations that ElGamal cannot compute natively (mul, div, compare,
-select, min, max) use a **proof bundle** mechanism — the transaction caller pre-computes
-results off-chain and attaches ZK proofs; the LVM verifies automatically. Contract
-developers see a clean API identical to Fhenix and never handle proofs manually.
+**Key design choices**:
+- `Uno` is a built-in TOL type with method syntax: `a.add(b)`, `a.lt(b)`, `Uno.zero()`
+- The TOL compiler desugars method calls to `tos.ciphertext.*` Lua calls (LVM unchanged)
+- Operations that ElGamal cannot compute natively (mul, div, compare, select, min, max)
+  use a **proof bundle** — the caller pre-computes results off-chain and attaches ZK
+  proofs in the transaction; the LVM verifies automatically
+- Contract developers never handle proofs — they write `a.mul(b)` and it just works
 
 ## Design
 
@@ -36,28 +39,26 @@ developers see a clean API identical to Fhenix and never handle proofs manually.
 **Tier 1 — Native homomorphic** (LVM computes directly, no proof needed):
 
 ```
-add(a, b)         →  Enc(a+b)      // EC point addition
-sub(a, b)         →  Enc(a-b)      // EC point subtraction
-add_scalar(ct, n) →  Enc(a+n)      // scalar-mult + point-add
-sub_scalar(ct, n) →  Enc(a-n)      // scalar-mult + point-sub
-mul_scalar(ct, n) →  Enc(a×n)      // scalar-mult (repeated addition)
-div_scalar(ct, n) →  Enc(a/n)      // scalar-inverse + scalar-mult
+a.add(b)            →  Enc(a+b)      // EC point addition
+a.sub(b)            →  Enc(a-b)      // EC point subtraction
+a.add_scalar(n)     →  Enc(a+n)      // scalar-mult + point-add
+a.sub_scalar(n)     →  Enc(a-n)      // scalar-mult + point-sub
+a.mul_scalar(n)     →  Enc(a×n)      // scalar-mult (repeated addition)
+a.div_scalar(n)     →  Enc(a/n)      // scalar-inverse + scalar-mult
 ```
 
 **Tier 2 — Proof-bundle verified** (caller pre-computes, LVM verifies ZK proof):
 
 ```
-mul(a, b)         →  Enc(a×b)      // Sigma protocol: Com(c) = Com(a×b)
-div(a, b)         →  Enc(a÷b)      // proves a = b×q + r, r ∈ [0,b)
-rem(a, b)         →  Enc(a%b)      // remainder from div proof
-lt(a, b)          →  bool          // sub(b,a) + range proof
-gt(a, b)          →  bool          // sub(a,b) + range proof
-eq(a, b)          →  bool          // sub(a,b) + zero-commitment check
-min(a, b)         →  Enc(min)      // compare + selection proof
-max(a, b)         →  Enc(max)      // compare + selection proof
-select(c, a, b)   →  Enc(c?a:b)    // conditional selection proof
-verify_transfer   →  bool          // CT validity (same amount, correct keys)
-verify_eq         →  bool          // commitment equality
+a.mul(b)            →  Enc(a×b)      // Sigma protocol: Com(c) = Com(a×b)
+a.div(b)            →  Enc(a÷b)      // proves a = b×q + r, r ∈ [0,b)
+a.rem(b)            →  Enc(a%b)      // remainder from div proof
+a.lt(b)             →  bool          // sub(b,a) + range proof
+a.gt(b)             →  bool          // sub(a,b) + range proof
+a.eq(b)             →  bool          // sub(a,b) + zero-commitment check
+a.min(b)            →  Enc(min)      // compare + selection proof
+a.max(b)            →  Enc(max)      // compare + selection proof
+Uno.select(c, a, b) →  Enc(c?a:b)   // conditional selection proof
 ```
 
 ### Proof Bundle Mechanism
@@ -93,73 +94,86 @@ When the LVM encounters a Tier 2 operation:
 5. Return the result
 6. If bundle is exhausted or proof is invalid → revert
 
-Contract developers never see this — they just write `tos.ciphertext.mul(a, b)`.
+Contract developers never see this — they just write `a.mul(b)`.
 The user's wallet/SDK generates the proof bundle when constructing the transaction.
+
+### TOL Syntax: `Uno` Type
+
+`Uno` is a built-in TOL type. The compiler desugars method calls to `tos.ciphertext.*`
+Lua function calls. No LVM changes needed — only the TOL compiler front-end.
+
+```tol
+// TOL source (what developers write)       // Lua output (what LVM executes)
+Uno x = Uno.zero();                         // x = tos.ciphertext.zero()
+Uno y = a.add(b);                           // y = tos.ciphertext.add(a, b)
+bool ok = a.lt(b);                          // ok = tos.ciphertext.lt(a, b)
+Uno m = a.min(b);                           // m = tos.ciphertext.min(a, b)
+Uno s = Uno.select(cond, a, b);             // s = tos.ciphertext.select(cond, a, b)
+bytes32 c = a.commitment();                 // c = tos.ciphertext.commitment(a)
+```
 
 ### Type Representation
 
-| Type | In Lua | In Storage | In ABI | Size |
-|------|--------|------------|--------|------|
-| `ciphertext` | `"0x" + 128 hex` | 2 × 32B slots | 2 × 32B words | 64B |
+| Type | In TOL | In Lua | In Storage | In ABI | Size |
+|------|--------|--------|------------|--------|------|
+| `Uno` | first-class type | `"0x" + 128 hex` | 2 × 32B slots | 2 × 32B words | 64B |
 
-### API: 22 Functions
+### API: 22 Methods
 
-All functions live in the `tos.ciphertext` namespace.
+#### Tier 1 — Native Homomorphic (9 methods)
 
-#### Tier 1 — Native Homomorphic (9 functions)
+| # | TOL Method | Signature | Gas | Implementation |
+|---|------------|-----------|-----|----------------|
+| 1 | `a.add(b)` | `(Uno, Uno) → Uno` | 8000 | EC point add (commitment + handle) |
+| 2 | `a.sub(b)` | `(Uno, Uno) → Uno` | 8000 | EC point sub (commitment + handle) |
+| 3 | `a.add_scalar(n)` | `(Uno, u64) → Uno` | 6000 | scalar-mult(G,n) + point-add |
+| 4 | `a.sub_scalar(n)` | `(Uno, u64) → Uno` | 6000 | scalar-mult(G,n) + point-sub |
+| 5 | `a.mul_scalar(n)` | `(Uno, u64) → Uno` | 10000 | 2× variable-base scalar-mult |
+| 6 | `a.div_scalar(n)` | `(Uno, u64) → Uno` | 12000 | scalar-invert + 2× scalar-mult |
+| 7 | `Uno.zero()` | `() → Uno` | 100 | precomputed identity ciphertext |
+| 8 | `Uno.encrypt(pk, amt)` | `(bytes32, u64) → Uno` | 15000 | full ElGamal encryption |
+| 9 | `Uno.from_parts(c, h)` | `(bytes32, bytes32) → Uno` | 100 | concatenation |
 
-| # | Function | Signature | Gas | Implementation |
-|---|----------|-----------|-----|----------------|
-| 1 | `add` | `(ct, ct) → ct` | 8000 | EC point add (commitment + handle) |
-| 2 | `sub` | `(ct, ct) → ct` | 8000 | EC point sub (commitment + handle) |
-| 3 | `add_scalar` | `(ct, u64) → ct` | 6000 | scalar-mult(G,n) + point-add |
-| 4 | `sub_scalar` | `(ct, u64) → ct` | 6000 | scalar-mult(G,n) + point-sub |
-| 5 | `mul_scalar` | `(ct, u64) → ct` | 10000 | 2× variable-base scalar-mult |
-| 6 | `div_scalar` | `(ct, u64) → ct` | 12000 | scalar-invert + 2× scalar-mult |
-| 7 | `zero` | `() → ct` | 100 | precomputed identity ciphertext |
-| 8 | `encrypt` | `(bytes32 pubkey, u64 amount) → ct` | 15000 | full ElGamal encryption |
-| 9 | `from_parts` | `(bytes32 commit, bytes32 handle) → ct` | 100 | concatenation |
+#### Tier 2 — Proof-Bundle Verified (9 methods)
 
-#### Tier 2 — Proof-Bundle Verified (9 functions)
+| # | TOL Method | Signature | Gas | Proof type |
+|---|------------|-----------|-----|------------|
+| 10 | `a.mul(b)` | `(Uno, Uno) → Uno` | 200000 | Sigma: Com(c) = Com(a×b) |
+| 11 | `a.div(b)` | `(Uno, Uno) → Uno` | 200000 | Sigma: a = b×q + r, r∈[0,b) |
+| 12 | `a.rem(b)` | `(Uno, Uno) → Uno` | 200000 | remainder from div proof |
+| 13 | `a.lt(b)` | `(Uno, Uno) → bool` | 160000 | sub + 64-bit range proof |
+| 14 | `a.gt(b)` | `(Uno, Uno) → bool` | 160000 | sub + 64-bit range proof |
+| 15 | `a.eq(b)` | `(Uno, Uno) → bool` | 150000 | sub + zero-commitment check |
+| 16 | `a.min(b)` | `(Uno, Uno) → Uno` | 170000 | compare + selection proof |
+| 17 | `a.max(b)` | `(Uno, Uno) → Uno` | 170000 | compare + selection proof |
+| 18 | `Uno.select(c, a, b)` | `(bool, Uno, Uno) → Uno` | 160000 | conditional selection proof |
 
-| # | Function | Signature | Gas | Proof type |
-|---|----------|-----------|-----|------------|
-| 10 | `mul` | `(ct, ct) → ct` | 200000 | Sigma: Com(c) = Com(a×b) |
-| 11 | `div` | `(ct, ct) → ct` | 200000 | Sigma: a = b×q + r, r∈[0,b) |
-| 12 | `rem` | `(ct, ct) → ct` | 200000 | remainder from div proof |
-| 13 | `lt` | `(ct, ct) → bool` | 160000 | sub + 64-bit range proof |
-| 14 | `gt` | `(ct, ct) → bool` | 160000 | sub + 64-bit range proof |
-| 15 | `eq` | `(ct, ct) → bool` | 150000 | sub + zero-commitment check |
-| 16 | `min` | `(ct, ct) → ct` | 170000 | compare + selection proof |
-| 17 | `max` | `(ct, ct) → ct` | 170000 | compare + selection proof |
-| 18 | `select` | `(bool, ct, ct) → ct` | 160000 | conditional selection proof |
+#### Accessors & Verification (4 methods)
 
-#### Accessors & Verification (4 functions)
-
-| # | Function | Signature | Gas | Purpose |
-|---|----------|-----------|-----|---------|
-| 19 | `commitment` | `(ct) → bytes32` | 100 | extract commitment point (first 32B) |
-| 20 | `handle` | `(ct) → bytes32` | 100 | extract handle point (last 32B) |
-| 21 | `verify_transfer` | `(ct, bytes32 sPub, bytes32 rPub, bytes proof) → bool` | 100000 | CT validity: same amount encrypted under both keys |
-| 22 | `verify_eq` | `(ct, bytes32 commit, bytes32 pubkey, bytes proof) → bool` | 100000 | commitment equality: ct and commit bind same value |
+| # | TOL Method | Signature | Gas | Purpose |
+|---|------------|-----------|-----|---------|
+| 19 | `a.commitment()` | `(Uno) → bytes32` | 100 | extract commitment point (first 32B) |
+| 20 | `a.handle()` | `(Uno) → bytes32` | 100 | extract handle point (last 32B) |
+| 21 | `a.verify_transfer(sPub, rPub, proof)` | `(Uno, bytes32, bytes32, bytes) → bool` | 100000 | CT validity |
+| 22 | `a.verify_eq(commit, pubkey, proof)` | `(Uno, bytes32, bytes32, bytes) → bool` | 100000 | commitment equality |
 
 ### Comparison with Fhenix
 
-| Operation | Fhenix | GTOS | Parity |
-|-----------|--------|------|--------|
-| `add(ct, ct)` | `FHE.add(ea, eb)` | `tos.ciphertext.add(a, b)` | ✅ |
-| `sub(ct, ct)` | `FHE.sub(ea, eb)` | `tos.ciphertext.sub(a, b)` | ✅ |
-| `mul(ct, ct)` | `FHE.mul(ea, eb)` | `tos.ciphertext.mul(a, b)` | ✅ |
-| `div(ct, ct)` | `FHE.div(ea, eb)` | `tos.ciphertext.div(a, b)` | ✅ |
-| `rem(ct, ct)` | `FHE.rem(ea, eb)` | `tos.ciphertext.rem(a, b)` | ✅ |
-| `lt / gt` | `FHE.lt / gt` | `tos.ciphertext.lt / gt` | ✅ |
-| `eq` | `FHE.eq` | `tos.ciphertext.eq` | ✅ |
-| `min / max` | `FHE.min / max` | `tos.ciphertext.min / max` | ✅ |
-| `select` | `FHE.select` | `tos.ciphertext.select` | ✅ |
-| `ct + scalar` | ❌ | `tos.ciphertext.add_scalar` | **GTOS extra** |
-| `ct × scalar` | ❌ | `tos.ciphertext.mul_scalar` | **GTOS extra** |
-| transfer proof | ❌ | `tos.ciphertext.verify_transfer` | **GTOS extra** |
-| commitment eq | ❌ | `tos.ciphertext.verify_eq` | **GTOS extra** |
+| Operation | Fhenix (Solidity) | GTOS (TOL) | Parity |
+|-----------|-------------------|------------|--------|
+| add | `FHE.add(ea, eb)` | `a.add(b)` | ✅ |
+| sub | `FHE.sub(ea, eb)` | `a.sub(b)` | ✅ |
+| mul | `FHE.mul(ea, eb)` | `a.mul(b)` | ✅ |
+| div | `FHE.div(ea, eb)` | `a.div(b)` | ✅ |
+| rem | `FHE.rem(ea, eb)` | `a.rem(b)` | ✅ |
+| lt / gt | `FHE.lt(ea, eb)` | `a.lt(b)` | ✅ |
+| eq | `FHE.eq(ea, eb)` | `a.eq(b)` | ✅ |
+| min / max | `FHE.min(ea, eb)` | `a.min(b)` | ✅ |
+| select | `FHE.select(c, ea, eb)` | `Uno.select(c, a, b)` | ✅ |
+| ct + scalar | ❌ | `a.add_scalar(n)` | **GTOS extra** |
+| ct × scalar | ❌ | `a.mul_scalar(n)` | **GTOS extra** |
+| transfer proof | ❌ | `a.verify_transfer(...)` | **GTOS extra** |
+| commitment eq | ❌ | `a.verify_eq(...)` | **GTOS extra** |
 
 ## Changes
 
@@ -229,7 +243,7 @@ type ProofBundle struct {
 }
 
 type ProofEntry struct {
-    Op         string // "mul", "div", "rem", "lt", "gt", "eq", "min", "max", "select"
+    Op         string      // "mul", "div", "rem", "lt", "gt", "eq", "min", "max", "select"
     InputHash  common.Hash // keccak256(op || input_a || input_b)
     ResultData []byte      // encrypted result (64B ciphertext or 1B bool)
     Proof      []byte      // ZK proof bytes
@@ -239,38 +253,38 @@ type ProofEntry struct {
 func (pb *ProofBundle) Next(op string, a, b []byte) (*ProofEntry, error)
 ```
 
-**Sub-table registration:**
+**Sub-table registration** (LVM layer — unchanged from V2, compiler handles Uno→tos.ciphertext mapping):
 
 ```go
 ctTable := L.NewTable()
 
 // Tier 1 — native homomorphic
-L.SetField(ctTable, "add", L.NewFunction(...))          // (ct, ct) → ct
-L.SetField(ctTable, "sub", L.NewFunction(...))          // (ct, ct) → ct
-L.SetField(ctTable, "add_scalar", L.NewFunction(...))   // (ct, u64) → ct
-L.SetField(ctTable, "sub_scalar", L.NewFunction(...))   // (ct, u64) → ct
-L.SetField(ctTable, "mul_scalar", L.NewFunction(...))   // (ct, u64) → ct
-L.SetField(ctTable, "div_scalar", L.NewFunction(...))   // (ct, u64) → ct
-L.SetField(ctTable, "zero", L.NewFunction(...))         // () → ct
-L.SetField(ctTable, "encrypt", L.NewFunction(...))      // (pubkey, amount) → ct
-L.SetField(ctTable, "from_parts", L.NewFunction(...))   // (commit, handle) → ct
+L.SetField(ctTable, "add", L.NewFunction(...))
+L.SetField(ctTable, "sub", L.NewFunction(...))
+L.SetField(ctTable, "add_scalar", L.NewFunction(...))
+L.SetField(ctTable, "sub_scalar", L.NewFunction(...))
+L.SetField(ctTable, "mul_scalar", L.NewFunction(...))
+L.SetField(ctTable, "div_scalar", L.NewFunction(...))
+L.SetField(ctTable, "zero", L.NewFunction(...))
+L.SetField(ctTable, "encrypt", L.NewFunction(...))
+L.SetField(ctTable, "from_parts", L.NewFunction(...))
 
 // Tier 2 — proof-bundle verified
-L.SetField(ctTable, "mul", L.NewFunction(...))           // (ct, ct) → ct
-L.SetField(ctTable, "div", L.NewFunction(...))           // (ct, ct) → ct
-L.SetField(ctTable, "rem", L.NewFunction(...))           // (ct, ct) → ct
-L.SetField(ctTable, "lt", L.NewFunction(...))            // (ct, ct) → bool
-L.SetField(ctTable, "gt", L.NewFunction(...))            // (ct, ct) → bool
-L.SetField(ctTable, "eq", L.NewFunction(...))            // (ct, ct) → bool
-L.SetField(ctTable, "min", L.NewFunction(...))           // (ct, ct) → ct
-L.SetField(ctTable, "max", L.NewFunction(...))           // (ct, ct) → ct
-L.SetField(ctTable, "select", L.NewFunction(...))        // (bool, ct, ct) → ct
+L.SetField(ctTable, "mul", L.NewFunction(...))
+L.SetField(ctTable, "div", L.NewFunction(...))
+L.SetField(ctTable, "rem", L.NewFunction(...))
+L.SetField(ctTable, "lt", L.NewFunction(...))
+L.SetField(ctTable, "gt", L.NewFunction(...))
+L.SetField(ctTable, "eq", L.NewFunction(...))
+L.SetField(ctTable, "min", L.NewFunction(...))
+L.SetField(ctTable, "max", L.NewFunction(...))
+L.SetField(ctTable, "select", L.NewFunction(...))
 
 // Accessors & verification
-L.SetField(ctTable, "commitment", L.NewFunction(...))    // (ct) → bytes32
-L.SetField(ctTable, "handle", L.NewFunction(...))        // (ct) → bytes32
-L.SetField(ctTable, "verify_transfer", L.NewFunction(...)) // (ct, sPub, rPub, proof) → bool
-L.SetField(ctTable, "verify_eq", L.NewFunction(...))     // (ct, commit, pubkey, proof) → bool
+L.SetField(ctTable, "commitment", L.NewFunction(...))
+L.SetField(ctTable, "handle", L.NewFunction(...))
+L.SetField(ctTable, "verify_transfer", L.NewFunction(...))
+L.SetField(ctTable, "verify_eq", L.NewFunction(...))
 
 L.SetField(tosTable, "ciphertext", ctTable)
 ```
@@ -278,20 +292,17 @@ L.SetField(tosTable, "ciphertext", ctTable)
 ### 2. `~/gtos/core/vm/lvm.go` — Execute() Hook
 
 ```go
-// Extract proof bundle from calldata (appended after ABI-encoded args)
 proofBundle := extractProofBundle(ctx.Data)
-
-// Register tos.ciphertext table
 registerCryptoTable(L, tosTable, l.StateDB, contractAddr, &gas, ctx.Readonly, proofBundle)
 ```
 
 ### 3. `~/gtos/core/vm/lvm_crypto_test.go` — Tests
 
 **Tier 1 tests:**
-- `add(a, b)` then `sub(result, b)` recovers `a`
+- `add` then `sub` round-trip
 - `add_scalar` / `sub_scalar` round-trip
 - `mul_scalar` then `div_scalar` round-trip; `div_scalar(ct, 0)` reverts
-- `zero()` is additive identity: `add(ct, zero) == ct`
+- `zero` is additive identity
 - `encrypt` produces valid ciphertext
 - `from_parts(commitment(ct), handle(ct)) == ct`
 
@@ -301,20 +312,15 @@ registerCryptoTable(L, tosTable, l.StateDB, contractAddr, &gas, ctx.Readonly, pr
 - `lt`: Enc(3) < Enc(7) = true; Enc(7) < Enc(3) = false
 - `gt`: inverse of `lt`
 - `eq`: Enc(5) == Enc(5) = true; Enc(5) == Enc(6) = false
-- `min(Enc(3), Enc(7))` = Enc(3)
-- `max(Enc(3), Enc(7))` = Enc(7)
+- `min(Enc(3), Enc(7))` = Enc(3); `max` = Enc(7)
 - `select(true, Enc(3), Enc(7))` = Enc(3)
-- Missing proof bundle entry → revert
-- Tampered proof → revert
-- Gas consumption within expected ranges
+- Missing proof bundle → revert; tampered proof → revert
 
 **Verification tests:**
 - `verify_transfer` with valid/invalid CT validity proof
 - `verify_eq` with valid/invalid commitment equality proof
 
 ### 4. `~/gtos/core/types/transaction.go` — Proof Bundle Encoding
-
-Add proof bundle extraction from transaction calldata:
 
 ```go
 // ExtractProofBundle parses the proof bundle appended after standard ABI calldata.
@@ -325,21 +331,36 @@ func ExtractProofBundle(data []byte) (*ProofBundle, []byte)
 
 ### 5. `~/tolang/tol/sema/sema.go` — Type System
 
-- `isValidAtomicTOLType`: add `"ciphertext"` case
-- `isValueTOLType`: add `"ciphertext"` (can be function param/return)
-- `isDefaultInitializableTOLType`: add `"ciphertext"` (default = `tos.ciphertext.zero()`)
-- Do NOT add to `isValidMappingKeyType` (ciphertext should not be a mapping key)
-- Support `==` and `!=` comparison via `tos.ciphertext.eq`
-- Reject `<`, `>`, `+`, `-`, `*`, `/` operators on ciphertext (must use `tos.ciphertext.*`)
+- `isValidAtomicTOLType`: add `"Uno"` case (canonical name; `"ciphertext"` accepted as alias)
+- `isValueTOLType`: add `"Uno"` (can be function param/return)
+- `isDefaultInitializableTOLType`: add `"Uno"` (default = `Uno.zero()`)
+- Do NOT add to `isValidMappingKeyType` (Uno should not be a mapping key)
+- Method resolution: when sema sees `expr.method(args)` on an `Uno`-typed expression,
+  validate method name against the 22 known methods and check argument types
+- `==` and `!=` on Uno compile to `a.eq(b)` / `!a.eq(b)`
+- Reject `<`, `>`, `+`, `-`, `*`, `/` operators (must use explicit methods)
 
 ### 6. `~/tolang/tol_ir_direct_lowering.go` — Code Generation
 
+**Uno method desugaring** (compiler front-end only, no LVM changes):
+
+```
+a.add(b)              →  tos.ciphertext.add(a, b)
+a.lt(b)               →  tos.ciphertext.lt(a, b)
+a.commitment()        →  tos.ciphertext.commitment(a)
+Uno.zero()            →  tos.ciphertext.zero()
+Uno.encrypt(pk, amt)  →  tos.ciphertext.encrypt(pk, amt)
+Uno.select(c, a, b)   →  tos.ciphertext.select(c, a, b)
+```
+
+**Storage for `Uno` type:**
+
 Add `storageKindCiphertext` constant alongside existing scalar/mapping/array.
 
-`classifyStorageSlotKind`: when the leaf type resolves to `"ciphertext"`, return
+`classifyStorageSlotKind`: when the leaf type resolves to `"Uno"`, return
 `storageKindCiphertext`.
 
-`defaultValueExprForType`: add case for `"ciphertext"` → `"0x" + 128 zeros`.
+`defaultValueExprForType`: add case for `"Uno"` → `tos.ciphertext.zero()`.
 
 Storage emit paths — for `storageKindCiphertext`:
 - **Scalar store**: emit `tos.ciphertext.store(slotKey, value)` (2-slot write)
@@ -348,21 +369,25 @@ Storage emit paths — for `storageKindCiphertext`:
 - **Mapping load**: emit `tos.ciphertext.map_load(mapName, key1, ...)`
 
 Note: `store/load/map_store/map_load` are internal LVM functions used by the compiler's
-code generation. They are NOT part of the 22-function public API — contract developers
-use normal TOL assignment syntax: `balances[account] = ct;`
+code generation. They are NOT part of the 22-method public API — contract developers
+use normal TOL assignment syntax: `balances[account] = x;`
 
 ### 7. `~/tolang/cryptolib.go` — ABI Encoding
 
-Add `"ciphertext"` case to ABI encode/decode:
+Add `"Uno"` case to ABI encode/decode:
 - Encode: 2 consecutive 32-byte words (commitment, handle)
 - Decode: consume 2 × 32-byte slots, concatenate as `"0x" + 128 hex`
 
 ### 8. `~/tolang/tol/sema/sema_test.go` — Compiler Tests
 
-- `ciphertext` accepted as state variable, param, return type
-- `ciphertext` in `mapping(agent => ciphertext)` works
-- `ciphertext` rejected as mapping key
-- `==` / `!=` compile to `tos.ciphertext.eq`; `<`, `>`, `+`, `-` rejected
+- `Uno` accepted as state variable, param, return type
+- `Uno` in `mapping(agent => Uno)` works
+- `Uno` rejected as mapping key
+- `a.add(b)` type-checks; `a.add("string")` rejected
+- `a.lt(b)` returns `bool`; `a.add(b)` returns `Uno`
+- `==` / `!=` compile to `a.eq(b)`; `<`, `>`, `+`, `-` rejected
+- `Uno.zero()` is valid; `Uno.encrypt(pk, amt)` is valid
+- Unknown method `a.foo()` rejected
 
 ## Sample Contract (Confidential TRC20)
 
@@ -371,7 +396,7 @@ pragma tolang 0.4.0;
 
 contract ConfidentialToken {
     agent minter;
-    mapping(agent => ciphertext) balances;
+    mapping(agent => Uno) balances;
     mapping(agent => bytes32) publicKeys;
 
     event PublicKeyRegistered(agent indexed account, bytes32 pubkey)
@@ -387,47 +412,27 @@ contract ConfidentialToken {
         emit PublicKeyRegistered(msg.sender, pubkey);
     }
 
-    // Mint: minter creates ciphertext off-chain, submits with range proof.
-    function mint(agent to, ciphertext mintCt) external {
+    function mint(agent to, Uno mintAmount) external {
         require(msg.sender == minter, "OnlyMinter");
         require(publicKeys[to] != bytes32(0), "NotRegistered");
-
-        // Verify minted amount ≥ 0 via proof bundle (lt checks internally)
-        // In practice the range proof is in the proof bundle for the mint operation.
-        balances[to] = tos.ciphertext.add(balances[to], mintCt);
+        balances[to] = balances[to].add(mintAmount);
         emit Mint(to);
     }
 
-    // Transfer: pure ciphertext arithmetic. SDK generates proof bundle.
-    function transfer(agent to, ciphertext amount) external {
+    function transfer(agent to, Uno amount) external {
         require(publicKeys[msg.sender] != bytes32(0), "SenderNotRegistered");
         require(publicKeys[to] != bytes32(0), "ReceiverNotRegistered");
 
-        // Subtract from sender (ct - ct, native homomorphic)
-        ciphertext newSenderBal = tos.ciphertext.sub(balances[msg.sender], amount);
+        Uno newBal = balances[msg.sender].sub(amount);
+        require(newBal.gt(Uno.zero()), "InsufficientBalance");
 
-        // Verify sender has sufficient balance: newSenderBal >= 0
-        // The gt(newSenderBal, zero) check is verified via proof bundle
-        require(tos.ciphertext.gt(newSenderBal, tos.ciphertext.zero()), "InsufficientBalance");
-
-        // Verify the transfer ciphertext is valid for both keys
-        require(
-            tos.ciphertext.verify_transfer(
-                amount,
-                publicKeys[msg.sender],
-                publicKeys[to],
-                ""  // proof from calldata proof bundle
-            ),
-            "BadTransferProof"
-        );
-
-        balances[msg.sender] = newSenderBal;
-        balances[to] = tos.ciphertext.add(balances[to], amount);
+        balances[msg.sender] = newBal;
+        balances[to] = balances[to].add(amount);
 
         emit ConfidentialTransfer(msg.sender, to);
     }
 
-    function balanceOf(agent account) public view returns (ciphertext) {
+    function balanceOf(agent account) public view returns (Uno) {
         return balances[account];
     }
 }
@@ -445,8 +450,7 @@ function transfer(address to, euint64 amount) public {
 }
 ```
 
-The contract logic is **structurally identical**. The only difference is under the hood:
-Fhenix sends to a coprocessor; GTOS verifies a proof bundle.
+GTOS is **more concise** — `a.sub(b)` vs `FHE.sub(a, b)`.
 
 ## Implementation Sequence
 
@@ -457,8 +461,8 @@ Fhenix sends to a coprocessor; GTOS verifies a proof bundle.
 | 3 | `lvm_crypto.go`: Tier 2 functions (9 proof-bundle verified) | gtos |
 | 4 | `lvm_crypto.go`: accessors + verification (4 functions) | gtos |
 | 5 | `lvm_crypto_test.go`: full test coverage for all 22 functions | gtos |
-| 6 | Sema: `ciphertext` type + lowering: `storageKindCiphertext` + ABI encode/decode | tolang |
-| 7 | Compiler tests + sample ConfidentialToken contract + integration test | both |
+| 6 | Sema: `Uno` type + method resolution + lowering + ABI encode/decode | tolang |
+| 7 | Compiler tests + sample contracts + integration test | both |
 
 ## Verification
 

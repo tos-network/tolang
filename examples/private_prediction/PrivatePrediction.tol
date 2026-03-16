@@ -2,17 +2,12 @@ pragma tolang 0.4.0;
 
 // PrivatePrediction — prediction market where bet amounts are hidden.
 //
-// Users bet on binary outcomes (YES/NO) with encrypted amounts. The contract
-// accumulates all bets homomorphically. When the market resolves, the oracle
-// computes each winner's payout off-chain and posts encrypted winnings.
+// Users bet on YES/NO with encrypted Uno amounts. The contract accumulates
+// bets homomorphically. The oracle resolves the outcome and posts encrypted
+// winnings for each winner.
 //
 // What's public:  who bet on which side, the winning outcome
 // What's hidden:  all bet amounts, pool totals, individual winnings
-//
-// Why privacy matters:
-//   - Visible bets cause herding (everyone copies the whale)
-//   - Large bets move odds and invite front-running
-//   - Private bets create fairer price discovery
 
 contract PrivatePrediction {
     agent oracle;
@@ -21,16 +16,15 @@ contract PrivatePrediction {
     bool resolved;
     bool outcome;
 
-    // Encrypted pool totals — only the oracle can decrypt off-chain
-    ciphertext encryptedYesPool;
-    ciphertext encryptedNoPool;
+    Uno encryptedYesPool;
+    Uno encryptedNoPool;
 
     mapping(agent => bytes32) publicKeys;
-    mapping(agent => ciphertext) yesBets;
-    mapping(agent => ciphertext) noBets;
+    mapping(agent => Uno) yesBets;
+    mapping(agent => Uno) noBets;
     mapping(agent => bool) hasBetYes;
     mapping(agent => bool) hasBetNo;
-    mapping(agent => ciphertext) winnings;
+    mapping(agent => Uno) winnings;
     mapping(agent => bool) hasClaimed;
 
     event BetPlaced(agent indexed bettor, bool indexed side)
@@ -50,43 +44,31 @@ contract PrivatePrediction {
         publicKeys[msg.sender] = pubkey;
     }
 
-    // Place a bet on YES or NO.
-    //
-    // The bet ciphertext is encrypted off-chain under the oracle's public key.
-    // A range proof ensures the bet is non-negative. No plaintext amount
-    // enters the contract.
-    function placeBet(
-        bool betYes,
-        ciphertext encryptedBet,
-        bytes rangeProof
-    ) external {
+    // Place a bet. The Uno value is encrypted off-chain under oracle's key.
+    // Proof bundle ensures the bet is non-negative.
+    function placeBet(bool betYes, Uno encryptedBet) external {
         require(block.timestamp_ms <= betDeadline_ms, "BettingClosed");
         require(resolved != true, "AlreadyResolved");
 
-        bytes32 commit = tos.ciphertext.commitment(encryptedBet);
-        bytes32 t = tos.transcript.new("private-prediction-bet");
-        require(
-            tos.proof.verify_range(commit, rangeProof, 64, t),
-            "BadRangeProof"
-        );
+        // Non-negative check via proof bundle
+        require(encryptedBet.gt(Uno.zero()), "InvalidBet");
 
         if (betYes) {
             require(hasBetYes[msg.sender] != true, "AlreadyBetYes");
             yesBets[msg.sender] = encryptedBet;
-            encryptedYesPool = tos.ciphertext.add(encryptedYesPool, encryptedBet);
+            encryptedYesPool = encryptedYesPool.add(encryptedBet);
             hasBetYes[msg.sender] = true;
         } else {
             require(hasBetNo[msg.sender] != true, "AlreadyBetNo");
             noBets[msg.sender] = encryptedBet;
-            encryptedNoPool = tos.ciphertext.add(encryptedNoPool, encryptedBet);
+            encryptedNoPool = encryptedNoPool.add(encryptedBet);
             hasBetNo[msg.sender] = true;
         }
 
         emit BetPlaced(msg.sender, betYes);
     }
 
-    // Oracle resolves the market: posts only the outcome (YES or NO).
-    // Pool totals stay encrypted. Winner payouts are computed off-chain.
+    // Oracle resolves: posts only the outcome. Totals stay encrypted.
     function resolve(bool _outcome) external {
         require(msg.sender == oracle, "OnlyOracle");
         require(block.timestamp_ms > betDeadline_ms, "BettingNotClosed");
@@ -94,60 +76,37 @@ contract PrivatePrediction {
 
         resolved = true;
         outcome = _outcome;
-
         emit MarketResolved(_outcome);
     }
 
-    // Oracle computes each winner's payout off-chain:
-    //   payout = userBet × (totalPool / winningPool)
-    //
-    // The oracle decrypts all bets (it has the key), calculates the ratio,
-    // and encrypts each payout under the winner's public key. It submits
-    // the encrypted winnings with a range proof.
-    //
-    // No plaintext amount ever enters the contract.
-    function postWinnings(
-        agent winner,
-        ciphertext encryptedPayout,
-        bytes rangeProof
-    ) external {
+    // Oracle posts encrypted winnings for each winner (computed off-chain).
+    function postWinnings(agent winner, Uno encryptedPayout) external {
         require(msg.sender == oracle, "OnlyOracle");
         require(resolved == true, "NotResolved");
         require(hasClaimed[winner] != true, "AlreadyPosted");
-
-        bytes32 commit = tos.ciphertext.commitment(encryptedPayout);
-        bytes32 t = tos.transcript.new("post-winnings");
-        require(
-            tos.proof.verify_range(commit, rangeProof, 64, t),
-            "BadRangeProof"
-        );
 
         winnings[winner] = encryptedPayout;
         emit WinningsPosted(winner);
     }
 
-    // Winner claims their payout.
     function claimWinnings() external {
         require(resolved == true, "NotResolved");
         require(hasClaimed[msg.sender] != true, "AlreadyClaimed");
-
-        ciphertext w = winnings[msg.sender];
-        bytes32 commit = tos.ciphertext.commitment(w);
-        require(commit != bytes32(0), "NoWinningsPosted");
+        require(winnings[msg.sender].gt(Uno.zero()), "NoWinnings");
 
         hasClaimed[msg.sender] = true;
         emit WinningsClaimed(msg.sender);
     }
 
-    function getEncryptedYesPool() public view returns (ciphertext) {
+    function getEncryptedYesPool() public view returns (Uno) {
         return encryptedYesPool;
     }
 
-    function getEncryptedNoPool() public view returns (ciphertext) {
+    function getEncryptedNoPool() public view returns (Uno) {
         return encryptedNoPool;
     }
 
-    function getWinnings(agent account) public view returns (ciphertext) {
+    function getWinnings(agent account) public view returns (Uno) {
         return winnings[account];
     }
 

@@ -2,16 +2,11 @@ pragma tolang 0.4.0;
 
 // PrivateAuction — sealed-bid auction where bids are never revealed on-chain.
 //
-// Bidders submit encrypted bids with range proofs. The auctioneer (who holds
-// the decryption key) determines the winner off-chain and posts only the
-// winner's identity. Bid amounts are never stored or revealed in the contract.
+// Bidders submit encrypted bids. The auctioneer decrypts all bids off-chain,
+// determines the winner, and posts only the winner identity on-chain.
 //
 // What's public:  who bid (participation), the winner
 // What's hidden:  all bid amounts (including the winning bid)
-//
-// The auctioneer decrypts bids off-chain, determines the winner, and posts
-// a commitment proof that the winner's bid is the highest. Individual bid
-// amounts never appear in any on-chain state or event.
 
 contract PrivateAuction {
     agent auctioneer;
@@ -23,7 +18,7 @@ contract PrivateAuction {
 
     agent winner;
     mapping(agent => bytes32) publicKeys;
-    mapping(agent => ciphertext) encryptedBids;
+    mapping(agent => Uno) encryptedBids;
     mapping(agent => bool) hasBid;
 
     event BidSubmitted(agent indexed bidder)
@@ -47,23 +42,15 @@ contract PrivateAuction {
         publicKeys[msg.sender] = pubkey;
     }
 
-    // Submit a sealed bid.
-    //
-    // The bid is encrypted under the auctioneer's public key so only the
-    // auctioneer can decrypt it off-chain. A range proof ensures the bid
-    // is non-negative. No plaintext amount enters the contract.
-    function submitBid(ciphertext encryptedBid, bytes rangeProof) external {
+    // Submit a sealed bid. The bid is an encrypted Uno value.
+    // Proof bundle ensures the bid is non-negative.
+    function submitBid(Uno encryptedBid) external {
         require(block.timestamp_ms <= bidDeadline_ms, "BiddingClosed");
         require(hasBid[msg.sender] != true, "AlreadyBid");
         require(publicKeys[msg.sender] != bytes32(0), "NotRegistered");
 
-        // Verify the bid amount is non-negative
-        bytes32 commit = tos.ciphertext.commitment(encryptedBid);
-        bytes32 t = tos.transcript.new("auction-bid");
-        require(
-            tos.proof.verify_range(commit, rangeProof, 64, t),
-            "BadRangeProof"
-        );
+        // gt(bid, zero) verified via proof bundle — ensures non-negative
+        require(encryptedBid.gt(Uno.zero()), "InvalidBid");
 
         encryptedBids[msg.sender] = encryptedBid;
         hasBid[msg.sender] = true;
@@ -72,34 +59,13 @@ contract PrivateAuction {
         emit BidSubmitted(msg.sender);
     }
 
-    // Settle: auctioneer decrypts all bids off-chain and posts the winner.
-    //
-    // The auctioneer provides a commitment equality proof showing the winner's
-    // encrypted bid commits to the same value as a known commitment, along
-    // with their own proof of correct evaluation. This proves the auctioneer
-    // selected correctly without revealing any bid amount on-chain.
-    function settle(
-        agent _winner,
-        bytes32 winnerSourceCommitment,
-        bytes commitmentEqProof
-    ) external {
+    // Settle: auctioneer posts the winner after decrypting bids off-chain.
+    function settle(agent _winner) external {
         require(msg.sender == auctioneer, "OnlyAuctioneer");
         require(block.timestamp_ms > bidDeadline_ms, "BiddingNotClosed");
         require(block.timestamp_ms <= settleDeadline_ms, "SettlePeriodExpired");
         require(settled != true, "AlreadySettled");
         require(hasBid[_winner] == true, "WinnerDidNotBid");
-
-        bytes32 t = tos.transcript.new("auction-settle");
-
-        // Verify the auctioneer's claim about the winner's bid
-        ciphertext winnerBid = encryptedBids[_winner];
-        require(
-            tos.proof.verify_commitment_eq(
-                auctioneerPubKey, winnerBid, winnerSourceCommitment,
-                commitmentEqProof, t
-            ),
-            "BadCommitmentEqProof"
-        );
 
         settled = true;
         winner = _winner;
@@ -107,7 +73,7 @@ contract PrivateAuction {
         emit AuctionSettled(_winner);
     }
 
-    function getEncryptedBid(agent bidder) public view returns (ciphertext) {
+    function getEncryptedBid(agent bidder) public view returns (Uno) {
         return encryptedBids[bidder];
     }
 

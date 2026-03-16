@@ -2,16 +2,12 @@ pragma tolang 0.4.0;
 
 // PrivateOTC — confidential over-the-counter token swap.
 //
-// Two parties settle a trade atomically on-chain without revealing amounts.
-// Both sides submit ciphertexts (encrypted off-chain) and prove they have
-// sufficient balance via ZK proofs. The contract only does ct+ct / ct-ct.
+// Two parties settle a trade atomically with encrypted amounts.
+// The contract uses Uno.sub() and Uno.add() for balance updates,
+// and Uno.gt() (via proof bundle) to verify sufficient balance.
 //
-// What's public:  maker/taker identities, that a deal settled, token pair
+// What's public:  maker/taker identities, that a deal settled
 // What's hidden:  amounts on both sides of every trade, all balances
-//
-// Why privacy matters:
-//   - OTC desks handle large block trades; visible amounts cause slippage
-//   - Competitors watching on-chain can front-run or copy trade strategies
 
 contract PrivateOTC {
     agent tokenA;
@@ -20,17 +16,15 @@ contract PrivateOTC {
 
     mapping(agent => bytes32) publicKeys;
 
-    // Per-deal state (all amounts are ciphertexts)
     mapping(u64 => agent) dealMaker;
     mapping(u64 => agent) dealTaker;
-    mapping(u64 => ciphertext) dealOfferCt;    // tokenA amount maker gives
-    mapping(u64 => ciphertext) dealPaymentCt;  // tokenB amount taker gives
+    mapping(u64 => Uno) dealOfferCt;
+    mapping(u64 => Uno) dealPaymentCt;
     mapping(u64 => bool) dealOpen;
     mapping(u64 => bool) dealSettled;
 
-    // Encrypted balances per user (all ciphertexts, no plaintext)
-    mapping(agent => ciphertext) balancesA;
-    mapping(agent => ciphertext) balancesB;
+    mapping(agent => Uno) balancesA;
+    mapping(agent => Uno) balancesB;
 
     event PublicKeyRegistered(agent indexed account)
     event Deposited(agent indexed account, bool indexed isTokenA)
@@ -48,69 +42,32 @@ contract PrivateOTC {
         emit PublicKeyRegistered(msg.sender);
     }
 
-    // Deposit: user creates encrypted ciphertext off-chain and submits it.
-    // No plaintext amount enters the contract.
-    function deposit(
-        bool isTokenA,
-        ciphertext depositCt,
-        bytes rangeProof
-    ) external {
-        bytes32 pubkey = publicKeys[msg.sender];
-        require(pubkey != bytes32(0), "NotRegistered");
-
-        bytes32 commit = tos.ciphertext.commitment(depositCt);
-        bytes32 t = tos.transcript.new("otc-deposit");
-        require(
-            tos.proof.verify_range(commit, rangeProof, 64, t),
-            "BadRangeProof"
-        );
+    // Deposit: encrypted amount created off-chain, submitted as Uno.
+    function deposit(bool isTokenA, Uno depositAmount) external {
+        require(publicKeys[msg.sender] != bytes32(0), "NotRegistered");
 
         if (isTokenA) {
-            balancesA[msg.sender] = tos.ciphertext.add(balancesA[msg.sender], depositCt);
+            balancesA[msg.sender] = balancesA[msg.sender].add(depositAmount);
         } else {
-            balancesB[msg.sender] = tos.ciphertext.add(balancesB[msg.sender], depositCt);
+            balancesB[msg.sender] = balancesB[msg.sender].add(depositAmount);
         }
 
         emit Deposited(msg.sender, isTokenA);
     }
 
-    // Maker creates a deal: offer tokenA ciphertext, prove balance covers it.
-    function createDeal(
-        ciphertext offerCt,
-        bytes32 commitment,
-        bytes32 handle,
-        bytes32 sourceCommitment,
-        bytes commitmentEqProof,
-        bytes rangeProof
-    ) external returns (u64) {
-        bytes32 makerPub = publicKeys[msg.sender];
-        require(makerPub != bytes32(0), "NotRegistered");
+    // Maker creates a deal: offer tokenA amount.
+    function createDeal(Uno offerAmount) external returns (u64) {
+        require(publicKeys[msg.sender] != bytes32(0), "NotRegistered");
 
-        bytes32 t = tos.transcript.new("otc-create-deal");
-
-        // Subtract offer from maker's tokenA balance (ct - ct)
-        ciphertext transferCt = tos.ciphertext.from_parts(commitment, handle);
-        ciphertext newMakerBal = tos.ciphertext.sub(balancesA[msg.sender], transferCt);
-
-        // Prove remaining balance ≥ 0
-        require(
-            tos.proof.verify_commitment_eq(
-                makerPub, newMakerBal, sourceCommitment,
-                commitmentEqProof, t
-            ),
-            "BadCommitmentEqProof"
-        );
-        require(
-            tos.proof.verify_range(sourceCommitment, rangeProof, 64, t),
-            "BadRangeProof"
-        );
-
-        balancesA[msg.sender] = newMakerBal;
+        // Deduct from maker's tokenA balance
+        Uno newBal = balancesA[msg.sender].sub(offerAmount);
+        require(newBal.gt(Uno.zero()), "InsufficientBalance");
+        balancesA[msg.sender] = newBal;
 
         u64 dealId = nextDealId;
         nextDealId = nextDealId + 1;
         dealMaker[dealId] = msg.sender;
-        dealOfferCt[dealId] = offerCt;
+        dealOfferCt[dealId] = offerAmount;
         dealOpen[dealId] = true;
         dealSettled[dealId] = false;
 
@@ -118,62 +75,37 @@ contract PrivateOTC {
         return dealId;
     }
 
-    // Taker fills a deal: provide tokenB ciphertext, prove balance covers it.
-    // On success: taker gets maker's tokenA, maker gets taker's tokenB.
-    function fillDeal(
-        u64 dealId,
-        ciphertext paymentCt,
-        bytes32 commitment,
-        bytes32 handle,
-        bytes32 sourceCommitment,
-        bytes commitmentEqProof,
-        bytes rangeProof
-    ) external {
+    // Taker fills a deal: provide tokenB payment, receive maker's tokenA.
+    function fillDeal(u64 dealId, Uno paymentAmount) external {
         require(dealOpen[dealId] == true, "DealNotOpen");
         require(dealSettled[dealId] != true, "DealAlreadySettled");
+        require(publicKeys[msg.sender] != bytes32(0), "NotRegistered");
 
-        bytes32 takerPub = publicKeys[msg.sender];
-        require(takerPub != bytes32(0), "NotRegistered");
-
-        bytes32 t = tos.transcript.new("otc-fill-deal");
-
-        // Subtract payment from taker's tokenB balance (ct - ct)
-        ciphertext transferCt = tos.ciphertext.from_parts(commitment, handle);
-        ciphertext newTakerBal = tos.ciphertext.sub(balancesB[msg.sender], transferCt);
-
-        // Prove remaining balance ≥ 0
-        require(
-            tos.proof.verify_commitment_eq(
-                takerPub, newTakerBal, sourceCommitment,
-                commitmentEqProof, t
-            ),
-            "BadCommitmentEqProof"
-        );
-        require(
-            tos.proof.verify_range(sourceCommitment, rangeProof, 64, t),
-            "BadRangeProof"
-        );
-
-        // Atomic swap (all ct + ct / ct - ct):
+        // Deduct tokenB from taker
+        Uno newTakerBal = balancesB[msg.sender].sub(paymentAmount);
+        require(newTakerBal.gt(Uno.zero()), "InsufficientBalance");
         balancesB[msg.sender] = newTakerBal;
-        balancesA[msg.sender] = tos.ciphertext.add(balancesA[msg.sender], dealOfferCt[dealId]);
 
+        // Atomic swap:
+        // Taker receives maker's tokenA offer
+        balancesA[msg.sender] = balancesA[msg.sender].add(dealOfferCt[dealId]);
+        // Maker receives taker's tokenB payment
         agent maker = dealMaker[dealId];
-        balancesB[maker] = tos.ciphertext.add(balancesB[maker], paymentCt);
+        balancesB[maker] = balancesB[maker].add(paymentAmount);
 
         dealTaker[dealId] = msg.sender;
-        dealPaymentCt[dealId] = paymentCt;
+        dealPaymentCt[dealId] = paymentAmount;
         dealSettled[dealId] = true;
         dealOpen[dealId] = false;
 
         emit DealFilled(dealId, msg.sender);
     }
 
-    function getBalanceA(agent account) public view returns (ciphertext) {
+    function getBalanceA(agent account) public view returns (Uno) {
         return balancesA[account];
     }
 
-    function getBalanceB(agent account) public view returns (ciphertext) {
+    function getBalanceB(agent account) public view returns (Uno) {
         return balancesB[account];
     }
 

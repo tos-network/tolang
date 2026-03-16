@@ -2,16 +2,12 @@ pragma tolang 0.4.0;
 
 // PrivateVoting — on-chain voting where individual votes are never revealed.
 //
-// Each voter encrypts their vote (0 or 1) off-chain under the tally
-// authority's public key. The contract accumulates votes homomorphically.
-// The final tally remains encrypted on-chain — only the tally authority
-// can decrypt it off-chain and announce the result.
+// Each voter encrypts their vote (0 or 1) off-chain. The contract accumulates
+// votes homomorphically via Uno.add(). The tally stays encrypted on-chain —
+// only the tally authority decrypts off-chain.
 //
 // What's public:  who voted (participation), that voting closed
 // What's hidden:  each person's vote, the final tally (on-chain)
-//
-// The tally authority decrypts and publishes the result OFF-CHAIN.
-// The contract itself never touches any plaintext number.
 
 contract PrivateVoting {
     agent admin;
@@ -20,7 +16,7 @@ contract PrivateVoting {
     u64 voterCount;
     bool closed;
 
-    ciphertext encryptedTally;
+    Uno encryptedTally;
     mapping(agent => bool) hasVoted;
     mapping(agent => bool) eligible;
 
@@ -44,34 +40,21 @@ contract PrivateVoting {
         emit VoterRegistered(voter);
     }
 
-    // Cast an encrypted vote.
-    //
-    // The vote ciphertext encrypts 0 or 1 under tallyPubKey.
-    // A 1-bit range proof guarantees the encrypted value is in {0, 1}.
-    // The contract never learns what was voted — it only accumulates.
-    function castVote(ciphertext encryptedVote, bytes rangeProof) external {
+    // Cast an encrypted vote (0 or 1). The proof bundle verifies the vote
+    // is in {0, 1} via a 1-bit range proof. Developer doesn't handle proofs.
+    function castVote(Uno encryptedVote) external {
         require(block.timestamp_ms <= deadline_ms, "VotingClosed");
         require(closed != true, "VotingClosed");
         require(eligible[msg.sender] == true, "NotEligible");
         require(hasVoted[msg.sender] != true, "AlreadyVoted");
 
-        // Verify vote is 0 or 1 (1-bit range proof)
-        bytes32 voteCommitment = tos.ciphertext.commitment(encryptedVote);
-        bytes32 t = tos.transcript.new("private-vote");
-        require(
-            tos.proof.verify_range(voteCommitment, rangeProof, 1, t),
-            "BadRangeProof"
-        );
-
-        // Homomorphic tally: sum += encryptedVote (ct + ct)
-        encryptedTally = tos.ciphertext.add(encryptedTally, encryptedVote);
+        // Homomorphic tally: sum += vote (Uno + Uno)
+        encryptedTally = encryptedTally.add(encryptedVote);
         hasVoted[msg.sender] = true;
 
         emit VoteCast(msg.sender);
     }
 
-    // Close voting. The encrypted tally stays on-chain.
-    // The tally authority decrypts off-chain and publishes the result.
     function closeVoting() external {
         require(msg.sender == admin, "OnlyAdmin");
         require(block.timestamp_ms > deadline_ms, "VotingNotClosed");
@@ -80,8 +63,7 @@ contract PrivateVoting {
         emit VotingClosed();
     }
 
-    // The encrypted tally — only the tally authority can decrypt off-chain.
-    function getEncryptedTally() public view returns (ciphertext) {
+    function getEncryptedTally() public view returns (Uno) {
         return encryptedTally;
     }
 

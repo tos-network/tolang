@@ -19,6 +19,44 @@ tos.crypto.*       — General crypto (blake3, sha3, ristretto signature verify)
 
 ## Design
 
+### Encrypted Arithmetic Beyond Additive Homomorphism
+
+Twisted ElGamal is **additively homomorphic**: ct+ct, ct-ct, ct×scalar work natively.
+Operations like ct×ct, ct÷ct, comparison, and conditional select are **not** natively
+supported. However, they can be achieved via **"off-chain compute + on-chain ZK verify"**:
+
+**Comparison** (built from existing primitives — no new proof type needed):
+```
+a < b   ⟺  verify_range(commit(Enc(b) - Enc(a)), proof, 64, t)  // b-a ∈ [0, 2^64)
+a == b  ⟺  commitment(sub(encA, encB)) == identity_point
+min(a,b) = compare + verify_commitment_eq to confirm selection
+```
+The contract computes `sub(encB, encA)` homomorphically, then the user provides a range
+proof. If `a > b`, the subtraction wraps and the range proof fails. No new primitives needed.
+
+**Multiplication** (requires `verify_multiplication`):
+```
+User (off-chain):  knows a,b → computes c = a×b → encrypts Enc(c)
+                   generates ZK proof π: "c = a×b where a ∈ Enc(A), b ∈ Enc(B)"
+Contract (on-chain): verify_multiplication(encA, encB, encC, π, transcript)
+```
+The proof is a Sigma protocol over Pedersen commitments: prover shows
+`Com(c) = Com(a×b)` without revealing a, b, or c.
+
+**Division with remainder** (requires `verify_division`):
+```
+User (off-chain):  knows a,b → computes q = a÷b, r = a%b → encrypts Enc(q), Enc(r)
+                   generates ZK proof π: "a = b×q + r, r ∈ [0, b)"
+Contract (on-chain): verify_division(encA, encB, encQ, encR, π, transcript)
+```
+This subsumes modulo (`a % b` = the `encR` output) and integer division.
+
+**Comparison with Fhenix (TFHE):**
+```
+Fhenix:  contract computes on ciphertexts directly → slow (needs coprocessor)
+GTOS:    user computes off-chain + contract verifies ZK proof → fast, trustless
+```
+
 ### Type Representations
 
 | Type | In Lua | In Storage | In ABI | Size |
@@ -96,6 +134,9 @@ tos.crypto.*       — General crypto (blake3, sha3, ristretto signature verify)
 | `verify_ownership(pubkey, ct, proof, transcript)` | 100000 | Knowledge-of-decryption-key |
 | `verify_balance(pubkey, ct, proof, transcript)` | 80000 | Balance sufficiency |
 | `verify_shield(commit, handle, pubkey, amount, proof)` | 80000 | TOS-specific shield proof |
+| **Arithmetic relation proofs (TOS-specific)** | | |
+| `verify_multiplication(encA, encB, encC, proof, transcript)` | 200000 | Prove Enc(c) encrypts a×b where a∈Enc(A), b∈Enc(B) |
+| `verify_division(encA, encB, encQ, encR, proof, transcript)` | 200000 | Prove a = b×q + r where q=quotient, r=remainder, r∈[0,b) |
 | **Constructors** | | |
 | `new_arbitrary_range(max_value, delta_commit, eq_proof, range_proof)` | 500 | Compose ArbitraryRangeProof |
 | `new_ownership(amount, commit, eq_proof, range_proof)` | 500 | Compose OwnershipProof |
@@ -200,7 +241,9 @@ tos.crypto.*       — General crypto (blake3, sha3, ristretto signature verify)
 | 5 | `ArbitraryRangeProof.verify(sPub, sCt, transcript)` | `tos.proof.verify_arbitrary_range(pubkey, ct, proof, transcript)` | |
 | 6 | `OwnershipProof.verify(sPub, sCt, transcript)` | `tos.proof.verify_ownership(pubkey, ct, proof, transcript)` | |
 | 7 | `BalanceProof.verify(sPub, sCt, transcript)` | `tos.proof.verify_balance(pubkey, ct, proof, transcript)` | |
-| — | (no XELIS equivalent) | `tos.proof.verify_shield(...)` | **TOS extra** |
+| — | (no XELIS equivalent) | `tos.proof.verify_shield(...)` | **TOS extra**: native shield proof |
+| — | (no XELIS equivalent) | `tos.proof.verify_multiplication(encA, encB, encC, proof, t)` | **TOS extra**: ct×ct via ZK |
+| — | (no XELIS equivalent) | `tos.proof.verify_division(encA, encB, encQ, encR, proof, t)` | **TOS extra**: ct÷ct via ZK |
 | | **Constructors** | | |
 | 8 | `ArbitraryRangeProof.new(max_value, delta_commit, eq_proof, range_proof)` | `tos.proof.new_arbitrary_range(max_value, delta_commit, eq_proof, range_proof)` | |
 | 9 | `OwnershipProof.new(amount, commit, eq_proof, range_proof)` | `tos.proof.new_ownership(amount, commit, eq_proof, range_proof)` | |
@@ -248,10 +291,10 @@ that XELIS exposes.
 | ciphertext | 8 | 8 | 7 (add/sub ct+ct, from_parts, storage) | **100%** |
 | ristretto | 10 + 2 const | 10 + 2 const | 0 | **100%** |
 | scalar | 10 + 2 const | 10 + 2 const | 0 | **100%** |
-| proof | 20 (7 verify + 3 ctor + 10 accessor) | 20 | 1 (verify_shield) | **100%** |
+| proof | 20 (7 verify + 3 ctor + 10 accessor) | 20 | 3 (verify_shield, verify_multiplication, verify_division) | **100%** |
 | transcript | 7 | 7 | 0 | **100%** |
 | crypto | 3 (blake3, sha3, sig_verify) | 3 | 0 | **100%** |
-| **Total** | **58** | **58** | **8** | **100%** |
+| **Total** | **58** | **58** | **10** | **100%** |
 
 ## Changes
 
@@ -316,6 +359,8 @@ gasProofArbRange      uint64 = 120000
 gasProofOwnership     uint64 = 100000
 gasProofBalance       uint64 = 80000
 gasProofShield        uint64 = 80000
+gasProofMul           uint64 = 200000  // verify_multiplication
+gasProofDiv           uint64 = 200000  // verify_division
 gasProofNewComposite  uint64 = 500     // new_arbitrary_range, new_ownership
 gasProofNewBalance    uint64 = 250     // new_balance (simpler)
 gasProofAccessor      uint64 = 100
@@ -414,6 +459,9 @@ L.SetField(proofTable, "verify_arbitrary_range", L.NewFunction(...))
 L.SetField(proofTable, "verify_ownership", L.NewFunction(...))
 L.SetField(proofTable, "verify_balance", L.NewFunction(...))
 L.SetField(proofTable, "verify_shield", L.NewFunction(...))            // TOS-specific
+// tos.proof — arithmetic relation proofs (TOS-specific, beyond XELIS)
+L.SetField(proofTable, "verify_multiplication", L.NewFunction(...))    // encA, encB, encC, proof, transcript
+L.SetField(proofTable, "verify_division", L.NewFunction(...))          // encA, encB, encQ, encR, proof, transcript
 // tos.proof — constructors
 L.SetField(proofTable, "new_arbitrary_range", L.NewFunction(...))      // max_value, delta_commit, eq_proof, range_proof → blob
 L.SetField(proofTable, "new_ownership", L.NewFunction(...))            // amount, commit, eq_proof, range_proof → blob
@@ -499,6 +547,9 @@ Test cases following existing `lvm_*_test.go` patterns:
 - Batch range proof with multiple commitments
 - Constructors: `new_arbitrary_range`, `new_ownership`, `new_balance` round-trip
 - All accessor functions return correct values (decompose → re-compose → verify)
+- `verify_multiplication`: Enc(3)×Enc(7)=Enc(21) valid; Enc(22) invalid
+- `verify_division`: Enc(17)÷Enc(5)=Enc(3) remainder Enc(2) valid; wrong quotient invalid
+- Comparison pattern: `sub(encB, encA)` + `verify_range` correctly distinguishes a<b vs a>b
 
 **Transcript tests**:
 - `new` + `append_message` + `challenge_scalar` deterministic output
@@ -624,9 +675,9 @@ contract ConfidentialToken {
 | 1 | `lvm_crypto.go`: hex helpers + `tos.ciphertext.*` (15 functions) | gtos |
 | 2 | `lvm_crypto.go`: `tos.ristretto.*` (10 functions + 2 constants) | gtos |
 | 3 | `lvm_crypto.go`: `tos.scalar.*` (10 functions + 2 constants) | gtos |
-| 4 | `lvm_crypto.go`: `tos.proof.*` (22 functions: 8 verify + 3 ctor + 11 accessor) | gtos |
+| 4 | `lvm_crypto.go`: `tos.proof.*` (24 functions: 10 verify + 3 ctor + 11 accessor) | gtos |
 | 5 | `lvm_crypto.go`: `tos.transcript.*` (7 functions) + `tos.crypto.*` (3 functions) | gtos |
-| 6 | `lvm_crypto_test.go`: full test coverage for all 69 functions | gtos |
+| 6 | `lvm_crypto_test.go`: full test coverage for all 71 functions | gtos |
 | 7 | Sema: `ciphertext` type + lowering: `storageKindCiphertext` + ABI encode/decode | tolang |
 | 8 | Compiler tests + sample ConfidentialToken contract + integration test | both |
 

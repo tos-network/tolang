@@ -2,25 +2,16 @@ pragma tolang 0.4.0;
 
 // PrivateOTC — confidential over-the-counter token swap.
 //
-// Two parties agree on a trade off-chain, then settle atomically on-chain
-// without revealing the amounts to anyone else. The maker posts an encrypted
-// offer; the taker fills it with a matching encrypted counter-offer. Both
-// sides provide proofs that their encrypted amounts are what they agreed on.
+// Two parties settle a trade atomically on-chain without revealing amounts.
+// Both sides submit ciphertexts (encrypted off-chain) and prove they have
+// sufficient balance via ZK proofs. The contract only does ct+ct / ct-ct.
 //
-// What's public:  maker/taker identities, that a deal settled, the token pair
-// What's hidden:  the amounts on both sides of the trade
+// What's public:  maker/taker identities, that a deal settled, token pair
+// What's hidden:  amounts on both sides of every trade, all balances
 //
-// Why privacy matters here:
+// Why privacy matters:
 //   - OTC desks handle large block trades; visible amounts cause slippage
 //   - Competitors watching on-chain can front-run or copy trade strategies
-//   - Both parties want to prove they delivered without revealing to the market
-//
-// Demonstrates:
-//   - tos.ciphertext.encrypt + from_parts — construct encrypted offer
-//   - tos.proof.verify_ct_validity — both sides encrypted under correct keys
-//   - tos.proof.verify_commitment_eq — committed amount matches encrypted
-//   - tos.proof.verify_range — amounts are non-negative
-//   - tos.ciphertext.sub / add — atomic balance updates
 
 contract PrivateOTC {
     agent tokenA;
@@ -29,22 +20,22 @@ contract PrivateOTC {
 
     mapping(agent => bytes32) publicKeys;
 
-    // Per-deal state
+    // Per-deal state (all amounts are ciphertexts)
     mapping(u64 => agent) dealMaker;
     mapping(u64 => agent) dealTaker;
-    mapping(u64 => ciphertext) dealMakerAmount;   // amount of tokenA maker gives
-    mapping(u64 => ciphertext) dealTakerAmount;    // amount of tokenB taker gives
+    mapping(u64 => ciphertext) dealOfferCt;    // tokenA amount maker gives
+    mapping(u64 => ciphertext) dealPaymentCt;  // tokenB amount taker gives
     mapping(u64 => bool) dealOpen;
     mapping(u64 => bool) dealSettled;
 
-    // Encrypted balances per user per token side (A or B)
+    // Encrypted balances per user (all ciphertexts, no plaintext)
     mapping(agent => ciphertext) balancesA;
     mapping(agent => ciphertext) balancesB;
 
     event PublicKeyRegistered(agent indexed account)
+    event Deposited(agent indexed account, bool indexed isTokenA)
     event DealCreated(u64 indexed dealId, agent indexed maker)
     event DealFilled(u64 indexed dealId, agent indexed taker)
-    event Deposit(agent indexed account, bool indexed isTokenA, u64 amount)
 
     constructor(agent _tokenA, agent _tokenB) {
         tokenA = _tokenA;
@@ -57,31 +48,33 @@ contract PrivateOTC {
         emit PublicKeyRegistered(msg.sender);
     }
 
-    // Deposit plaintext amount into encrypted balance (shield operation).
-    function deposit(bool isTokenA, u64 amount) external {
+    // Deposit: user creates encrypted ciphertext off-chain and submits it.
+    // No plaintext amount enters the contract.
+    function deposit(
+        bool isTokenA,
+        ciphertext depositCt,
+        bytes rangeProof
+    ) external {
         bytes32 pubkey = publicKeys[msg.sender];
         require(pubkey != bytes32(0), "NotRegistered");
 
-        ciphertext freshCt = tos.ciphertext.encrypt(pubkey, amount);
+        bytes32 commit = tos.ciphertext.commitment(depositCt);
+        bytes32 t = tos.transcript.new("otc-deposit");
+        require(
+            tos.proof.verify_range(commit, rangeProof, 64, t),
+            "BadRangeProof"
+        );
 
         if (isTokenA) {
-            balancesA[msg.sender] = tos.ciphertext.add(balancesA[msg.sender], freshCt);
+            balancesA[msg.sender] = tos.ciphertext.add(balancesA[msg.sender], depositCt);
         } else {
-            balancesB[msg.sender] = tos.ciphertext.add(balancesB[msg.sender], freshCt);
+            balancesB[msg.sender] = tos.ciphertext.add(balancesB[msg.sender], depositCt);
         }
 
-        emit Deposit(msg.sender, isTokenA, amount);
+        emit Deposited(msg.sender, isTokenA);
     }
 
-    // Maker creates a deal: "I'll give X of tokenA for Y of tokenB."
-    // Both amounts are encrypted. The maker proves their tokenA balance can cover it.
-    //
-    //   offerCt     — encrypted amount of tokenA the maker offers
-    //   commitment  — Pedersen commitment to the offer amount
-    //   handle      — ElGamal handle under maker's key
-    //   sourceCommitment — commitment to maker's remaining balance
-    //   commitmentEqProof — proves remaining balance matches sourceCommitment
-    //   rangeProof  — proves remaining balance ≥ 0
+    // Maker creates a deal: offer tokenA ciphertext, prove balance covers it.
     function createDeal(
         ciphertext offerCt,
         bytes32 commitment,
@@ -95,11 +88,11 @@ contract PrivateOTC {
 
         bytes32 t = tos.transcript.new("otc-create-deal");
 
-        // Verify maker has sufficient tokenA balance
-        ciphertext makerBal = balancesA[msg.sender];
+        // Subtract offer from maker's tokenA balance (ct - ct)
         ciphertext transferCt = tos.ciphertext.from_parts(commitment, handle);
-        ciphertext newMakerBal = tos.ciphertext.sub(makerBal, transferCt);
+        ciphertext newMakerBal = tos.ciphertext.sub(balancesA[msg.sender], transferCt);
 
+        // Prove remaining balance ≥ 0
         require(
             tos.proof.verify_commitment_eq(
                 makerPub, newMakerBal, sourceCommitment,
@@ -107,20 +100,17 @@ contract PrivateOTC {
             ),
             "BadCommitmentEqProof"
         );
-
         require(
             tos.proof.verify_range(sourceCommitment, rangeProof, 64, t),
             "BadRangeProof"
         );
 
-        // Deduct from maker's tokenA balance
         balancesA[msg.sender] = newMakerBal;
 
-        // Store deal
         u64 dealId = nextDealId;
         nextDealId = nextDealId + 1;
         dealMaker[dealId] = msg.sender;
-        dealMakerAmount[dealId] = offerCt;
+        dealOfferCt[dealId] = offerCt;
         dealOpen[dealId] = true;
         dealSettled[dealId] = false;
 
@@ -128,11 +118,8 @@ contract PrivateOTC {
         return dealId;
     }
 
-    // Taker fills a deal: provides their tokenB side with proofs.
-    // On success:
-    //   - Taker's tokenB balance is reduced (they pay)
-    //   - Taker's tokenA balance is increased (they receive maker's offer)
-    //   - Maker's tokenB balance is increased (they receive taker's payment)
+    // Taker fills a deal: provide tokenB ciphertext, prove balance covers it.
+    // On success: taker gets maker's tokenA, maker gets taker's tokenB.
     function fillDeal(
         u64 dealId,
         ciphertext paymentCt,
@@ -150,11 +137,11 @@ contract PrivateOTC {
 
         bytes32 t = tos.transcript.new("otc-fill-deal");
 
-        // Verify taker has sufficient tokenB balance
-        ciphertext takerBal = balancesB[msg.sender];
+        // Subtract payment from taker's tokenB balance (ct - ct)
         ciphertext transferCt = tos.ciphertext.from_parts(commitment, handle);
-        ciphertext newTakerBal = tos.ciphertext.sub(takerBal, transferCt);
+        ciphertext newTakerBal = tos.ciphertext.sub(balancesB[msg.sender], transferCt);
 
+        // Prove remaining balance ≥ 0
         require(
             tos.proof.verify_commitment_eq(
                 takerPub, newTakerBal, sourceCommitment,
@@ -162,32 +149,20 @@ contract PrivateOTC {
             ),
             "BadCommitmentEqProof"
         );
-
         require(
             tos.proof.verify_range(sourceCommitment, rangeProof, 64, t),
             "BadRangeProof"
         );
 
-        // Execute atomic swap:
-        // 1. Deduct tokenB from taker
+        // Atomic swap (all ct + ct / ct - ct):
         balancesB[msg.sender] = newTakerBal;
+        balancesA[msg.sender] = tos.ciphertext.add(balancesA[msg.sender], dealOfferCt[dealId]);
 
-        // 2. Credit maker's tokenA offer to taker
         agent maker = dealMaker[dealId];
-        ciphertext makerOffer = dealMakerAmount[dealId];
-
-        // Re-encrypt maker's offer under taker's key for their balance
-        // (The taker receives the ciphertext as-is; they'll need the maker's
-        //  handle re-encrypted under their key. In practice the maker would
-        //  provide a taker-handle at deal creation. Simplified here.)
-        balancesA[msg.sender] = tos.ciphertext.add(balancesA[msg.sender], makerOffer);
-
-        // 3. Credit taker's tokenB payment to maker
         balancesB[maker] = tos.ciphertext.add(balancesB[maker], paymentCt);
 
-        // Mark deal as settled
         dealTaker[dealId] = msg.sender;
-        dealTakerAmount[dealId] = paymentCt;
+        dealPaymentCt[dealId] = paymentCt;
         dealSettled[dealId] = true;
         dealOpen[dealId] = false;
 

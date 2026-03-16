@@ -3,28 +3,19 @@ pragma tolang 0.4.0;
 // PrivatePayroll — confidential salary distribution.
 //
 // An employer pays employees on-chain without revealing individual salaries.
-// Each employee's pay is an ElGamal ciphertext encrypted under their own key.
-// Only the employee can decrypt their own salary; other employees and the
-// public see only that a payment occurred, not the amount.
+// Each salary is a ciphertext created off-chain by the employer, encrypted
+// under the employee's public key. The contract only accumulates ciphertexts
+// homomorphically — it never sees any plaintext amount.
 //
-// What's public:  who got paid (events), total payroll budget
-// What's hidden:  each employee's individual salary
+// What's public:  who got paid (events), number of payments
+// What's hidden:  every salary amount, total compensation per employee
 //
-// Why privacy matters here:
-//   - Salary transparency creates social friction and negotiation leverage issues
+// Why privacy matters:
 //   - On-chain payroll without privacy leaks compensation to competitors
-//   - Employees can still prove their salary to a bank/auditor via ownership proof
-//
-// Demonstrates:
-//   - tos.ciphertext.encrypt — encrypt salary under employee's key
-//   - tos.ciphertext.add — accumulate payments across pay periods
-//   - tos.ciphertext.sub_scalar — employer proves total budget matches
-//   - tos.proof.verify_balance — employee proves salary ≥ threshold (e.g. for a loan)
+//   - Employees can prove salary ≥ threshold to a bank via ZK proof (off-chain)
 
 contract PrivatePayroll {
     agent employer;
-    u64 totalBudget;
-    u64 totalDistributed;
 
     mapping(agent => bytes32) publicKeys;
     mapping(agent => ciphertext) accumulatedPay;
@@ -34,18 +25,9 @@ contract PrivatePayroll {
     event EmployeeAdded(agent indexed employee)
     event EmployeeRemoved(agent indexed employee)
     event SalaryPaid(agent indexed employee, u64 indexed period)
-    event BudgetDeposited(u64 amount)
 
     constructor(agent _employer) {
         employer = _employer;
-        totalBudget = 0;
-        totalDistributed = 0;
-    }
-
-    function depositBudget(u64 amount) external {
-        require(msg.sender == employer, "OnlyEmployer");
-        totalBudget = totalBudget + amount;
-        emit BudgetDeposited(amount);
     }
 
     function addEmployee(agent employee) external {
@@ -69,42 +51,12 @@ contract PrivatePayroll {
 
     // Pay an employee a confidential salary.
     //
-    // The employer provides the plaintext amount (visible only in this tx),
-    // which is encrypted under the employee's public key and added to their
-    // accumulated pay ciphertext. The amount appears in the tx calldata but
-    // the on-chain accumulated balance is encrypted — over time it becomes
-    // impossible to determine the current total without the employee's key.
-    //
-    // For fully private payroll (amount hidden even in calldata), the employer
-    // would encrypt off-chain and pass the ciphertext directly. We show the
-    // simpler on-chain-encrypt version here as the reference pattern.
-    function paySalary(agent employee, u64 amount) external {
-        require(msg.sender == employer, "OnlyEmployer");
-        require(isEmployee[employee] == true, "NotEmployee");
-        require(totalBudget >= totalDistributed + amount, "InsufficientBudget");
-
-        bytes32 pubkey = publicKeys[employee];
-        require(pubkey != bytes32(0), "EmployeeKeyNotRegistered");
-
-        // Encrypt salary under employee's key
-        ciphertext salaryCt = tos.ciphertext.encrypt(pubkey, amount);
-
-        // Accumulate into employee's total encrypted pay
-        ciphertext current = accumulatedPay[employee];
-        accumulatedPay[employee] = tos.ciphertext.add(current, salaryCt);
-
-        totalDistributed = totalDistributed + amount;
-        payCount[employee] = payCount[employee] + 1;
-
-        emit SalaryPaid(employee, payCount[employee]);
-    }
-
-    // Fully private salary payment: employer encrypts off-chain, passes ciphertext.
-    // The amount never appears in calldata — only the encrypted blob is on-chain.
-    // A range proof ensures the amount is in [0, 2^64).
-    function paySalaryEncrypted(
+    // The employer creates the salary ciphertext off-chain (encrypted under the
+    // employee's public key) and submits it with a range proof. The contract
+    // only verifies and accumulates — no plaintext amount ever enters.
+    function paySalary(
         agent employee,
-        ciphertext encryptedSalary,
+        ciphertext salaryCt,
         bytes rangeProof
     ) external {
         require(msg.sender == employer, "OnlyEmployer");
@@ -113,25 +65,25 @@ contract PrivatePayroll {
         bytes32 pubkey = publicKeys[employee];
         require(pubkey != bytes32(0), "EmployeeKeyNotRegistered");
 
-        // Verify the encrypted amount is non-negative
-        bytes32 commit = tos.ciphertext.commitment(encryptedSalary);
+        // Verify the salary amount is non-negative
+        bytes32 commit = tos.ciphertext.commitment(salaryCt);
         bytes32 t = tos.transcript.new("private-payroll");
         require(
             tos.proof.verify_range(commit, rangeProof, 64, t),
             "BadRangeProof"
         );
 
-        ciphertext current = accumulatedPay[employee];
-        accumulatedPay[employee] = tos.ciphertext.add(current, encryptedSalary);
-
-        emit SalaryPaid(employee, payCount[employee] + 1);
+        // Homomorphic accumulation: balance += salary (ct + ct)
+        accumulatedPay[employee] = tos.ciphertext.add(accumulatedPay[employee], salaryCt);
         payCount[employee] = payCount[employee] + 1;
+
+        emit SalaryPaid(employee, payCount[employee]);
     }
 
-    // Employee can prove to a third party (bank, auditor) that their accumulated
-    // pay is at least some threshold, without revealing the exact amount.
-    // Returns true if the balance proof verifies.
-    function verifyMinimumPay(
+    // On-chain verification: a third party can verify an employee's balance
+    // proof without learning the actual amount. The employee generates the
+    // balance proof off-chain using their private key.
+    function verifyPayProof(
         agent employee,
         bytes balanceProofBytes
     ) external view returns (bool) {
@@ -139,7 +91,7 @@ contract PrivatePayroll {
         require(pubkey != bytes32(0), "NotRegistered");
 
         ciphertext accumulated = accumulatedPay[employee];
-        bytes32 t = tos.transcript.new("verify-minimum-pay");
+        bytes32 t = tos.transcript.new("verify-pay-proof");
 
         return tos.proof.verify_balance(pubkey, accumulated, balanceProofBytes, t);
     }

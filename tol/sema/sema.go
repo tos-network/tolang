@@ -1342,6 +1342,7 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		checkUninitializedReads(filename, fn.Name, fn.Params, fn.Body, diags, knownStructs)
 		checkAgentTransferCalls(filename, fn.Params, fn.Body, diags)
 		checkBytesStringEquality(filename, slotInfos, fn.Params, fn.Body, diags)
+		checkUnoOperators(filename, slotInfos, fn.Params, fn.Body, diags)
 	}
 
 	if c.Constructor != nil {
@@ -1368,6 +1369,7 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		}
 		checkAgentTransferCalls(filename, c.Constructor.Params, c.Constructor.Body, diags)
 		checkBytesStringEquality(filename, slotInfos, c.Constructor.Params, c.Constructor.Body, diags)
+		checkUnoOperators(filename, slotInfos, c.Constructor.Params, c.Constructor.Body, diags)
 	}
 	if c.Fallback != nil {
 		checkStatements(filename, c.Name, funcVis, funcArity, eventArity, c.Fallback.Body, 0, diags, knownStructs)
@@ -1386,6 +1388,7 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		}
 		checkAgentTransferCalls(filename, nil, c.Fallback.Body, diags)
 		checkBytesStringEquality(filename, slotInfos, nil, c.Fallback.Body, diags)
+		checkUnoOperators(filename, slotInfos, nil, c.Fallback.Body, diags)
 	}
 	if c.Receive != nil {
 		checkStatements(filename, c.Name, funcVis, funcArity, eventArity, c.Receive.Body, 0, diags, knownStructs)
@@ -1402,6 +1405,7 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		}
 		checkAgentTransferCalls(filename, nil, c.Receive.Body, diags)
 		checkBytesStringEquality(filename, slotInfos, nil, c.Receive.Body, diags)
+		checkUnoOperators(filename, slotInfos, nil, c.Receive.Body, diags)
 	}
 
 	// Validate 'using LibName for Type' declarations.
@@ -2149,7 +2153,7 @@ func isSupportedABIDecodeTargetTypeWithStructs(typeName string, knownStructs map
 func isDefaultInitializableTOLType(typeName string) bool {
 	t := normalizeSelectorType(typeName)
 	switch t {
-	case "bool", "agent", "string", "bytes":
+	case "bool", "agent", "string", "bytes", "uno":
 		return true
 	}
 	if strings.HasPrefix(t, "bytes") {
@@ -3240,6 +3244,35 @@ func checkStorageExpr(filename string, ctx *storageCheckCtx, e *ast.Expr, use st
 					}
 				}
 			}
+			// Allow uno OOP methods: .add(b), .sub(b), .lt(b), etc.
+			if unoMethods[e.Callee.Member] {
+				if slotName, keys, ok := ctx.storagePathFromExpr(e.Callee.Object); ok {
+					info := ctx.slots[slotName]
+					if resolveStorageTypeName(info.typeName, len(keys)) == "uno" {
+						for _, a := range e.Args {
+							checkStorageExpr(filename, ctx, a, storageUseValue, diags)
+						}
+						checkStorageKeys(filename, ctx, keys, diags)
+						return
+					}
+				}
+				// Also allow on uno local variable
+				if e.Callee.Object != nil && e.Callee.Object.Kind == "ident" {
+					for _, a := range e.Args {
+						checkStorageExpr(filename, ctx, a, storageUseValue, diags)
+					}
+					return
+				}
+			}
+			// Allow uno static methods: uno.zero(), uno.encrypt(pk,amt), etc.
+			if e.Callee.Object != nil && e.Callee.Object.Kind == "ident" &&
+				strings.TrimSpace(e.Callee.Object.Value) == "uno" &&
+				unoStaticMethods[e.Callee.Member] {
+				for _, a := range e.Args {
+					checkStorageExpr(filename, ctx, a, storageUseValue, diags)
+				}
+				return
+			}
 		}
 		checkStorageExpr(filename, ctx, e.Callee, storageUseCallCallee, diags)
 		for _, a := range e.Args {
@@ -3254,8 +3287,9 @@ func checkStorageExpr(filename string, ctx *storageCheckCtx, e *ast.Expr, use st
 				return
 			}
 		}
-		if slotName, _, ok := ctx.storagePathFromExpr(e.Object); ok && e.Member != "selector" {
+		if slotName, slotKeys, ok := ctx.storagePathFromExpr(e.Object); ok && e.Member != "selector" {
 			info := ctx.slots[slotName]
+			_ = slotKeys // used by type resolution below
 			// Allow oracle<T> OOP members: .is_set, .value
 			if strings.HasPrefix(info.typeName, "oracle<") {
 				switch e.Member {
@@ -3282,6 +3316,13 @@ func checkStorageExpr(filename string, ctx *storageCheckCtx, e *ast.Expr, use st
 				switch e.Member {
 				case "stake", "is_active", "reputation", "rating_count", "suspended":
 					return // valid agent property access
+				}
+			}
+			// Allow uno-typed slot property access: .commitment, .handle
+			if resolveStorageTypeName(info.typeName, len(slotKeys)) == "uno" {
+				switch e.Member {
+				case "commitment", "handle":
+					return // valid uno property access
 				}
 			}
 			reportStorageAccess(filename, fmt.Sprintf("unsupported member access '.%s' on storage slot '%s'", e.Member, info.name), diags)
@@ -3335,6 +3376,60 @@ func storageArrayLengthMemberTarget(ctx *storageCheckCtx, e *ast.Expr) (string, 
 		return "", false
 	}
 	return slotName, true
+}
+
+// unoMethods is the set of valid method names on the uno encrypted type.
+var unoMethods = map[string]bool{
+	"add": true, "sub": true, "add_scalar": true, "sub_scalar": true,
+	"mul_scalar": true, "div_scalar": true, "mul": true, "div": true,
+	"rem": true, "lt": true, "gt": true, "eq": true, "min": true,
+	"max": true, "select": true, "commitment": true, "handle": true,
+	"verify_transfer": true, "verify_eq": true,
+}
+
+// unoMethodReturnType returns the TOL type produced by the given uno method.
+func unoMethodReturnType(method string) string {
+	switch method {
+	case "lt", "gt", "eq", "verify_transfer", "verify_eq":
+		return "bool"
+	case "commitment", "handle":
+		return "bytes32"
+	default:
+		return "uno"
+	}
+}
+
+// unoStaticMethods is the set of valid static methods callable on the uno type itself.
+var unoStaticMethods = map[string]bool{
+	"zero": true, "encrypt": true, "select": true, "from_parts": true,
+}
+
+// resolveStorageTypeName resolves the effective type of a storage slot after
+// applying numKeys index/mapping key accesses. For example,
+// "mapping(agent => uno)" with 1 key resolves to "uno".
+func resolveStorageTypeName(typeName string, numKeys int) string {
+	cur := typeName
+	for i := 0; i < numKeys; i++ {
+		compact := strings.ReplaceAll(normalizeSelectorType(cur), " ", "")
+		if strings.HasPrefix(compact, "mapping(") {
+			// Extract value type from mapping(K=>V).
+			idx := strings.Index(compact, "=>")
+			if idx < 0 {
+				return cur
+			}
+			cur = compact[idx+2 : len(compact)-1]
+		} else if strings.HasSuffix(compact, "]") {
+			// Extract element type from T[].
+			lb := strings.LastIndex(compact, "[")
+			if lb <= 0 {
+				return cur
+			}
+			cur = compact[:lb]
+		} else {
+			return cur
+		}
+	}
+	return strings.TrimSpace(cur)
 }
 
 func checkStorageKeys(filename string, ctx *storageCheckCtx, keys []*ast.Expr, diags *diag.Diagnostics) {
@@ -4508,6 +4603,126 @@ func checkBytesStringEqualityInExpr(filename string, typeEnv map[string]string, 
 	}
 }
 
+// isUnoOperand returns true if expr is an ident whose resolved type is uno.
+func isUnoOperand(typeEnv map[string]string, e *ast.Expr) bool {
+	if e == nil {
+		return false
+	}
+	for e.Kind == "paren" && e.Left != nil {
+		e = e.Left
+	}
+	if e.Kind == "ident" {
+		return strings.TrimSpace(typeEnv[strings.TrimSpace(e.Value)]) == "uno"
+	}
+	return false
+}
+
+// checkUnoOperators is a pass that rejects arithmetic/comparison operators on uno operands (TOL2098)
+// and validates that only known methods are called on uno values (TOL2099).
+// The == operator is allowed (desugared to tos.ciphertext.eq).
+func checkUnoOperators(filename string, slotInfos map[string]storageSlotInfo, params []ast.FieldDecl, body []ast.Statement, diags *diag.Diagnostics) {
+	typeEnv := make(map[string]string, len(slotInfos)+len(params)+8)
+	for name, info := range slotInfos {
+		typeEnv[name] = info.typeName
+	}
+	for _, p := range params {
+		typeEnv[strings.TrimSpace(p.Name)] = strings.Join(strings.Fields(p.Type), " ")
+	}
+	checkUnoOperatorsInStmts(filename, typeEnv, body, diags)
+}
+
+func checkUnoOperatorsInStmts(filename string, typeEnv map[string]string, stmts []ast.Statement, diags *diag.Diagnostics) {
+	for _, s := range stmts {
+		if s.Kind == "let" && s.Name != "" {
+			normType := strings.Join(strings.Fields(s.Type), " ")
+			if normType != "" {
+				typeEnv[strings.TrimSpace(s.Name)] = normType
+			}
+		}
+		if s.Expr != nil {
+			checkUnoOperatorsInExpr(filename, typeEnv, s.Expr, diags)
+		}
+		if s.Target != nil {
+			checkUnoOperatorsInExpr(filename, typeEnv, s.Target, diags)
+		}
+		if s.Cond != nil {
+			checkUnoOperatorsInExpr(filename, typeEnv, s.Cond, diags)
+		}
+		if s.Post != nil {
+			checkUnoOperatorsInExpr(filename, typeEnv, s.Post, diags)
+		}
+		if s.Init != nil {
+			checkUnoOperatorsInStmts(filename, typeEnv, []ast.Statement{*s.Init}, diags)
+		}
+		checkUnoOperatorsInStmts(filename, typeEnv, s.Then, diags)
+		checkUnoOperatorsInStmts(filename, typeEnv, s.Else, diags)
+		checkUnoOperatorsInStmts(filename, typeEnv, s.Body, diags)
+		for _, clause := range s.Catches {
+			checkUnoOperatorsInStmts(filename, typeEnv, clause.Body, diags)
+		}
+	}
+}
+
+func checkUnoOperatorsInExpr(filename string, typeEnv map[string]string, e *ast.Expr, diags *diag.Diagnostics) {
+	if e == nil {
+		return
+	}
+	switch e.Kind {
+	case "binary":
+		if isUnoOperand(typeEnv, e.Left) || isUnoOperand(typeEnv, e.Right) {
+			switch e.Op {
+			case "+", "-", "*", "/", "%", "<", "<=", ">", ">=":
+				*diags = append(*diags, diag.Diagnostic{
+					Code:    diag.CodeSemaUnoOperator,
+					Message: fmt.Sprintf("operator '%s' not supported on uno type; use method calls", e.Op),
+					Span:    defaultSpan(filename),
+				})
+				return
+			case "!=":
+				// != is allowed — desugared to not tos.ciphertext.eq(a,b)
+			case "==":
+				// == is allowed — desugared to tos.ciphertext.eq(a,b)
+			}
+		}
+		checkUnoOperatorsInExpr(filename, typeEnv, e.Left, diags)
+		checkUnoOperatorsInExpr(filename, typeEnv, e.Right, diags)
+	case "unary":
+		checkUnoOperatorsInExpr(filename, typeEnv, e.Right, diags)
+	case "paren":
+		checkUnoOperatorsInExpr(filename, typeEnv, e.Left, diags)
+	case "call":
+		// Validate method calls on uno: a.method(args) where a is uno
+		if e.Callee != nil && e.Callee.Kind == "member" {
+			if isUnoOperand(typeEnv, e.Callee.Object) {
+				if !unoMethods[e.Callee.Member] {
+					*diags = append(*diags, diag.Diagnostic{
+						Code:    diag.CodeSemaUnoInvalidMethod,
+						Message: fmt.Sprintf("unknown method '%s' on uno type", e.Callee.Member),
+						Span:    defaultSpan(filename),
+					})
+					return
+				}
+			}
+		}
+		checkUnoOperatorsInExpr(filename, typeEnv, e.Callee, diags)
+		for _, a := range e.Args {
+			checkUnoOperatorsInExpr(filename, typeEnv, a, diags)
+		}
+	case "member":
+		checkUnoOperatorsInExpr(filename, typeEnv, e.Object, diags)
+	case "index":
+		checkUnoOperatorsInExpr(filename, typeEnv, e.Object, diags)
+		checkUnoOperatorsInExpr(filename, typeEnv, e.Index, diags)
+	case "ternary":
+		for _, a := range e.Args {
+			checkUnoOperatorsInExpr(filename, typeEnv, a, diags)
+		}
+	case "assign":
+		checkUnoOperatorsInExpr(filename, typeEnv, e.Left, diags)
+		checkUnoOperatorsInExpr(filename, typeEnv, e.Right, diags)
+	}
+}
+
 func normalizeSelectorType(t string) string {
 	s := strings.Join(strings.Fields(t), " ")
 	repl := strings.NewReplacer(
@@ -4736,7 +4951,7 @@ func splitTopLevelMappingPair(inner string) (string, string, bool) {
 
 func isValidAtomicTOLType(t string) bool {
 	switch t {
-	case "bool", "agent", "string", "bytes":
+	case "bool", "agent", "string", "bytes", "uno":
 		return true
 	}
 	if strings.HasPrefix(t, "bytes") {
@@ -4771,7 +4986,7 @@ func isValueTOLType(typeName string) bool {
 		return false
 	}
 	switch t {
-	case "bool", "agent":
+	case "bool", "agent", "uno":
 		return true
 	}
 	if strings.HasPrefix(t, "bytes") {

@@ -1326,6 +1326,18 @@ local function __tol_all_zero_hex(s)
 end
 
 function __tol_abi_encode_slot(v, typ)
+  if typ == "uno" then
+    -- UNO encodes as 2 consecutive 32-byte slots (commitment + handle = 128 hex chars).
+    -- v is "0x" + 128 hex chars or just 128 hex chars.
+    local hex = v
+    if type(hex) == "string" and string.sub(hex, 1, 2) == "0x" then
+      hex = string.sub(hex, 3)
+    end
+    if #hex < 128 then
+      hex = hex .. string.rep("0", 128 - #hex)
+    end
+    return string.sub(hex, 1, 64) .. string.sub(hex, 65, 128)
+  end
   if typ == "bool" then
     if v then
       return string.rep("0", 63) .. "1"
@@ -2751,6 +2763,18 @@ func defaultValueExprForType(typeName string) (luast.Expr, bool) {
 		return withLineExpr(&luast.StringExpr{Value: ""}), true
 	case "bytes":
 		return withLineExpr(&luast.StringExpr{Value: "0x"}), true
+	case "uno":
+		// Default value for uno is tos.ciphertext.zero().
+		return withLineExpr(&luast.FuncCallExpr{
+			Func: withLineExpr(&luast.AttrGetExpr{
+				Object: withLineExpr(&luast.AttrGetExpr{
+					Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
+					Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
+				}),
+				Key: withLineExpr(&luast.StringExpr{Value: "zero"}),
+			}),
+			AdjustRet: true,
+		}), true
 	}
 	if strings.HasPrefix(t, "bytes") {
 		nStr := t[len("bytes"):]
@@ -4130,6 +4154,56 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 			return nil, fmt.Errorf("[%s] unsupported unary operator '%s'", diag.CodeLowerUnsupportedFeature, e.Op)
 		}
 	case "binary":
+		// Intercept binary ops on uno operands.
+		leftType := inferExprType(ctx, e.Left)
+		rightType := inferExprType(ctx, e.Right)
+		if leftType == "uno" || rightType == "uno" {
+			switch e.Op {
+			case "+", "-", "*", "/", "%", "<", "<=", ">", ">=":
+				return nil, fmt.Errorf("[%s] operator '%s' not supported on uno type; use method calls", diag.CodeLowerUnsupportedFeature, e.Op)
+			case "==":
+				lhsLua, err := tolExprToLua(ctx, e.Left)
+				if err != nil {
+					return nil, err
+				}
+				rhsLua, err := tolExprToLua(ctx, e.Right)
+				if err != nil {
+					return nil, err
+				}
+				return withLineExpr(&luast.FuncCallExpr{
+					Func: withLineExpr(&luast.AttrGetExpr{
+						Object: withLineExpr(&luast.AttrGetExpr{
+							Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
+							Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
+						}),
+						Key: withLineExpr(&luast.StringExpr{Value: "eq"}),
+					}),
+					Args:      []luast.Expr{lhsLua, rhsLua},
+					AdjustRet: true,
+				}), nil
+			case "!=":
+				lhsLua, err := tolExprToLua(ctx, e.Left)
+				if err != nil {
+					return nil, err
+				}
+				rhsLua, err := tolExprToLua(ctx, e.Right)
+				if err != nil {
+					return nil, err
+				}
+				eqCall := withLineExpr(&luast.FuncCallExpr{
+					Func: withLineExpr(&luast.AttrGetExpr{
+						Object: withLineExpr(&luast.AttrGetExpr{
+							Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
+							Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
+						}),
+						Key: withLineExpr(&luast.StringExpr{Value: "eq"}),
+					}),
+					Args:      []luast.Expr{lhsLua, rhsLua},
+					AdjustRet: true,
+				})
+				return withLineExpr(&luast.UnaryNotOpExpr{Expr: eqCall}), nil
+			}
+		}
 		lhs, err := tolExprToLua(ctx, e.Left)
 		if err != nil {
 			return nil, err
@@ -4244,6 +4318,13 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 			if len(e.Args) == 1 {
 				return tolExprToLua(ctx, e.Args[0])
 			}
+		}
+		// Intercept uno encrypted type method calls: a.add(b) → tos.ciphertext.add(a, b).
+		if unoExpr, ok, err := lowerUnoMethodExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return unoExpr, nil
 		}
 		// Intercept oracle OOP method calls: price.fulfill(v).
 		if oracleExpr, ok, err := lowerOracleSlotExpr(ctx, e); ok || err != nil {
@@ -4363,6 +4444,13 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 			AdjustRet: true,
 		}), nil
 	case "member":
+		// Intercept uno member access: a.commitment / a.handle → tos.ciphertext.commitment(a) / handle(a).
+		if unoExpr, ok, err := lowerUnoMethodExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return unoExpr, nil
+		}
 		if oracleExpr, ok, err := lowerOracleSlotExpr(ctx, e); ok || err != nil {
 			if err != nil {
 				return nil, err
@@ -6329,6 +6417,60 @@ func lowerStorageStoreStmt(ctx *loweringCtx, target *tolast.Expr, valueExpr *tol
 	if info.isTransient {
 		storeFn = "__tol_tsstore"
 	}
+
+	// Determine effective type after applying keys.
+	effectiveType := storageEffectiveType(info.typ, len(keys))
+	if effectiveType == "uno" {
+		// UNO type occupies two slots: store commitment to base slot, handle to keccak256(slot..".h").
+		commitStore := withLineExpr(&luast.FuncCallExpr{
+			Func: withLineExpr(&luast.IdentExpr{Value: storeFn}),
+			Args: []luast.Expr{
+				slotExpr,
+				withLineExpr(&luast.FuncCallExpr{
+					Func: withLineExpr(&luast.AttrGetExpr{
+						Object: withLineExpr(&luast.AttrGetExpr{
+							Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
+							Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
+						}),
+						Key: withLineExpr(&luast.StringExpr{Value: "commitment"}),
+					}),
+					Args:      []luast.Expr{value},
+					AdjustRet: true,
+				}),
+			},
+			AdjustRet: true,
+		})
+		handleSlotExpr := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "uint256_add_hex"}),
+			Args:      []luast.Expr{slotExpr, withLineExpr(&luast.NumberExpr{Value: "1"})},
+			AdjustRet: true,
+		})
+		handleStore := withLineExpr(&luast.FuncCallExpr{
+			Func: withLineExpr(&luast.IdentExpr{Value: storeFn}),
+			Args: []luast.Expr{
+				handleSlotExpr,
+				withLineExpr(&luast.FuncCallExpr{
+					Func: withLineExpr(&luast.AttrGetExpr{
+						Object: withLineExpr(&luast.AttrGetExpr{
+							Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
+							Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
+						}),
+						Key: withLineExpr(&luast.StringExpr{Value: "handle"}),
+					}),
+					Args:      []luast.Expr{value},
+					AdjustRet: true,
+				}),
+			},
+			AdjustRet: true,
+		})
+		// Emit both stores as a do-block with two statements.
+		stmts := []luast.Stmt{
+			withLineStmt(&luast.FuncCallStmt{Expr: commitStore}, 1),
+			withLineStmt(&luast.FuncCallStmt{Expr: handleStore}, 1),
+		}
+		return withLineStmt(&luast.DoBlockStmt{Stmts: stmts}, 1), true, nil
+	}
+
 	call := withLineExpr(&luast.FuncCallExpr{
 		Func:      withLineExpr(&luast.IdentExpr{Value: storeFn}),
 		Args:      []luast.Expr{slotExpr, value},
@@ -6350,11 +6492,64 @@ func lowerStorageLoadExpr(ctx *loweringCtx, slotName string, keys []*tolast.Expr
 	if info.isTransient {
 		loadFn = "__tol_tsload"
 	}
+
+	// Determine effective type after applying keys.
+	effectiveType := storageEffectiveType(info.typ, len(keys))
+	if effectiveType == "uno" {
+		// UNO type occupies two slots: commitment (base slot) and handle (keccak256(slot .. ".h")).
+		// Load both and construct via tos.ciphertext.from_parts(commitment, handle).
+		commitExpr := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: loadFn}),
+			Args:      []luast.Expr{slotExpr},
+			AdjustRet: true,
+		})
+		handleSlotExpr := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "uint256_add_hex"}),
+			Args:      []luast.Expr{slotExpr, withLineExpr(&luast.NumberExpr{Value: "1"})},
+			AdjustRet: true,
+		})
+		handleExpr := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: loadFn}),
+			Args:      []luast.Expr{handleSlotExpr},
+			AdjustRet: true,
+		})
+		return withLineExpr(&luast.FuncCallExpr{
+			Func: withLineExpr(&luast.AttrGetExpr{
+				Object: withLineExpr(&luast.AttrGetExpr{
+					Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
+					Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
+				}),
+				Key: withLineExpr(&luast.StringExpr{Value: "from_parts"}),
+			}),
+			Args:      []luast.Expr{commitExpr, handleExpr},
+			AdjustRet: true,
+		}), nil
+	}
+
 	return withLineExpr(&luast.FuncCallExpr{
 		Func:      withLineExpr(&luast.IdentExpr{Value: loadFn}),
 		Args:      []luast.Expr{slotExpr},
 		AdjustRet: true,
 	}), nil
+}
+
+// storageEffectiveType returns the type after applying numKeys index/mapping accesses.
+func storageEffectiveType(typ string, numKeys int) string {
+	cur := typ
+	for i := 0; i < numKeys; i++ {
+		compact := strings.ReplaceAll(normalizeSelectorType(cur), " ", "")
+		if strings.HasPrefix(compact, "mapping(") {
+			cur = mappingValueType(cur)
+		} else if strings.HasSuffix(compact, "]") {
+			cur = arrayElemType(cur)
+		} else {
+			return cur
+		}
+		if cur == "" {
+			return ""
+		}
+	}
+	return strings.TrimSpace(cur)
 }
 
 func lowerStorageLengthMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
@@ -6387,6 +6582,163 @@ func lowerStorageLengthMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr,
 	return withLineExpr(&luast.FuncCallExpr{
 		Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_slen"}),
 		Args:      []luast.Expr{baseExpr},
+		AdjustRet: true,
+	}), true, nil
+}
+
+// lowerUnoMethodExpr handles uno encrypted type method calls:
+//
+//	Instance methods: a.add(b) → tos.ciphertext.add(a_lua, b_lua)
+//	Static methods:   uno.zero() → tos.ciphertext.zero()
+//	Member access:    a.commitment → tos.ciphertext.commitment(a_lua)
+//	                  a.handle     → tos.ciphertext.handle(a_lua)
+func lowerUnoMethodExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
+	if e == nil {
+		return nil, false, nil
+	}
+
+	// Member access: a.commitment / a.handle where a is uno
+	if e.Kind == "member" && (e.Member == "commitment" || e.Member == "handle") {
+		objType := inferExprType(ctx, e.Object)
+		if objType == "uno" {
+			obj, err := tolExprToLua(ctx, e.Object)
+			if err != nil {
+				return nil, true, err
+			}
+			return withLineExpr(&luast.FuncCallExpr{
+				Func: withLineExpr(&luast.AttrGetExpr{
+					Object: withLineExpr(&luast.AttrGetExpr{
+						Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
+						Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
+					}),
+					Key: withLineExpr(&luast.StringExpr{Value: e.Member}),
+				}),
+				Args:      []luast.Expr{obj},
+				AdjustRet: true,
+			}), true, nil
+		}
+		// Also handle storage slot member access
+		if slotName, keys, ok := ctx.storagePathFromExpr(e.Object); ok {
+			info, hasInfo := ctx.storageInfoByName(slotName)
+			if hasInfo && info.typ == "uno" && len(keys) == 0 {
+				loadExpr, err := lowerStorageLoadExpr(ctx, slotName, keys)
+				if err != nil {
+					return nil, true, err
+				}
+				return withLineExpr(&luast.FuncCallExpr{
+					Func: withLineExpr(&luast.AttrGetExpr{
+						Object: withLineExpr(&luast.AttrGetExpr{
+							Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
+							Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
+						}),
+						Key: withLineExpr(&luast.StringExpr{Value: e.Member}),
+					}),
+					Args:      []luast.Expr{loadExpr},
+					AdjustRet: true,
+				}), true, nil
+			}
+		}
+		return nil, false, nil
+	}
+
+	if e.Kind != "call" || e.Callee == nil || e.Callee.Kind != "member" {
+		return nil, false, nil
+	}
+
+	method := e.Callee.Member
+
+	// Static methods: uno.zero(), uno.encrypt(pk,amt), uno.select(c,a,b), uno.from_parts(c,h)
+	if e.Callee.Object != nil && e.Callee.Object.Kind == "ident" &&
+		strings.TrimSpace(e.Callee.Object.Value) == "uno" {
+		unoStaticMethods := map[string]bool{
+			"zero": true, "encrypt": true, "select": true, "from_parts": true,
+		}
+		if !unoStaticMethods[method] {
+			return nil, false, nil
+		}
+		args := []luast.Expr{}
+		for _, a := range e.Args {
+			ex, err := tolExprToLua(ctx, a)
+			if err != nil {
+				return nil, true, err
+			}
+			args = append(args, ex)
+		}
+		return withLineExpr(&luast.FuncCallExpr{
+			Func: withLineExpr(&luast.AttrGetExpr{
+				Object: withLineExpr(&luast.AttrGetExpr{
+					Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
+					Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
+				}),
+				Key: withLineExpr(&luast.StringExpr{Value: method}),
+			}),
+			Args:      args,
+			AdjustRet: true,
+		}), true, nil
+	}
+
+	// Instance methods: a.add(b) where a is uno
+	objType := inferExprType(ctx, e.Callee.Object)
+	isUnoSlot := false
+	if objType != "uno" {
+		// Check if it's a storage slot of type uno
+		if slotName, keys, ok := ctx.storagePathFromExpr(e.Callee.Object); ok {
+			info, hasInfo := ctx.storageInfoByName(slotName)
+			if hasInfo && info.typ == "uno" && len(keys) == 0 {
+				isUnoSlot = true
+				objType = "uno"
+				_ = slotName
+			}
+		}
+		// Also check mapping(K=>uno) with key applied
+		if !isUnoSlot {
+			if slotName, _, ok := ctx.storagePathFromExpr(e.Callee.Object); ok {
+				info, hasInfo := ctx.storageInfoByName(slotName)
+				if hasInfo && strings.Contains(info.typ, "uno") {
+					objType = "uno"
+				}
+			}
+		}
+	}
+	if objType != "uno" {
+		return nil, false, nil
+	}
+
+	// Validate method name
+	unoInstanceMethods := map[string]bool{
+		"add": true, "sub": true, "add_scalar": true, "sub_scalar": true,
+		"mul_scalar": true, "div_scalar": true, "mul": true, "div": true,
+		"rem": true, "lt": true, "gt": true, "eq": true, "min": true,
+		"max": true, "select": true, "commitment": true, "handle": true,
+		"verify_transfer": true, "verify_eq": true,
+	}
+	if !unoInstanceMethods[method] {
+		return nil, false, nil
+	}
+
+	// Build arguments: object first, then call args
+	obj, err := tolExprToLua(ctx, e.Callee.Object)
+	if err != nil {
+		return nil, true, err
+	}
+	args := []luast.Expr{obj}
+	for _, a := range e.Args {
+		ex, err := tolExprToLua(ctx, a)
+		if err != nil {
+			return nil, true, err
+		}
+		args = append(args, ex)
+	}
+
+	return withLineExpr(&luast.FuncCallExpr{
+		Func: withLineExpr(&luast.AttrGetExpr{
+			Object: withLineExpr(&luast.AttrGetExpr{
+				Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
+				Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
+			}),
+			Key: withLineExpr(&luast.StringExpr{Value: method}),
+		}),
+		Args:      args,
 		AdjustRet: true,
 	}), true, nil
 }
@@ -7307,6 +7659,15 @@ func resolveTypeAlias(ctx *loweringCtx, typName string) string {
 func inferExprType(ctx *loweringCtx, e *tolast.Expr) string {
 	if e == nil {
 		return ""
+	}
+	// Check if expr is a storage path — resolve its effective type.
+	if ctx != nil {
+		if slotName, keys, ok := ctx.storagePathFromExpr(e); ok {
+			info, hasInfo := ctx.storageInfoByName(slotName)
+			if hasInfo {
+				return storageEffectiveType(info.typ, len(keys))
+			}
+		}
 	}
 	switch e.Kind {
 	case "paren":

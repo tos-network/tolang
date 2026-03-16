@@ -179,9 +179,28 @@ func cryptoABIDecodeParams(L *LState) int {
 		L.RaiseError("__tol_abi_decode_params: calldata too short: need %d 32-byte slots, got %d", numTypes, numSlots)
 	}
 
+	slotIdx := 0
 	for i := 0; i < numTypes; i++ {
 		typ := strings.TrimSpace(L.CheckString(i + 2))
-		slotStart := i * 64
+		if typ == "uno" {
+			// UNO occupies 2 consecutive 32-byte slots (commitment + handle).
+			slotStart := slotIdx * 64
+			var slot1Hex, slot2Hex string
+			if slotStart+64 <= len(hexData) {
+				slot1Hex = hexData[slotStart : slotStart+64]
+			} else {
+				slot1Hex = strings.Repeat("0", 64)
+			}
+			if slotStart+128 <= len(hexData) {
+				slot2Hex = hexData[slotStart+64 : slotStart+128]
+			} else {
+				slot2Hex = strings.Repeat("0", 64)
+			}
+			L.Push(LString("0x" + slot1Hex + slot2Hex))
+			slotIdx += 2
+			continue
+		}
+		slotStart := slotIdx * 64
 		var slotHex string
 		if slotStart+64 <= len(hexData) {
 			slotHex = hexData[slotStart : slotStart+64]
@@ -194,6 +213,7 @@ func cryptoABIDecodeParams(L *LState) int {
 			L.RaiseError("__tol_abi_decode_params: parameter %d type %q: %s", i+1, typ, err.Error())
 		}
 		L.Push(v)
+		slotIdx++
 	}
 	return numTypes
 }
@@ -261,6 +281,11 @@ func abiDecodeSlot(slotHex, typ string) (LValue, error) {
 			return nil, err
 		}
 		return v, nil
+	}
+
+	if t == "uno" {
+		// UNO decodes as the raw 32-byte slot hex (one slot of a two-slot pair).
+		return LString("0x" + slotHex), nil
 	}
 
 	return nil, fmt.Errorf("unsupported type %q in __tol_abi_decode_params", t)

@@ -4584,7 +4584,7 @@ func (p *Parser) parsePrefixExpr(stop map[lexer.Type]bool) (*ast.Expr, bool) {
 			Args:  args,
 		}, true
 	// Keywords that can appear in expression context (used as identifiers):
-	case lexer.TokenKwAgent, lexer.TokenKwBool, lexer.TokenKwString,
+	case lexer.TokenKwAgent, lexer.TokenKwBool, lexer.TokenKwString, lexer.TokenKwUno,
 		lexer.TokenKwPayable, lexer.TokenKwPure, lexer.TokenKwView,
 		lexer.TokenKwPublic, lexer.TokenKwPrivate, lexer.TokenKwExternal, lexer.TokenKwInternal,
 		lexer.TokenKwMemory, lexer.TokenKwCalldata, lexer.TokenKwStorage,
@@ -5176,7 +5176,7 @@ func (p *Parser) isTypeStart() bool {
 	switch p.cur.Type {
 	case lexer.TokenKwMapping, lexer.TokenIdent,
 		// Promoted type keywords that can start a type expression:
-		lexer.TokenKwAgent, lexer.TokenKwBool, lexer.TokenKwString,
+		lexer.TokenKwAgent, lexer.TokenKwBool, lexer.TokenKwString, lexer.TokenKwUno,
 		lexer.TokenKwMemory, lexer.TokenKwCalldata, lexer.TokenKwStorage:
 		return true
 	}
@@ -5193,7 +5193,7 @@ func isIdentLike(t lexer.Type) bool {
 	case lexer.TokenIdent,
 		// Keywords that can appear as identifiers in various contexts
 		lexer.TokenKwAbstract, lexer.TokenKwAgent, lexer.TokenKwAnonymous,
-		lexer.TokenKwBool, lexer.TokenKwCalldata, lexer.TokenKwDelete,
+		lexer.TokenKwBool, lexer.TokenKwCalldata, lexer.TokenKwDelete, lexer.TokenKwUno,
 		lexer.TokenKwExternal, lexer.TokenKwFalse, lexer.TokenKwGlobal,
 		lexer.TokenKwIndexed, lexer.TokenKwInternal, lexer.TokenKwIs,
 		lexer.TokenKwMemory, lexer.TokenKwNew, lexer.TokenKwDeploy, lexer.TokenKwOverride,
@@ -5245,7 +5245,7 @@ func (p *Parser) isContractMemberStart(tt lexer.Type) bool {
 		lexer.TokenIdent,
 		// Promoted keywords that can start contract members:
 		lexer.TokenKwUsing, lexer.TokenKwReceive,
-		lexer.TokenKwAgent, lexer.TokenKwBool, lexer.TokenKwString:
+		lexer.TokenKwAgent, lexer.TokenKwBool, lexer.TokenKwString, lexer.TokenKwUno:
 		return true
 	default:
 		return false

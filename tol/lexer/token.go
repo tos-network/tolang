@@ -126,6 +126,7 @@ const (
 	TokenKwString     // "string"
 	TokenKwTrue       // "true"
 	TokenKwUnchecked  // "unchecked"
+	TokenKwUno        // "uno"
 	TokenKwUsing      // "using"
 	TokenKwView       // "view"
 	TokenKwVirtual    // "virtual"
@@ -350,6 +351,8 @@ func (t Type) String() string {
 		return "true"
 	case TokenKwUnchecked:
 		return "unchecked"
+	case TokenKwUno:
+		return "uno"
 	case TokenKwUsing:
 		return "using"
 	case TokenKwView:
@@ -532,6 +535,8 @@ func keywordType(lit string) Type {
 		return TokenKwTrue
 	case "unchecked":
 		return TokenKwUnchecked
+	case "uno":
+		return TokenKwUno
 	case "using":
 		return TokenKwUsing
 	case "view":

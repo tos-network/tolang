@@ -119,6 +119,10 @@ const (
 	// Reserved platform namespace.
 	CodeSemaTolLangReserved = "TOL2097" // package "tol.lang" is a reserved platform namespace; external packages may not declare it
 
+	// UNO encrypted type errors.
+	CodeSemaUnoOperator      = "TOL2098" // arithmetic/comparison operator on uno type; use method calls
+	CodeSemaUnoInvalidMethod = "TOL2099" // unknown method called on uno type
+
 	// Deprecation warnings (aligned with Solidity error codes where applicable).
 	CodeWarnYearsUnit = "TOL4820" // 'years' unit denomination is deprecated (Solidity 4820)
 

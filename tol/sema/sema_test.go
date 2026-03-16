@@ -7813,3 +7813,234 @@ contract Impl {}
 		t.Fatalf("bare import should not produce errors, got: %v", diags)
 	}
 }
+
+// --- UNO encrypted type tests ---
+
+// TestUnoTypeValid verifies uno is accepted as storage var type, function param, and return type.
+func TestUnoTypeValid(t *testing.T) {
+	m := &ast.Module{
+		Version: "0.2.0",
+		Contract: &ast.ContractDecl{
+			Name: "UnoTest",
+			Storage: &ast.StorageDecl{
+				Slots: []ast.StorageSlot{
+					{Name: "balance", Type: "uno"},
+				},
+			},
+			Functions: []ast.FunctionDecl{
+				{
+					Name:   "transfer",
+					Params: []ast.FieldDecl{{Name: "amount", Type: "uno"}},
+					Returns: []ast.FieldDecl{{Name: "result", Type: "uno"}},
+					Body: []ast.Statement{
+						{Kind: "return", Expr: identExpr("amount")},
+					},
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	if diags.HasErrors() {
+		t.Fatalf("uno type should be valid, got: %v", diags)
+	}
+}
+
+// TestUnoNotMappingKey verifies uno is rejected as mapping key type.
+func TestUnoNotMappingKey(t *testing.T) {
+	m := &ast.Module{
+		Version: "0.2.0",
+		Contract: &ast.ContractDecl{
+			Name: "UnoTest",
+			Storage: &ast.StorageDecl{
+				Slots: []ast.StorageSlot{
+					{Name: "m", Type: "mapping(uno => u256)"},
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	if !diags.HasErrors() {
+		t.Fatalf("expected error for uno as mapping key")
+	}
+}
+
+// TestUnoMethods verifies all 18 uno methods are accepted.
+func TestUnoMethods(t *testing.T) {
+	methods := []string{
+		"add", "sub", "add_scalar", "sub_scalar",
+		"mul_scalar", "div_scalar", "mul", "div",
+		"rem", "lt", "gt", "eq", "min",
+		"max", "select", "commitment", "handle",
+		"verify_transfer",
+	}
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			args := []*ast.Expr{identExpr("b")}
+			if method == "verify_transfer" {
+				args = []*ast.Expr{identExpr("pk1"), identExpr("pk2")}
+			}
+			m := &ast.Module{
+				Version: "0.2.0",
+				Contract: &ast.ContractDecl{
+					Name: "UnoTest",
+					Functions: []ast.FunctionDecl{
+						{
+							Name: "test",
+							Params: []ast.FieldDecl{
+								{Name: "a", Type: "uno"},
+								{Name: "b", Type: "uno"},
+								{Name: "pk1", Type: "bytes32"},
+								{Name: "pk2", Type: "bytes32"},
+							},
+							Body: []ast.Statement{
+								{
+									Kind:   "let",
+									Name:   "result",
+									Type:   "uno",
+									Expr: &ast.Expr{
+										Kind:   "call",
+										Callee: &ast.Expr{Kind: "member", Object: identExpr("a"), Member: method},
+										Args:   args,
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			_, diags := Check("<test>", m)
+			if diags.HasErrors() {
+				t.Fatalf("uno method %s should be accepted, got: %v", method, diags)
+			}
+		})
+	}
+}
+
+// TestUnoInvalidMethod verifies unknown method on uno is rejected.
+func TestUnoInvalidMethod(t *testing.T) {
+	m := &ast.Module{
+		Version: "0.2.0",
+		Contract: &ast.ContractDecl{
+			Name: "UnoTest",
+			Functions: []ast.FunctionDecl{
+				{
+					Name: "test",
+					Params: []ast.FieldDecl{
+						{Name: "a", Type: "uno"},
+					},
+					Body: []ast.Statement{
+						{
+							Kind: "let",
+							Name: "result",
+							Type: "uno",
+							Expr: &ast.Expr{
+								Kind:   "call",
+								Callee: &ast.Expr{Kind: "member", Object: identExpr("a"), Member: "bogus"},
+								Args:   []*ast.Expr{identExpr("a")},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	if !diags.HasErrors() {
+		t.Fatalf("expected error for unknown uno method 'bogus'")
+	}
+	found := false
+	for _, d := range diags {
+		if strings.Contains(d.Message, "bogus") && strings.Contains(d.Message, "uno") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected diagnostic mentioning 'bogus' on 'uno', got: %v", diags)
+	}
+}
+
+// TestUnoOperatorReject verifies +, -, *, / on uno gives error.
+func TestUnoOperatorReject(t *testing.T) {
+	ops := []string{"+", "-", "*", "/"}
+	for _, op := range ops {
+		t.Run(op, func(t *testing.T) {
+			m := &ast.Module{
+				Version: "0.2.0",
+				Contract: &ast.ContractDecl{
+					Name: "UnoTest",
+					Functions: []ast.FunctionDecl{
+						{
+							Name: "test",
+							Params: []ast.FieldDecl{
+								{Name: "a", Type: "uno"},
+								{Name: "b", Type: "uno"},
+							},
+							Body: []ast.Statement{
+								{
+									Kind: "let",
+									Name: "result",
+									Type: "uno",
+									Expr: &ast.Expr{
+										Kind:  "binary",
+										Op:    op,
+										Left:  identExpr("a"),
+										Right: identExpr("b"),
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			_, diags := Check("<test>", m)
+			if !diags.HasErrors() {
+				t.Fatalf("expected error for operator '%s' on uno", op)
+			}
+			found := false
+			for _, d := range diags {
+				if strings.Contains(d.Message, op) && strings.Contains(d.Message, "uno") {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("expected diagnostic mentioning '%s' on 'uno', got: %v", op, diags)
+			}
+		})
+	}
+}
+
+// TestUnoEqOperator verifies == on uno is accepted (no error).
+func TestUnoEqOperator(t *testing.T) {
+	m := &ast.Module{
+		Version: "0.2.0",
+		Contract: &ast.ContractDecl{
+			Name: "UnoTest",
+			Functions: []ast.FunctionDecl{
+				{
+					Name: "test",
+					Params: []ast.FieldDecl{
+						{Name: "a", Type: "uno"},
+						{Name: "b", Type: "uno"},
+					},
+					Body: []ast.Statement{
+						{
+							Kind: "let",
+							Name: "result",
+							Type: "bool",
+							Expr: &ast.Expr{
+								Kind:  "binary",
+								Op:    "==",
+								Left:  identExpr("a"),
+								Right: identExpr("b"),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	if diags.HasErrors() {
+		t.Fatalf("== on uno should be accepted, got: %v", diags)
+	}
+}

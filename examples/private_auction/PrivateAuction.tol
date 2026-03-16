@@ -18,7 +18,7 @@ contract PrivateAuction {
 
     agent winner;
     mapping(agent => bytes32) publicKeys;
-    mapping(agent => Uno) encryptedBids;
+    mapping(agent => uno) encryptedBids;
     mapping(agent => bool) hasBid;
 
     event BidSubmitted(agent indexed bidder)
@@ -42,15 +42,15 @@ contract PrivateAuction {
         publicKeys[msg.sender] = pubkey;
     }
 
-    // Submit a sealed bid. The bid is an encrypted Uno value.
+    // Submit a sealed bid. The bid is an encrypted uno value.
     // Proof bundle ensures the bid is non-negative.
-    function submitBid(Uno encryptedBid) external {
+    function submitBid(uno encryptedBid) external {
         require(block.timestamp_ms <= bidDeadline_ms, "BiddingClosed");
         require(hasBid[msg.sender] != true, "AlreadyBid");
         require(publicKeys[msg.sender] != bytes32(0), "NotRegistered");
 
         // gt(bid, zero) verified via proof bundle — ensures non-negative
-        require(encryptedBid.gt(Uno.zero()), "InvalidBid");
+        require(encryptedBid.gt(uno.zero()), "InvalidBid");
 
         encryptedBids[msg.sender] = encryptedBid;
         hasBid[msg.sender] = true;
@@ -73,7 +73,7 @@ contract PrivateAuction {
         emit AuctionSettled(_winner);
     }
 
-    function getEncryptedBid(agent bidder) public view returns (Uno) {
+    function getEncryptedBid(agent bidder) public view returns (uno) {
         return encryptedBids[bidder];
     }
 

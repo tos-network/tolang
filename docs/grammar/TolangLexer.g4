@@ -281,7 +281,12 @@ fragment HexDigit : [0-9a-fA-F] ;
 // purely contextual:
 //   agent  capability  cases  fuzz  inspect  mock  nil  oracle
 //   selector  setup  setup_suite  skip  tag  task  teardown
-//   teardown_suite  timeout  tolang  vote  with
+//   teardown_suite  timeout  tolang  uno  vote  with
+//
+// 'uno' is the confidential encrypted integer type (Twisted ElGamal
+// ciphertext, 64 bytes = commitment 32B + handle 32B). Like 'agent',
+// it is a contextual keyword (Identifier token) whose methods are
+// resolved by the sema layer. See docs/LVM_HE_OPCODES_PLAN_V2.md.
 //
 // 'agent' is TOL's primary identity type — equivalent to Solidity's 'address'
 // but semantically richer (carries .stake, .is_active, .reputation etc.).

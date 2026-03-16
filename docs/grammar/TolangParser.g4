@@ -1,7 +1,7 @@
 // ANTLR4 Parser Grammar for the TOL (TOS Object Language) language.
 //
-// TOL v0.3 / v0.4 (agent-native extension) — see docs/TOL_SPEC.md and
-// docs/AGENT-NATIVE.md for the full language specification.
+// TOL v0.3 / v0.4 (agent-native + privacy extension) — see docs/TOL_SPEC.md,
+// docs/AGENT-NATIVE.md, and docs/LVM_HE_OPCODES_PLAN_V2.md for specifications.
 //
 // This grammar is a specification document aligned with SolidityParser.g4
 // (see docs/grammar/diff.md for the full diff analysis).
@@ -487,8 +487,8 @@ purposeDeclaration
 agentNativeStorageDeclaration
     : Identifier (Lt typeName Gt)? stateVariableModifier* Identifier Semicolon
     ;
-    // Leading Identifier: 'oracle' | 'vote' | 'task' | 'agent'
-    // Lt typeName Gt is present for oracle<T>/vote<T>/task<T>; absent for bare 'agent'.
+    // Leading Identifier: 'oracle' | 'vote' | 'task' | 'agent' | 'uno'
+    // Lt typeName Gt is present for oracle<T>/vote<T>/task<T>; absent for bare 'agent' / 'uno'.
     // stateVariableModifier allows public/private/internal/override (same as storageVariable).
 
 // ============================================================
@@ -709,9 +709,9 @@ typeName
 
 genericTypeName
     : Identifier Lt typeName Gt     // oracle<T>, task<T>, vote<T>
-    | Identifier                    // agent (bare, no type param)
+    | Identifier                    // agent (bare, no type param), uno
     ;
-    // Leading Identifier: 'oracle' | 'task' | 'vote' | 'agent'
+    // Leading Identifier: 'oracle' | 'task' | 'vote' | 'agent' | 'uno'
 
 elementaryTypeName
     : UnsignedIntegerType
@@ -722,11 +722,47 @@ elementaryTypeName
     | String
     | Fixed
     | Ufixed
-    // NOTE: 'agent' is NOT listed here — it is an Identifier token (contextual
-    // keyword) parsed as a genericTypeName or userDefinedTypeName.
+    // NOTE: 'agent' and 'uno' are NOT listed here — they are Identifier tokens
+    // (contextual keywords) parsed as genericTypeName or userDefinedTypeName.
     // 'address' and 'address payable' are accepted by the production lexer for
     // backward compatibility and silently normalised to 'agent'.
     ;
+
+// ============================================================
+// uno — confidential encrypted integer type  (TOL v0.4 privacy extension)
+//
+// uno is a Twisted ElGamal ciphertext (64 bytes = commitment 32B + handle 32B,
+// Ristretto255). It is the privacy counterpart to u64 — all values are
+// encrypted and can only be manipulated via homomorphic operations or
+// proof-bundle verified computations.
+//
+// GRAMMAR NOTE: uno does not require new grammar rules. It is a contextual
+// keyword (Identifier token "uno") resolved by the sema layer, using existing
+// grammar productions:
+//
+//   Type usage:          genericTypeName → Identifier ("uno")
+//   State variables:     agentNativeStorageDeclaration → uno x;
+//   Mapping values:      mapping(agent => uno) — via storageVariable
+//   Function params:     typeName → uno
+//   Static methods:      uno.zero()    → MemberAccess + FunctionCall
+//   Instance methods:    a.add(b)      → MemberAccess + FunctionCall
+//
+// The sema layer validates:
+//   - uno methods: add, sub, mul, div, rem, add_scalar, sub_scalar,
+//     mul_scalar, div_scalar, lt, gt, eq, min, max, commitment, handle,
+//     verify_transfer, verify_eq (instance); zero, encrypt, from_parts,
+//     select (static)
+//   - == and != on uno compile to a.eq(b) / !a.eq(b)
+//   - <, >, +, -, *, / operators on uno are rejected (must use methods)
+//   - uno rejected as mapping key type
+//
+// The lowering layer desugars uno methods to tos.ciphertext.* Lua calls:
+//   a.add(b)           →  tos.ciphertext.add(a, b)
+//   uno.zero()         →  tos.ciphertext.zero()
+//   uno.select(c,a,b)  →  tos.ciphertext.select(c, a, b)
+//
+// See docs/LVM_HE_OPCODES_PLAN_V2.md for the full 22-method API specification.
+// ============================================================
 
 userDefinedTypeName
     : identifierPath
@@ -753,6 +789,9 @@ mappingKeyType
     ;
     // 'agent' is recognised via identifierPath (it is a contextual Identifier token).
     // 'address' is still accepted by the production parser and normalised to 'agent'.
+    // 'uno' is NOT a valid mapping key type (encrypted values cannot be compared for
+    // equality in the map-lookup sense). The sema layer rejects mapping(uno => ...).
+    // mapping(agent => uno) is valid — uno as mapping VALUE is fully supported.
 
 // Function type
 //

@@ -3,8 +3,8 @@ pragma tolang 0.4.0;
 // PrivateOTC — confidential over-the-counter token swap.
 //
 // Two parties settle a trade atomically with encrypted amounts.
-// The contract uses Uno.sub() and Uno.add() for balance updates,
-// and Uno.gt() (via proof bundle) to verify sufficient balance.
+// The contract uses uno.sub() and uno.add() for balance updates,
+// and uno.gt() (via proof bundle) to verify sufficient balance.
 //
 // What's public:  maker/taker identities, that a deal settled
 // What's hidden:  amounts on both sides of every trade, all balances
@@ -18,13 +18,13 @@ contract PrivateOTC {
 
     mapping(u64 => agent) dealMaker;
     mapping(u64 => agent) dealTaker;
-    mapping(u64 => Uno) dealOfferCt;
-    mapping(u64 => Uno) dealPaymentCt;
+    mapping(u64 => uno) dealOfferCt;
+    mapping(u64 => uno) dealPaymentCt;
     mapping(u64 => bool) dealOpen;
     mapping(u64 => bool) dealSettled;
 
-    mapping(agent => Uno) balancesA;
-    mapping(agent => Uno) balancesB;
+    mapping(agent => uno) balancesA;
+    mapping(agent => uno) balancesB;
 
     event PublicKeyRegistered(agent indexed account)
     event Deposited(agent indexed account, bool indexed isTokenA)
@@ -42,8 +42,8 @@ contract PrivateOTC {
         emit PublicKeyRegistered(msg.sender);
     }
 
-    // Deposit: encrypted amount created off-chain, submitted as Uno.
-    function deposit(bool isTokenA, Uno depositAmount) external {
+    // Deposit: encrypted amount created off-chain, submitted as uno.
+    function deposit(bool isTokenA, uno depositAmount) external {
         require(publicKeys[msg.sender] != bytes32(0), "NotRegistered");
 
         if (isTokenA) {
@@ -56,12 +56,12 @@ contract PrivateOTC {
     }
 
     // Maker creates a deal: offer tokenA amount.
-    function createDeal(Uno offerAmount) external returns (u64) {
+    function createDeal(uno offerAmount) external returns (u64) {
         require(publicKeys[msg.sender] != bytes32(0), "NotRegistered");
 
         // Deduct from maker's tokenA balance
-        Uno newBal = balancesA[msg.sender].sub(offerAmount);
-        require(newBal.gt(Uno.zero()), "InsufficientBalance");
+        uno newBal = balancesA[msg.sender].sub(offerAmount);
+        require(newBal.gt(uno.zero()), "InsufficientBalance");
         balancesA[msg.sender] = newBal;
 
         u64 dealId = nextDealId;
@@ -76,7 +76,7 @@ contract PrivateOTC {
     }
 
     // Taker fills a deal: provide tokenB payment, receive maker's tokenA.
-    function fillDeal(u64 dealId, Uno paymentAmount) external {
+    function fillDeal(u64 dealId, uno paymentAmount) external {
         require(dealOpen[dealId] == true, "DealNotOpen");
         require(dealSettled[dealId] != true, "DealAlreadySettled");
         require(publicKeys[msg.sender] != bytes32(0), "NotRegistered");
@@ -89,8 +89,8 @@ contract PrivateOTC {
         );
 
         // Deduct tokenB from taker
-        Uno newTakerBal = balancesB[msg.sender].sub(paymentAmount);
-        require(newTakerBal.gt(Uno.zero()), "InsufficientBalance");
+        uno newTakerBal = balancesB[msg.sender].sub(paymentAmount);
+        require(newTakerBal.gt(uno.zero()), "InsufficientBalance");
         balancesB[msg.sender] = newTakerBal;
 
         // Atomic swap:
@@ -107,11 +107,11 @@ contract PrivateOTC {
         emit DealFilled(dealId, msg.sender);
     }
 
-    function getBalanceA(agent account) public view returns (Uno) {
+    function getBalanceA(agent account) public view returns (uno) {
         return balancesA[account];
     }
 
-    function getBalanceB(agent account) public view returns (Uno) {
+    function getBalanceB(agent account) public view returns (uno) {
         return balancesB[account];
     }
 

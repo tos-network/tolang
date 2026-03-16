@@ -3,7 +3,7 @@ pragma tolang 0.4.0;
 // PrivateVoting — on-chain voting where individual votes are never revealed.
 //
 // Each voter encrypts their vote (0 or 1) off-chain. The contract accumulates
-// votes homomorphically via Uno.add(). The tally stays encrypted on-chain —
+// votes homomorphically via uno.add(). The tally stays encrypted on-chain —
 // only the tally authority decrypts off-chain.
 //
 // What's public:  who voted (participation), that voting closed
@@ -16,7 +16,7 @@ contract PrivateVoting {
     u64 voterCount;
     bool closed;
 
-    Uno encryptedTally;
+    uno encryptedTally;
     mapping(agent => bool) hasVoted;
     mapping(agent => bool) eligible;
 
@@ -42,13 +42,13 @@ contract PrivateVoting {
 
     // Cast an encrypted vote (0 or 1). The proof bundle verifies the vote
     // is in {0, 1} via a 1-bit range proof. Developer doesn't handle proofs.
-    function castVote(Uno encryptedVote) external {
+    function castVote(uno encryptedVote) external {
         require(block.timestamp_ms <= deadline_ms, "VotingClosed");
         require(closed != true, "VotingClosed");
         require(eligible[msg.sender] == true, "NotEligible");
         require(hasVoted[msg.sender] != true, "AlreadyVoted");
 
-        // Homomorphic tally: sum += vote (Uno + Uno)
+        // Homomorphic tally: sum += vote (uno + uno)
         encryptedTally = encryptedTally.add(encryptedVote);
         hasVoted[msg.sender] = true;
 
@@ -63,7 +63,7 @@ contract PrivateVoting {
         emit VotingClosed();
     }
 
-    function getEncryptedTally() public view returns (Uno) {
+    function getEncryptedTally() public view returns (uno) {
         return encryptedTally;
     }
 

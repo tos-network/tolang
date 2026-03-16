@@ -6,13 +6,13 @@ GTOS privacy (UNO) currently works only at the protocol level — Shield/Transfe
 are native tx types. Smart contracts cannot manipulate encrypted values, meaning no
 confidential tokens, no private voting, no private OTC via contracts.
 
-We add the `Uno` type to TOL — a first-class encrypted integer backed by Twisted ElGamal
-ciphertexts (64 bytes = commitment 32B + handle 32B, Ristretto255). The `Uno` type
+We add the `uno` type to TOL — a first-class encrypted integer backed by Twisted ElGamal
+ciphertexts (64 bytes = commitment 32B + handle 32B, Ristretto255). The `uno` type
 exposes 22 methods giving TOL contracts **Fhenix-equivalent encrypted arithmetic** — add,
 sub, mul, div, compare, select, min, max — with clean method-call syntax.
 
 **Key design choices**:
-- `Uno` is a built-in TOL type with method syntax: `a.add(b)`, `a.lt(b)`, `Uno.zero()`
+- `uno` is a built-in TOL type with method syntax: `a.add(b)`, `a.lt(b)`, `uno.zero()`
 - The TOL compiler desugars method calls to `tos.ciphertext.*` Lua calls (LVM unchanged)
 - Operations that ElGamal cannot compute natively (mul, div, compare, select, min, max)
   use a **proof bundle** — the caller pre-computes results off-chain and attaches ZK
@@ -58,7 +58,7 @@ a.gt(b)             →  bool          // sub(a,b) + range proof
 a.eq(b)             →  bool          // sub(a,b) + zero-commitment check
 a.min(b)            →  Enc(min)      // compare + selection proof
 a.max(b)            →  Enc(max)      // compare + selection proof
-Uno.select(c, a, b) →  Enc(c?a:b)   // conditional selection proof
+uno.select(c, a, b) →  Enc(c?a:b)   // conditional selection proof
 a.verify_transfer(sPub, rPub) → bool // CT validity (proof from bundle)
 a.verify_eq(commit, pubkey)   → bool // commitment equality (proof from bundle)
 ```
@@ -99,18 +99,18 @@ When the LVM encounters a Tier 2 operation:
 Contract developers never see this — they just write `a.mul(b)`.
 The user's wallet/SDK generates the proof bundle when constructing the transaction.
 
-### TOL Syntax: `Uno` Type
+### TOL Syntax: `uno` Type
 
-`Uno` is a built-in TOL type. The compiler desugars method calls to `tos.ciphertext.*`
+`uno` is a built-in TOL type. The compiler desugars method calls to `tos.ciphertext.*`
 Lua function calls. No LVM changes needed — only the TOL compiler front-end.
 
 ```tol
 // TOL source (what developers write)       // Lua output (what LVM executes)
-Uno x = Uno.zero();                         // x = tos.ciphertext.zero()
-Uno y = a.add(b);                           // y = tos.ciphertext.add(a, b)
+uno x = uno.zero();                         // x = tos.ciphertext.zero()
+uno y = a.add(b);                           // y = tos.ciphertext.add(a, b)
 bool ok = a.lt(b);                          // ok = tos.ciphertext.lt(a, b)
-Uno m = a.min(b);                           // m = tos.ciphertext.min(a, b)
-Uno s = Uno.select(cond, a, b);             // s = tos.ciphertext.select(cond, a, b)
+uno m = a.min(b);                           // m = tos.ciphertext.min(a, b)
+uno s = uno.select(cond, a, b);             // s = tos.ciphertext.select(cond, a, b)
 bytes32 c = a.commitment();                 // c = tos.ciphertext.commitment(a)
 bool v = a.verify_transfer(sPub, rPub);     // v = tos.ciphertext.verify_transfer(a, sPub, rPub)
 ```
@@ -119,7 +119,7 @@ bool v = a.verify_transfer(sPub, rPub);     // v = tos.ciphertext.verify_transfe
 
 | Type | In TOL | In Lua | In Storage | In ABI | Size |
 |------|--------|--------|------------|--------|------|
-| `Uno` | first-class type | `"0x" + 128 hex` | 2 × 32B slots | 2 × 32B words | 64B |
+| `uno` | first-class type | `"0x" + 128 hex` | 2 × 32B slots | 2 × 32B words | 64B |
 
 ### API: 22 Methods
 
@@ -127,43 +127,43 @@ bool v = a.verify_transfer(sPub, rPub);     // v = tos.ciphertext.verify_transfe
 
 | # | TOL Method | Signature | Gas | Implementation |
 |---|------------|-----------|-----|----------------|
-| 1 | `a.add(b)` | `(Uno, Uno) → Uno` | 8000 | EC point add (commitment + handle) |
-| 2 | `a.sub(b)` | `(Uno, Uno) → Uno` | 8000 | EC point sub (commitment + handle) |
-| 3 | `a.add_scalar(n)` | `(Uno, u64) → Uno` | 6000 | scalar-mult(G,n) + point-add |
-| 4 | `a.sub_scalar(n)` | `(Uno, u64) → Uno` | 6000 | scalar-mult(G,n) + point-sub |
-| 5 | `a.mul_scalar(n)` | `(Uno, u64) → Uno` | 10000 | 2× variable-base scalar-mult |
-| 6 | `a.div_scalar(n)` | `(Uno, u64) → Uno` | 12000 | scalar-invert + 2× scalar-mult |
-| 7 | `Uno.zero()` | `() → Uno` | 100 | precomputed identity ciphertext |
-| 8 | `Uno.encrypt(pk, amt)` | `(bytes32, u64) → Uno` | 15000 | full ElGamal encryption |
-| 9 | `Uno.from_parts(c, h)` | `(bytes32, bytes32) → Uno` | 100 | concatenation |
+| 1 | `a.add(b)` | `(uno, uno) → uno` | 8000 | EC point add (commitment + handle) |
+| 2 | `a.sub(b)` | `(uno, uno) → uno` | 8000 | EC point sub (commitment + handle) |
+| 3 | `a.add_scalar(n)` | `(uno, u64) → uno` | 6000 | scalar-mult(G,n) + point-add |
+| 4 | `a.sub_scalar(n)` | `(uno, u64) → uno` | 6000 | scalar-mult(G,n) + point-sub |
+| 5 | `a.mul_scalar(n)` | `(uno, u64) → uno` | 10000 | 2× variable-base scalar-mult |
+| 6 | `a.div_scalar(n)` | `(uno, u64) → uno` | 12000 | scalar-invert + 2× scalar-mult |
+| 7 | `uno.zero()` | `() → uno` | 100 | precomputed identity ciphertext |
+| 8 | `uno.encrypt(pk, amt)` | `(bytes32, u64) → uno` | 15000 | full ElGamal encryption |
+| 9 | `uno.from_parts(c, h)` | `(bytes32, bytes32) → uno` | 100 | concatenation |
 
 #### Tier 2 — Proof-Bundle Verified (9 methods)
 
 | # | TOL Method | Signature | Gas | Proof type |
 |---|------------|-----------|-----|------------|
-| 10 | `a.mul(b)` | `(Uno, Uno) → Uno` | 200000 | Sigma: Com(c) = Com(a×b) |
-| 11 | `a.div(b)` | `(Uno, Uno) → Uno` | 200000 | Sigma: a = b×q + r, r∈[0,b) |
-| 12 | `a.rem(b)` | `(Uno, Uno) → Uno` | 200000 | remainder from div proof |
-| 13 | `a.lt(b)` | `(Uno, Uno) → bool` | 160000 | sub + 64-bit range proof |
-| 14 | `a.gt(b)` | `(Uno, Uno) → bool` | 160000 | sub + 64-bit range proof |
-| 15 | `a.eq(b)` | `(Uno, Uno) → bool` | 150000 | sub + zero-commitment check |
-| 16 | `a.min(b)` | `(Uno, Uno) → Uno` | 170000 | compare + selection proof |
-| 17 | `a.max(b)` | `(Uno, Uno) → Uno` | 170000 | compare + selection proof |
-| 18 | `Uno.select(c, a, b)` | `(bool, Uno, Uno) → Uno` | 160000 | conditional selection proof |
+| 10 | `a.mul(b)` | `(uno, uno) → uno` | 200000 | Sigma: Com(c) = Com(a×b) |
+| 11 | `a.div(b)` | `(uno, uno) → uno` | 200000 | Sigma: a = b×q + r, r∈[0,b) |
+| 12 | `a.rem(b)` | `(uno, uno) → uno` | 200000 | remainder from div proof |
+| 13 | `a.lt(b)` | `(uno, uno) → bool` | 160000 | sub + 64-bit range proof |
+| 14 | `a.gt(b)` | `(uno, uno) → bool` | 160000 | sub + 64-bit range proof |
+| 15 | `a.eq(b)` | `(uno, uno) → bool` | 150000 | sub + zero-commitment check |
+| 16 | `a.min(b)` | `(uno, uno) → uno` | 170000 | compare + selection proof |
+| 17 | `a.max(b)` | `(uno, uno) → uno` | 170000 | compare + selection proof |
+| 18 | `uno.select(c, a, b)` | `(bool, uno, uno) → uno` | 160000 | conditional selection proof |
 
 #### Accessors (2 methods)
 
 | # | TOL Method | Signature | Gas | Purpose |
 |---|------------|-----------|-----|---------|
-| 19 | `a.commitment()` | `(Uno) → bytes32` | 100 | extract commitment point (first 32B) |
-| 20 | `a.handle()` | `(Uno) → bytes32` | 100 | extract handle point (last 32B) |
+| 19 | `a.commitment()` | `(uno) → bytes32` | 100 | extract commitment point (first 32B) |
+| 20 | `a.handle()` | `(uno) → bytes32` | 100 | extract handle point (last 32B) |
 
 #### Proof-Bundle Verification (2 methods)
 
 | # | TOL Method | Signature | Gas | Purpose |
 |---|------------|-----------|-----|---------|
-| 21 | `a.verify_transfer(sPub, rPub)` | `(Uno, bytes32, bytes32) → bool` | 100000 | CT validity: same amount under both keys (proof from bundle) |
-| 22 | `a.verify_eq(commit, pubkey)` | `(Uno, bytes32, bytes32) → bool` | 100000 | commitment equality: ct and commit bind same value (proof from bundle) |
+| 21 | `a.verify_transfer(sPub, rPub)` | `(uno, bytes32, bytes32) → bool` | 100000 | CT validity: same amount under both keys (proof from bundle) |
+| 22 | `a.verify_eq(commit, pubkey)` | `(uno, bytes32, bytes32) → bool` | 100000 | commitment equality: ct and commit bind same value (proof from bundle) |
 
 ### Comparison with Fhenix
 
@@ -177,7 +177,7 @@ bool v = a.verify_transfer(sPub, rPub);     // v = tos.ciphertext.verify_transfe
 | lt / gt | `FHE.lt(ea, eb)` | `a.lt(b)` | ✅ |
 | eq | `FHE.eq(ea, eb)` | `a.eq(b)` | ✅ |
 | min / max | `FHE.min(ea, eb)` | `a.min(b)` | ✅ |
-| select | `FHE.select(c, ea, eb)` | `Uno.select(c, a, b)` | ✅ |
+| select | `FHE.select(c, ea, eb)` | `uno.select(c, a, b)` | ✅ |
 | ct + scalar | ❌ | `a.add_scalar(n)` | **GTOS extra** |
 | ct × scalar | ❌ | `a.mul_scalar(n)` | **GTOS extra** |
 | transfer proof | ❌ | `a.verify_transfer(...)` | **GTOS extra** |
@@ -261,7 +261,7 @@ type ProofEntry struct {
 func (pb *ProofBundle) Next(op string, a, b []byte) (*ProofEntry, error)
 ```
 
-**Sub-table registration** (LVM layer — unchanged from V2, compiler handles Uno→tos.ciphertext mapping):
+**Sub-table registration** (LVM layer — unchanged from V2, compiler handles uno→tos.ciphertext mapping):
 
 ```go
 ctTable := L.NewTable()
@@ -339,36 +339,36 @@ func ExtractProofBundle(data []byte) (*ProofBundle, []byte)
 
 ### 5. `~/tolang/tol/sema/sema.go` — Type System
 
-- `isValidAtomicTOLType`: add `"Uno"` case (canonical name; `"ciphertext"` accepted as alias)
-- `isValueTOLType`: add `"Uno"` (can be function param/return)
-- `isDefaultInitializableTOLType`: add `"Uno"` (default = `Uno.zero()`)
-- Do NOT add to `isValidMappingKeyType` (Uno should not be a mapping key)
-- Method resolution: when sema sees `expr.method(args)` on an `Uno`-typed expression,
+- `isValidAtomicTOLType`: add `"uno"` case (canonical name; `"ciphertext"` accepted as alias)
+- `isValueTOLType`: add `"uno"` (can be function param/return)
+- `isDefaultInitializableTOLType`: add `"uno"` (default = `uno.zero()`)
+- Do NOT add to `isValidMappingKeyType` (uno should not be a mapping key)
+- Method resolution: when sema sees `expr.method(args)` on an `uno`-typed expression,
   validate method name against the 22 known methods and check argument types
-- `==` and `!=` on Uno compile to `a.eq(b)` / `!a.eq(b)`
+- `==` and `!=` on uno compile to `a.eq(b)` / `!a.eq(b)`
 - Reject `<`, `>`, `+`, `-`, `*`, `/` operators (must use explicit methods)
 
 ### 6. `~/tolang/tol_ir_direct_lowering.go` — Code Generation
 
-**Uno method desugaring** (compiler front-end only, no LVM changes):
+**uno method desugaring** (compiler front-end only, no LVM changes):
 
 ```
 a.add(b)              →  tos.ciphertext.add(a, b)
 a.lt(b)               →  tos.ciphertext.lt(a, b)
 a.commitment()        →  tos.ciphertext.commitment(a)
-Uno.zero()            →  tos.ciphertext.zero()
-Uno.encrypt(pk, amt)  →  tos.ciphertext.encrypt(pk, amt)
-Uno.select(c, a, b)   →  tos.ciphertext.select(c, a, b)
+uno.zero()            →  tos.ciphertext.zero()
+uno.encrypt(pk, amt)  →  tos.ciphertext.encrypt(pk, amt)
+uno.select(c, a, b)   →  tos.ciphertext.select(c, a, b)
 ```
 
-**Storage for `Uno` type:**
+**Storage for `uno` type:**
 
 Add `storageKindCiphertext` constant alongside existing scalar/mapping/array.
 
-`classifyStorageSlotKind`: when the leaf type resolves to `"Uno"`, return
+`classifyStorageSlotKind`: when the leaf type resolves to `"uno"`, return
 `storageKindCiphertext`.
 
-`defaultValueExprForType`: add case for `"Uno"` → `tos.ciphertext.zero()`.
+`defaultValueExprForType`: add case for `"uno"` → `tos.ciphertext.zero()`.
 
 Storage emit paths — for `storageKindCiphertext`:
 - **Scalar store**: emit `tos.ciphertext.store(slotKey, value)` (2-slot write)
@@ -382,19 +382,19 @@ use normal TOL assignment syntax: `balances[account] = x;`
 
 ### 7. `~/tolang/cryptolib.go` — ABI Encoding
 
-Add `"Uno"` case to ABI encode/decode:
+Add `"uno"` case to ABI encode/decode:
 - Encode: 2 consecutive 32-byte words (commitment, handle)
 - Decode: consume 2 × 32-byte slots, concatenate as `"0x" + 128 hex`
 
 ### 8. `~/tolang/tol/sema/sema_test.go` — Compiler Tests
 
-- `Uno` accepted as state variable, param, return type
-- `Uno` in `mapping(agent => Uno)` works
-- `Uno` rejected as mapping key
+- `uno` accepted as state variable, param, return type
+- `uno` in `mapping(agent => uno)` works
+- `uno` rejected as mapping key
 - `a.add(b)` type-checks; `a.add("string")` rejected
-- `a.lt(b)` returns `bool`; `a.add(b)` returns `Uno`
+- `a.lt(b)` returns `bool`; `a.add(b)` returns `uno`
 - `==` / `!=` compile to `a.eq(b)`; `<`, `>`, `+`, `-` rejected
-- `Uno.zero()` is valid; `Uno.encrypt(pk, amt)` is valid
+- `uno.zero()` is valid; `uno.encrypt(pk, amt)` is valid
 - Unknown method `a.foo()` rejected
 
 ## Sample Contract (Confidential TRC20)
@@ -404,7 +404,7 @@ pragma tolang 0.4.0;
 
 contract ConfidentialToken {
     agent minter;
-    mapping(agent => Uno) balances;
+    mapping(agent => uno) balances;
     mapping(agent => bytes32) publicKeys;
 
     event PublicKeyRegistered(agent indexed account, bytes32 pubkey)
@@ -420,14 +420,14 @@ contract ConfidentialToken {
         emit PublicKeyRegistered(msg.sender, pubkey);
     }
 
-    function mint(agent to, Uno mintAmount) external {
+    function mint(agent to, uno mintAmount) external {
         require(msg.sender == minter, "OnlyMinter");
         require(publicKeys[to] != bytes32(0), "NotRegistered");
         balances[to] = balances[to].add(mintAmount);
         emit Mint(to);
     }
 
-    function transfer(agent to, Uno amount) external {
+    function transfer(agent to, uno amount) external {
         require(publicKeys[msg.sender] != bytes32(0), "SenderNotRegistered");
         require(publicKeys[to] != bytes32(0), "ReceiverNotRegistered");
 
@@ -437,8 +437,8 @@ contract ConfidentialToken {
             "BadTransferProof"
         );
 
-        Uno newBal = balances[msg.sender].sub(amount);
-        require(newBal.gt(Uno.zero()), "InsufficientBalance");
+        uno newBal = balances[msg.sender].sub(amount);
+        require(newBal.gt(uno.zero()), "InsufficientBalance");
 
         balances[msg.sender] = newBal;
         balances[to] = balances[to].add(amount);
@@ -446,7 +446,7 @@ contract ConfidentialToken {
         emit ConfidentialTransfer(msg.sender, to);
     }
 
-    function balanceOf(agent account) public view returns (Uno) {
+    function balanceOf(agent account) public view returns (uno) {
         return balances[account];
     }
 }
@@ -475,7 +475,7 @@ GTOS is **more concise** — `a.sub(b)` vs `FHE.sub(a, b)`.
 | 3 | `lvm_crypto.go`: Tier 2 functions (9 proof-bundle verified) | gtos |
 | 4 | `lvm_crypto.go`: accessors + verification (4 functions) | gtos |
 | 5 | `lvm_crypto_test.go`: full test coverage for all 22 functions | gtos |
-| 6 | Sema: `Uno` type + method resolution + lowering + ABI encode/decode | tolang |
+| 6 | Sema: `uno` type + method resolution + lowering + ABI encode/decode | tolang |
 | 7 | Compiler tests + sample contracts + integration test | both |
 
 ## Verification

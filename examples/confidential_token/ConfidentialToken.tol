@@ -2,7 +2,7 @@ pragma tolang 0.4.0;
 
 // ConfidentialToken — fully private TRC20-style token.
 //
-// All balances are Uno (Twisted ElGamal ciphertexts). The contract never sees
+// All balances are uno (Twisted ElGamal ciphertexts). The contract never sees
 // any plaintext amount — it only does encrypted arithmetic and verifies proofs
 // via the proof bundle mechanism.
 //
@@ -11,7 +11,7 @@ pragma tolang 0.4.0;
 
 contract ConfidentialToken {
     agent minter;
-    mapping(agent => Uno) balances;
+    mapping(agent => uno) balances;
     mapping(agent => bytes32) publicKeys;
 
     event PublicKeyRegistered(agent indexed account, bytes32 pubkey)
@@ -28,8 +28,8 @@ contract ConfidentialToken {
         emit PublicKeyRegistered(msg.sender, pubkey);
     }
 
-    // Mint: minter creates encrypted amount off-chain, submits as Uno.
-    function mint(agent to, Uno mintAmount) external {
+    // Mint: minter creates encrypted amount off-chain, submits as uno.
+    function mint(agent to, uno mintAmount) external {
         require(msg.sender == minter, "OnlyMinter");
         require(publicKeys[to] != bytes32(0), "NotRegistered");
         balances[to] = balances[to].add(mintAmount);
@@ -37,7 +37,7 @@ contract ConfidentialToken {
     }
 
     // Transfer: pure encrypted arithmetic. SDK generates proof bundle.
-    function transfer(agent to, Uno amount) external {
+    function transfer(agent to, uno amount) external {
         require(publicKeys[msg.sender] != bytes32(0), "SenderNotRegistered");
         require(publicKeys[to] != bytes32(0), "ReceiverNotRegistered");
 
@@ -49,8 +49,8 @@ contract ConfidentialToken {
         );
 
         // Subtract from sender, verify remaining balance ≥ 0
-        Uno newBal = balances[msg.sender].sub(amount);
-        require(newBal.gt(Uno.zero()), "InsufficientBalance");
+        uno newBal = balances[msg.sender].sub(amount);
+        require(newBal.gt(uno.zero()), "InsufficientBalance");
 
         balances[msg.sender] = newBal;
         balances[to] = balances[to].add(amount);
@@ -59,17 +59,17 @@ contract ConfidentialToken {
     }
 
     // Burn: subtract encrypted amount from sender's balance.
-    function burn(Uno burnAmount) external {
+    function burn(uno burnAmount) external {
         require(publicKeys[msg.sender] != bytes32(0), "NotRegistered");
 
-        Uno newBal = balances[msg.sender].sub(burnAmount);
-        require(newBal.gt(Uno.zero()), "InsufficientBalance");
+        uno newBal = balances[msg.sender].sub(burnAmount);
+        require(newBal.gt(uno.zero()), "InsufficientBalance");
 
         balances[msg.sender] = newBal;
         emit Burn(msg.sender);
     }
 
-    function balanceOf(agent account) public view returns (Uno) {
+    function balanceOf(agent account) public view returns (uno) {
         return balances[account];
     }
 

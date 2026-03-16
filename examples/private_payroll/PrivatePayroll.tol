@@ -2,7 +2,7 @@ pragma tolang 0.4.0;
 
 // PrivatePayroll — confidential salary distribution.
 //
-// An employer pays employees with encrypted amounts. Each salary is a Uno
+// An employer pays employees with encrypted amounts. Each salary is a uno
 // value created off-chain and accumulated homomorphically on-chain.
 //
 // What's public:  who got paid (events), number of payments
@@ -12,7 +12,7 @@ contract PrivatePayroll {
     agent employer;
 
     mapping(agent => bytes32) publicKeys;
-    mapping(agent => Uno) accumulatedPay;
+    mapping(agent => uno) accumulatedPay;
     mapping(agent => bool) isEmployee;
     mapping(agent => u64) payCount;
 
@@ -43,9 +43,9 @@ contract PrivatePayroll {
         publicKeys[msg.sender] = pubkey;
     }
 
-    // Pay: employer creates encrypted salary off-chain, submits as Uno.
+    // Pay: employer creates encrypted salary off-chain, submits as uno.
     // The contract only accumulates — no plaintext amount ever enters.
-    function paySalary(agent employee, Uno salary) external {
+    function paySalary(agent employee, uno salary) external {
         require(msg.sender == employer, "OnlyEmployer");
         require(isEmployee[employee] == true, "NotEmployee");
         require(publicKeys[employee] != bytes32(0), "EmployeeKeyNotRegistered");
@@ -56,7 +56,7 @@ contract PrivatePayroll {
         emit SalaryPaid(employee, payCount[employee]);
     }
 
-    function getEncryptedPay(agent employee) public view returns (Uno) {
+    function getEncryptedPay(agent employee) public view returns (uno) {
         return accumulatedPay[employee];
     }
 

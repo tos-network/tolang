@@ -2,7 +2,7 @@ pragma tolang 0.4.0;
 
 // PrivatePrediction — prediction market where bet amounts are hidden.
 //
-// Users bet on YES/NO with encrypted Uno amounts. The contract accumulates
+// Users bet on YES/NO with encrypted uno amounts. The contract accumulates
 // bets homomorphically. The oracle resolves the outcome and posts encrypted
 // winnings for each winner.
 //
@@ -16,15 +16,15 @@ contract PrivatePrediction {
     bool resolved;
     bool outcome;
 
-    Uno encryptedYesPool;
-    Uno encryptedNoPool;
+    uno encryptedYesPool;
+    uno encryptedNoPool;
 
     mapping(agent => bytes32) publicKeys;
-    mapping(agent => Uno) yesBets;
-    mapping(agent => Uno) noBets;
+    mapping(agent => uno) yesBets;
+    mapping(agent => uno) noBets;
     mapping(agent => bool) hasBetYes;
     mapping(agent => bool) hasBetNo;
-    mapping(agent => Uno) winnings;
+    mapping(agent => uno) winnings;
     mapping(agent => bool) hasClaimed;
 
     event BetPlaced(agent indexed bettor, bool indexed side)
@@ -44,14 +44,14 @@ contract PrivatePrediction {
         publicKeys[msg.sender] = pubkey;
     }
 
-    // Place a bet. The Uno value is encrypted off-chain under oracle's key.
+    // Place a bet. The uno value is encrypted off-chain under oracle's key.
     // Proof bundle ensures the bet is non-negative.
-    function placeBet(bool betYes, Uno encryptedBet) external {
+    function placeBet(bool betYes, uno encryptedBet) external {
         require(block.timestamp_ms <= betDeadline_ms, "BettingClosed");
         require(resolved != true, "AlreadyResolved");
 
         // Non-negative check via proof bundle
-        require(encryptedBet.gt(Uno.zero()), "InvalidBet");
+        require(encryptedBet.gt(uno.zero()), "InvalidBet");
 
         if (betYes) {
             require(hasBetYes[msg.sender] != true, "AlreadyBetYes");
@@ -80,7 +80,7 @@ contract PrivatePrediction {
     }
 
     // Oracle posts encrypted winnings for each winner (computed off-chain).
-    function postWinnings(agent winner, Uno encryptedPayout) external {
+    function postWinnings(agent winner, uno encryptedPayout) external {
         require(msg.sender == oracle, "OnlyOracle");
         require(resolved == true, "NotResolved");
         require(hasClaimed[winner] != true, "AlreadyPosted");
@@ -92,21 +92,21 @@ contract PrivatePrediction {
     function claimWinnings() external {
         require(resolved == true, "NotResolved");
         require(hasClaimed[msg.sender] != true, "AlreadyClaimed");
-        require(winnings[msg.sender].gt(Uno.zero()), "NoWinnings");
+        require(winnings[msg.sender].gt(uno.zero()), "NoWinnings");
 
         hasClaimed[msg.sender] = true;
         emit WinningsClaimed(msg.sender);
     }
 
-    function getEncryptedYesPool() public view returns (Uno) {
+    function getEncryptedYesPool() public view returns (uno) {
         return encryptedYesPool;
     }
 
-    function getEncryptedNoPool() public view returns (Uno) {
+    function getEncryptedNoPool() public view returns (uno) {
         return encryptedNoPool;
     }
 
-    function getWinnings(agent account) public view returns (Uno) {
+    function getWinnings(agent account) public view returns (uno) {
         return winnings[account];
     }
 

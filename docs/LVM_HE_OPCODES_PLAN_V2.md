@@ -59,6 +59,8 @@ a.eq(b)             →  bool          // sub(a,b) + zero-commitment check
 a.min(b)            →  Enc(min)      // compare + selection proof
 a.max(b)            →  Enc(max)      // compare + selection proof
 Uno.select(c, a, b) →  Enc(c?a:b)   // conditional selection proof
+a.verify_transfer(sPub, rPub) → bool // CT validity (proof from bundle)
+a.verify_eq(commit, pubkey)   → bool // commitment equality (proof from bundle)
 ```
 
 ### Proof Bundle Mechanism
@@ -110,6 +112,7 @@ bool ok = a.lt(b);                          // ok = tos.ciphertext.lt(a, b)
 Uno m = a.min(b);                           // m = tos.ciphertext.min(a, b)
 Uno s = Uno.select(cond, a, b);             // s = tos.ciphertext.select(cond, a, b)
 bytes32 c = a.commitment();                 // c = tos.ciphertext.commitment(a)
+bool v = a.verify_transfer(sPub, rPub);     // v = tos.ciphertext.verify_transfer(a, sPub, rPub)
 ```
 
 ### Type Representation
@@ -148,14 +151,19 @@ bytes32 c = a.commitment();                 // c = tos.ciphertext.commitment(a)
 | 17 | `a.max(b)` | `(Uno, Uno) → Uno` | 170000 | compare + selection proof |
 | 18 | `Uno.select(c, a, b)` | `(bool, Uno, Uno) → Uno` | 160000 | conditional selection proof |
 
-#### Accessors & Verification (4 methods)
+#### Accessors (2 methods)
 
 | # | TOL Method | Signature | Gas | Purpose |
 |---|------------|-----------|-----|---------|
 | 19 | `a.commitment()` | `(Uno) → bytes32` | 100 | extract commitment point (first 32B) |
 | 20 | `a.handle()` | `(Uno) → bytes32` | 100 | extract handle point (last 32B) |
-| 21 | `a.verify_transfer(sPub, rPub, proof)` | `(Uno, bytes32, bytes32, bytes) → bool` | 100000 | CT validity |
-| 22 | `a.verify_eq(commit, pubkey, proof)` | `(Uno, bytes32, bytes32, bytes) → bool` | 100000 | commitment equality |
+
+#### Proof-Bundle Verification (2 methods)
+
+| # | TOL Method | Signature | Gas | Purpose |
+|---|------------|-----------|-----|---------|
+| 21 | `a.verify_transfer(sPub, rPub)` | `(Uno, bytes32, bytes32) → bool` | 100000 | CT validity: same amount under both keys (proof from bundle) |
+| 22 | `a.verify_eq(commit, pubkey)` | `(Uno, bytes32, bytes32) → bool` | 100000 | commitment equality: ct and commit bind same value (proof from bundle) |
 
 ### Comparison with Fhenix
 
@@ -283,8 +291,8 @@ L.SetField(ctTable, "select", L.NewFunction(...))
 // Accessors & verification
 L.SetField(ctTable, "commitment", L.NewFunction(...))
 L.SetField(ctTable, "handle", L.NewFunction(...))
-L.SetField(ctTable, "verify_transfer", L.NewFunction(...))
-L.SetField(ctTable, "verify_eq", L.NewFunction(...))
+L.SetField(ctTable, "verify_transfer", L.NewFunction(...))  // (ct, sPub, rPub) → bool; proof from bundle
+L.SetField(ctTable, "verify_eq", L.NewFunction(...))        // (ct, commit, pubkey) → bool; proof from bundle
 
 L.SetField(tosTable, "ciphertext", ctTable)
 ```
@@ -422,6 +430,12 @@ contract ConfidentialToken {
     function transfer(agent to, Uno amount) external {
         require(publicKeys[msg.sender] != bytes32(0), "SenderNotRegistered");
         require(publicKeys[to] != bytes32(0), "ReceiverNotRegistered");
+
+        // Verify amount is encrypted under both sender's and receiver's keys
+        require(
+            amount.verify_transfer(publicKeys[msg.sender], publicKeys[to]),
+            "BadTransferProof"
+        );
 
         Uno newBal = balances[msg.sender].sub(amount);
         require(newBal.gt(Uno.zero()), "InsufficientBalance");

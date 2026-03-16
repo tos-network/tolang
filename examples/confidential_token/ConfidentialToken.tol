@@ -41,6 +41,14 @@ contract ConfidentialToken {
         require(publicKeys[msg.sender] != bytes32(0), "SenderNotRegistered");
         require(publicKeys[to] != bytes32(0), "ReceiverNotRegistered");
 
+        // Verify amount is encrypted under both sender's and receiver's keys
+        // (proof from bundle — developer doesn't handle proofs)
+        require(
+            amount.verify_transfer(publicKeys[msg.sender], publicKeys[to]),
+            "BadTransferProof"
+        );
+
+        // Subtract from sender, verify remaining balance ≥ 0
         Uno newBal = balances[msg.sender].sub(amount);
         require(newBal.gt(Uno.zero()), "InsufficientBalance");
 

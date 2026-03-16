@@ -81,6 +81,13 @@ contract PrivateOTC {
         require(dealSettled[dealId] != true, "DealAlreadySettled");
         require(publicKeys[msg.sender] != bytes32(0), "NotRegistered");
 
+        // Verify payment is encrypted under both taker's and maker's keys
+        agent maker = dealMaker[dealId];
+        require(
+            paymentAmount.verify_transfer(publicKeys[msg.sender], publicKeys[maker]),
+            "BadTransferProof"
+        );
+
         // Deduct tokenB from taker
         Uno newTakerBal = balancesB[msg.sender].sub(paymentAmount);
         require(newTakerBal.gt(Uno.zero()), "InsufficientBalance");
@@ -90,7 +97,6 @@ contract PrivateOTC {
         // Taker receives maker's tokenA offer
         balancesA[msg.sender] = balancesA[msg.sender].add(dealOfferCt[dealId]);
         // Maker receives taker's tokenB payment
-        agent maker = dealMaker[dealId];
         balancesB[maker] = balancesB[maker].add(paymentAmount);
 
         dealTaker[dealId] = msg.sender;

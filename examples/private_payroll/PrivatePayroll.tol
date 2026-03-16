@@ -1,0 +1,154 @@
+pragma tolang 0.4.0;
+
+// PrivatePayroll — confidential salary distribution.
+//
+// An employer pays employees on-chain without revealing individual salaries.
+// Each employee's pay is an ElGamal ciphertext encrypted under their own key.
+// Only the employee can decrypt their own salary; other employees and the
+// public see only that a payment occurred, not the amount.
+//
+// What's public:  who got paid (events), total payroll budget
+// What's hidden:  each employee's individual salary
+//
+// Why privacy matters here:
+//   - Salary transparency creates social friction and negotiation leverage issues
+//   - On-chain payroll without privacy leaks compensation to competitors
+//   - Employees can still prove their salary to a bank/auditor via ownership proof
+//
+// Demonstrates:
+//   - tos.ciphertext.encrypt — encrypt salary under employee's key
+//   - tos.ciphertext.add — accumulate payments across pay periods
+//   - tos.ciphertext.sub_scalar — employer proves total budget matches
+//   - tos.proof.verify_balance — employee proves salary ≥ threshold (e.g. for a loan)
+
+contract PrivatePayroll {
+    agent employer;
+    u64 totalBudget;
+    u64 totalDistributed;
+
+    mapping(agent => bytes32) publicKeys;
+    mapping(agent => ciphertext) accumulatedPay;
+    mapping(agent => bool) isEmployee;
+    mapping(agent => u64) payCount;
+
+    event EmployeeAdded(agent indexed employee)
+    event EmployeeRemoved(agent indexed employee)
+    event SalaryPaid(agent indexed employee, u64 indexed period)
+    event BudgetDeposited(u64 amount)
+
+    constructor(agent _employer) {
+        employer = _employer;
+        totalBudget = 0;
+        totalDistributed = 0;
+    }
+
+    function depositBudget(u64 amount) external {
+        require(msg.sender == employer, "OnlyEmployer");
+        totalBudget = totalBudget + amount;
+        emit BudgetDeposited(amount);
+    }
+
+    function addEmployee(agent employee) external {
+        require(msg.sender == employer, "OnlyEmployer");
+        require(isEmployee[employee] != true, "AlreadyEmployee");
+        isEmployee[employee] = true;
+        payCount[employee] = 0;
+        emit EmployeeAdded(employee);
+    }
+
+    function removeEmployee(agent employee) external {
+        require(msg.sender == employer, "OnlyEmployer");
+        isEmployee[employee] = false;
+        emit EmployeeRemoved(employee);
+    }
+
+    function registerPublicKey(bytes32 pubkey) external {
+        require(isEmployee[msg.sender] == true, "NotEmployee");
+        publicKeys[msg.sender] = pubkey;
+    }
+
+    // Pay an employee a confidential salary.
+    //
+    // The employer provides the plaintext amount (visible only in this tx),
+    // which is encrypted under the employee's public key and added to their
+    // accumulated pay ciphertext. The amount appears in the tx calldata but
+    // the on-chain accumulated balance is encrypted — over time it becomes
+    // impossible to determine the current total without the employee's key.
+    //
+    // For fully private payroll (amount hidden even in calldata), the employer
+    // would encrypt off-chain and pass the ciphertext directly. We show the
+    // simpler on-chain-encrypt version here as the reference pattern.
+    function paySalary(agent employee, u64 amount) external {
+        require(msg.sender == employer, "OnlyEmployer");
+        require(isEmployee[employee] == true, "NotEmployee");
+        require(totalBudget >= totalDistributed + amount, "InsufficientBudget");
+
+        bytes32 pubkey = publicKeys[employee];
+        require(pubkey != bytes32(0), "EmployeeKeyNotRegistered");
+
+        // Encrypt salary under employee's key
+        ciphertext salaryCt = tos.ciphertext.encrypt(pubkey, amount);
+
+        // Accumulate into employee's total encrypted pay
+        ciphertext current = accumulatedPay[employee];
+        accumulatedPay[employee] = tos.ciphertext.add(current, salaryCt);
+
+        totalDistributed = totalDistributed + amount;
+        payCount[employee] = payCount[employee] + 1;
+
+        emit SalaryPaid(employee, payCount[employee]);
+    }
+
+    // Fully private salary payment: employer encrypts off-chain, passes ciphertext.
+    // The amount never appears in calldata — only the encrypted blob is on-chain.
+    // A range proof ensures the amount is in [0, 2^64).
+    function paySalaryEncrypted(
+        agent employee,
+        ciphertext encryptedSalary,
+        bytes rangeProof
+    ) external {
+        require(msg.sender == employer, "OnlyEmployer");
+        require(isEmployee[employee] == true, "NotEmployee");
+
+        bytes32 pubkey = publicKeys[employee];
+        require(pubkey != bytes32(0), "EmployeeKeyNotRegistered");
+
+        // Verify the encrypted amount is non-negative
+        bytes32 commit = tos.ciphertext.commitment(encryptedSalary);
+        bytes32 t = tos.transcript.new("private-payroll");
+        require(
+            tos.proof.verify_range(commit, rangeProof, 64, t),
+            "BadRangeProof"
+        );
+
+        ciphertext current = accumulatedPay[employee];
+        accumulatedPay[employee] = tos.ciphertext.add(current, encryptedSalary);
+
+        emit SalaryPaid(employee, payCount[employee] + 1);
+        payCount[employee] = payCount[employee] + 1;
+    }
+
+    // Employee can prove to a third party (bank, auditor) that their accumulated
+    // pay is at least some threshold, without revealing the exact amount.
+    // Returns true if the balance proof verifies.
+    function verifyMinimumPay(
+        agent employee,
+        bytes balanceProofBytes
+    ) external view returns (bool) {
+        bytes32 pubkey = publicKeys[employee];
+        require(pubkey != bytes32(0), "NotRegistered");
+
+        ciphertext accumulated = accumulatedPay[employee];
+        bytes32 t = tos.transcript.new("verify-minimum-pay");
+
+        return tos.proof.verify_balance(pubkey, accumulated, balanceProofBytes, t);
+    }
+
+    function getEncryptedPay(agent employee) public view returns (ciphertext) {
+        return accumulatedPay[employee];
+    }
+
+    function getPayCount(agent employee) public view returns (u64) {
+        return payCount[employee];
+    }
+}

@@ -8,10 +8,13 @@ pragma tolang 0.4.0;
 // tally authority decrypts only the final sum and publishes the result with
 // a proof of correct decryption.
 //
+// What's public:  who voted (participation), final yes/no count
+// What's hidden:  each person's individual vote
+//
 // Cryptography:
 //   - Vote = ElGamal ciphertext encrypting 0 or 1
 //   - Tally = homomorphic sum of all vote ciphertexts
-//   - Each voter provides a range proof that their vote ∈ {0, 1} (1-bit range)
+//   - Each voter provides a 1-bit range proof (vote ∈ {0, 1})
 //   - The tally authority provides an ownership proof to reveal the final count
 
 contract PrivateVoting {
@@ -31,52 +34,48 @@ contract PrivateVoting {
     event TallyFinalized(u64 yesVotes, u64 totalVoters)
 
     constructor(agent _admin, bytes32 _tallyPubKey, u64 _deadline_ms) {
-        set admin = _admin;
-        set tallyPubKey = _tallyPubKey;
-        set deadline_ms = _deadline_ms;
-        set voterCount = 0;
-        set finalized = false;
-        set result = 0;
+        admin = _admin;
+        tallyPubKey = _tallyPubKey;
+        deadline_ms = _deadline_ms;
+        voterCount = 0;
+        finalized = false;
+        result = 0;
     }
 
     // Admin registers eligible voters before voting begins.
     function registerVoter(agent voter) external {
         require(msg.sender == admin, "OnlyAdmin");
         require(eligible[voter] != true, "AlreadyRegistered");
-        set eligible[voter] = true;
-        set voterCount = voterCount + 1;
+        eligible[voter] = true;
+        voterCount = voterCount + 1;
         emit VoterRegistered(voter);
     }
 
     // Cast an encrypted vote.
     //
     //   encryptedVote — ElGamal ciphertext of 0 or 1 under tallyPubKey
-    //   rangeProof    — proves the encrypted value is in [0, 1] (1-bit range proof)
+    //   rangeProof    — proves the encrypted value is in {0, 1} (1-bit range)
     //
     // The contract verifies the range proof, then homomorphically adds the vote
     // to the running tally. Nobody can see any individual vote.
-    function castVote(
-        ciphertext encryptedVote,
-        bytes rangeProof
-    ) external {
+    function castVote(ciphertext encryptedVote, bytes rangeProof) external {
         require(block.timestamp_ms <= deadline_ms, "VotingClosed");
         require(eligible[msg.sender] == true, "NotEligible");
         require(hasVoted[msg.sender] != true, "AlreadyVoted");
 
-        // Extract the commitment from the vote ciphertext for range proof
-        let voteCommitment: bytes32 = tos.ciphertext.commitment(encryptedVote);
+        // Extract the commitment for range proof verification
+        bytes32 voteCommitment = tos.ciphertext.commitment(encryptedVote);
 
         // Verify that the encrypted value is 0 or 1 (1-bit range proof)
-        let t: bytes32 = tos.transcript.new("private-vote");
-        tos.transcript.append_message(t, "voter", tos.ristretto.to_bytes(tos.ristretto.from_bytes(msg.sender)));
+        bytes32 t = tos.transcript.new("private-vote");
         require(
             tos.proof.verify_range(voteCommitment, rangeProof, 1, t),
             "BadRangeProof"
         );
 
         // Homomorphic tally: sum += encryptedVote
-        set encryptedTally = tos.ciphertext.add(encryptedTally, encryptedVote);
-        set hasVoted[msg.sender] = true;
+        encryptedTally = tos.ciphertext.add(encryptedTally, encryptedVote);
+        hasVoted[msg.sender] = true;
 
         emit VoteCast(msg.sender);
     }
@@ -88,20 +87,18 @@ contract PrivateVoting {
         require(block.timestamp_ms > deadline_ms, "VotingNotClosed");
         require(finalized != true, "AlreadyFinalized");
 
-        let t: bytes32 = tos.transcript.new("tally-finalize");
+        bytes32 t = tos.transcript.new("tally-finalize");
 
-        // Verify ownership proof: proves yesVotes is the actual decrypted tally
         require(
             tos.proof.verify_ownership(tallyPubKey, encryptedTally, ownershipProofBytes, t),
             "BadOwnershipProof"
         );
 
-        // Check the revealed amount matches the claim
-        let proofAmount: u64 = tos.proof.ownership_amount(ownershipProofBytes);
+        u64 proofAmount = tos.proof.ownership_amount(ownershipProofBytes);
         require(proofAmount == yesVotes, "AmountMismatch");
 
-        set finalized = true;
-        set result = yesVotes;
+        finalized = true;
+        result = yesVotes;
 
         emit TallyFinalized(yesVotes, voterCount);
     }

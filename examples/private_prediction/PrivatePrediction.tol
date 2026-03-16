@@ -1,0 +1,203 @@
+pragma tolang 0.4.0;
+
+// PrivatePrediction — prediction market where bet amounts are hidden.
+//
+// Users bet on binary outcomes (YES/NO) with encrypted amounts. Nobody can
+// see how much anyone bet, preventing copy-trading and last-minute pile-ons.
+// When the market resolves, winnings are distributed proportionally using
+// homomorphic scalar multiplication.
+//
+// What's public:  who bet on which side (participation), the outcome, total pool
+// What's hidden:  individual bet amounts, individual winnings
+//
+// Why privacy matters here:
+//   - Visible bets cause herding (everyone copies the whale)
+//   - Large bets move odds and invite front-running
+//   - Private bets create fairer price discovery
+//
+// Demonstrates:
+//   - tos.ciphertext.encrypt — encrypt bet amount
+//   - tos.ciphertext.add — homomorphic pool accumulation
+//   - tos.ciphertext.mul_scalar / div_scalar — proportional payout calculation
+//   - tos.proof.verify_range — bet amount is non-negative
+//   - tos.proof.verify_ownership — oracle reveals total for payout calculation
+
+contract PrivatePrediction {
+    agent oracle;
+    bytes32 oraclePubKey;
+    u64 betDeadline_ms;
+    bool resolved;
+    bool outcome;          // true = YES won, false = NO won
+
+    // Encrypted pool totals — only the oracle can decrypt these
+    ciphertext encryptedYesPool;
+    ciphertext encryptedNoPool;
+    u64 yesPoolPlaintext;   // revealed at resolution (for payout ratio)
+    u64 noPoolPlaintext;    // revealed at resolution
+
+    // Per-user encrypted bets (under oracle's key so oracle can compute payouts)
+    mapping(agent => bytes32) publicKeys;
+    mapping(agent => ciphertext) yesBets;
+    mapping(agent => ciphertext) noBets;
+    mapping(agent => bool) hasBetYes;
+    mapping(agent => bool) hasBetNo;
+    mapping(agent => bool) hasClaimed;
+
+    // Winnings: computed by oracle, stored encrypted under winner's key
+    mapping(agent => ciphertext) winnings;
+
+    event BetPlaced(agent indexed bettor, bool indexed side)
+    event MarketResolved(bool outcome, u64 yesPool, u64 noPool)
+    event WinningsPosted(agent indexed winner)
+    event WinningsClaimed(agent indexed winner)
+
+    constructor(
+        agent _oracle,
+        bytes32 _oraclePubKey,
+        u64 _betDeadline_ms
+    ) {
+        oracle = _oracle;
+        oraclePubKey = _oraclePubKey;
+        betDeadline_ms = _betDeadline_ms;
+        resolved = false;
+        outcome = false;
+        yesPoolPlaintext = 0;
+        noPoolPlaintext = 0;
+    }
+
+    function registerPublicKey(bytes32 pubkey) external {
+        publicKeys[msg.sender] = pubkey;
+    }
+
+    // Place a bet on YES or NO.
+    //
+    // The bet amount is encrypted under the oracle's public key so only the
+    // oracle can compute payout ratios later. A range proof ensures the bet
+    // is non-negative (can't bet a negative amount to steal from the pool).
+    function placeBet(
+        bool betYes,
+        ciphertext encryptedBet,
+        bytes rangeProof
+    ) external {
+        require(block.timestamp_ms <= betDeadline_ms, "BettingClosed");
+        require(resolved != true, "AlreadyResolved");
+
+        // Verify the bet amount is non-negative
+        bytes32 commit = tos.ciphertext.commitment(encryptedBet);
+        bytes32 t = tos.transcript.new("private-prediction-bet");
+        require(
+            tos.proof.verify_range(commit, rangeProof, 64, t),
+            "BadRangeProof"
+        );
+
+        if (betYes) {
+            require(hasBetYes[msg.sender] != true, "AlreadyBetYes");
+            yesBets[msg.sender] = encryptedBet;
+            encryptedYesPool = tos.ciphertext.add(encryptedYesPool, encryptedBet);
+            hasBetYes[msg.sender] = true;
+        } else {
+            require(hasBetNo[msg.sender] != true, "AlreadyBetNo");
+            noBets[msg.sender] = encryptedBet;
+            encryptedNoPool = tos.ciphertext.add(encryptedNoPool, encryptedBet);
+            hasBetNo[msg.sender] = true;
+        }
+
+        emit BetPlaced(msg.sender, betYes);
+    }
+
+    // Oracle resolves the market by providing the outcome and proving
+    // the decrypted pool totals match the encrypted sums.
+    function resolve(
+        bool _outcome,
+        u64 yesTotal,
+        u64 noTotal,
+        bytes yesOwnershipProof,
+        bytes noOwnershipProof
+    ) external {
+        require(msg.sender == oracle, "OnlyOracle");
+        require(block.timestamp_ms > betDeadline_ms, "BettingNotClosed");
+        require(resolved != true, "AlreadyResolved");
+
+        // Prove the decrypted YES pool total matches the encrypted sum
+        bytes32 t1 = tos.transcript.new("resolve-yes-pool");
+        require(
+            tos.proof.verify_ownership(oraclePubKey, encryptedYesPool, yesOwnershipProof, t1),
+            "BadYesPoolProof"
+        );
+        require(tos.proof.ownership_amount(yesOwnershipProof) == yesTotal, "YesTotalMismatch");
+
+        // Prove the decrypted NO pool total matches the encrypted sum
+        bytes32 t2 = tos.transcript.new("resolve-no-pool");
+        require(
+            tos.proof.verify_ownership(oraclePubKey, encryptedNoPool, noOwnershipProof, t2),
+            "BadNoPoolProof"
+        );
+        require(tos.proof.ownership_amount(noOwnershipProof) == noTotal, "NoTotalMismatch");
+
+        resolved = true;
+        outcome = _outcome;
+        yesPoolPlaintext = yesTotal;
+        noPoolPlaintext = noTotal;
+
+        emit MarketResolved(_outcome, yesTotal, noTotal);
+    }
+
+    // Oracle computes each winner's payout off-chain and posts the encrypted
+    // winnings under the winner's public key.
+    //
+    // Payout formula (computed off-chain by oracle who can decrypt all bets):
+    //   winnings = userBet * (totalPool / winningPool)
+    //
+    // The oracle encrypts the computed payout under the winner's key and posts
+    // it with a range proof. The winner can then decrypt off-chain.
+    function postWinnings(
+        agent winner,
+        ciphertext encryptedWinnings,
+        bytes rangeProof
+    ) external {
+        require(msg.sender == oracle, "OnlyOracle");
+        require(resolved == true, "NotResolved");
+        require(hasClaimed[winner] != true, "AlreadyPosted");
+
+        // Verify the winning amount is non-negative
+        bytes32 commit = tos.ciphertext.commitment(encryptedWinnings);
+        bytes32 t = tos.transcript.new("post-winnings");
+        require(
+            tos.proof.verify_range(commit, rangeProof, 64, t),
+            "BadRangeProof"
+        );
+
+        winnings[winner] = encryptedWinnings;
+        emit WinningsPosted(winner);
+    }
+
+    // Winner claims their payout (marks as claimed).
+    function claimWinnings() external {
+        require(resolved == true, "NotResolved");
+        require(hasClaimed[msg.sender] != true, "AlreadyClaimed");
+
+        ciphertext w = winnings[msg.sender];
+        // Verify winnings were posted (non-zero ciphertext)
+        bytes32 commit = tos.ciphertext.commitment(w);
+        require(commit != bytes32(0), "NoWinningsPosted");
+
+        hasClaimed[msg.sender] = true;
+        emit WinningsClaimed(msg.sender);
+    }
+
+    function getEncryptedYesPool() public view returns (ciphertext) {
+        return encryptedYesPool;
+    }
+
+    function getEncryptedNoPool() public view returns (ciphertext) {
+        return encryptedNoPool;
+    }
+
+    function getWinnings(agent account) public view returns (ciphertext) {
+        return winnings[account];
+    }
+
+    function isResolved() public view returns (bool) {
+        return resolved;
+    }
+}

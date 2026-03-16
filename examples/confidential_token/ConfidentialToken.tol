@@ -1,0 +1,154 @@
+pragma tolang 0.4.0;
+
+// ConfidentialToken — a fully private TRC20-style token.
+//
+// Balances are Twisted ElGamal ciphertexts (64 bytes = commitment + handle).
+// Transfers never reveal amounts on-chain. Only the sender and receiver can
+// decrypt their own balances using their Ristretto private key.
+//
+// Flow:
+//   1. Each user registers their ElGamal public key via registerPublicKey().
+//   2. The minter shields plaintext TOS into encrypted balances via mint().
+//   3. Users transfer encrypted amounts via confidentialTransfer().
+//   4. Users prove their remaining balance is non-negative (range proof).
+
+contract ConfidentialToken {
+    agent minter;
+    mapping(agent => ciphertext) balances;
+    mapping(agent => bytes32) publicKeys;
+
+    event PublicKeyRegistered(agent indexed account, bytes32 pubkey)
+    event Mint(agent indexed to, u64 amount)
+    event ConfidentialTransfer(agent indexed from, agent indexed to)
+    event Burn(agent indexed from, u64 amount)
+
+    constructor(agent _minter) {
+        set minter = _minter;
+    }
+
+    // Register the ElGamal public key (compressed Ristretto point, 32 bytes).
+    // Must be called before receiving any encrypted balance.
+    function registerPublicKey(bytes32 pubkey) external {
+        set publicKeys[msg.sender] = pubkey;
+        emit PublicKeyRegistered(msg.sender, pubkey);
+    }
+
+    // Mint: encrypt a plaintext amount under the recipient's public key.
+    // Only the minter can call this.
+    function mint(agent to, u64 amount) external {
+        require(msg.sender == minter, "OnlyMinter");
+        let pubkey: bytes32 = publicKeys[to];
+        require(pubkey != bytes32(0), "RecipientNotRegistered");
+
+        // Encrypt amount under recipient's key → fresh ciphertext
+        let freshCt: ciphertext = tos.ciphertext.encrypt(pubkey, amount);
+
+        // Homomorphic add to existing balance (works even if balance is zero)
+        let current: ciphertext = balances[to];
+        set balances[to] = tos.ciphertext.add(current, freshCt);
+
+        emit Mint(to, amount);
+    }
+
+    // Confidential transfer: move an encrypted amount from sender to receiver.
+    // The amount is never revealed on-chain — only ZK proofs attest validity.
+    //
+    // Parameters:
+    //   commitment     — Pedersen commitment to the transfer amount (32B)
+    //   senderHandle   — ElGamal handle encrypted under sender's key (32B)
+    //   receiverHandle — ElGamal handle encrypted under receiver's key (32B)
+    //   ctValidityProof    — proves commitment/handles are well-formed
+    //   commitmentEqProof  — proves sender's new balance commits to same value
+    //   rangeProof         — proves sender's remaining balance >= 0
+    //   sourceCommitment   — commitment to sender's remaining balance (32B)
+    function confidentialTransfer(
+        agent to,
+        bytes32 commitment,
+        bytes32 senderHandle,
+        bytes32 receiverHandle,
+        bytes32 sourceCommitment,
+        bytes ctValidityProof,
+        bytes commitmentEqProof,
+        bytes rangeProof
+    ) external {
+        let senderPub: bytes32 = publicKeys[msg.sender];
+        let receiverPub: bytes32 = publicKeys[to];
+        require(senderPub != bytes32(0), "SenderNotRegistered");
+        require(receiverPub != bytes32(0), "ReceiverNotRegistered");
+
+        // 1. Build Fiat-Shamir transcript for domain separation
+        let t: bytes32 = tos.transcript.new("confidential-transfer");
+
+        // 2. Verify ciphertext validity: the commitment and both handles are
+        //    encryptions of the same amount under the correct keys
+        require(
+            tos.proof.verify_ct_validity(
+                commitment, senderHandle, receiverHandle,
+                senderPub, receiverPub,
+                ctValidityProof, t
+            ),
+            "BadCTValidityProof"
+        );
+
+        // 3. Subtract transfer ciphertext from sender's balance
+        let senderCt: ciphertext = balances[msg.sender];
+        let transferCt: ciphertext = tos.ciphertext.from_parts(commitment, senderHandle);
+        let newSenderCt: ciphertext = tos.ciphertext.sub(senderCt, transferCt);
+
+        // 4. Verify commitment equality: sender's new balance matches sourceCommitment
+        require(
+            tos.proof.verify_commitment_eq(
+                senderPub, newSenderCt, sourceCommitment,
+                commitmentEqProof, t
+            ),
+            "BadCommitmentEqProof"
+        );
+
+        // 5. Range proof: sender's remaining balance is in [0, 2^64)
+        require(
+            tos.proof.verify_range(sourceCommitment, rangeProof, 64, t),
+            "BadRangeProof"
+        );
+
+        // 6. Write updated balances
+        set balances[msg.sender] = newSenderCt;
+
+        let recvTransferCt: ciphertext = tos.ciphertext.from_parts(commitment, receiverHandle);
+        let recvBalance: ciphertext = balances[to];
+        set balances[to] = tos.ciphertext.add(recvBalance, recvTransferCt);
+
+        emit ConfidentialTransfer(msg.sender, to);
+    }
+
+    // Burn: destroy encrypted tokens by proving you own a specific plaintext amount.
+    // Uses an ownership proof to reveal the amount while proving it matches the ciphertext.
+    function burn(u64 amount, bytes ownershipProofBytes) external {
+        let pubkey: bytes32 = publicKeys[msg.sender];
+        require(pubkey != bytes32(0), "NotRegistered");
+
+        let t: bytes32 = tos.transcript.new("confidential-burn");
+        let senderCt: ciphertext = balances[msg.sender];
+
+        // Verify ownership proof: proves sender knows the decryption and the
+        // plaintext amount matches what's encrypted in senderCt
+        require(
+            tos.proof.verify_ownership(pubkey, senderCt, ownershipProofBytes, t),
+            "BadOwnershipProof"
+        );
+
+        // Subtract the burned amount as a plaintext scalar
+        let newCt: ciphertext = tos.ciphertext.sub_scalar(senderCt, amount);
+        set balances[msg.sender] = newCt;
+
+        emit Burn(msg.sender, amount);
+    }
+
+    // Read the encrypted balance (only the account holder can decrypt off-chain).
+    function balanceOf(agent account) public view returns (ciphertext) {
+        return balances[account];
+    }
+
+    function getPublicKey(agent account) public view returns (bytes32) {
+        return publicKeys[account];
+    }
+}

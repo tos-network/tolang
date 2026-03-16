@@ -1,0 +1,157 @@
+pragma tolang 0.4.0;
+
+// PrivateAuction — sealed-bid auction where bids are encrypted until reveal.
+//
+// This contract demonstrates advanced use of the crypto primitives:
+//   - tos.transcript.*  — custom Fiat-Shamir domain separation
+//   - tos.scalar.*      — fee computation in the scalar field
+//   - tos.ristretto.*   — manual Pedersen commitment construction
+//   - tos.proof.*       — arbitrary range proofs for bid validation
+//   - tos.crypto.blake3 — hash-based bid commitment
+//
+// Phase 1 (Commit): bidders submit encrypted bids + range proof (bid ∈ [min, max])
+// Phase 2 (Reveal): bidders reveal by providing ownership proofs
+// Phase 3 (Settle): highest bidder wins, others are refunded
+
+contract PrivateAuction {
+    agent seller;
+    bytes32 sellerPubKey;
+    u64 minBid;
+    u64 maxBid;
+    u64 commitDeadline_ms;
+    u64 revealDeadline_ms;
+    bool settled;
+
+    agent highestBidder;
+    u64 highestBid;
+    u64 bidCount;
+
+    mapping(agent => bytes32) publicKeys;
+    mapping(agent => ciphertext) encryptedBids;
+    mapping(agent => bool) hasCommitted;
+    mapping(agent => bool) hasRevealed;
+    mapping(agent => u64) revealedBids;
+
+    event BidCommitted(agent indexed bidder)
+    event BidRevealed(agent indexed bidder, u64 amount)
+    event AuctionSettled(agent indexed winner, u64 amount)
+
+    constructor(
+        agent _seller,
+        bytes32 _sellerPubKey,
+        u64 _minBid,
+        u64 _maxBid,
+        u64 _commitDeadline_ms,
+        u64 _revealDeadline_ms
+    ) {
+        set seller = _seller;
+        set sellerPubKey = _sellerPubKey;
+        set minBid = _minBid;
+        set maxBid = _maxBid;
+        set commitDeadline_ms = _commitDeadline_ms;
+        set revealDeadline_ms = _revealDeadline_ms;
+        set settled = false;
+        set highestBid = 0;
+        set bidCount = 0;
+    }
+
+    function registerPublicKey(bytes32 pubkey) external {
+        set publicKeys[msg.sender] = pubkey;
+    }
+
+    // Phase 1: Submit an encrypted bid with a range proof.
+    //
+    // The bid is encrypted under the bidder's own key. An arbitrary range proof
+    // ensures bid ∈ [minBid, maxBid] without revealing the exact amount.
+    //
+    // To prove bid ∈ [minBid, maxBid], the bidder constructs:
+    //   encryptedBid = Encrypt(pubkey, bid)
+    //   adjustedCt   = encryptedBid - Encrypt(pubkey, minBid)
+    //                 = Encrypt(pubkey, bid - minBid)
+    //   Then proves (bid - minBid) ∈ [0, maxBid - minBid] via arbitrary range proof.
+    function commitBid(
+        ciphertext encryptedBid,
+        bytes arbitraryRangeProof
+    ) external {
+        require(block.timestamp_ms <= commitDeadline_ms, "CommitPhaseClosed");
+        require(hasCommitted[msg.sender] != true, "AlreadyCommitted");
+
+        let pubkey: bytes32 = publicKeys[msg.sender];
+        require(pubkey != bytes32(0), "NotRegistered");
+
+        // Adjust the ciphertext: subtract minBid to shift range to [0, maxBid-minBid]
+        let adjustedCt: ciphertext = tos.ciphertext.sub_scalar(encryptedBid, minBid);
+
+        // Verify arbitrary range proof: (bid - minBid) ∈ [0, maxBid - minBid]
+        let t: bytes32 = tos.transcript.new("auction-bid-range");
+        tos.transcript.append_message(t, "auction", tos.ristretto.to_bytes(tos.ristretto.from_bytes(sellerPubKey)));
+
+        require(
+            tos.proof.verify_arbitrary_range(pubkey, adjustedCt, arbitraryRangeProof, t),
+            "BadRangeProof"
+        );
+
+        // Verify max_value in the proof matches our expected range
+        let proofMax: u64 = tos.proof.arbitrary_range_max_value(arbitraryRangeProof);
+        require(proofMax == maxBid - minBid, "RangeMismatch");
+
+        // Store encrypted bid
+        set encryptedBids[msg.sender] = encryptedBid;
+        set hasCommitted[msg.sender] = true;
+        set bidCount = bidCount + 1;
+
+        emit BidCommitted(msg.sender);
+    }
+
+    // Phase 2: Reveal bid by providing an ownership proof.
+    // The ownership proof proves the bidder knows the plaintext amount.
+    function revealBid(bytes ownershipProofBytes) external {
+        require(block.timestamp_ms > commitDeadline_ms, "CommitPhaseNotClosed");
+        require(block.timestamp_ms <= revealDeadline_ms, "RevealPhaseClosed");
+        require(hasCommitted[msg.sender] == true, "NoBidCommitted");
+        require(hasRevealed[msg.sender] != true, "AlreadyRevealed");
+
+        let pubkey: bytes32 = publicKeys[msg.sender];
+        let encBid: ciphertext = encryptedBids[msg.sender];
+
+        let t: bytes32 = tos.transcript.new("auction-bid-reveal");
+
+        // Verify ownership proof: proves the bidder knows the decrypted amount
+        require(
+            tos.proof.verify_ownership(pubkey, encBid, ownershipProofBytes, t),
+            "BadOwnershipProof"
+        );
+
+        let amount: u64 = tos.proof.ownership_amount(ownershipProofBytes);
+        set revealedBids[msg.sender] = amount;
+        set hasRevealed[msg.sender] = true;
+
+        // Track highest bid
+        if (amount > highestBid) {
+            set highestBidder = msg.sender;
+            set highestBid = amount;
+        }
+
+        emit BidRevealed(msg.sender, amount);
+    }
+
+    // Phase 3: Settle the auction.
+    function settle() external {
+        require(block.timestamp_ms > revealDeadline_ms, "RevealPhaseNotClosed");
+        require(settled != true, "AlreadySettled");
+        require(msg.sender == seller, "OnlySeller");
+
+        set settled = true;
+        emit AuctionSettled(highestBidder, highestBid);
+    }
+
+    function getHighestBid() public view returns (u64) {
+        require(settled == true, "NotSettled");
+        return highestBid;
+    }
+
+    function getWinner() public view returns (agent) {
+        require(settled == true, "NotSettled");
+        return highestBidder;
+    }
+}

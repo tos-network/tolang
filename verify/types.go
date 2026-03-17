@@ -1,8 +1,17 @@
 package verify
 
+// RPCClient is the interface for fetching on-chain contract data from a GTOS node.
+type RPCClient interface {
+	// GetCode returns the deployed bytecode at the given contract address.
+	// The returned bytes are the raw .tor package or .toc artifact bytes
+	// as stored on-chain by the LVM create operation.
+	GetCode(address string) ([]byte, error)
+}
+
 // VerificationResult holds the outcome of verifying a single contract.
 type VerificationResult struct {
 	ContractName         string   `json:"contract_name"`
+	ContractAddress      string   `json:"contract_address,omitempty"`
 	SourcePath           string   `json:"source_path"`
 	Match                bool     `json:"match"`
 	BytecodeMatch        bool     `json:"bytecode_match"`

@@ -1,6 +1,7 @@
 package verify
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -9,6 +10,19 @@ import (
 
 	lua "github.com/tos-network/tolang"
 )
+
+// MockRPCClient implements RPCClient for testing with predetermined code responses.
+type MockRPCClient struct {
+	Codes map[string][]byte // address -> code
+}
+
+func (m *MockRPCClient) GetCode(address string) ([]byte, error) {
+	code, ok := m.Codes[address]
+	if !ok {
+		return nil, fmt.Errorf("no code at %s", address)
+	}
+	return code, nil
+}
 
 // repoRoot returns the repository root by walking up from this test file.
 func repoRoot(t *testing.T) string {
@@ -272,5 +286,166 @@ func TestVerificationReportAllMatch(t *testing.T) {
 	}
 	if report.AllMatch {
 		t.Error("AllMatch should be false when any result fails")
+	}
+}
+
+// --- On-chain verification tests ---
+
+func TestVerifyDeployed_Match(t *testing.T) {
+	root := repoRoot(t)
+	sourcePath := findFirstTol(t, filepath.Join(root, "examples", "policy_wallet"))
+
+	source, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Compile source to .toc artifact (simulating what would be deployed).
+	tocBytes, err := lua.CompileArtifact(source, sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Set up mock RPC returning the same compiled artifact as the on-chain code.
+	addr := "0x1234567890abcdef1234567890abcdef12345678"
+	mock := &MockRPCClient{
+		Codes: map[string][]byte{addr: tocBytes},
+	}
+
+	result, err := VerifyDeployed(sourcePath, addr, mock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Match {
+		t.Errorf("expected match, got mismatch: %v", result.Errors)
+	}
+	if !result.BytecodeMatch {
+		t.Errorf("bytecode mismatch: expected %s, got %s",
+			result.ExpectedBytecodeHash, result.ActualBytecodeHash)
+	}
+	if !result.ABIMatch {
+		t.Errorf("ABI mismatch: expected %s, got %s",
+			result.ExpectedABIHash, result.ActualABIHash)
+	}
+	if result.ContractAddress != addr {
+		t.Errorf("expected address %s, got %s", addr, result.ContractAddress)
+	}
+}
+
+func TestVerifyDeployed_Mismatch(t *testing.T) {
+	root := repoRoot(t)
+	walletDir := filepath.Join(root, "examples", "policy_wallet")
+	agentDir := filepath.Join(root, "examples", "agent_economy")
+
+	sourcePath := findFirstTol(t, walletDir)
+
+	// Compile a different contract to use as fake on-chain code.
+	differentSource := findFirstTol(t, agentDir)
+	diffSrc, err := os.ReadFile(differentSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	differentToc, err := lua.CompileArtifact(diffSrc, differentSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addr := "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+	mock := &MockRPCClient{
+		Codes: map[string][]byte{addr: differentToc},
+	}
+
+	result, err := VerifyDeployed(sourcePath, addr, mock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Match {
+		t.Error("expected mismatch for different contract, got match")
+	}
+}
+
+func TestVerifyDeployed_NoCode(t *testing.T) {
+	root := repoRoot(t)
+	sourcePath := findFirstTol(t, filepath.Join(root, "examples", "policy_wallet"))
+
+	addr := "0x0000000000000000000000000000000000000000"
+	mock := &MockRPCClient{
+		Codes: map[string][]byte{}, // empty — no code at address
+	}
+
+	result, err := VerifyDeployed(sourcePath, addr, mock)
+	if err == nil {
+		t.Fatal("expected error for missing on-chain code, got nil")
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result even on error")
+	}
+	if len(result.Errors) == 0 {
+		t.Error("expected errors in result")
+	}
+	if result.Match {
+		t.Error("match should be false when code is missing")
+	}
+}
+
+func TestVerifyDeployedBatch(t *testing.T) {
+	root := repoRoot(t)
+	walletDir := filepath.Join(root, "examples", "policy_wallet")
+	agentDir := filepath.Join(root, "examples", "agent_economy")
+
+	walletSource := findFirstTol(t, walletDir)
+	agentSource := findFirstTol(t, agentDir)
+
+	// Compile both contracts.
+	walletSrc, err := os.ReadFile(walletSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	walletToc, err := lua.CompileArtifact(walletSrc, walletSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	agentSrc, err := os.ReadFile(agentSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agentToc, err := lua.CompileArtifact(agentSrc, agentSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addrWallet := "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	addrAgent := "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+	mock := &MockRPCClient{
+		Codes: map[string][]byte{
+			addrWallet: walletToc,
+			addrAgent:  agentToc,
+		},
+	}
+
+	contracts := map[string]string{
+		walletSource: addrWallet,
+		agentSource:  addrAgent,
+	}
+
+	report, err := VerifyDeployedBatch(contracts, mock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(report.Results))
+	}
+	if !report.AllMatch {
+		for _, r := range report.Results {
+			if !r.Match {
+				t.Errorf("contract %s at %s did not match: %v",
+					r.SourcePath, r.ContractAddress, r.Errors)
+			}
+		}
+	}
+	if report.SchemaVersion != schemaVersion {
+		t.Errorf("expected schema version %s, got %s", schemaVersion, report.SchemaVersion)
 	}
 }

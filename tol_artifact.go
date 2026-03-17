@@ -83,13 +83,23 @@ type tocABI struct {
 	AccountContract bool             `json:"account_contract,omitempty"`
 }
 
+// tocABIParam holds a named parameter with its type, emitted alongside the
+// type-only params list for backward compatibility.
+type tocABIParam struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
 type tocABIFunction struct {
-	Name               string     `json:"name"`
-	Visibility         string     `json:"visibility"`
-	Selector           string     `json:"selector"`
-	Params             []string   `json:"params,omitempty"`
-	Returns            []string   `json:"returns,omitempty"`
-	Doc                *tocABIDoc `json:"doc,omitempty"`
+	Name               string        `json:"name"`
+	Visibility         string        `json:"visibility"`
+	Mutability         string        `json:"mutability,omitempty"` // "pure", "view", "payable", "nonpayable"
+	Selector           string        `json:"selector"`
+	Params             []string      `json:"params,omitempty"`
+	Returns            []string      `json:"returns,omitempty"`
+	NamedParams        []tocABIParam `json:"named_params,omitempty"`
+	NamedReturns       []tocABIParam `json:"named_returns,omitempty"`
+	Doc                *tocABIDoc    `json:"doc,omitempty"`
 	// Agent-native ABI extensions
 	RequiresCapability string     `json:"requires_capability,omitempty"`
 	PayAmountWei       string     `json:"pay_amount_wei,omitempty"`
@@ -106,8 +116,9 @@ type tocABIFunction struct {
 }
 
 type tocABIEvent struct {
-	Name   string   `json:"name"`
-	Params []string `json:"params,omitempty"`
+	Name        string        `json:"name"`
+	Params      []string      `json:"params,omitempty"`
+	NamedParams []tocABIParam `json:"named_params,omitempty"`
 }
 
 // tocABIDoc is the optional doc metadata emitted per function in the ABI JSON.
@@ -511,24 +522,39 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 			continue
 		}
 		paramTypes := make([]string, 0, len(fn.Params))
+		namedParams := make([]tocABIParam, 0, len(fn.Params))
 		for _, p := range fn.Params {
-			paramTypes = append(paramTypes, normalizeABIType(p.Type))
+			t := normalizeABIType(p.Type)
+			paramTypes = append(paramTypes, t)
+			namedParams = append(namedParams, tocABIParam{
+				Name: p.Name,
+				Type: t,
+			})
 		}
 		returnTypes := make([]string, 0, len(fn.Returns))
+		namedReturns := make([]tocABIParam, 0, len(fn.Returns))
 		for _, r := range fn.Returns {
-			returnTypes = append(returnTypes, normalizeABIType(r.Type))
+			t := normalizeABIType(r.Type)
+			returnTypes = append(returnTypes, t)
+			namedReturns = append(namedReturns, tocABIParam{
+				Name: r.Name,
+				Type: t,
+			})
 		}
 		selector := strings.ToLower(strings.TrimSpace(fn.SelectorOverride))
 		if selector == "" {
 			selector = abiSelectorHex(fn.Name, paramTypes)
 		}
 		abiFn := tocABIFunction{
-			Name:       fn.Name,
-			Visibility: vis,
-			Selector:   selector,
-			Params:     paramTypes,
-			Returns:    returnTypes,
-			Doc:        docMetaToABI(fn.Doc),
+			Name:         fn.Name,
+			Visibility:   vis,
+			Mutability:   deriveFunctionMutability(fn),
+			Selector:     selector,
+			Params:       paramTypes,
+			Returns:      returnTypes,
+			NamedParams:  namedParams,
+			NamedReturns: namedReturns,
+			Doc:          docMetaToABI(fn.Doc),
 		}
 		if fn.Doc != nil {
 			if len(fn.Doc.RequiresCap) > 0 {
@@ -595,12 +621,19 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 	}
 	for _, ev := range c.Events {
 		paramTypes := make([]string, 0, len(ev.Params))
+		namedEvParams := make([]tocABIParam, 0, len(ev.Params))
 		for _, p := range ev.Params {
-			paramTypes = append(paramTypes, normalizeABIType(p.Type))
+			t := normalizeABIType(p.Type)
+			paramTypes = append(paramTypes, t)
+			namedEvParams = append(namedEvParams, tocABIParam{
+				Name: p.Name,
+				Type: t,
+			})
 		}
 		abi.Events = append(abi.Events, tocABIEvent{
-			Name:   ev.Name,
-			Params: paramTypes,
+			Name:        ev.Name,
+			Params:      paramTypes,
+			NamedParams: namedEvParams,
 		})
 	}
 	storage := tocStorageLayout{
@@ -689,6 +722,27 @@ func buildArtifactMetadata(mod *tolast.Module) (string, []byte, []byte, error) {
 		return "", nil, nil, fmt.Errorf("artifact metadata requires contract module with at least one contract")
 	}
 	return buildArtifactMetadataForContract(c)
+}
+
+// deriveFunctionMutability computes the Solidity-style mutability string from
+// the AST function declaration. It uses the doc metadata (effects and pay
+// annotations) to determine the correct value at compile time, so that
+// downstream consumers do not need to re-derive it from effects heuristics.
+func deriveFunctionMutability(fn tolast.FunctionDecl) string {
+	if fn.Doc != nil && fn.Doc.PayAmount != "" {
+		return "payable"
+	}
+	if fn.Doc == nil || fn.Doc.Effects == nil {
+		return "view"
+	}
+	eff := fn.Doc.Effects
+	if len(eff.Writes) > 0 || len(eff.Emits) > 0 {
+		return "nonpayable"
+	}
+	if len(eff.Reads) > 0 {
+		return "view"
+	}
+	return "pure"
 }
 
 func functionVisibilityFromModifiers(modifiers []string) string {

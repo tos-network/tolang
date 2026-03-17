@@ -24,18 +24,27 @@ type internalGasModel struct {
 	LogBase uint64 `json:"log_base"`
 }
 
+// internalNamedParam mirrors tocABIParam — a parameter with both name and type.
+type internalNamedParam struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
 type internalFunction struct {
-	Name               string       `json:"name"`
-	Visibility         string       `json:"visibility"`
-	Selector           string       `json:"selector"`
-	Params             []string     `json:"params,omitempty"`
-	Returns            []string     `json:"returns,omitempty"`
-	Doc                *internalDoc `json:"doc,omitempty"`
-	RequiresCapability string       `json:"requires_capability,omitempty"`
-	PayAmountWei       string       `json:"pay_amount_wei,omitempty"`
-	Verifiable         bool         `json:"verifiable,omitempty"`
-	Delegated          bool         `json:"delegated,omitempty"`
-	VerifiableStub     bool         `json:"verifiable_stub,omitempty"`
+	Name               string               `json:"name"`
+	Visibility         string               `json:"visibility"`
+	Mutability         string               `json:"mutability,omitempty"` // compiler-emitted: "pure", "view", "payable", "nonpayable"
+	Selector           string               `json:"selector"`
+	Params             []string             `json:"params,omitempty"`
+	Returns            []string             `json:"returns,omitempty"`
+	NamedParams        []internalNamedParam `json:"named_params,omitempty"`
+	NamedReturns       []internalNamedParam `json:"named_returns,omitempty"`
+	Doc                *internalDoc         `json:"doc,omitempty"`
+	RequiresCapability string               `json:"requires_capability,omitempty"`
+	PayAmountWei       string               `json:"pay_amount_wei,omitempty"`
+	Verifiable         bool                 `json:"verifiable,omitempty"`
+	Delegated          bool                 `json:"delegated,omitempty"`
+	VerifiableStub     bool                 `json:"verifiable_stub,omitempty"`
 }
 
 type internalDoc struct {
@@ -68,8 +77,9 @@ type internalManifest struct {
 }
 
 type internalEvent struct {
-	Name   string   `json:"name"`
-	Params []string `json:"params,omitempty"`
+	Name        string               `json:"name"`
+	Params      []string             `json:"params,omitempty"`
+	NamedParams []internalNamedParam `json:"named_params,omitempty"`
 }
 
 // ExtractFromABI parses existing ABI JSON (as emitted by the current TOL compiler)
@@ -121,13 +131,19 @@ func ExtractFromABI(abiJSON []byte) (*ContractMetadata, error) {
 		if fn.VerifiableStub {
 			continue
 		}
+		// Use compiler-emitted mutability when available; fall back to heuristic
+		// for ABI JSON produced by older compiler versions.
+		mut := fn.Mutability
+		if mut == "" {
+			mut = deriveMutability(fn)
+		}
 		fm := FunctionMeta{
 			Name:       fn.Name,
 			Selector:   fn.Selector,
 			Visibility: fn.Visibility,
-			Mutability: deriveMutability(fn),
-			Params:     convertParamTypes(fn.Params),
-			Returns:    convertParamTypes(fn.Returns),
+			Mutability: mut,
+			Params:     extractParams(fn.NamedParams, fn.Params),
+			Returns:    extractParams(fn.NamedReturns, fn.Returns),
 			Verifiable: fn.Verifiable,
 			Delegated:  fn.Delegated,
 		}
@@ -154,7 +170,7 @@ func ExtractFromABI(abiJSON []byte) (*ContractMetadata, error) {
 	for _, ev := range raw.Events {
 		meta.Events = append(meta.Events, EventMeta{
 			Name:   ev.Name,
-			Params: convertParamTypes(ev.Params),
+			Params: extractParams(ev.NamedParams, ev.Params),
 		})
 	}
 
@@ -191,12 +207,53 @@ func DeriveRiskLevel(fn FunctionMeta) string {
 	return "low"
 }
 
-// DerivePolicyProfile inspects function names and patterns to detect policy
-// wallet features. This is a heuristic based on naming conventions used in
-// the TOL account contract ecosystem.
+// DerivePolicyProfile detects policy wallet features from function metadata.
+// It combines two signals:
+//  1. Capability declarations (requires_capability) — the most reliable signal
+//     because they are compiler-verified annotations.
+//  2. Function name patterns — a fallback heuristic for contracts that use
+//     conventional naming but lack capability annotations.
+//
+// Both signals are checked so that the profile is accurate for contracts
+// compiled with either older or newer compiler versions.
 func DerivePolicyProfile(functions []FunctionMeta) *PolicyProfile {
 	pp := &PolicyProfile{}
 	for _, fn := range functions {
+		// Signal 1: capability-based detection (compiler-verified).
+		// Uses if-chains (not switch) so that a single capability can
+		// set multiple flags and ordering doesn't cause false matches.
+		for _, cap := range fn.RequiresCapability {
+			capLower := strings.ToLower(cap)
+			if strings.Contains(capLower, "spend") && !strings.Contains(capLower, "suspend") {
+				pp.HasSpendCaps = true
+			}
+			if strings.Contains(capLower, "allowlist") || strings.Contains(capLower, "whitelist") {
+				pp.HasAllowlist = true
+			}
+			if strings.Contains(capLower, "terminal") || strings.Contains(capLower, "lock") || strings.Contains(capLower, "freeze") {
+				pp.HasTerminalPolicy = true
+			}
+			if strings.Contains(capLower, "guardian") {
+				pp.HasGuardian = true
+			}
+			if strings.Contains(capLower, "recover") {
+				pp.HasRecovery = true
+			}
+			if strings.Contains(capLower, "delegat") {
+				pp.HasDelegation = true
+			}
+			if strings.Contains(capLower, "suspend") || strings.Contains(capLower, "pause") {
+				pp.HasSuspension = true
+			}
+		}
+
+		// Signal 2: delegated flag from compiler annotation.
+		if fn.Delegated {
+			pp.HasDelegation = true
+		}
+
+		// Signal 3: function name heuristic (fallback for contracts without
+		// capability annotations; kept for backward compatibility).
 		name := strings.ToLower(fn.Name)
 		switch {
 		case strings.Contains(name, "spend_cap") || strings.Contains(name, "spendcap"):
@@ -218,10 +275,28 @@ func DerivePolicyProfile(functions []FunctionMeta) *PolicyProfile {
 	return pp
 }
 
-// convertParamTypes converts a list of ABI type strings (e.g. ["uint256", "address"])
-// into ParamMeta values. The existing ABI JSON stores only types, not names, so
-// parameter names are synthesized as "arg0", "arg1", etc.
-func convertParamTypes(types []string) []ParamMeta {
+// extractParams converts ABI parameter info into ParamMeta values.
+// When the compiler provides named_params (name+type pairs), those are used
+// directly so that real source-level parameter names are preserved. When only
+// the type-only params list is available (older compiler output), synthetic
+// names (arg0, arg1, ...) are generated as a fallback.
+func extractParams(named []internalNamedParam, types []string) []ParamMeta {
+	// Prefer compiler-emitted named parameters.
+	if len(named) > 0 {
+		out := make([]ParamMeta, len(named))
+		for i, np := range named {
+			name := np.Name
+			if name == "" {
+				name = fmt.Sprintf("arg%d", i)
+			}
+			out[i] = ParamMeta{
+				Name: name,
+				Type: np.Type,
+			}
+		}
+		return out
+	}
+	// Fallback: type-only list from older ABI JSON.
 	if len(types) == 0 {
 		return nil
 	}
@@ -261,9 +336,10 @@ func convertEffects(eff *internalEffects) *EffectsMeta {
 	return out
 }
 
-// deriveMutability infers the Solidity-style mutability from the existing ABI
-// function data.  The current ABI doesn't store mutability directly, so we
-// approximate from effects and pay annotations.
+// deriveMutability is a fallback heuristic that infers mutability from ABI
+// function effects and pay annotations. It is used only when the compiler did
+// not emit a "mutability" field (i.e., ABI JSON from older compiler versions).
+// Current compilers emit mutability directly; see ExtractFromABI.
 func deriveMutability(fn internalFunction) string {
 	if fn.PayAmountWei != "" {
 		return "payable"

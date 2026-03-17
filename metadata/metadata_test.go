@@ -5,7 +5,8 @@ import (
 	"testing"
 )
 
-// sampleABI is a realistic ABI JSON blob matching the format emitted by the TOL compiler.
+// sampleABI is a realistic ABI JSON blob matching the format emitted by the
+// current TOL compiler, including compiler-emitted mutability and named_params.
 const sampleABI = `{
   "gas_model": {
     "version": "tolang/0.2.0",
@@ -17,9 +18,12 @@ const sampleABI = `{
     {
       "name": "transfer",
       "visibility": "external",
+      "mutability": "payable",
       "selector": "0xa9059cbb",
       "params": ["address", "uint256"],
       "returns": ["bool"],
+      "named_params": [{"name": "to", "type": "address"}, {"name": "amount", "type": "uint256"}],
+      "named_returns": [{"name": "success", "type": "bool"}],
       "doc": {
         "effects": {
           "reads": ["balances"],
@@ -38,9 +42,12 @@ const sampleABI = `{
     {
       "name": "balanceOf",
       "visibility": "public",
+      "mutability": "view",
       "selector": "0x70a08231",
       "params": ["address"],
       "returns": ["uint256"],
+      "named_params": [{"name": "owner", "type": "address"}],
+      "named_returns": [{"name": "balance", "type": "uint256"}],
       "doc": {
         "effects": {
           "reads": ["balances"]
@@ -62,7 +69,8 @@ const sampleABI = `{
   "events": [
     {
       "name": "Transfer",
-      "params": ["address", "address", "uint256"]
+      "params": ["address", "address", "uint256"],
+      "named_params": [{"name": "from", "type": "address"}, {"name": "to", "type": "address"}, {"name": "value", "type": "uint256"}]
     }
   ],
   "manifest": {
@@ -73,6 +81,53 @@ const sampleABI = `{
       "sla_uptime": "99.9%"
     }
   },
+  "account_contract": false
+}`
+
+// sampleABILegacy is an ABI JSON blob without the newer compiler-emitted
+// fields (mutability, named_params, named_returns). This exercises the
+// backward-compatible fallback paths in ExtractFromABI.
+const sampleABILegacy = `{
+  "gas_model": {
+    "version": "tolang/0.2.0",
+    "sload": 2100,
+    "sstore": 20000,
+    "log_base": 375
+  },
+  "functions": [
+    {
+      "name": "transfer",
+      "visibility": "external",
+      "selector": "0xa9059cbb",
+      "params": ["address", "uint256"],
+      "returns": ["bool"],
+      "doc": {
+        "effects": {
+          "reads": ["balances"],
+          "writes": ["balances"],
+          "emits": ["Transfer"]
+        },
+        "gas_upper": 65000
+      },
+      "pay_amount_wei": "1000000",
+      "verifiable": false,
+      "delegated": false
+    },
+    {
+      "name": "balanceOf",
+      "visibility": "public",
+      "selector": "0x70a08231",
+      "params": ["address"],
+      "returns": ["uint256"],
+      "doc": {
+        "effects": { "reads": ["balances"] },
+        "gas_upper": 2100
+      }
+    }
+  ],
+  "events": [
+    {"name": "Transfer", "params": ["address", "address", "uint256"]}
+  ],
   "account_contract": false
 }`
 
@@ -127,27 +182,46 @@ func TestExtractFromABI(t *testing.T) {
 	if xfer.Effects.Calls[0].MaxGas != 50000 {
 		t.Errorf("functions[0].effects.calls[0].max_gas = %d, want 50000", xfer.Effects.Calls[0].MaxGas)
 	}
-	// Params
+	// Params — should use compiler-emitted named_params (real source names).
 	if len(xfer.Params) != 2 {
 		t.Fatalf("functions[0].params length = %d, want 2", len(xfer.Params))
 	}
+	if xfer.Params[0].Name != "to" {
+		t.Errorf("functions[0].params[0].name = %q, want %q", xfer.Params[0].Name, "to")
+	}
 	if xfer.Params[0].Type != "address" || xfer.Params[1].Type != "uint256" {
 		t.Errorf("functions[0].params types = [%s, %s], want [address, uint256]", xfer.Params[0].Type, xfer.Params[1].Type)
+	}
+	if xfer.Params[1].Name != "amount" {
+		t.Errorf("functions[0].params[1].name = %q, want %q", xfer.Params[1].Name, "amount")
+	}
+	// Returns — should use compiler-emitted named_returns.
+	if len(xfer.Returns) != 1 || xfer.Returns[0].Name != "success" {
+		t.Errorf("functions[0].returns[0].name = %q, want %q", xfer.Returns[0].Name, "success")
 	}
 	// balanceOf
 	bal := meta.Functions[1]
 	if bal.Mutability != "view" {
 		t.Errorf("functions[1].mutability = %q, want %q", bal.Mutability, "view")
 	}
+	if bal.Params[0].Name != "owner" {
+		t.Errorf("functions[1].params[0].name = %q, want %q", bal.Params[0].Name, "owner")
+	}
 	if bal.RiskLevel != "low" {
 		t.Errorf("functions[1].risk_level = %q, want %q (read-only)", bal.RiskLevel, "low")
 	}
-	// Events
+	// Events — should use compiler-emitted named_params.
 	if len(meta.Events) != 1 || meta.Events[0].Name != "Transfer" {
 		t.Errorf("events = %v, want [{Transfer ...}]", meta.Events)
 	}
 	if len(meta.Events[0].Params) != 3 {
 		t.Errorf("events[0].params length = %d, want 3", len(meta.Events[0].Params))
+	}
+	if meta.Events[0].Params[0].Name != "from" {
+		t.Errorf("events[0].params[0].name = %q, want %q", meta.Events[0].Params[0].Name, "from")
+	}
+	if meta.Events[0].Params[1].Name != "to" {
+		t.Errorf("events[0].params[1].name = %q, want %q", meta.Events[0].Params[1].Name, "to")
 	}
 	// Manifest
 	if meta.Manifest == nil {
@@ -169,6 +243,34 @@ func TestExtractFromABI(t *testing.T) {
 	// ArtifactRef version should be populated from manifest
 	if meta.ArtifactRef.Version != "1.0.0" {
 		t.Errorf("artifact_ref.version = %q, want %q", meta.ArtifactRef.Version, "1.0.0")
+	}
+}
+
+func TestExtractFromABI_LegacyABI(t *testing.T) {
+	// Legacy ABI without mutability, named_params, named_returns fields.
+	meta, err := ExtractFromABI([]byte(sampleABILegacy))
+	if err != nil {
+		t.Fatalf("ExtractFromABI (legacy) failed: %v", err)
+	}
+	// Mutability should be derived from heuristic fallback.
+	xfer := meta.Functions[0]
+	if xfer.Mutability != "payable" {
+		t.Errorf("legacy transfer mutability = %q, want %q (heuristic from pay_amount_wei)", xfer.Mutability, "payable")
+	}
+	bal := meta.Functions[1]
+	if bal.Mutability != "view" {
+		t.Errorf("legacy balanceOf mutability = %q, want %q (heuristic from reads)", bal.Mutability, "view")
+	}
+	// Params should use synthetic names (arg0, arg1) since named_params is absent.
+	if xfer.Params[0].Name != "arg0" {
+		t.Errorf("legacy transfer params[0].name = %q, want %q", xfer.Params[0].Name, "arg0")
+	}
+	if xfer.Params[1].Name != "arg1" {
+		t.Errorf("legacy transfer params[1].name = %q, want %q", xfer.Params[1].Name, "arg1")
+	}
+	// Event params should also use synthetic names.
+	if meta.Events[0].Params[0].Name != "arg0" {
+		t.Errorf("legacy event params[0].name = %q, want %q", meta.Events[0].Params[0].Name, "arg0")
 	}
 }
 
@@ -264,6 +366,41 @@ func TestDerivePolicyProfile(t *testing.T) {
 	}
 	if !pp.HasSuspension {
 		t.Error("expected HasSuspension")
+	}
+}
+
+func TestDerivePolicyProfile_Capabilities(t *testing.T) {
+	// Test detection via capability annotations (no matching function names).
+	fns := []FunctionMeta{
+		{Name: "configure_limits", RequiresCapability: []string{"spend_admin"}},
+		{Name: "manage_list", RequiresCapability: []string{"allowlist_admin"}},
+		{Name: "lockdown", RequiresCapability: []string{"terminal_control"}},
+		{Name: "manage_keys", RequiresCapability: []string{"guardian_mgmt"}},
+		{Name: "restore_access", RequiresCapability: []string{"recovery_admin"}},
+		{Name: "proxy_call", Delegated: true},
+		{Name: "halt", RequiresCapability: []string{"suspend_ops"}},
+	}
+	pp := DerivePolicyProfile(fns)
+	if !pp.HasSpendCaps {
+		t.Error("expected HasSpendCaps from spend_admin capability")
+	}
+	if !pp.HasAllowlist {
+		t.Error("expected HasAllowlist from allowlist_admin capability")
+	}
+	if !pp.HasTerminalPolicy {
+		t.Error("expected HasTerminalPolicy from terminal_control capability")
+	}
+	if !pp.HasGuardian {
+		t.Error("expected HasGuardian from guardian_mgmt capability")
+	}
+	if !pp.HasRecovery {
+		t.Error("expected HasRecovery from recovery_admin capability")
+	}
+	if !pp.HasDelegation {
+		t.Error("expected HasDelegation from Delegated flag")
+	}
+	if !pp.HasSuspension {
+		t.Error("expected HasSuspension from suspend_ops capability")
 	}
 }
 

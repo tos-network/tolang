@@ -1,0 +1,160 @@
+pragma tolang 0.4.0;
+
+// TerminalAuthority — per-terminal-class spending limits and trust enforcement.
+//
+// OVERVIEW
+// ────────
+// Enforces that transactions originating from different terminal types (app,
+// card, POS, voice, kiosk, robot, API) respect per-class value limits and
+// minimum trust tier requirements.
+//
+// TERMINAL CLASSES
+//   0 = app      (mobile/web application)
+//   1 = card     (physical payment card)
+//   2 = pos      (point-of-sale terminal)
+//   3 = voice    (voice-activated interface)
+//   4 = kiosk    (unattended kiosk)
+//   5 = robot    (autonomous robot/drone)
+//   6 = api      (programmatic API access)
+//
+// TRUST TIERS
+//   0 = untrusted, 1 = low, 2 = medium, 3 = high, 4 = full
+//
+// Individual terminal devices can be revoked (e.g., lost card) by their
+// terminal ID hash without disabling the entire terminal class.
+
+contract TerminalAuthority {
+
+    // ── Storage ─────────────────────────────────────────────────────────────
+
+    agent owner;
+
+    // Per terminal class configuration
+    mapping(u256 => u256) max_single_value;      // terminal_class => max per-tx value
+    mapping(u256 => u256) max_daily_value;        // terminal_class => max daily value
+    mapping(u256 => u256) min_trust_tier;         // terminal_class => minimum trust tier
+    mapping(u256 => bool) terminal_enabled;       // terminal_class => enabled
+
+    // Daily tracking per terminal class
+    mapping(u256 => u256) terminal_daily_spent;
+    mapping(u256 => u256) terminal_spend_day;
+
+    // Individual terminal revocation (e.g., lost card)
+    mapping(bytes32 => bool) revoked_terminals;   // terminal_id hash => revoked
+
+    // ── Events ──────────────────────────────────────────────────────────────
+
+    event TerminalConfigured(u256 indexed terminalClass, u256 maxSingle, u256 maxDaily, u256 minTrust)
+    event TerminalEnabled(u256 indexed terminalClass, bool enabled)
+    event TerminalRevoked(bytes32 indexed terminalId)
+    event TerminalRestored(bytes32 indexed terminalId)
+    event TerminalSpend(u256 indexed terminalClass, u256 value, u256 dailyRemaining)
+
+    // ── Constructor ─────────────────────────────────────────────────────────
+
+    /// @notice Deploy with the controlling owner.
+    /// @param  _owner  Agent that configures terminal policies.
+    constructor(agent _owner) {
+        set owner = _owner;
+    }
+
+    // ── Configuration ───────────────────────────────────────────────────────
+
+    /// @notice Configure a terminal class with value limits and trust requirement.
+    /// @param  terminalClass  Terminal type identifier (0-6).
+    /// @param  maxSingle      Maximum value per single transaction.
+    /// @param  maxDaily       Maximum aggregate value per day.
+    /// @param  minTrust       Minimum trust tier required (0-4).
+    function configureTerminal(u256 terminalClass, u256 maxSingle, u256 maxDaily, u256 minTrust) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set max_single_value[terminalClass] = maxSingle;
+        set max_daily_value[terminalClass] = maxDaily;
+        set min_trust_tier[terminalClass] = minTrust;
+        set terminal_enabled[terminalClass] = true;
+        emit TerminalConfigured(terminalClass, maxSingle, maxDaily, minTrust);
+    }
+
+    /// @notice Enable or disable a terminal class.
+    /// @param  terminalClass  Terminal type identifier.
+    /// @param  enabled        true = allow, false = block.
+    function setTerminalEnabled(u256 terminalClass, bool enabled) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set terminal_enabled[terminalClass] = enabled;
+        emit TerminalEnabled(terminalClass, enabled);
+    }
+
+    // ── Individual Terminal Management ──────────────────────────────────────
+
+    /// @notice Revoke a specific terminal device (e.g., a lost card).
+    /// @param  terminalId  Hash identifying the specific terminal device.
+    function revokeTerminal(bytes32 terminalId) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set revoked_terminals[terminalId] = true;
+        emit TerminalRevoked(terminalId);
+    }
+
+    /// @notice Restore a previously revoked terminal device.
+    /// @param  terminalId  Hash identifying the specific terminal device.
+    function restoreTerminal(bytes32 terminalId) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set revoked_terminals[terminalId] = false;
+        emit TerminalRestored(terminalId);
+    }
+
+    // ── Authorization Check ─────────────────────────────────────────────────
+
+    /// @notice Check if a transaction is authorized for the given terminal context.
+    ///
+    /// Validates: terminal class enabled, device not revoked, trust tier sufficient,
+    /// single-tx value within limit, and daily aggregate within limit.
+    /// On success, increments the daily counter.
+    ///
+    /// @param  terminalClass  Terminal type identifier (0-6).
+    /// @param  trustTier      Trust tier of the requesting terminal (0-4).
+    /// @param  value          Transaction value.
+    /// @param  terminalId     Hash of the specific terminal device.
+    /// @return ok             Always true on success; reverts on failure.
+    function checkTerminalAuth(u256 terminalClass, u256 trustTier, u256 value, bytes32 terminalId) external returns (bool ok) {
+        require(terminal_enabled[terminalClass] == true, "TERMINAL_DISABLED");
+        require(revoked_terminals[terminalId] != true, "TERMINAL_REVOKED");
+        require(trustTier >= min_trust_tier[terminalClass], "TRUST_TOO_LOW");
+        require(value <= max_single_value[terminalClass], "OVER_SINGLE_LIMIT");
+
+        let today: u256 = block.timestamp_ms / 86400000;
+        if (today != terminal_spend_day[terminalClass]) {
+            set terminal_daily_spent[terminalClass] = 0;
+            set terminal_spend_day[terminalClass] = today;
+        }
+        require(terminal_daily_spent[terminalClass] + value <= max_daily_value[terminalClass], "OVER_DAILY_LIMIT");
+        set terminal_daily_spent[terminalClass] = terminal_daily_spent[terminalClass] + value;
+
+        emit TerminalSpend(terminalClass, value, max_daily_value[terminalClass] - terminal_daily_spent[terminalClass]);
+        return true;
+    }
+
+    // ── View Functions ──────────────────────────────────────────────────────
+
+    function getMaxSingleValue(u256 terminalClass) public view returns (u256) {
+        return max_single_value[terminalClass];
+    }
+
+    function getMaxDailyValue(u256 terminalClass) public view returns (u256) {
+        return max_daily_value[terminalClass];
+    }
+
+    function getMinTrustTier(u256 terminalClass) public view returns (u256) {
+        return min_trust_tier[terminalClass];
+    }
+
+    function isTerminalEnabled(u256 terminalClass) public view returns (bool) {
+        return terminal_enabled[terminalClass];
+    }
+
+    function isTerminalRevoked(bytes32 terminalId) public view returns (bool) {
+        return revoked_terminals[terminalId];
+    }
+
+    function getTerminalDailySpent(u256 terminalClass) public view returns (u256) {
+        return terminal_daily_spent[terminalClass];
+    }
+}

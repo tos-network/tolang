@@ -1,0 +1,119 @@
+pragma tolang 0.4.0;
+
+// DelegatedAgent — bounded authority delegation for autonomous agents.
+//
+// OVERVIEW
+// ────────
+// Allows a wallet owner to grant time-bounded, value-capped authority to
+// delegated agents (sub-agents, automated processes, service providers).
+// Each delegate has an independent allowance that is consumed as they act
+// on behalf of the owner.
+//
+// The owner can grant, revoke, and query delegate authority.  Delegates
+// call use() to consume their allowance, which tracks cumulative usage.
+
+capability DelegateManager;
+
+contract DelegatedAgent {
+
+    // ── Storage ─────────────────────────────────────────────────────────────
+
+    agent owner;
+
+    mapping(agent => u256) allowance;         // total allowance granted
+    mapping(agent => u256) expiry;            // expiry timestamp in ms
+    mapping(agent => u256) used;              // cumulative amount used
+    mapping(agent => bool) active;            // whether delegate is active
+
+    // ── Events ──────────────────────────────────────────────────────────────
+
+    event DelegateGranted(agent indexed delegate, u256 allowance, u256 expiry)
+    event DelegateUsed(agent indexed delegate, u256 amount, u256 remaining)
+    event DelegateRevoked(agent indexed delegate)
+
+    // ── Constructor ─────────────────────────────────────────────────────────
+
+    /// @notice Deploy with the controlling owner.
+    /// @param  _owner  Agent that manages delegations.
+    constructor(agent _owner) {
+        set owner = _owner;
+    }
+
+    // ── Delegation Management ───────────────────────────────────────────────
+
+    /// @notice Grant a delegate bounded authority.
+    /// @param  delegate    Agent to authorize.
+    /// @param  maxValue    Maximum aggregate value the delegate may consume.
+    /// @param  expiryTime  Expiry timestamp in milliseconds (0 = no expiry).
+    function grant(agent delegate, u256 maxValue, u256 expiryTime) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set allowance[delegate] = maxValue;
+        set expiry[delegate] = expiryTime;
+        set used[delegate] = 0;
+        set active[delegate] = true;
+        emit DelegateGranted(delegate, maxValue, expiryTime);
+    }
+
+    /// @notice Immediately revoke a delegate's authority.
+    /// @param  delegate  Agent to revoke.
+    function revoke(agent delegate) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set active[delegate] = false;
+        emit DelegateRevoked(delegate);
+    }
+
+    // ── Allowance Consumption ───────────────────────────────────────────────
+
+    /// @notice Consume part of a delegate's allowance.
+    ///
+    /// Called by the system or the delegate themselves when performing an
+    /// action on behalf of the owner.  Checks: active, not expired,
+    /// sufficient remaining allowance.
+    ///
+    /// @param  delegate  Agent whose allowance to consume.
+    /// @param  amount    Value to consume.
+    /// @return ok        Always true on success; reverts on failure.
+    function use(agent delegate, u256 amount) external returns (bool ok) {
+        require(active[delegate] == true, "NOT_ACTIVE");
+        let del_expiry: u256 = expiry[delegate];
+        if (del_expiry > 0) {
+            require(block.timestamp_ms < del_expiry, "EXPIRED");
+        }
+        require(used[delegate] + amount <= allowance[delegate], "OVER_ALLOWANCE");
+        set used[delegate] = used[delegate] + amount;
+        emit DelegateUsed(delegate, amount, allowance[delegate] - used[delegate]);
+        return true;
+    }
+
+    // ── View Functions ──────────────────────────────────────────────────────
+
+    /// @notice Returns the remaining allowance for a delegate.
+    /// @param  delegate  Agent to query.
+    /// @return rem       Remaining allowance (0 if inactive or expired).
+    function remaining(agent delegate) public view returns (u256 rem) {
+        if (active[delegate] != true) {
+            return 0;
+        }
+        let del_expiry: u256 = expiry[delegate];
+        if (del_expiry > 0 && block.timestamp_ms >= del_expiry) {
+            return 0;
+        }
+        return allowance[delegate] - used[delegate];
+    }
+
+    function isActive(agent delegate) public view returns (bool) {
+        return active[delegate];
+    }
+
+    function getAllowance(agent delegate) public view returns (u256) {
+        return allowance[delegate];
+    }
+
+    function getUsed(agent delegate) public view returns (u256) {
+        return used[delegate];
+    }
+
+    function getExpiry(agent delegate) public view returns (u256) {
+        return expiry[delegate];
+    }
+}

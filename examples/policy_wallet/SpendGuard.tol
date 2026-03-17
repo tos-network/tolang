@@ -1,0 +1,139 @@
+pragma tolang 0.4.0;
+
+// SpendGuard — focused spend-cap and allowlist policy module.
+//
+// A lightweight contract that enforces daily aggregate limits, per-transaction
+// limits, and an optional recipient allowlist.  Designed to be used standalone
+// or composed with other policy contracts.
+//
+// USAGE
+//   The owner calls checkAndSpend() before executing a transfer.  If the
+//   spend passes all policy checks the daily counter is incremented and
+//   the function returns true.  Otherwise it reverts.
+
+contract SpendGuard {
+
+    // ── Storage ─────────────────────────────────────────────────────────────
+
+    agent owner;
+    u256 daily_limit;
+    u256 single_limit;
+    u256 daily_spent;
+    u256 spend_day;               // day number (block.timestamp_ms / 86400000)
+    mapping(agent => bool) allowlist;
+    bool use_allowlist;
+
+    // ── Events ──────────────────────────────────────────────────────────────
+
+    event LimitSet(u256 daily, u256 single)
+    event Spent(agent indexed to, u256 value, u256 remaining)
+
+    // ── Constructor ─────────────────────────────────────────────────────────
+
+    /// @notice Deploy with initial spend limits.
+    /// @param  _owner   Agent that controls this guard.
+    /// @param  _daily   Maximum aggregate spend per day.
+    /// @param  _single  Maximum spend per single transaction.
+    constructor(agent _owner, u256 _daily, u256 _single) {
+        set owner = _owner;
+        set daily_limit = _daily;
+        set single_limit = _single;
+        set use_allowlist = false;
+    }
+
+    // ── Configuration ───────────────────────────────────────────────────────
+
+    /// @notice Update daily and single-tx spend limits.
+    /// @param  _daily   New daily aggregate limit.
+    /// @param  _single  New per-transaction limit.
+    function setLimits(u256 _daily, u256 _single) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set daily_limit = _daily;
+        set single_limit = _single;
+        emit LimitSet(_daily, _single);
+    }
+
+    /// @notice Add an agent to the allowlist.
+    /// @param  target  Agent to allow.
+    function allow(agent target) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set allowlist[target] = true;
+    }
+
+    /// @notice Remove an agent from the allowlist.
+    /// @param  target  Agent to deny.
+    function deny(agent target) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set allowlist[target] = false;
+    }
+
+    /// @notice Enable or disable the allowlist gate.
+    /// @param  on  true = only allowlisted recipients permitted.
+    function enableAllowlist(bool on) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set use_allowlist = on;
+    }
+
+    // ── Core ────────────────────────────────────────────────────────────────
+
+    /// @notice Validate a spend against all policies and record it.
+    ///
+    /// Checks: allowlist (if enabled), single-tx cap, daily aggregate cap.
+    /// On success, increments the daily counter and emits Spent.
+    ///
+    /// @param  to     Intended recipient.
+    /// @param  value  Amount to spend.
+    /// @return ok     Always true on success; reverts on failure.
+    function checkAndSpend(agent to, u256 value) external returns (bool ok) {
+        require(msg.sender == owner, "NOT_OWNER");
+
+        if (use_allowlist == true) {
+            require(allowlist[to] == true, "NOT_ALLOWED");
+        }
+
+        require(value <= single_limit, "OVER_SINGLE");
+
+        let today: u256 = block.timestamp_ms / 86400000;
+        if (today != spend_day) {
+            set daily_spent = 0;
+            set spend_day = today;
+        }
+        require(daily_spent + value <= daily_limit, "OVER_DAILY");
+        set daily_spent = daily_spent + value;
+
+        emit Spent(to, value, daily_limit - daily_spent);
+        return true;
+    }
+
+    // ── View Functions ──────────────────────────────────────────────────────
+
+    function getDailyLimit() public view returns (u256) {
+        return daily_limit;
+    }
+
+    function getSingleLimit() public view returns (u256) {
+        return single_limit;
+    }
+
+    function getDailySpent() public view returns (u256) {
+        return daily_spent;
+    }
+
+    function getDailyRemaining() public view returns (u256) {
+        let today: u256 = block.timestamp_ms / 86400000;
+        if (today != spend_day) {
+            return daily_limit;
+        }
+        if (daily_spent >= daily_limit) {
+            return 0;
+        }
+        return daily_limit - daily_spent;
+    }
+
+    function isAllowed(agent target) public view returns (bool) {
+        if (use_allowlist != true) {
+            return true;
+        }
+        return allowlist[target];
+    }
+}

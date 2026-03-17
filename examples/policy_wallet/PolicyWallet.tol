@@ -1,0 +1,333 @@
+pragma tolang 0.4.0;
+
+// PolicyWallet — 2046-architecture policy-bound programmable account.
+//
+// OVERVIEW
+// ────────
+// A policy wallet is an AA-compatible account contract that enforces
+// programmable spending policies on-chain: spend caps (daily + per-tx),
+// allowlists, terminal-scoped authority, guardian recovery with timelock,
+// delegated agent authority with bounded allowances, and suspension.
+//
+// The gtos protocol recognises this as an AA account contract and calls
+// validate() before executing any inbound transaction.
+//
+// POLICIES
+// ────────
+//   Spend caps       — daily aggregate and single-tx maximums.
+//   Allowlist         — optional whitelist of permitted recipients.
+//   Terminal tiers    — per-terminal-class value limits and trust requirements.
+//   Delegation        — time-bounded, value-capped authority for sub-agents.
+//   Guardian recovery — timelock-protected ownership transfer by guardian.
+//   Suspension        — instant freeze by owner or guardian.
+//
+// DEPLOYMENT
+//   tol compile PolicyWallet.tol
+//   # deploy from owner EOA with constructor args:
+//   # abi.encode(owner, guardian, dailyLimit, singleTxLimit, recoveryTimelock)
+
+account contract PolicyWallet {
+
+    // ── Storage ─────────────────────────────────────────────────────────────
+
+    agent owner;
+    agent guardian;
+
+    // Spend caps
+    u256 daily_spend_limit;
+    u256 daily_spent;
+    u256 last_spend_day;         // day number (block.timestamp_ms / 86400000)
+    u256 single_tx_limit;
+
+    // Allowlist
+    mapping(agent => bool) allowlist;
+    bool allowlist_enabled;
+
+    // Terminal trust tiers (0=untrusted, 1=low, 2=medium, 3=high, 4=full)
+    // Terminal class encoded as u256: 0=app, 1=card, 2=pos, 3=voice, 4=kiosk, 5=robot, 6=api
+    mapping(u256 => u256) terminal_max_value;       // terminal_class => max single tx value
+    mapping(u256 => u256) terminal_trust_tier;       // terminal_class => required trust tier
+
+    // Delayed execution
+    u256 delay_threshold;        // value above which execution is delayed
+    u256 delay_duration;         // delay in milliseconds
+
+    // Recovery
+    bool recovery_active;
+    u256 recovery_initiated_at;
+    agent recovery_new_owner;
+    u256 recovery_timelock;      // milliseconds before recovery completes
+
+    // Delegation
+    mapping(agent => u256) delegate_allowance;       // delegated agent => max value
+    mapping(agent => u256) delegate_expiry;           // delegated agent => expiry timestamp (ms)
+
+    // Suspension
+    bool suspended;
+
+    // ── Events ──────────────────────────────────────────────────────────────
+
+    event SpendCapUpdated(agent indexed owner, u256 dailyLimit, u256 singleTxLimit)
+    event AllowlistUpdated(agent indexed target, bool allowed)
+    event TerminalPolicySet(u256 indexed terminalClass, u256 maxValue, u256 trustTier)
+    event DelegateAuthorized(agent indexed delegate, u256 allowance, u256 expiry)
+    event DelegateRevoked(agent indexed delegate)
+    event RecoveryInitiated(agent indexed guardian, agent newOwner, u256 completesAt)
+    event RecoveryCancelled(agent indexed owner)
+    event RecoveryCompleted(agent indexed newOwner)
+    event Suspended(agent indexed by)
+    event Unsuspended(agent indexed by)
+    event Executed(agent indexed from, agent indexed to, u256 value)
+
+    // ── Constructor ─────────────────────────────────────────────────────────
+
+    /// @notice Deploy the policy wallet with initial configuration.
+    /// @param  _owner            Agent that controls this wallet.
+    /// @param  _guardian         Agent that can initiate recovery and suspend.
+    /// @param  _dailyLimit       Maximum aggregate spend per day.
+    /// @param  _singleTxLimit    Maximum spend per single transaction.
+    /// @param  _recoveryTimelock Milliseconds before a recovery can complete.
+    constructor(agent _owner, agent _guardian, u256 _dailyLimit, u256 _singleTxLimit, u256 _recoveryTimelock) {
+        set owner = _owner;
+        set guardian = _guardian;
+        set daily_spend_limit = _dailyLimit;
+        set single_tx_limit = _singleTxLimit;
+        set recovery_timelock = _recoveryTimelock;
+        set delay_threshold = 0;
+        set delay_duration = 0;
+        set allowlist_enabled = false;
+        set suspended = false;
+        set recovery_active = false;
+    }
+
+    // ── AA: Validate ────────────────────────────────────────────────────────
+
+    /// @notice Called by the gtos protocol before executing any inbound transaction.
+    /// @param  tx_hash  keccak256 of the transaction fields.
+    /// @param  sig      Raw transaction calldata.
+    /// @return ok       true = proceed; false = reject without charging gas.
+    ///
+    function validate(bytes32 tx_hash, bytes sig) external returns (bool ok) {
+        if (suspended == true) {
+            return false;
+        }
+
+        // Owner always passes.
+        if (msg.sender == owner) {
+            return true;
+        }
+
+        // Delegated agents pass if active and not expired.
+        let del_allowance: u256 = delegate_allowance[msg.sender];
+        if (del_allowance > 0) {
+            let del_expiry: u256 = delegate_expiry[msg.sender];
+            if (del_expiry > 0 && block.timestamp_ms >= del_expiry) {
+                return false;
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    // ── Spend Policy ────────────────────────────────────────────────────────
+
+    /// @notice Update daily and single-tx spend caps.
+    /// @param  _dailyLimit    New daily aggregate limit.
+    /// @param  _singleTxLimit New per-transaction limit.
+    function setSpendCaps(u256 _dailyLimit, u256 _singleTxLimit) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set daily_spend_limit = _dailyLimit;
+        set single_tx_limit = _singleTxLimit;
+        emit SpendCapUpdated(owner, _dailyLimit, _singleTxLimit);
+    }
+
+    // ── Allowlist ───────────────────────────────────────────────────────────
+
+    /// @notice Enable or disable the allowlist gate.
+    /// @param  enabled  true = only allowlisted recipients permitted.
+    function setAllowlistEnabled(bool enabled) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set allowlist_enabled = enabled;
+    }
+
+    /// @notice Add or remove an agent from the allowlist.
+    /// @param  target   Agent to allow or deny.
+    /// @param  allowed  true = allow, false = deny.
+    function setAllowlisted(agent target, bool allowed) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set allowlist[target] = allowed;
+        emit AllowlistUpdated(target, allowed);
+    }
+
+    // ── Terminal Policy ─────────────────────────────────────────────────────
+
+    /// @notice Configure spending limits and trust tier for a terminal class.
+    /// @param  terminalClass  Terminal type (0=app, 1=card, 2=pos, 3=voice, 4=kiosk, 5=robot, 6=api).
+    /// @param  maxValue       Maximum single transaction value for this terminal class.
+    /// @param  trustTier      Minimum trust tier required (0-4).
+    function setTerminalPolicy(u256 terminalClass, u256 maxValue, u256 trustTier) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set terminal_max_value[terminalClass] = maxValue;
+        set terminal_trust_tier[terminalClass] = trustTier;
+        emit TerminalPolicySet(terminalClass, maxValue, trustTier);
+    }
+
+    // ── Delegation ──────────────────────────────────────────────────────────
+
+    /// @notice Grant a delegated agent bounded authority to act on behalf of this wallet.
+    /// @param  delegate   Agent to authorize.
+    /// @param  _allowance Maximum aggregate value the delegate may spend.
+    /// @param  _expiry    Expiry timestamp in milliseconds (0 = no expiry).
+    function authorizeDelegate(agent delegate, u256 _allowance, u256 _expiry) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set delegate_allowance[delegate] = _allowance;
+        set delegate_expiry[delegate] = _expiry;
+        emit DelegateAuthorized(delegate, _allowance, _expiry);
+    }
+
+    /// @notice Immediately revoke a delegated agent's authority.
+    /// @param  delegate  Agent to revoke.
+    function revokeDelegate(agent delegate) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set delegate_allowance[delegate] = 0;
+        set delegate_expiry[delegate] = 0;
+        emit DelegateRevoked(delegate);
+    }
+
+    // ── Guardian & Recovery ─────────────────────────────────────────────────
+
+    /// @notice Guardian initiates ownership recovery with a timelock.
+    /// @param  newOwner  Proposed new owner agent.
+    function initiateRecovery(agent newOwner) external {
+        require(msg.sender == guardian, "NOT_GUARDIAN");
+        require(recovery_active != true, "RECOVERY_ACTIVE");
+        set recovery_active = true;
+        set recovery_initiated_at = block.timestamp_ms;
+        set recovery_new_owner = newOwner;
+        emit RecoveryInitiated(guardian, newOwner, block.timestamp_ms + recovery_timelock);
+    }
+
+    /// @notice Owner cancels an in-progress recovery.
+    function cancelRecovery() external {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(recovery_active == true, "NO_RECOVERY");
+        set recovery_active = false;
+        emit RecoveryCancelled(owner);
+    }
+
+    /// @notice Anyone can complete a recovery after the timelock has elapsed.
+    function completeRecovery() external {
+        require(recovery_active == true, "NO_RECOVERY");
+        require(block.timestamp_ms >= recovery_initiated_at + recovery_timelock, "TIMELOCK");
+        set owner = recovery_new_owner;
+        set recovery_active = false;
+        emit RecoveryCompleted(recovery_new_owner);
+    }
+
+    // ── Suspension ──────────────────────────────────────────────────────────
+
+    /// @notice Suspend the wallet. Owner or guardian can freeze all activity.
+    function suspend() external {
+        require(msg.sender == owner || msg.sender == guardian, "NOT_AUTHORIZED");
+        set suspended = true;
+        emit Suspended(msg.sender);
+    }
+
+    /// @notice Unsuspend the wallet. Only the owner can lift suspension.
+    function unsuspend() external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set suspended = false;
+        emit Unsuspended(msg.sender);
+    }
+
+    // ── Execute (policy-checked transfer) ───────────────────────────────────
+
+    /// @notice Execute a policy-checked value transfer from this wallet.
+    ///
+    /// Enforces: suspension check, authorization (owner or delegate),
+    /// allowlist gate, spend caps (single-tx and daily aggregate),
+    /// and delegate allowance consumption.
+    ///
+    /// @param  to     Recipient agent.
+    /// @param  value  Amount to transfer.
+    ///
+    function execute(agent to, u256 value) external payable {
+        require(suspended != true, "SUSPENDED");
+
+        // Authorization: owner or active delegate with sufficient allowance.
+        let is_owner: bool = false;
+        if (msg.sender == owner) {
+            is_owner = true;
+        }
+        if (is_owner != true) {
+            require(delegate_allowance[msg.sender] >= value, "NOT_AUTHORIZED");
+        }
+
+        // Allowlist gate.
+        if (allowlist_enabled == true) {
+            require(allowlist[to] == true, "NOT_ALLOWLISTED");
+        }
+
+        // Single-tx spend cap.
+        require(value <= single_tx_limit, "OVER_SINGLE_LIMIT");
+
+        // Daily aggregate spend cap.
+        let today: u256 = block.timestamp_ms / 86400000;
+        if (today != last_spend_day) {
+            set daily_spent = 0;
+            set last_spend_day = today;
+        }
+        require(daily_spent + value <= daily_spend_limit, "OVER_DAILY_LIMIT");
+        set daily_spent = daily_spent + value;
+
+        // If delegated, consume allowance and check expiry.
+        if (is_owner != true) {
+            let del_expiry: u256 = delegate_expiry[msg.sender];
+            if (del_expiry > 0) {
+                require(block.timestamp_ms < del_expiry, "DELEGATE_EXPIRED");
+            }
+            set delegate_allowance[msg.sender] = delegate_allowance[msg.sender] - value;
+        }
+
+        emit Executed(msg.sender, to, value);
+    }
+
+    // ── View Functions ──────────────────────────────────────────────────────
+
+    function getOwner() public view returns (agent) {
+        return owner;
+    }
+
+    function getGuardian() public view returns (agent) {
+        return guardian;
+    }
+
+    function getDailySpendLimit() public view returns (u256) {
+        return daily_spend_limit;
+    }
+
+    function getSingleTxLimit() public view returns (u256) {
+        return single_tx_limit;
+    }
+
+    function getDailySpent() public view returns (u256) {
+        return daily_spent;
+    }
+
+    function isSuspended() public view returns (bool) {
+        return suspended;
+    }
+
+    function isRecoveryActive() public view returns (bool) {
+        return recovery_active;
+    }
+
+    function getDelegateAllowance(agent delegate) public view returns (u256) {
+        return delegate_allowance[delegate];
+    }
+
+    // ── Receive ─────────────────────────────────────────────────────────────
+
+    receive() external payable {}
+}

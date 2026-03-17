@@ -1,0 +1,158 @@
+pragma tolang 0.4.0;
+
+// GuardianRecovery — threshold-based guardian recovery for wallet ownership.
+//
+// OVERVIEW
+// ────────
+// Multiple guardians can be registered by the wallet owner.  To initiate a
+// recovery, a guardian proposes a new owner.  Other guardians approve.  Once
+// the approval threshold is met AND the timelock has elapsed, anyone can
+// execute the recovery to transfer ownership.
+//
+// The owner can cancel an in-progress recovery at any time before execution.
+//
+// DESIGN NOTES
+// ────────────
+// Guardians are stored in a flat index-based mapping for gas-efficient
+// enumeration.  The is_guardian mapping provides O(1) membership checks.
+// Approval tracking uses a per-agent boolean mapping; resetting approvals
+// on cancellation is handled by incrementing a recovery nonce (approval
+// votes reference the current nonce implicitly).
+
+contract GuardianRecovery {
+
+    // ── Storage ─────────────────────────────────────────────────────────────
+
+    agent owner;
+    u256 guardian_count;
+    u256 threshold;                           // required guardian approvals
+    u256 timelock;                            // milliseconds before recovery executes
+    mapping(u256 => agent) guardians;         // index => guardian
+    mapping(agent => bool) is_guardian;
+
+    // Active recovery state
+    bool active;
+    agent proposed_owner;
+    u256 initiated_at;
+    u256 approval_count;
+    u256 recovery_nonce;                      // incremented on cancel to invalidate old approvals
+    mapping(agent => u256) approved_at_nonce; // guardian => nonce when they approved
+
+    // ── Events ──────────────────────────────────────────────────────────────
+
+    event GuardianAdded(agent indexed guardian, u256 index)
+    event GuardianRemoved(agent indexed guardian)
+    event RecoveryStarted(agent indexed proposedOwner, u256 completesAt)
+    event GuardianApproved(agent indexed guardian, u256 approvalCount)
+    event RecoveryCancelled()
+    event RecoveryExecuted(agent indexed oldOwner, agent indexed newOwner)
+
+    // ── Constructor ─────────────────────────────────────────────────────────
+
+    /// @notice Deploy with initial owner, approval threshold, and timelock.
+    /// @param  _owner     Initial wallet owner.
+    /// @param  _threshold Number of guardian approvals required.
+    /// @param  _timelock  Milliseconds before recovery can execute after threshold met.
+    constructor(agent _owner, u256 _threshold, u256 _timelock) {
+        set owner = _owner;
+        set threshold = _threshold;
+        set timelock = _timelock;
+        set guardian_count = 0;
+        set active = false;
+        set recovery_nonce = 0;
+    }
+
+    // ── Guardian Management ─────────────────────────────────────────────────
+
+    /// @notice Add a guardian. Only the owner can add guardians.
+    /// @param  g  Agent to register as a guardian.
+    function addGuardian(agent g) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(is_guardian[g] != true, "ALREADY_GUARDIAN");
+        set guardians[guardian_count] = g;
+        set is_guardian[g] = true;
+        set guardian_count = guardian_count + 1;
+        emit GuardianAdded(g, guardian_count - 1);
+    }
+
+    /// @notice Remove a guardian. Cannot remove during active recovery.
+    /// @param  g  Agent to remove from guardians.
+    function removeGuardian(agent g) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(is_guardian[g] == true, "NOT_GUARDIAN");
+        require(active != true, "RECOVERY_ACTIVE");
+        set is_guardian[g] = false;
+        emit GuardianRemoved(g);
+    }
+
+    // ── Recovery Flow ───────────────────────────────────────────────────────
+
+    /// @notice A guardian starts a recovery by proposing a new owner.
+    /// @param  newOwner  Proposed new owner agent.
+    function startRecovery(agent newOwner) external {
+        require(is_guardian[msg.sender] == true, "NOT_GUARDIAN");
+        require(active != true, "ALREADY_ACTIVE");
+        set recovery_nonce = recovery_nonce + 1;
+        set active = true;
+        set proposed_owner = newOwner;
+        set initiated_at = block.timestamp_ms;
+        set approval_count = 1;
+        set approved_at_nonce[msg.sender] = recovery_nonce;
+        emit RecoveryStarted(newOwner, block.timestamp_ms + timelock);
+    }
+
+    /// @notice A guardian approves the current recovery proposal.
+    function approveRecovery() external {
+        require(is_guardian[msg.sender] == true, "NOT_GUARDIAN");
+        require(active == true, "NOT_ACTIVE");
+        require(approved_at_nonce[msg.sender] != recovery_nonce, "ALREADY_APPROVED");
+        set approved_at_nonce[msg.sender] = recovery_nonce;
+        set approval_count = approval_count + 1;
+        emit GuardianApproved(msg.sender, approval_count);
+    }
+
+    /// @notice Execute recovery after threshold approvals and timelock elapsed.
+    function executeRecovery() external {
+        require(active == true, "NOT_ACTIVE");
+        require(approval_count >= threshold, "INSUFFICIENT_APPROVALS");
+        require(block.timestamp_ms >= initiated_at + timelock, "TIMELOCK");
+        let old_owner: agent = owner;
+        set owner = proposed_owner;
+        set active = false;
+        emit RecoveryExecuted(old_owner, proposed_owner);
+    }
+
+    /// @notice Owner cancels an in-progress recovery.
+    function cancelRecovery() external {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(active == true, "NOT_ACTIVE");
+        set active = false;
+        emit RecoveryCancelled();
+    }
+
+    // ── View Functions ──────────────────────────────────────────────────────
+
+    function getOwner() public view returns (agent) {
+        return owner;
+    }
+
+    function getThreshold() public view returns (u256) {
+        return threshold;
+    }
+
+    function getGuardianCount() public view returns (u256) {
+        return guardian_count;
+    }
+
+    function isGuardian(agent g) public view returns (bool) {
+        return is_guardian[g];
+    }
+
+    function isRecoveryActive() public view returns (bool) {
+        return active;
+    }
+
+    function getApprovalCount() public view returns (u256) {
+        return approval_count;
+    }
+}

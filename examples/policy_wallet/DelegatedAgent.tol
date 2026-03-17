@@ -36,6 +36,7 @@ contract DelegatedAgent {
     /// @notice Deploy with the controlling owner.
     /// @param  _owner  Agent that manages delegations.
     constructor(agent _owner) {
+        require(_owner != agent(0), "ZERO_OWNER");
         set owner = _owner;
     }
 
@@ -47,6 +48,8 @@ contract DelegatedAgent {
     /// @param  expiryTime  Expiry timestamp in milliseconds (0 = no expiry).
     function grant(agent delegate, u256 maxValue, u256 expiryTime) external {
         require(msg.sender == owner, "NOT_OWNER");
+        require(delegate != agent(0), "ZERO_DELEGATE");
+        require(maxValue > 0, "ZERO_ALLOWANCE");
         set allowance[delegate] = maxValue;
         set expiry[delegate] = expiryTime;
         set used[delegate] = 0;
@@ -74,6 +77,8 @@ contract DelegatedAgent {
     /// @param  amount    Value to consume.
     /// @return ok        Always true on success; reverts on failure.
     function use(agent delegate, u256 amount) external returns (bool ok) {
+        require(msg.sender == owner || msg.sender == delegate, "NOT_AUTHORIZED");
+        require(amount > 0, "ZERO_AMOUNT");
         require(active[delegate] == true, "NOT_ACTIVE");
         let del_expiry: u256 = expiry[delegate];
         if (del_expiry > 0) {

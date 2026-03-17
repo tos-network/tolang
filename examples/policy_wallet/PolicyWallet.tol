@@ -88,6 +88,9 @@ account contract PolicyWallet {
     /// @param  _singleTxLimit    Maximum spend per single transaction.
     /// @param  _recoveryTimelock Milliseconds before a recovery can complete.
     constructor(agent _owner, agent _guardian, u256 _dailyLimit, u256 _singleTxLimit, u256 _recoveryTimelock) {
+        require(_owner != agent(0), "ZERO_OWNER");
+        require(_guardian != agent(0), "ZERO_GUARDIAN");
+        require(_owner != _guardian, "OWNER_IS_GUARDIAN");
         set owner = _owner;
         set guardian = _guardian;
         set daily_spend_limit = _dailyLimit;
@@ -181,6 +184,8 @@ account contract PolicyWallet {
     /// @param  _expiry    Expiry timestamp in milliseconds (0 = no expiry).
     function authorizeDelegate(agent delegate, u256 _allowance, u256 _expiry) external {
         require(msg.sender == owner, "NOT_OWNER");
+        require(delegate != agent(0), "ZERO_DELEGATE");
+        require(delegate != owner, "DELEGATE_IS_OWNER");
         set delegate_allowance[delegate] = _allowance;
         set delegate_expiry[delegate] = _expiry;
         emit DelegateAuthorized(delegate, _allowance, _expiry);
@@ -202,6 +207,8 @@ account contract PolicyWallet {
     function initiateRecovery(agent newOwner) external {
         require(msg.sender == guardian, "NOT_GUARDIAN");
         require(recovery_active != true, "RECOVERY_ACTIVE");
+        require(newOwner != agent(0), "ZERO_NEW_OWNER");
+        require(newOwner != owner, "ALREADY_OWNER");
         set recovery_active = true;
         set recovery_initiated_at = block.timestamp_ms;
         set recovery_new_owner = newOwner;
@@ -220,9 +227,12 @@ account contract PolicyWallet {
     function completeRecovery() external {
         require(recovery_active == true, "NO_RECOVERY");
         require(block.timestamp_ms >= recovery_initiated_at + recovery_timelock, "TIMELOCK");
-        set owner = recovery_new_owner;
+        let new_owner: agent = recovery_new_owner;
+        set owner = new_owner;
         set recovery_active = false;
-        emit RecoveryCompleted(recovery_new_owner);
+        set recovery_new_owner = agent(0);
+        set recovery_initiated_at = 0;
+        emit RecoveryCompleted(new_owner);
     }
 
     // ── Suspension ──────────────────────────────────────────────────────────
@@ -261,8 +271,17 @@ account contract PolicyWallet {
             is_owner = true;
         }
         if (is_owner != true) {
+            // Check expiry BEFORE allowance to prevent expired delegates from acting.
+            let del_expiry: u256 = delegate_expiry[msg.sender];
+            if (del_expiry > 0) {
+                require(block.timestamp_ms < del_expiry, "DELEGATE_EXPIRED");
+            }
             require(delegate_allowance[msg.sender] >= value, "NOT_AUTHORIZED");
         }
+
+        // Reject zero-value and zero-recipient transfers.
+        require(value > 0, "ZERO_VALUE");
+        require(to != agent(0), "ZERO_RECIPIENT");
 
         // Allowlist gate.
         if (allowlist_enabled == true) {
@@ -281,12 +300,8 @@ account contract PolicyWallet {
         require(daily_spent + value <= daily_spend_limit, "OVER_DAILY_LIMIT");
         set daily_spent = daily_spent + value;
 
-        // If delegated, consume allowance and check expiry.
+        // If delegated, consume allowance.
         if (is_owner != true) {
-            let del_expiry: u256 = delegate_expiry[msg.sender];
-            if (del_expiry > 0) {
-                require(block.timestamp_ms < del_expiry, "DELEGATE_EXPIRED");
-            }
             set delegate_allowance[msg.sender] = delegate_allowance[msg.sender] - value;
         }
 

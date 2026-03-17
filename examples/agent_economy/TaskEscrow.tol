@@ -57,6 +57,8 @@ contract TaskEscrow {
     /// @param  _owner           Contract admin.
     /// @param  _oracle_resolver Agent authorized to rule on disputes.
     constructor(agent _owner, agent _oracle_resolver) {
+        require(_owner != agent(0), "ZERO_OWNER");
+        require(_oracle_resolver != agent(0), "ZERO_RESOLVER");
         set owner = _owner;
         set oracle_resolver = _oracle_resolver;
         set next_task_id = 1;
@@ -90,6 +92,7 @@ contract TaskEscrow {
     function acceptTask(u256 task_id) external {
         require(task_status[task_id] == 1, "NOT_OPEN");
         require(block.timestamp_ms < task_deadline[task_id], "EXPIRED");
+        require(msg.sender != task_poster[task_id], "POSTER_CANNOT_ACCEPT");
 
         set task_worker[task_id] = msg.sender;
         set task_status[task_id] = 2;
@@ -185,9 +188,10 @@ contract TaskEscrow {
         let status: u8 = task_status[task_id];
         require(status == 1 || status == 2, "WRONG_STATUS");
         require(block.timestamp_ms >= task_deadline[task_id], "NOT_EXPIRED");
+        let poster: agent = task_poster[task_id];
+        require(msg.sender == poster, "NOT_POSTER");
 
         set task_status[task_id] = 8;
-        let poster: agent = task_poster[task_id];
         let reward: u256 = task_reward[task_id];
         release(poster, reward);
         emit TaskCancelled(task_id, poster);

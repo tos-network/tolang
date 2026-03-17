@@ -55,6 +55,7 @@ contract TerminalAuthority {
     /// @notice Deploy with the controlling owner.
     /// @param  _owner  Agent that configures terminal policies.
     constructor(agent _owner) {
+        require(_owner != agent(0), "ZERO_OWNER");
         set owner = _owner;
     }
 
@@ -115,6 +116,8 @@ contract TerminalAuthority {
     /// @param  terminalId     Hash of the specific terminal device.
     /// @return ok             Always true on success; reverts on failure.
     function checkTerminalAuth(u256 terminalClass, u256 trustTier, u256 value, bytes32 terminalId) external returns (bool ok) {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(value > 0, "ZERO_VALUE");
         require(terminal_enabled[terminalClass] == true, "TERMINAL_DISABLED");
         require(revoked_terminals[terminalId] != true, "TERMINAL_REVOKED");
         require(trustTier >= min_trust_tier[terminalClass], "TRUST_TOO_LOW");

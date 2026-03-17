@@ -35,6 +35,7 @@ contract SpendGuard {
     /// @param  _daily   Maximum aggregate spend per day.
     /// @param  _single  Maximum spend per single transaction.
     constructor(agent _owner, u256 _daily, u256 _single) {
+        require(_owner != agent(0), "ZERO_OWNER");
         set owner = _owner;
         set daily_limit = _daily;
         set single_limit = _single;
@@ -86,6 +87,8 @@ contract SpendGuard {
     /// @return ok     Always true on success; reverts on failure.
     function checkAndSpend(agent to, u256 value) external returns (bool ok) {
         require(msg.sender == owner, "NOT_OWNER");
+        require(value > 0, "ZERO_VALUE");
+        require(to != agent(0), "ZERO_RECIPIENT");
 
         if (use_allowlist == true) {
             require(allowlist[to] == true, "NOT_ALLOWED");

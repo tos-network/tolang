@@ -58,6 +58,8 @@ contract MerchantPayment {
     /// @param  _owner                   Contract admin.
     /// @param  _default_refund_window   Default refund window in milliseconds.
     constructor(agent _owner, u256 _default_refund_window) {
+        require(_owner != agent(0), "ZERO_OWNER");
+        require(_default_refund_window > 0, "ZERO_REFUND_WINDOW");
         set owner = _owner;
         set next_payment_id = 1;
         set default_refund_window_ms = _default_refund_window;
@@ -107,6 +109,8 @@ contract MerchantPayment {
     /// @return payment_id      Unique payment identifier.
     function pay(agent merchant, u256 terminal_class, bytes32 ref) external payable returns (u256 payment_id) {
         require(msg.value > 0, "NO_VALUE");
+        require(merchant != agent(0), "ZERO_MERCHANT");
+        require(msg.sender != merchant, "SELF_PAYMENT");
         require(merchant_active[merchant] == true, "MERCHANT_NOT_ACTIVE");
         require(merchant_terminal_enabled[merchant][terminal_class] == true, "TERMINAL_NOT_ENABLED");
 

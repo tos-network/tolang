@@ -38,6 +38,7 @@ contract SponsorRelay {
     /// @notice Deploy the sponsor relay.
     /// @param  _owner  Sponsor agent who funds and manages the relay.
     constructor(agent _owner) {
+        require(_owner != agent(0), "ZERO_OWNER");
         set owner = _owner;
         set total_deposited = 0;
         set total_spent = 0;
@@ -71,6 +72,7 @@ contract SponsorRelay {
     /// @param  budget   Maximum total spend this relayer may incur.
     function authorizeRelayer(agent relayer, u256 budget) external {
         require(msg.sender == owner, "NOT_SPONSOR");
+        require(relayer != agent(0), "ZERO_RELAYER");
         set authorized_relayers[relayer] = true;
         set relayer_budget[relayer] = budget;
         set relayer_spent[relayer] = 0;
@@ -105,6 +107,8 @@ contract SponsorRelay {
     @delegated
     function relay(agent target, bytes data, agent user, u256 cost) external {
         require(authorized_relayers[msg.sender] == true, "NOT_RELAYER");
+        require(target != agent(0), "ZERO_TARGET");
+        require(cost > 0, "ZERO_COST");
         require(relayer_spent[msg.sender] + cost <= relayer_budget[msg.sender], "OVER_BUDGET");
 
         let available: u256 = total_deposited - total_spent;

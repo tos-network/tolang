@@ -1,0 +1,217 @@
+pragma tolang 0.4.0;
+
+// TaskEscrow -- agent-to-agent task marketplace with escrow and dispute resolution.
+//
+// OVERVIEW
+// --------
+// A poster creates a task by depositing a reward into escrow.  A worker accepts
+// the task, performs it, and submits a result hash.  The poster then approves
+// (releasing funds to the worker) or rejects.  A rejected task can be disputed,
+// invoking an oracle resolver for final arbitration.
+//
+// LIFECYCLE
+//   Open -> Accepted -> Submitted -> Approved   (happy path)
+//                                 -> Rejected -> Disputed -> Resolved
+//   Open -> Cancelled                           (poster withdraws)
+
+capability Arbitrator;
+
+contract TaskEscrow {
+
+    manifest {
+        version:      "1.0.0";
+        capabilities: [Arbitrator];
+        spec:         "ipfs://Qm_task_escrow_agent_economy";
+    }
+
+    // ---- Storage --------------------------------------------------------
+
+    agent owner;
+    agent oracle_resolver;               // agent authorized to rule disputes
+    u256  next_task_id;
+
+    // Task fields stored as flat mappings for O(1) slot access.
+    mapping(u256 => agent)   task_poster;
+    mapping(u256 => agent)   task_worker;
+    mapping(u256 => u256)    task_reward;
+    mapping(u256 => u256)    task_deadline;       // expiry timestamp in ms
+    mapping(u256 => bytes32) task_spec_hash;
+    mapping(u256 => bytes32) task_result_hash;
+    mapping(u256 => u8)      task_status;
+    // status: 0=none, 1=open, 2=accepted, 3=submitted, 4=approved, 5=rejected, 6=disputed, 7=resolved, 8=cancelled
+
+    // ---- Events ---------------------------------------------------------
+
+    event TaskPosted(u256 indexed task_id, agent indexed poster, u256 reward, u256 deadline, bytes32 spec_hash)
+    event TaskAccepted(u256 indexed task_id, agent indexed worker)
+    event TaskSubmitted(u256 indexed task_id, agent indexed worker, bytes32 result_hash)
+    event TaskApproved(u256 indexed task_id, agent indexed poster, agent indexed worker, u256 reward)
+    event TaskRejected(u256 indexed task_id, agent indexed poster, string reason)
+    event TaskDisputed(u256 indexed task_id, agent indexed disputer, u256 bond)
+    event TaskResolved(u256 indexed task_id, agent indexed winner, u256 payout)
+    event TaskCancelled(u256 indexed task_id, agent indexed poster)
+
+    // ---- Constructor ----------------------------------------------------
+
+    /// @notice Deploy the task escrow with an oracle resolver for disputes.
+    /// @param  _owner           Contract admin.
+    /// @param  _oracle_resolver Agent authorized to rule on disputes.
+    constructor(agent _owner, agent _oracle_resolver) {
+        set owner = _owner;
+        set oracle_resolver = _oracle_resolver;
+        set next_task_id = 1;
+    }
+
+    // ---- Task Lifecycle -------------------------------------------------
+
+    /// @notice Post a new task with an escrowed reward.
+    /// @param  spec_hash   IPFS hash of the task specification.
+    /// @param  deadline_ms Deadline timestamp in milliseconds.
+    /// @return task_id     Unique task identifier.
+    function postTask(bytes32 spec_hash, u256 deadline_ms) external payable returns (u256 task_id) {
+        require(msg.value > 0, "NO_REWARD");
+        require(deadline_ms > block.timestamp_ms, "DEADLINE_PAST");
+
+        task_id = next_task_id;
+        set next_task_id = next_task_id + 1;
+
+        set task_poster[task_id] = msg.sender;
+        set task_reward[task_id] = msg.value;
+        set task_deadline[task_id] = deadline_ms;
+        set task_spec_hash[task_id] = spec_hash;
+        set task_status[task_id] = 1;
+
+        escrow(msg.sender, msg.value);
+        emit TaskPosted(task_id, msg.sender, msg.value, deadline_ms, spec_hash);
+    }
+
+    /// @notice Worker accepts an open task.
+    /// @param  task_id  Task to accept.
+    function acceptTask(u256 task_id) external {
+        require(task_status[task_id] == 1, "NOT_OPEN");
+        require(block.timestamp_ms < task_deadline[task_id], "EXPIRED");
+
+        set task_worker[task_id] = msg.sender;
+        set task_status[task_id] = 2;
+        emit TaskAccepted(task_id, msg.sender);
+    }
+
+    /// @notice Worker submits the result hash for an accepted task.
+    /// @param  task_id      Task to submit results for.
+    /// @param  result_hash  Hash of the deliverable.
+    function submitTask(u256 task_id, bytes32 result_hash) external {
+        require(task_status[task_id] == 2, "NOT_ACCEPTED");
+        require(msg.sender == task_worker[task_id], "NOT_WORKER");
+
+        set task_result_hash[task_id] = result_hash;
+        set task_status[task_id] = 3;
+        emit TaskSubmitted(task_id, msg.sender, result_hash);
+    }
+
+    /// @notice Poster approves submitted work, releasing reward to the worker.
+    /// @param  task_id  Task to approve.
+    function approveTask(u256 task_id) external {
+        require(task_status[task_id] == 3, "NOT_SUBMITTED");
+        require(msg.sender == task_poster[task_id], "NOT_POSTER");
+
+        set task_status[task_id] = 4;
+        let worker: agent = task_worker[task_id];
+        let reward: u256 = task_reward[task_id];
+        release(worker, reward);
+        emit TaskApproved(task_id, msg.sender, worker, reward);
+    }
+
+    /// @notice Poster rejects submitted work.
+    /// @param  task_id  Task to reject.
+    /// @param  reason   Human-readable rejection reason.
+    function rejectTask(u256 task_id, string reason) external {
+        require(task_status[task_id] == 3, "NOT_SUBMITTED");
+        require(msg.sender == task_poster[task_id], "NOT_POSTER");
+
+        set task_status[task_id] = 5;
+        emit TaskRejected(task_id, msg.sender, reason);
+    }
+
+    /// @notice Worker disputes a rejected task by posting a bond.
+    /// @param  task_id  Task to dispute.
+    function disputeTask(u256 task_id) external payable {
+        require(task_status[task_id] == 5, "NOT_REJECTED");
+        require(msg.sender == task_worker[task_id], "NOT_WORKER");
+        require(msg.value > 0, "NO_BOND");
+
+        set task_status[task_id] = 6;
+        escrow(msg.sender, msg.value);
+        emit TaskDisputed(task_id, msg.sender, msg.value);
+    }
+
+    /// @notice Oracle resolver rules on a disputed task.
+    /// @param  task_id       Task under dispute.
+    /// @param  worker_wins   true if the worker prevails, false if poster prevails.
+    @requires(caller: Arbitrator)
+    function resolveDispute(u256 task_id, bool worker_wins) external {
+        require(task_status[task_id] == 6, "NOT_DISPUTED");
+        require(msg.sender == oracle_resolver, "NOT_RESOLVER");
+
+        set task_status[task_id] = 7;
+        let reward: u256 = task_reward[task_id];
+
+        if (worker_wins == true) {
+            let worker: agent = task_worker[task_id];
+            release(worker, reward);
+            emit TaskResolved(task_id, worker, reward);
+        }
+        if (worker_wins != true) {
+            let poster: agent = task_poster[task_id];
+            release(poster, reward);
+            emit TaskResolved(task_id, poster, reward);
+        }
+    }
+
+    /// @notice Poster cancels an open (unaccepted) task and reclaims the reward.
+    /// @param  task_id  Task to cancel.
+    function cancelTask(u256 task_id) external {
+        require(task_status[task_id] == 1, "NOT_OPEN");
+        require(msg.sender == task_poster[task_id], "NOT_POSTER");
+
+        set task_status[task_id] = 8;
+        let reward: u256 = task_reward[task_id];
+        release(msg.sender, reward);
+        emit TaskCancelled(task_id, msg.sender);
+    }
+
+    /// @notice Reclaim reward from an expired, unfinished task.
+    /// @param  task_id  Task that has passed its deadline.
+    function reclaimExpired(u256 task_id) external {
+        let status: u8 = task_status[task_id];
+        require(status == 1 || status == 2, "WRONG_STATUS");
+        require(block.timestamp_ms >= task_deadline[task_id], "NOT_EXPIRED");
+
+        set task_status[task_id] = 8;
+        let poster: agent = task_poster[task_id];
+        let reward: u256 = task_reward[task_id];
+        release(poster, reward);
+        emit TaskCancelled(task_id, poster);
+    }
+
+    // ---- View Functions -------------------------------------------------
+
+    function getTaskStatus(u256 task_id) public view returns (u8) {
+        return task_status[task_id];
+    }
+
+    function getTaskReward(u256 task_id) public view returns (u256) {
+        return task_reward[task_id];
+    }
+
+    function getTaskPoster(u256 task_id) public view returns (agent) {
+        return task_poster[task_id];
+    }
+
+    function getTaskWorker(u256 task_id) public view returns (agent) {
+        return task_worker[task_id];
+    }
+
+    // ---- Receive --------------------------------------------------------
+
+    receive() external payable {}
+}

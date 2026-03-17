@@ -1,0 +1,206 @@
+pragma tolang 0.4.0;
+
+// MerchantPayment -- merchant payment flow for card-present / POS / voice scenarios.
+//
+// OVERVIEW
+// --------
+// Merchants register with the contract, specifying allowed terminal classes
+// (app, card, pos, voice, kiosk, etc.) and per-terminal value limits.
+// Customers make payments through authorized terminals.  Payments enter a
+// settlement window during which the merchant can issue refunds.  After the
+// window elapses, the merchant (or anyone) can finalize settlement.
+//
+// TERMINAL CLASSES
+//   0=app, 1=card, 2=pos, 3=voice, 4=kiosk, 5=robot, 6=api
+//
+// PAYMENT LIFECYCLE
+//   Pending -> Settled   (after refund window)
+//   Pending -> Refunded  (merchant refunds within window)
+
+contract MerchantPayment {
+
+    // ---- Storage --------------------------------------------------------
+
+    agent owner;
+    u256  next_payment_id;
+    u256  default_refund_window_ms;              // default refund window in ms
+
+    // Merchant registry
+    mapping(agent => bool)   merchant_active;
+    mapping(agent => u256)   merchant_refund_window;  // per-merchant custom refund window (0 = use default)
+
+    // Merchant terminal policies: merchant => terminal_class => max_value
+    mapping(agent => mapping(u256 => u256)) merchant_terminal_max;
+    // Merchant terminal enabled: merchant => terminal_class => enabled
+    mapping(agent => mapping(u256 => bool)) merchant_terminal_enabled;
+
+    // Payment records (flat mappings)
+    mapping(u256 => agent)   payment_customer;
+    mapping(u256 => agent)   payment_merchant;
+    mapping(u256 => u256)    payment_amount;
+    mapping(u256 => u256)    payment_terminal_class;
+    mapping(u256 => u256)    payment_timestamp;
+    mapping(u256 => u8)      payment_status;       // 0=none, 1=pending, 2=settled, 3=refunded
+    mapping(u256 => bytes32) payment_ref;           // external reference for receipt
+
+    // ---- Events ---------------------------------------------------------
+
+    event MerchantRegistered(agent indexed merchant)
+    event MerchantTerminalSet(agent indexed merchant, u256 indexed terminal_class, u256 max_value, bool enabled)
+    event PaymentCreated(u256 indexed payment_id, agent indexed customer, agent indexed merchant, u256 amount, u256 terminal_class, bytes32 ref)
+    event PaymentSettled(u256 indexed payment_id, agent indexed merchant, u256 amount)
+    event PaymentRefunded(u256 indexed payment_id, agent indexed customer, u256 amount)
+    event MerchantDeactivated(agent indexed merchant)
+
+    // ---- Constructor ----------------------------------------------------
+
+    /// @notice Deploy the merchant payment contract.
+    /// @param  _owner                   Contract admin.
+    /// @param  _default_refund_window   Default refund window in milliseconds.
+    constructor(agent _owner, u256 _default_refund_window) {
+        set owner = _owner;
+        set next_payment_id = 1;
+        set default_refund_window_ms = _default_refund_window;
+    }
+
+    // ---- Merchant Registration ------------------------------------------
+
+    /// @notice Register as a merchant.
+    function registerMerchant() external {
+        require(merchant_active[msg.sender] != true, "ALREADY_REGISTERED");
+        set merchant_active[msg.sender] = true;
+        emit MerchantRegistered(msg.sender);
+    }
+
+    /// @notice Configure a terminal class for the calling merchant.
+    /// @param  terminal_class  Terminal type (0=app, 1=card, 2=pos, 3=voice, 4=kiosk, 5=robot, 6=api).
+    /// @param  max_value       Maximum payment value through this terminal class.
+    /// @param  enabled         Whether this terminal class is enabled.
+    function setTerminalPolicy(u256 terminal_class, u256 max_value, bool enabled) external {
+        require(merchant_active[msg.sender] == true, "NOT_MERCHANT");
+        set merchant_terminal_max[msg.sender][terminal_class] = max_value;
+        set merchant_terminal_enabled[msg.sender][terminal_class] = enabled;
+        emit MerchantTerminalSet(msg.sender, terminal_class, max_value, enabled);
+    }
+
+    /// @notice Set a custom refund window for the calling merchant.
+    /// @param  window_ms  Refund window in milliseconds (0 = use default).
+    function setRefundWindow(u256 window_ms) external {
+        require(merchant_active[msg.sender] == true, "NOT_MERCHANT");
+        set merchant_refund_window[msg.sender] = window_ms;
+    }
+
+    /// @notice Deactivate a merchant (owner only).
+    /// @param  merchant  Merchant to deactivate.
+    function deactivateMerchant(agent merchant) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set merchant_active[merchant] = false;
+        emit MerchantDeactivated(merchant);
+    }
+
+    // ---- Payment --------------------------------------------------------
+
+    /// @notice Customer pays a merchant through a terminal.
+    /// @param  merchant        Merchant receiving payment.
+    /// @param  terminal_class  Terminal class used for the payment.
+    /// @param  ref             External reference hash for receipt generation.
+    /// @return payment_id      Unique payment identifier.
+    function pay(agent merchant, u256 terminal_class, bytes32 ref) external payable returns (u256 payment_id) {
+        require(msg.value > 0, "NO_VALUE");
+        require(merchant_active[merchant] == true, "MERCHANT_NOT_ACTIVE");
+        require(merchant_terminal_enabled[merchant][terminal_class] == true, "TERMINAL_NOT_ENABLED");
+
+        let max_val: u256 = merchant_terminal_max[merchant][terminal_class];
+        if (max_val > 0) {
+            require(msg.value <= max_val, "OVER_TERMINAL_LIMIT");
+        }
+
+        payment_id = next_payment_id;
+        set next_payment_id = next_payment_id + 1;
+
+        set payment_customer[payment_id] = msg.sender;
+        set payment_merchant[payment_id] = merchant;
+        set payment_amount[payment_id] = msg.value;
+        set payment_terminal_class[payment_id] = terminal_class;
+        set payment_timestamp[payment_id] = block.timestamp_ms;
+        set payment_status[payment_id] = 1;
+        set payment_ref[payment_id] = ref;
+
+        escrow(msg.sender, msg.value);
+        emit PaymentCreated(payment_id, msg.sender, merchant, msg.value, terminal_class, ref);
+    }
+
+    // ---- Settlement -----------------------------------------------------
+
+    /// @notice Settle a payment after the refund window has elapsed.
+    /// @param  payment_id  Payment to settle.
+    function settle(u256 payment_id) external {
+        require(payment_status[payment_id] == 1, "NOT_PENDING");
+
+        let merchant: agent = payment_merchant[payment_id];
+        let window: u256 = merchant_refund_window[merchant];
+        if (window == 0) {
+            window = default_refund_window_ms;
+        }
+        require(block.timestamp_ms >= payment_timestamp[payment_id] + window, "REFUND_WINDOW_OPEN");
+
+        set payment_status[payment_id] = 2;
+        let pay_amount: u256 = payment_amount[payment_id];
+        release(merchant, pay_amount);
+        emit PaymentSettled(payment_id, merchant, pay_amount);
+    }
+
+    // ---- Refund ---------------------------------------------------------
+
+    /// @notice Merchant refunds a pending payment within the refund window.
+    /// @param  payment_id  Payment to refund.
+    function refund(u256 payment_id) external {
+        require(payment_status[payment_id] == 1, "NOT_PENDING");
+        require(msg.sender == payment_merchant[payment_id], "NOT_MERCHANT");
+
+        let merchant: agent = payment_merchant[payment_id];
+        let window: u256 = merchant_refund_window[merchant];
+        if (window == 0) {
+            window = default_refund_window_ms;
+        }
+        require(block.timestamp_ms < payment_timestamp[payment_id] + window, "REFUND_WINDOW_CLOSED");
+
+        set payment_status[payment_id] = 3;
+        let customer: agent = payment_customer[payment_id];
+        let pay_amount: u256 = payment_amount[payment_id];
+        release(customer, pay_amount);
+        emit PaymentRefunded(payment_id, customer, pay_amount);
+    }
+
+    // ---- View Functions -------------------------------------------------
+
+    @verifiable
+    function getPaymentStatus(u256 payment_id) public view returns (u8) {
+        return payment_status[payment_id];
+    }
+
+    @verifiable
+    function getPaymentAmount(u256 payment_id) public view returns (u256) {
+        return payment_amount[payment_id];
+    }
+
+    function getPaymentMerchant(u256 payment_id) public view returns (agent) {
+        return payment_merchant[payment_id];
+    }
+
+    function getPaymentCustomer(u256 payment_id) public view returns (agent) {
+        return payment_customer[payment_id];
+    }
+
+    function getPaymentRef(u256 payment_id) public view returns (bytes32) {
+        return payment_ref[payment_id];
+    }
+
+    function isMerchantActive(agent merchant) public view returns (bool) {
+        return merchant_active[merchant];
+    }
+
+    // ---- Receive --------------------------------------------------------
+
+    receive() external payable {}
+}

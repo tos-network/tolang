@@ -1,0 +1,134 @@
+pragma tolang 0.4.0;
+
+// RecurringPayment -- configurable recurring payment / subscription contract.
+//
+// OVERVIEW
+// --------
+// The owner authorizes a recurring transfer to a recipient with a fixed amount,
+// interval, and maximum number of executions.  Anyone can trigger execution
+// once the interval has elapsed (enabling keeper/cron agents).  The owner can
+// cancel the subscription at any time and withdraw remaining funds.
+
+contract RecurringPayment {
+
+    // ---- Storage --------------------------------------------------------
+
+    agent owner;
+    agent recipient;
+
+    u256 amount;                // payment amount per execution
+    u256 interval_ms;           // minimum milliseconds between executions
+    u256 max_executions;        // 0 = unlimited
+    u256 execution_count;       // how many times payment has been triggered
+    u256 last_execution_ms;     // timestamp of last execution
+    bool active;                // whether the subscription is active
+
+    // ---- Events ---------------------------------------------------------
+
+    event SubscriptionCreated(agent indexed owner, agent indexed recipient, u256 amount, u256 interval_ms, u256 max_executions)
+    event PaymentExecuted(u256 indexed execution_number, agent indexed recipient, u256 amount, agent indexed trigger)
+    event SubscriptionCancelled(agent indexed owner)
+    event FundsDeposited(agent indexed depositor, u256 amount)
+    event FundsWithdrawn(agent indexed owner, u256 amount)
+
+    // ---- Constructor ----------------------------------------------------
+
+    /// @notice Deploy a recurring payment subscription.
+    /// @param  _owner          Agent who controls the subscription.
+    /// @param  _recipient      Agent who receives payments.
+    /// @param  _amount         Payment amount per execution.
+    /// @param  _interval_ms    Minimum interval between payments in milliseconds.
+    /// @param  _max_executions Maximum number of payments (0 = unlimited).
+    constructor(agent _owner, agent _recipient, u256 _amount, u256 _interval_ms, u256 _max_executions) {
+        set owner = _owner;
+        set recipient = _recipient;
+        set amount = _amount;
+        set interval_ms = _interval_ms;
+        set max_executions = _max_executions;
+        set execution_count = 0;
+        set last_execution_ms = 0;
+        set active = true;
+        emit SubscriptionCreated(_owner, _recipient, _amount, _interval_ms, _max_executions);
+    }
+
+    // ---- Deposit --------------------------------------------------------
+
+    /// @notice Deposit funds to cover future payments.
+    function deposit() external payable {
+        require(msg.value > 0, "NO_VALUE");
+        emit FundsDeposited(msg.sender, msg.value);
+    }
+
+    // ---- Execute --------------------------------------------------------
+
+    /// @notice Trigger the next recurring payment. Anyone can call once the interval elapsed.
+    function execute() external {
+        require(active == true, "NOT_ACTIVE");
+
+        // Check max executions (0 = unlimited).
+        if (max_executions > 0) {
+            require(execution_count < max_executions, "MAX_REACHED");
+        }
+
+        // Check interval elapsed.
+        if (last_execution_ms > 0) {
+            require(block.timestamp_ms >= last_execution_ms + interval_ms, "TOO_EARLY");
+        }
+
+        set execution_count = execution_count + 1;
+        set last_execution_ms = block.timestamp_ms;
+
+        release(recipient, amount);
+        emit PaymentExecuted(execution_count, recipient, amount, msg.sender);
+    }
+
+    // ---- Cancel ---------------------------------------------------------
+
+    /// @notice Owner cancels the subscription.
+    function cancel() external {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(active == true, "NOT_ACTIVE");
+        set active = false;
+        emit SubscriptionCancelled(owner);
+    }
+
+    // ---- Withdraw -------------------------------------------------------
+
+    /// @notice Owner withdraws remaining funds after cancellation.
+    /// @param  withdraw_amount  Amount to withdraw.
+    function withdraw(u256 withdraw_amount) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(active != true, "STILL_ACTIVE");
+        release(owner, withdraw_amount);
+        emit FundsWithdrawn(owner, withdraw_amount);
+    }
+
+    // ---- View Functions -------------------------------------------------
+
+    function getExecutionCount() public view returns (u256) {
+        return execution_count;
+    }
+
+    function getNextExecutionTime() public view returns (u256) {
+        if (last_execution_ms == 0) {
+            return 0;
+        }
+        return last_execution_ms + interval_ms;
+    }
+
+    function isActive() public view returns (bool) {
+        return active;
+    }
+
+    function getRecipient() public view returns (agent) {
+        return recipient;
+    }
+
+    function getAmount() public view returns (u256) {
+        return amount;
+    }
+
+    // ---- Receive --------------------------------------------------------
+
+    receive() external payable {}
+}

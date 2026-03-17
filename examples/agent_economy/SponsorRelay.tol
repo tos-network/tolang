@@ -1,0 +1,150 @@
+pragma tolang 0.4.0;
+
+// SponsorRelay -- sponsor-aware relay contract for delegated execution.
+//
+// OVERVIEW
+// --------
+// A sponsor deposits funds to subsidize gas/execution costs for end users.
+// Authorized relayers execute calls on behalf of users, spending from the
+// sponsor's deposited balance.  Each relayer has an independent gas budget.
+// The sponsor can add/remove relayers, adjust budgets, and withdraw unused funds.
+//
+// Uses @delegated annotation for signature verification of user intents.
+
+contract SponsorRelay {
+
+    // ---- Storage --------------------------------------------------------
+
+    agent owner;                                    // sponsor / admin
+
+    u256 total_deposited;                           // total sponsor deposits
+    u256 total_spent;                               // total spent across all relayers
+
+    mapping(agent => bool) authorized_relayers;     // relayer => active
+    mapping(agent => u256) relayer_budget;           // relayer => max spend allowed
+    mapping(agent => u256) relayer_spent;             // relayer => cumulative spent
+
+    // ---- Events ---------------------------------------------------------
+
+    event SponsorDeposited(agent indexed sponsor, u256 amount)
+    event SponsorWithdrawn(agent indexed sponsor, u256 amount)
+    event RelayerAuthorized(agent indexed relayer, u256 budget)
+    event RelayerRevoked(agent indexed relayer)
+    event RelayerBudgetUpdated(agent indexed relayer, u256 new_budget)
+    event CallRelayed(agent indexed relayer, agent indexed target, agent indexed user, u256 cost)
+
+    // ---- Constructor ----------------------------------------------------
+
+    /// @notice Deploy the sponsor relay.
+    /// @param  _owner  Sponsor agent who funds and manages the relay.
+    constructor(agent _owner) {
+        set owner = _owner;
+        set total_deposited = 0;
+        set total_spent = 0;
+    }
+
+    // ---- Sponsor Management ---------------------------------------------
+
+    /// @notice Sponsor deposits funds to cover relayed execution costs.
+    function deposit() external payable {
+        require(msg.sender == owner, "NOT_SPONSOR");
+        require(msg.value > 0, "NO_VALUE");
+        set total_deposited = total_deposited + msg.value;
+        emit SponsorDeposited(msg.sender, msg.value);
+    }
+
+    /// @notice Sponsor withdraws unused funds.
+    /// @param  withdraw_amount  Amount to withdraw.
+    function withdraw(u256 withdraw_amount) external {
+        require(msg.sender == owner, "NOT_SPONSOR");
+        let available: u256 = total_deposited - total_spent;
+        require(withdraw_amount <= available, "INSUFFICIENT_BALANCE");
+        set total_deposited = total_deposited - withdraw_amount;
+        release(owner, withdraw_amount);
+        emit SponsorWithdrawn(msg.sender, withdraw_amount);
+    }
+
+    // ---- Relayer Management ---------------------------------------------
+
+    /// @notice Authorize a relayer with a gas budget.
+    /// @param  relayer  Agent to authorize as a relayer.
+    /// @param  budget   Maximum total spend this relayer may incur.
+    function authorizeRelayer(agent relayer, u256 budget) external {
+        require(msg.sender == owner, "NOT_SPONSOR");
+        set authorized_relayers[relayer] = true;
+        set relayer_budget[relayer] = budget;
+        set relayer_spent[relayer] = 0;
+        emit RelayerAuthorized(relayer, budget);
+    }
+
+    /// @notice Revoke a relayer's authorization.
+    /// @param  relayer  Agent to revoke.
+    function revokeRelayer(agent relayer) external {
+        require(msg.sender == owner, "NOT_SPONSOR");
+        set authorized_relayers[relayer] = false;
+        emit RelayerRevoked(relayer);
+    }
+
+    /// @notice Update a relayer's gas budget.
+    /// @param  relayer     Agent whose budget to update.
+    /// @param  new_budget  New budget ceiling.
+    function updateBudget(agent relayer, u256 new_budget) external {
+        require(msg.sender == owner, "NOT_SPONSOR");
+        require(authorized_relayers[relayer] == true, "NOT_AUTHORIZED");
+        set relayer_budget[relayer] = new_budget;
+        emit RelayerBudgetUpdated(relayer, new_budget);
+    }
+
+    // ---- Relay Execution ------------------------------------------------
+
+    /// @notice Relayer executes a call on behalf of a user, spending from sponsor funds.
+    /// @param  target  Contract to call.
+    /// @param  data    ABI-encoded calldata.
+    /// @param  user    End-user on whose behalf the call is relayed.
+    /// @param  cost    Execution cost to charge against the relayer's budget.
+    @delegated
+    function relay(agent target, bytes data, agent user, u256 cost) external {
+        require(authorized_relayers[msg.sender] == true, "NOT_RELAYER");
+        require(relayer_spent[msg.sender] + cost <= relayer_budget[msg.sender], "OVER_BUDGET");
+
+        let available: u256 = total_deposited - total_spent;
+        require(cost <= available, "SPONSOR_DEPLETED");
+
+        set relayer_spent[msg.sender] = relayer_spent[msg.sender] + cost;
+        set total_spent = total_spent + cost;
+
+        let ok: bool = target.call(data);
+        require(ok, "CALL_FAILED");
+
+        emit CallRelayed(msg.sender, target, user, cost);
+    }
+
+    // ---- View Functions -------------------------------------------------
+
+    function getRelayerBudget(agent relayer) public view returns (u256) {
+        return relayer_budget[relayer];
+    }
+
+    function getRelayerSpent(agent relayer) public view returns (u256) {
+        return relayer_spent[relayer];
+    }
+
+    function getRelayerRemaining(agent relayer) public view returns (u256) {
+        if (authorized_relayers[relayer] != true) {
+            return 0;
+        }
+        return relayer_budget[relayer] - relayer_spent[relayer];
+    }
+
+    function getSponsorBalance() public view returns (u256) {
+        return total_deposited - total_spent;
+    }
+
+    function isRelayerAuthorized(agent relayer) public view returns (bool) {
+        return authorized_relayers[relayer];
+    }
+
+    // ---- Receive --------------------------------------------------------
+
+    receive() external payable {}
+}

@@ -1,0 +1,145 @@
+pragma tolang 0.4.0;
+
+// OracleResolver -- time-bounded oracle data feed with authorized feeders.
+//
+// OVERVIEW
+// --------
+// A contract owner registers oracle queries identified by bytes32 keys.
+// Authorized feeders fulfill each query exactly once before expiry.
+// Consumers read the resolved value after fulfillment.
+//
+// Uses oracle<u256> for write-once semantics: the compiler guards against
+// double-fulfillment so a second call to fulfill() reverts.
+
+capability OracleFulfiller;
+
+contract OracleResolver {
+
+    manifest {
+        version:      "1.0.0";
+        capabilities: [OracleFulfiller];
+        spec:         "ipfs://Qm_oracle_resolver_agent_economy";
+    }
+
+    // ---- Storage --------------------------------------------------------
+
+    agent owner;
+    u256  next_query_id;
+
+    // Per-query storage (flat mappings).
+    mapping(u256 => bytes32) query_key;          // human-readable key hash
+    mapping(u256 => u256)    query_expiry;        // expiry timestamp in ms
+    mapping(u256 => agent)   query_feeder;        // authorized feeder for this query
+    mapping(u256 => u256)    query_value;          // resolved value
+    mapping(u256 => bool)    query_fulfilled;      // whether value has been set
+
+    // Feeder authorization.
+    mapping(agent => bool) authorized_feeders;
+
+    // ---- Events ---------------------------------------------------------
+
+    event QueryRegistered(u256 indexed query_id, bytes32 indexed key, agent indexed feeder, u256 expiry)
+    event QueryFulfilled(u256 indexed query_id, bytes32 indexed key, u256 value, agent indexed feeder)
+    event FeederAuthorized(agent indexed feeder, bool enabled)
+
+    // ---- Constructor ----------------------------------------------------
+
+    /// @notice Deploy the oracle resolver.
+    /// @param  _owner  Contract admin who registers queries and authorizes feeders.
+    constructor(agent _owner) {
+        set owner = _owner;
+        set next_query_id = 1;
+    }
+
+    // ---- Feeder Management ----------------------------------------------
+
+    /// @notice Authorize or deauthorize a feeder agent.
+    /// @param  feeder   Agent to authorize or revoke.
+    /// @param  enabled  true to authorize, false to revoke.
+    function setFeeder(agent feeder, bool enabled) external {
+        require(msg.sender == owner, "NOT_OWNER");
+        set authorized_feeders[feeder] = enabled;
+        emit FeederAuthorized(feeder, enabled);
+    }
+
+    // ---- Query Registration ---------------------------------------------
+
+    /// @notice Register a new oracle query with an expiry and designated feeder.
+    /// @param  key        Identifier hash for the data feed.
+    /// @param  expiry_ms  Timestamp in milliseconds after which the query expires.
+    /// @param  feeder     Agent authorized to fulfill this specific query.
+    /// @return query_id   Unique query identifier.
+    function registerQuery(bytes32 key, u256 expiry_ms, agent feeder) external returns (u256 query_id) {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(expiry_ms > block.timestamp_ms, "EXPIRY_PAST");
+        require(authorized_feeders[feeder] == true, "FEEDER_NOT_AUTHORIZED");
+
+        query_id = next_query_id;
+        set next_query_id = next_query_id + 1;
+
+        set query_key[query_id] = key;
+        set query_expiry[query_id] = expiry_ms;
+        set query_feeder[query_id] = feeder;
+        set query_fulfilled[query_id] = false;
+
+        emit QueryRegistered(query_id, key, feeder, expiry_ms);
+    }
+
+    // ---- Fulfillment ----------------------------------------------------
+
+    /// @notice Fulfill an oracle query with a value. Write-once: reverts if already fulfilled.
+    /// @param  query_id  Query to fulfill.
+    /// @param  value     Resolved oracle value.
+    @requires(caller: OracleFulfiller)
+    function fulfill(u256 query_id, u256 value) external {
+        require(query_fulfilled[query_id] != true, "ALREADY_FULFILLED");
+        require(msg.sender == query_feeder[query_id], "NOT_DESIGNATED_FEEDER");
+        require(block.timestamp_ms < query_expiry[query_id], "EXPIRED");
+
+        set query_value[query_id] = value;
+        set query_fulfilled[query_id] = true;
+
+        emit QueryFulfilled(query_id, query_key[query_id], value, msg.sender);
+    }
+
+    // ---- Consumer Read --------------------------------------------------
+
+    /// @notice Read a resolved oracle value. Reverts if not yet fulfilled.
+    /// @param  query_id  Query to read.
+    /// @return value     The resolved value.
+    @verifiable
+    function readValue(u256 query_id) public view returns (u256 value) {
+        require(query_fulfilled[query_id] == true, "NOT_FULFILLED");
+        return query_value[query_id];
+    }
+
+    /// @notice Check whether a query has been fulfilled.
+    /// @param  query_id  Query to check.
+    /// @return fulfilled true if the query has been resolved.
+    @verifiable
+    function isFulfilled(u256 query_id) public view returns (bool fulfilled) {
+        return query_fulfilled[query_id];
+    }
+
+    /// @notice Check whether a query has expired without fulfillment.
+    /// @param  query_id  Query to check.
+    /// @return expired   true if past expiry and not fulfilled.
+    @verifiable
+    function isExpired(u256 query_id) public view returns (bool expired) {
+        if (query_fulfilled[query_id] == true) {
+            return false;
+        }
+        if (block.timestamp_ms >= query_expiry[query_id]) {
+            return true;
+        }
+        return false;
+    }
+
+    function getQueryFeeder(u256 query_id) public view returns (agent) {
+        return query_feeder[query_id];
+    }
+
+    function getQueryExpiry(u256 query_id) public view returns (u256) {
+        return query_expiry[query_id];
+    }
+}

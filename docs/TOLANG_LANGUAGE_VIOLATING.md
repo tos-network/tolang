@@ -8,7 +8,7 @@
 | 2 | `==`/`!=`/`<=`/`>=` on uno hides 150k gas crypto ops | CRITICAL | 4, 7, 14 | **FIX** | TODO |
 | 3 | Three error modes (require/assert/revert) with no semantic distinction | CRITICAL | 9 | **FIX** | TODO |
 | 4 | ABI spec is Draft 0.1, critical fields undefined | CRITICAL | 10 | **FIX** | TODO |
-| 5 | oracle\<T\>/vote\<T\>/task\<T\> baked into compiler as DSL | MAJOR | 1, 8 | **FIX** | TODO |
+| 5 | oracle\<T\>/vote\<T\>/task\<T\> baked into compiler as DSL | MAJOR | 1, 8 | **FIX** | ✅ DONE |
 | 6 | Inheritance system (434 lines) with zero agent use case | MAJOR | 1, 8 | **FIX** | TODO |
 | 7 | Modifier guards invisible to @effects | MAJOR | 6, 13 | **FIX** | TODO |
 | 8 | Two variable declaration syntaxes coexist | MODERATE | 5 | **FIX** | TODO |
@@ -164,17 +164,20 @@ These are domain-specific abstractions for a specific market pattern, not fundam
 
 **Decision: FIX (phased)**
 
-**Plan:**
+**Status: ✅ DONE** — All three phases completed in commit `866c2c2` (2026-03-18).
 
-Phase 1 (short-term): Keep the current implementation but **document it as "built-in library"**, not as core language feature. Make it clear in the spec that these are convenience wrappers, not the only way to build agent protocols.
+Skipped directly to Phase 3: removed all compiler intrinsics entirely and replaced with stdlib pattern contracts. ~1100 lines of special-case code deleted across parser, sema, and lowering. Zero new language features needed — the patterns are expressed using existing TOL primitives (struct, constant, require(), mapping, event).
 
-Phase 2 (medium-term): Extract oracle/vote/task into a **standard library** (`stdlib/oracle.tol`, `stdlib/task.tol`, `stdlib/vote.tol`) implemented as normal contracts with struct storage. The compiler recognizes these as "blessed" libraries but does not special-case their types.
+**What was done:**
 
-Phase 3 (long-term): Allow user-defined state machines via a `@state_machine` annotation or struct-based pattern, making task\<T\> just one instance of a general pattern.
+1. **Created `stdlib/` pattern contracts** — `stdlib/Oracle.tol` (write-once pattern), `stdlib/Vote.tol` (tally-and-threshold), `stdlib/Task.tol` (state machine with constants + require guards). All compile successfully.
+2. **Removed lowering** (~530 lines from `tol_ir_direct_lowering.go`) — deleted 7 functions (`lowerOracleSlotExpr`, `lowerVoteSlotExpr`, `taskSlotForExpr`, `buildTaskFieldExpr`, `lowerTaskMappingStoreStmt`, `lowerTaskMappingMemberExpr`, `lowerTaskMappingCallExpr`), prelude generation (`__tol_oracle_*`, `__tol_vote_*`, `__tol_task_*`), call-site dispatches, `ctx.taskLocals` tracking.
+3. **Removed sema validation** (~120 lines from `agent.go` + ~50 lines from `sema.go`) — deleted `validTaskTransitions`, type parameter checks (TOL2303/2304/2305), `__tol_task_transition` check (TOL2315), `extractAgentInnerType()`, `isNumericTOLType()`, `literalUint64()`, oracle/vote/task method and property validation.
+4. **Narrowed parser** (~50 lines from `parser.go`) — `case "oracle","vote","task","agent"` → `case "agent"`; removed angle-bracket detection, local variable detection, and expression detection for oracle/vote/task.
+5. **Updated docs** — `AGENT_PROTOCOL_DRAFT2.tol` (rewrote TaskEscrow + PredictionMarket with plain storage), `FEATURE_MATURITY_MATRIX.md`, `AGENT-NATIVE.md`, `TolangParser.g4`, `OracleResolver.tol`.
+6. **Reserved diagnostic codes** — TOL2303, TOL2304, TOL2305, TOL2315 marked `// RESERVED`.
 
-**Files to change (Phase 1):**
-- `docs/AGENT-NATIVE.md` — clarify that oracle/vote/task are built-in convenience, not core primitives
-- `docs/FEATURE_MATURITY_MATRIX.md` — reclassify as "Built-in Library"
+**Verification:** Build clean, all 11 test packages pass, stdlib compiles, `oracle<u256>` syntax correctly rejected as parse error, agent type unaffected.
 
 ---
 

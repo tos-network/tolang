@@ -4,11 +4,11 @@ pragma tolang 0.3.0;
 //
 // What changed vs v1 (AGENT_PROTOCOL_DRAFT.tol):
 //   agent → agent          identity carries .stake / .reputation / .is_active natively
-//   mapping(u256 => u8)      task status → task<T> with compiler-enforced state machine
+//   mapping(u256 => u8)      task status → explicit state machine with constants + require() guards
 //   require(registry...)     → @requires(caller: CapabilityName)  — compiler-inserted
 //   require(msg.value >= ...) → @pay(amount)                      — compiler-inserted
 //   transfer() + manual guard → escrow / slash / release          — intent-explicit keywords
-//   bool resolved + u8 winner → oracle<u8>                       — write-once, compiler-guarded
+//   bool resolved + u8 winner → plain storage + require(!is_set) guard (write-once pattern)
 //   no self-description       → manifest {}                       — machine-readable ABI metadata
 //   no proof hooks            → @verifiable                       — ZK-ready annotation
 
@@ -171,14 +171,13 @@ contract ReputationHub is IReputationHub {
 // ITaskEscrow
 // ═══════════════════════════════════════════════════════════════════════════════
 //
-// v1 used mapping(u256 => u8) task_status with raw numeric codes and no compiler
-// enforcement of valid transitions.
+// v1 used mapping(u256 => u8) task_status with raw numeric codes.
 //
-// v2 uses task<bytes32> — a parameterised type whose lifecycle the compiler tracks:
+// v2 uses explicit state constants and require() guards for each transition:
 //   Open → Accepted → Submitted → Approved
 //                  ↘ Rejected  → (Disputed)
 //   Open → Cancelled
-// Calling t.approve() when t.status != Submitted is a compile-time error.
+// Each transition function checks require(state == expected) before advancing.
 
 interface ITaskEscrow {
   event TaskPosted(u256 indexed task_id, agent indexed poster, u256 reward, u64 deadline_ms, bytes32 spec_hash)
@@ -212,7 +211,21 @@ contract TaskEscrow is ITaskEscrow {
   agent dispute_resolver;
   u256  next_task_id;
 
-  mapping(u256 => task<bytes32>) tasks;   // task_id → compiler-managed task handle
+  // Task state machine (replaces former task<bytes32> intrinsic)
+  u8 constant STATE_OPEN      = 1;
+  u8 constant STATE_ACCEPTED  = 2;
+  u8 constant STATE_SUBMITTED = 3;
+  u8 constant STATE_APPROVED  = 4;
+  u8 constant STATE_REJECTED  = 5;
+  u8 constant STATE_DISPUTED  = 6;
+  u8 constant STATE_CANCELLED = 7;
+
+  mapping(u256 => u8)      task_state;
+  mapping(u256 => agent)   task_poster;
+  mapping(u256 => agent)   task_worker;
+  mapping(u256 => u256)    task_reward;
+  mapping(u256 => u256)    task_deadline;
+  mapping(u256 => bytes32) task_data;
 
   event TaskPosted(u256 indexed task_id, agent indexed poster, u256 reward, u64 deadline_ms, bytes32 spec_hash)
   event TaskAccepted(u256 indexed task_id, agent indexed worker)
@@ -226,57 +239,63 @@ contract TaskEscrow is ITaskEscrow {
     require(agent(msg.sender).is_active, "AgentNotActive");
     task_id = next_task_id;
     next_task_id = next_task_id + 1;
-    tasks[task_id] = task<bytes32>.new(agent(msg.sender), msg.value, deadline_ms);
-    escrow(agent(msg.sender), msg.value);   // reward locked until task resolution
+    task_state[task_id] = STATE_OPEN;
+    task_poster[task_id] = agent(msg.sender);
+    task_reward[task_id] = msg.value;
+    task_deadline[task_id] = u256(deadline_ms);
+    escrow(agent(msg.sender), msg.value);
     emit TaskPosted(task_id, agent(msg.sender), msg.value, deadline_ms, spec_hash);
   }
 
   function acceptTask(u256 task_id) public {
     require(agent(msg.sender).is_active, "AgentNotActive");
-    tasks[task_id].accept(agent(msg.sender));   // compile error if status != Open
+    require(task_state[task_id] == STATE_OPEN, "TaskNotOpen");
+    task_state[task_id] = STATE_ACCEPTED;
+    task_worker[task_id] = agent(msg.sender);
     emit TaskAccepted(task_id, agent(msg.sender));
   }
 
   function submitTask(u256 task_id, bytes32 result_hash) public {
-    task<bytes32> t = tasks[task_id];
-    t.submit(result_hash);   // compile error if status != Accepted or caller != t.worker
-    emit TaskSubmitted(task_id, t.worker, result_hash);
+    require(task_state[task_id] == STATE_ACCEPTED, "TaskNotAccepted");
+    task_state[task_id] = STATE_SUBMITTED;
+    task_data[task_id] = result_hash;
+    emit TaskSubmitted(task_id, task_worker[task_id], result_hash);
   }
 
   function approveTask(u256 task_id) public {
-    task<bytes32> t = tasks[task_id];
-    t.approve();             // compile error if status != Submitted or caller != t.poster
-    release(t.poster, 0);           // free poster's escrowed portion
-    release(t.worker, t.reward);    // reward claimable by worker
-    emit TaskApproved(task_id, t.poster, t.worker, t.reward);
+    require(task_state[task_id] == STATE_SUBMITTED, "TaskNotSubmitted");
+    task_state[task_id] = STATE_APPROVED;
+    release(task_poster[task_id], 0);
+    release(task_worker[task_id], task_reward[task_id]);
+    emit TaskApproved(task_id, task_poster[task_id], task_worker[task_id], task_reward[task_id]);
   }
 
   function rejectTask(u256 task_id, string reason) public {
-    task<bytes32> t = tasks[task_id];
-    t.reject();              // compile error if caller != t.poster or status != Submitted
-    emit TaskRejected(task_id, t.poster, t.worker, reason);
+    require(task_state[task_id] == STATE_SUBMITTED, "TaskNotSubmitted");
+    task_state[task_id] = STATE_REJECTED;
+    emit TaskRejected(task_id, task_poster[task_id], task_worker[task_id], reason);
   }
 
   function disputeTask(u256 task_id) public payable {
-    task<bytes32> t = tasks[task_id];
-    t.dispute();             // compile error if status not in {Submitted, Rejected}
-    escrow(agent(msg.sender), msg.value);   // dispute bond
+    u8 s = task_state[task_id];
+    require(s == STATE_SUBMITTED || s == STATE_REJECTED, "InvalidStateForDispute");
+    task_state[task_id] = STATE_DISPUTED;
+    escrow(agent(msg.sender), msg.value);
     emit TaskDisputed(task_id, agent(msg.sender), msg.value);
   }
 
   function cancelTask(u256 task_id) public {
-    task<bytes32> t = tasks[task_id];
-    t.cancel();              // compile error if caller != t.poster or status != Open
-    release(t.poster, t.reward);
-    emit TaskCancelled(task_id, t.poster);
+    require(task_state[task_id] == STATE_OPEN, "TaskNotOpen");
+    task_state[task_id] = STATE_CANCELLED;
+    release(task_poster[task_id], task_reward[task_id]);
+    emit TaskCancelled(task_id, task_poster[task_id]);
   }
 
   function reclaimExpired(u256 task_id) public {
-    task<bytes32> t = tasks[task_id];
-    require(t.is_expired, "NotExpired");
-    t.cancel();
-    release(t.poster, t.reward);
-    emit TaskCancelled(task_id, t.poster);
+    require(task_deadline[task_id] > 0 && block.timestamp_ms >= task_deadline[task_id], "NotExpired");
+    task_state[task_id] = STATE_CANCELLED;
+    release(task_poster[task_id], task_reward[task_id]);
+    emit TaskCancelled(task_id, task_poster[task_id]);
   }
 }
 
@@ -425,8 +444,7 @@ contract PredictionMarketFactory is IPredictionMarketFactory {
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // v1: bool resolved + u8 winning_outcome — nothing stops double-resolution.
-// v2: oracle<u8> winning_outcome — write-once; compiler emits a storage guard
-//     so a second call to winning_outcome.fulfill() is a hard revert.
+// v2: u256 value + bool is_set — plain storage with require(!is_set) guard
 
 interface IPredictionMarket {
   event LiquidityAdded(agent indexed provider, u256 amount, u256 minted_shares)
@@ -467,7 +485,8 @@ contract PredictionMarket is IPredictionMarket {
   u64     close_time_ms;
   u16     fee_bps;
 
-  oracle<u8> winning_outcome;   // write-once; second fulfill() → compile-guarded revert
+  u8   winning_outcome;       // resolved outcome value
+  bool outcome_is_set;        // write-once guard (replaces former oracle<u8> intrinsic)
 
   mapping(u8 => u256)                       pool;
   mapping(agent => mapping(u8 => u256))   shares;
@@ -530,16 +549,18 @@ contract PredictionMarket is IPredictionMarket {
   @requires(caller: OracleResolver)
   function resolve(u8 outcome) public {
     require(block.timestamp_ms >= close_time_ms, "MarketNotClosed");
-    winning_outcome.fulfill(outcome);   // compile error if called a second time
+    require(!outcome_is_set, "AlreadyResolved");
+    set winning_outcome = outcome;
+    set outcome_is_set = true;
     emit Resolved(outcome, agent(msg.sender));
   }
 
   function claim() public {
-    require(winning_outcome.is_set, "NotResolved");
+    require(outcome_is_set, "NotResolved");
     require(!claimed[msg.sender], "AlreadyClaimed");
     claimed[msg.sender] = true;
-    u256 user_shares  = shares[msg.sender][winning_outcome.value];
-    u256 total_shares = pool[winning_outcome.value];
+    u256 user_shares  = shares[msg.sender][winning_outcome];
+    u256 total_shares = pool[winning_outcome];
     u256 payout       = user_shares * (pool[0] + pool[1]) / total_shares;
     release(agent(msg.sender), payout);
     emit Claimed(agent(msg.sender), payout);

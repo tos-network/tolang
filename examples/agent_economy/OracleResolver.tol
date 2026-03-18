@@ -8,8 +8,9 @@ pragma tolang 0.4.0;
 // Authorized feeders fulfill each query exactly once before expiry.
 // Consumers read the resolved value after fulfillment.
 //
-// Uses oracle<u256> for write-once semantics: the compiler guards against
-// double-fulfillment so a second call to fulfill() reverts.
+// Previously used oracle<u256> for write-once semantics. That compiler
+// intrinsic has been removed. This contract demonstrates the stdlib pattern:
+// plain storage + require(!fulfilled) guard achieves the same write-once guarantee.
 
 capability OracleFulfiller;
 

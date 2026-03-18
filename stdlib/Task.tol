@@ -1,0 +1,93 @@
+pragma tolang 0.4.0;
+
+// Task — state-machine pattern.
+//
+// Replaces the former task<T> compiler intrinsic with plain storage.
+// Usage: declare state constants, use require(state == expected) guards for transitions.
+
+contract Task {
+    // State constants
+    u8 constant STATE_NONE      = 0;
+    u8 constant STATE_OPEN      = 1;
+    u8 constant STATE_ACCEPTED  = 2;
+    u8 constant STATE_SUBMITTED = 3;
+    u8 constant STATE_APPROVED  = 4;
+    u8 constant STATE_REJECTED  = 5;
+    u8 constant STATE_DISPUTED  = 6;
+    u8 constant STATE_CANCELLED = 7;
+
+    // Per-task storage
+    mapping(u256 => u8)      task_state;
+    mapping(u256 => agent)   task_poster;
+    mapping(u256 => agent)   task_worker;
+    mapping(u256 => u256)    task_reward;
+    mapping(u256 => u256)    task_deadline;
+    mapping(u256 => bytes32) task_data;
+
+    event TaskCreated(u256 indexed task_id, agent indexed poster, u256 reward, u256 deadline);
+    event TaskTransition(u256 indexed task_id, u8 from_state, u8 to_state);
+
+    /// @notice Create a new task.
+    function create(u256 task_id, agent poster, u256 reward, u256 deadline) external {
+        require(task_state[task_id] == STATE_NONE, "TaskAlreadyExists");
+        set task_state[task_id] = STATE_OPEN;
+        set task_poster[task_id] = poster;
+        set task_reward[task_id] = reward;
+        set task_deadline[task_id] = deadline;
+        emit TaskCreated(task_id, poster, reward, deadline);
+    }
+
+    /// @notice Accept a task. Open -> Accepted.
+    function accept(u256 task_id, agent worker) external {
+        require(task_state[task_id] == STATE_OPEN, "TaskNotOpen");
+        set task_state[task_id] = STATE_ACCEPTED;
+        set task_worker[task_id] = worker;
+        emit TaskTransition(task_id, STATE_OPEN, STATE_ACCEPTED);
+    }
+
+    /// @notice Submit work. Accepted -> Submitted.
+    function submit(u256 task_id, bytes32 data) external {
+        require(task_state[task_id] == STATE_ACCEPTED, "TaskNotAccepted");
+        set task_state[task_id] = STATE_SUBMITTED;
+        set task_data[task_id] = data;
+        emit TaskTransition(task_id, STATE_ACCEPTED, STATE_SUBMITTED);
+    }
+
+    /// @notice Approve submitted work. Submitted -> Approved.
+    function approve(u256 task_id) external {
+        require(task_state[task_id] == STATE_SUBMITTED, "TaskNotSubmitted");
+        set task_state[task_id] = STATE_APPROVED;
+        emit TaskTransition(task_id, STATE_SUBMITTED, STATE_APPROVED);
+    }
+
+    /// @notice Reject submitted work. Submitted -> Rejected.
+    function reject(u256 task_id) external {
+        require(task_state[task_id] == STATE_SUBMITTED, "TaskNotSubmitted");
+        set task_state[task_id] = STATE_REJECTED;
+        emit TaskTransition(task_id, STATE_SUBMITTED, STATE_REJECTED);
+    }
+
+    /// @notice Open a dispute. Submitted|Rejected -> Disputed.
+    function dispute(u256 task_id) external {
+        u8 s = task_state[task_id];
+        require(s == STATE_SUBMITTED || s == STATE_REJECTED, "InvalidStateForDispute");
+        set task_state[task_id] = STATE_DISPUTED;
+        emit TaskTransition(task_id, s, STATE_DISPUTED);
+    }
+
+    /// @notice Cancel a task. Open|Accepted|Submitted|Disputed -> Cancelled.
+    function cancel(u256 task_id) external {
+        u8 s = task_state[task_id];
+        require(
+            s == STATE_OPEN || s == STATE_ACCEPTED || s == STATE_SUBMITTED || s == STATE_DISPUTED,
+            "InvalidStateForCancel"
+        );
+        set task_state[task_id] = STATE_CANCELLED;
+        emit TaskTransition(task_id, s, STATE_CANCELLED);
+    }
+
+    /// @notice Check if a task deadline has passed.
+    function isExpired(u256 task_id) public view returns (bool) {
+        return task_deadline[task_id] > 0 && block.timestamp_ms >= task_deadline[task_id];
+    }
+}

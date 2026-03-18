@@ -1436,13 +1436,8 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		}
 	}
 
-	// Agent-native validation. Pass the set of known struct names so that
-	// task<T> type-parameter checks can verify T is a declared struct.
-	structNameSet := make(map[string]bool, len(knownStructs))
-	for name := range knownStructs {
-		structNameSet[name] = true
-	}
-	checkAgentNativeDecls(filename, c, m.Capabilities, diags, structNameSet)
+	// Agent-native validation.
+	checkAgentNativeDecls(filename, c, m.Capabilities, diags)
 }
 
 func checkStatements(filename string, contractName string, funcVis map[string]string, funcArity map[string]int, eventArity map[string]int, stmts []ast.Statement, loopDepth int, diags *diag.Diagnostics, knownStructs ...map[string][]ast.FieldDecl) {
@@ -3195,55 +3190,6 @@ func checkStorageExpr(filename string, ctx *storageCheckCtx, e *ast.Expr, use st
 					return
 				}
 			}
-			// Allow oracle<T> OOP method: .fulfill(value)
-			if e.Callee.Member == "fulfill" {
-				if slotName, _, ok := ctx.storagePathFromExpr(e.Callee.Object); ok {
-					info := ctx.slots[slotName]
-					if strings.HasPrefix(info.typeName, "oracle<") {
-						for _, a := range e.Args {
-							checkStorageExpr(filename, ctx, a, storageUseValue, diags)
-						}
-						return
-					}
-				}
-			}
-			// Allow task<T> OOP methods: .accept/.submit/.approve/.reject/.dispute/.cancel
-			taskMethods := map[string]bool{
-				"accept": true, "submit": true, "approve": true,
-				"reject": true, "dispute": true, "cancel": true,
-			}
-			if taskMethods[e.Callee.Member] {
-				if slotName, _, ok := ctx.storagePathFromExpr(e.Callee.Object); ok {
-					info := ctx.slots[slotName]
-					if strings.Contains(info.typeName, "task<") {
-						for _, a := range e.Args {
-							checkStorageExpr(filename, ctx, a, storageUseValue, diags)
-						}
-						return
-					}
-				}
-				// Also allow on task<T> local variable (tracked by type)
-				if e.Callee.Object != nil && e.Callee.Object.Kind == "ident" {
-					// Pass through — task local method calls are handled in lowering
-					for _, a := range e.Args {
-						checkStorageExpr(filename, ctx, a, storageUseValue, diags)
-					}
-					return
-				}
-			}
-			// Allow vote<T> OOP methods: .cast(voter, choice) and .new(quorum, deadline_ms, tie)
-			voteMethods := map[string]bool{"cast": true, "new": true}
-			if voteMethods[e.Callee.Member] {
-				if slotName, _, ok := ctx.storagePathFromExpr(e.Callee.Object); ok {
-					info := ctx.slots[slotName]
-					if strings.HasPrefix(info.typeName, "vote<") {
-						for _, a := range e.Args {
-							checkStorageExpr(filename, ctx, a, storageUseValue, diags)
-						}
-						return
-					}
-				}
-			}
 			// Allow uno OOP methods: .add(b), .sub(b), .lt(b), etc.
 			if unoMethods[e.Callee.Member] {
 				if slotName, keys, ok := ctx.storagePathFromExpr(e.Callee.Object); ok {
@@ -3290,27 +3236,6 @@ func checkStorageExpr(filename string, ctx *storageCheckCtx, e *ast.Expr, use st
 		if slotName, slotKeys, ok := ctx.storagePathFromExpr(e.Object); ok && e.Member != "selector" {
 			info := ctx.slots[slotName]
 			_ = slotKeys // used by type resolution below
-			// Allow oracle<T> OOP members: .is_set, .value
-			if strings.HasPrefix(info.typeName, "oracle<") {
-				switch e.Member {
-				case "is_set", "value":
-					return // valid oracle property access
-				}
-			}
-			// Allow vote<T> OOP members: .vote_count, .yes_count, .no_count, .is_decided, .result
-			if strings.HasPrefix(info.typeName, "vote<") {
-				switch e.Member {
-				case "vote_count", "yes_count", "no_count", "is_decided", "result":
-					return // valid vote property access
-				}
-			}
-			// Allow task<T> mapping OOP members when accessed via index (tasks[tid].worker etc.)
-			if strings.Contains(info.typeName, "task<") {
-				switch e.Member {
-				case "worker", "poster", "reward", "is_expired", "state":
-					return // valid task property access
-				}
-			}
 			// Allow agent-typed slot property access
 			if info.typeName == "agent" {
 				switch e.Member {
@@ -4839,11 +4764,8 @@ func isValidTOLType(typeName string, allowMapping bool) bool {
 	if t == "" {
 		return false
 	}
-	// Agent-native parameterized types: oracle<T>, vote<T>, task<T>, agent, delegation.
-	if t == "agent" || t == "delegation" ||
-		strings.HasPrefix(t, "oracle<") ||
-		strings.HasPrefix(t, "vote<") ||
-		strings.HasPrefix(t, "task<") {
+	// Agent-native types: agent, delegation.
+	if t == "agent" || t == "delegation" {
 		return true
 	}
 	// Function types: "function(...) modifiers returns (...)"

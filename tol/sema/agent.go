@@ -2,7 +2,6 @@ package sema
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/tos-network/tolang/tol/ast"
@@ -15,14 +14,11 @@ import (
 //   - Max 256 purposes (TOL2312)
 //   - @requires references only declared capabilities (TOL2302)
 //   - @verifiable only on pure or view functions (TOL2314)
-//   - oracle<T>: T must be a value type (TOL2303)
-//   - vote<T>: T must be numeric uint/int/bool (TOL2304)
-//   - task<T>: T should be a struct type (TOL2305)
 //   - @pay: amount must not be empty (TOL2308), recipient must not be empty (TOL2309)
 //   - delegation.verify() only inside @delegated functions (TOL2310)
 //   - escrow/release/slash only inside payable functions (TOL2311)
 // moduleCaps are top-level capabilities declared outside any contract (shared across file).
-func checkAgentNativeDecls(filename string, c *ast.ContractDecl, moduleCaps []ast.CapabilityDecl, diags *diag.Diagnostics, knownStructNames map[string]bool) {
+func checkAgentNativeDecls(filename string, c *ast.ContractDecl, moduleCaps []ast.CapabilityDecl, diags *diag.Diagnostics) {
 	// Build capability name set for lookup: union of module-level + contract-level.
 	capNames := make(map[string]bool, len(c.Capabilities)+len(moduleCaps))
 	for _, cd := range moduleCaps {
@@ -58,43 +54,6 @@ func checkAgentNativeDecls(filename string, c *ast.ContractDecl, moduleCaps []as
 				Message: fmt.Sprintf("purpose '%s' exceeds max 256 purposes per contract (ordinal %d)", pd.Name, i),
 				Span:    diag.Span{File: filename, Start: diag.Position{Line: pd.Line}},
 			})
-		}
-	}
-
-	// Check storage slot type parameters (TOL2303/2304/2305).
-	if c.Storage != nil {
-		for _, slot := range c.Storage.Slots {
-			t := strings.TrimSpace(slot.Type)
-			inner := extractAgentInnerType(t)
-			switch {
-			case strings.HasPrefix(t, "oracle<"):
-				// TOL2303: inner type must be a value type (no mapping/array).
-				if inner == "" || !isValueTOLType(inner) {
-					*diags = append(*diags, diag.Diagnostic{
-						Code:    diag.CodeAgentOracleInvalidType,
-						Message: fmt.Sprintf("oracle<%s>: type parameter must be a value type (uint/int/bool/agent/bytesN), got '%s'", inner, inner),
-						Span:    defaultSpan(filename),
-					})
-				}
-			case strings.HasPrefix(t, "vote<"):
-				// TOL2304: inner type must be numeric (uint/int/bool).
-				if inner == "" || !isNumericTOLType(inner) {
-					*diags = append(*diags, diag.Diagnostic{
-						Code:    diag.CodeAgentVoteInvalidType,
-						Message: fmt.Sprintf("vote<%s>: type parameter must be a numeric type (uint/int/bool), got '%s'", inner, inner),
-						Span:    defaultSpan(filename),
-					})
-				}
-			case strings.HasPrefix(t, "task<"):
-				// TOL2305: inner type should be a struct (warning-level: emit diagnostic but don't fail).
-				if inner != "" && len(knownStructNames) > 0 && !knownStructNames[inner] {
-					*diags = append(*diags, diag.Diagnostic{
-						Code:    diag.CodeAgentTaskInvalidType,
-						Message: fmt.Sprintf("task<%s>: type parameter '%s' is not a known struct type", inner, inner),
-						Span:    defaultSpan(filename),
-					})
-				}
-			}
 		}
 	}
 
@@ -178,28 +137,10 @@ func checkAgentNativeDecls(filename string, c *ast.ContractDecl, moduleCaps []as
 	}
 }
 
-// validTaskTransitions is the set of allowed (from, to) state pairs for task<T>.
-// States: None=0, Open=1, Accepted=2, Submitted=3, Approved=4, Rejected=5, Disputed=6, Cancelled=7.
-var validTaskTransitions = map[[2]uint64]bool{
-	{0, 1}: true, // None → Open      (task_post)
-	{1, 2}: true, // Open → Accepted
-	{2, 3}: true, // Accepted → Submitted
-	{3, 4}: true, // Submitted → Approved
-	{3, 5}: true, // Submitted → Rejected
-	{3, 6}: true, // Submitted → Disputed
-	{6, 4}: true, // Disputed → Approved
-	{6, 5}: true, // Disputed → Rejected
-	{1, 7}: true, // Open → Cancelled
-	{2, 7}: true, // Accepted → Cancelled
-	{3, 7}: true, // Submitted → Cancelled
-	{6, 7}: true, // Disputed → Cancelled
-}
-
 // checkAgentBodyCalls walks statement bodies to find:
 //   - agent(non-address-literal) casts (TOL2306)
 //   - delegation.verify() outside @delegated functions (TOL2310)
 //   - escrow/release/slash outside payable functions (TOL2311)
-//   - __tol_task_transition with invalid literal from/to states (TOL2315)
 func checkAgentBodyCalls(filename string, stmts []ast.Statement, isDelegated, isPayable bool, diags *diag.Diagnostics) {
 	walkStmtExprs(stmts, func(e *ast.Expr) {
 		if e == nil || e.Kind != "call" {
@@ -289,30 +230,6 @@ func checkAgentBodyCalls(filename string, stmts []ast.Statement, isDelegated, is
 				})
 			}
 		}
-		// Check __tol_task_transition literal from/to state values (TOL2315).
-		if name == "__tol_task_transition" && len(e.Args) >= 4 {
-			fromLit, fromOk := literalUint64(e.Args[2])
-			toLit, toOk := literalUint64(e.Args[3])
-			if fromOk && fromLit > 7 {
-				*diags = append(*diags, diag.Diagnostic{
-					Code:    diag.CodeAgentTaskInvalidTransition,
-					Message: fmt.Sprintf("__tol_task_transition: from_state %d is out of range (0–7)", fromLit),
-					Span:    defaultSpan(filename),
-				})
-			} else if toOk && toLit > 7 {
-				*diags = append(*diags, diag.Diagnostic{
-					Code:    diag.CodeAgentTaskInvalidTransition,
-					Message: fmt.Sprintf("__tol_task_transition: to_state %d is out of range (0–7)", toLit),
-					Span:    defaultSpan(filename),
-				})
-			} else if fromOk && toOk && !validTaskTransitions[[2]uint64{fromLit, toLit}] {
-				*diags = append(*diags, diag.Diagnostic{
-					Code:    diag.CodeAgentTaskInvalidTransition,
-					Message: fmt.Sprintf("__tol_task_transition: transition %d→%d is not a valid task state transition", fromLit, toLit),
-					Span:    defaultSpan(filename),
-				})
-			}
-		}
 	})
 }
 
@@ -333,19 +250,6 @@ func isNonAgentLiteralExpr(e *ast.Expr) bool {
 		return true // boolean is never a valid address
 	}
 	return false
-}
-
-// literalUint64 attempts to read a decimal integer literal from an expression.
-// Strips parens first. Returns (value, true) on success.
-func literalUint64(e *ast.Expr) (uint64, bool) {
-	for e != nil && e.Kind == "paren" {
-		e = e.Left
-	}
-	if e == nil || e.Kind != "number" {
-		return 0, false
-	}
-	n, err := strconv.ParseUint(strings.TrimSpace(e.Value), 10, 64)
-	return n, err == nil
 }
 
 // walkStmtExprs calls visit for every Expr reachable from stmts (recursive).
@@ -404,32 +308,6 @@ func walkExpr(e *ast.Expr, visit func(*ast.Expr)) {
 	for _, n := range e.NamedArgs {
 		walkExpr(n.Expr, visit)
 	}
-}
-
-// extractAgentInnerType extracts T from "oracle<T>", "vote<T>", "task<T>".
-func extractAgentInnerType(typeStr string) string {
-	open := strings.Index(typeStr, "<")
-	if open < 0 {
-		return ""
-	}
-	close := strings.LastIndex(typeStr, ">")
-	if close <= open {
-		return ""
-	}
-	return strings.TrimSpace(typeStr[open+1 : close])
-}
-
-// isNumericTOLType returns true for uint/int/bool types acceptable as vote<T> parameters.
-func isNumericTOLType(t string) bool {
-	t = strings.TrimSpace(t)
-	if t == "bool" {
-		return true
-	}
-	if len(t) >= 2 && (t[0] == 'u' || t[0] == 'i') {
-		n, err := strconv.Atoi(t[1:])
-		return err == nil && n >= 8 && n <= 256 && n%8 == 0
-	}
-	return false
 }
 
 // sliceContains returns true if s appears in slice.

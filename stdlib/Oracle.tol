@@ -1,0 +1,32 @@
+pragma tolang 0.4.0;
+
+// Oracle — write-once value pattern.
+//
+// Replaces the former oracle<T> compiler intrinsic with plain storage.
+// Usage: declare `u256 value; bool is_set;` and guard writes with `require(!is_set)`.
+
+contract Oracle {
+    u256  value;
+    bool  is_set;
+
+    event Fulfilled(u256 value);
+
+    /// @notice Fulfill the oracle with a value. Reverts if already set.
+    function fulfill(u256 _value) external {
+        require(!is_set, "OracleAlreadySet");
+        set value = _value;
+        set is_set = true;
+        emit Fulfilled(_value);
+    }
+
+    /// @notice Read the resolved value. Reverts if not yet fulfilled.
+    function readValue() public view returns (u256) {
+        require(is_set, "OracleNotSet");
+        return value;
+    }
+
+    /// @notice Check whether the oracle has been fulfilled.
+    function isFulfilled() public view returns (bool) {
+        return is_set;
+    }
+}

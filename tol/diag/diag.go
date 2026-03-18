@@ -138,9 +138,9 @@ const (
 	CodeAgentCapabilityDup          = "TOL2300" // capability already declared in this contract
 	CodeAgentPurposeDup             = "TOL2301" // purpose already declared in this contract
 	CodeAgentRequiresUnknownCap     = "TOL2302" // @requires references undeclared capability
-	CodeAgentOracleInvalidType      = "TOL2303" // oracle<T>: type parameter must be a value type
-	CodeAgentVoteInvalidType        = "TOL2304" // vote<T>: type parameter must be numeric
-	CodeAgentTaskInvalidType        = "TOL2305" // task<T>: T must be a struct type
+	// RESERVED: TOL2303 (was oracle<T> type check — intrinsic removed)
+	// RESERVED: TOL2304 (was vote<T> type check — intrinsic removed)
+	// RESERVED: TOL2305 (was task<T> type check — intrinsic removed)
 	CodeAgentCastNonAgent           = "TOL2306" // agent cast on non-agent expression
 	CodeAgentManifestDup            = "TOL2307" // manifest block already declared
 	CodeAgentPayBadAmount           = "TOL2308" // @pay: amount must be a uint256 expression
@@ -150,7 +150,7 @@ const (
 	CodeAgentPurposeOrdinalOverflow = "TOL2312" // purpose ordinal overflow (max 255 purposes per contract)
 	CodeAgentCapabilityNameNotLit   = "TOL2313" // capability name must be a string literal
 	CodeAgentVerifiableNonPure      = "TOL2314" // @verifiable requires pure or view function
-	CodeAgentTaskInvalidTransition  = "TOL2315" // task state transition invalid
+	// RESERVED: TOL2315 (was task state transition check — intrinsic removed)
 	CodeAgentMissingValidate        = "TOL2316" // account contract missing validate(bytes32,bytes)→bool
 
 	CodeLowerNotImplemented      = "TOL3001"

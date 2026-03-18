@@ -1829,8 +1829,7 @@ func (p *Parser) parseContractMember(contract *ast.ContractDecl) {
 		return
 	}
 
-	// Handle agent-native contextual keywords: capability, purpose, manifest,
-	// oracle<T>, vote<T>, task<T>, agent.
+	// Handle agent-native contextual keywords: capability, purpose, manifest, agent.
 	if p.cur.Type == lexer.TokenIdent || p.cur.Type == lexer.TokenKwAgent {
 		switch p.cur.Literal {
 		case "capability":
@@ -1879,7 +1878,7 @@ func (p *Parser) parseContractMember(contract *ast.ContractDecl) {
 				}
 			}
 			return
-		case "oracle", "vote", "task", "agent":
+		case "agent":
 			slot := p.parseAgentTypeSlot()
 			if slot != nil {
 				if contract.Storage == nil {
@@ -3003,7 +3002,7 @@ func (p *Parser) parseField(allowIndexed, allowDataLoc bool) (ast.FieldDecl, boo
 	var typeTokens []string
 	depthParen := 0
 	depthBracket := 0
-	depthAngle := 0 // for generic type params: task<T>, oracle<T>
+	depthAngle := 0 // for generic type params
 	// isFunctionType tracks whether the type being collected is a function type
 	// (starts with "function" keyword). Function types can include modifiers
 	// like "external", "internal", "view", "pure", "payable" and "returns".
@@ -3112,12 +3111,8 @@ func (p *Parser) parseField(allowIndexed, allowDataLoc bool) (ast.FieldDecl, boo
 				depthBracket--
 			}
 		case lexer.TokenLT:
-			// Only treat '<' as angle-bracket open when collecting a known generic type name.
-			if len(typeTokens) > 0 {
-				last := typeTokens[len(typeTokens)-1]
-				if last == "task" || last == "oracle" || last == "vote" || depthAngle > 0 {
-					depthAngle++
-				}
+			if depthAngle > 0 {
+				depthAngle++
 			}
 		case lexer.TokenGT:
 			if depthAngle > 0 {
@@ -3252,7 +3247,6 @@ func joinTypeTokens(tokens []string) string {
 }
 
 // normalizeGenericTypeString removes spaces around '<' and '>' for generic type params.
-// e.g. "task < bytes32 >" → "task<bytes32>"
 func normalizeGenericTypeString(s string) string {
 	s = strings.ReplaceAll(s, " < ", "<")
 	s = strings.ReplaceAll(s, " >", ">")
@@ -3446,15 +3440,6 @@ func (p *Parser) parseStatement() (ast.Statement, bool) {
 		!(p.cur.Type == lexer.TokenIdent && (p.cur.Literal == "unchecked" || p.cur.Literal == "try")) {
 		return p.parseTypeFirstVarDecl()
 	}
-	// Also handle generic agent-native types: task<T>, oracle<T>, vote<T>
-	// where peek() returns '<' (not an ident), so the check above fails.
-	if p.cur.Type == lexer.TokenIdent && p.peek().Type == lexer.TokenLT {
-		switch p.cur.Literal {
-		case "task", "oracle", "vote":
-			return p.parseTypeFirstVarDecl()
-		}
-	}
-
 	switch p.cur.Type {
 	case lexer.TokenSemicolon:
 		p.next()
@@ -4750,29 +4735,6 @@ func (p *Parser) parsePrefixExpr(stop map[lexer.Type]bool) (*ast.Expr, bool) {
 			return &ast.Expr{Kind: "ident", Value: nameTok.Literal}, true
 		}
 		tok := p.cur
-		// Handle generic type expressions like task<bytes32>, oracle<u256>, vote<u8>
-		// in expression context BEFORE consuming anything.
-		// Peek at the next token to see if this ident is followed by '<'.
-		if (tok.Literal == "task" || tok.Literal == "oracle" || tok.Literal == "vote") && p.peekTok().Type == lexer.TokenLT {
-			// Commit: consume ident, '<', type-param ident, '>'.
-			p.next() // consume ident
-			p.next() // consume '<'
-			// Consume type param tokens until '>'
-			depth := 1
-			for depth > 0 && p.cur.Type != lexer.TokenEOF {
-				if p.cur.Type == lexer.TokenLT {
-					depth++
-				} else if p.cur.Type == lexer.TokenGT {
-					depth--
-					if depth == 0 {
-						p.next() // consume '>'
-						break
-					}
-				}
-				p.next()
-			}
-			return &ast.Expr{Kind: "ident", Value: tok.Literal}, true
-		}
 		p.next()
 		return &ast.Expr{Kind: "ident", Value: tok.Literal}, true
 	case lexer.TokenNumber:
@@ -6156,14 +6118,11 @@ func (p *Parser) parseManifestDecl() *ast.ManifestDecl {
 
 // parseAgentTypeSlot parses an agent-native typed storage slot:
 //
-//	oracle<T> name;
-//	vote<T>   name;
-//	task<T>   name;
 //	agent     name;
 //
 // The type keyword has NOT been consumed yet.
 func (p *Parser) parseAgentTypeSlot() *ast.StorageSlot {
-	typeName := p.cur.Literal // "oracle", "vote", "task", or "agent"
+	typeName := p.cur.Literal // "agent"
 	p.next()                  // consume the type keyword
 
 	fullType := typeName

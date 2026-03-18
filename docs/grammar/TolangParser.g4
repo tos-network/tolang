@@ -228,7 +228,7 @@ contractMember
     | structDeclaration
     | capabilityDeclaration           // TOL agent-native: capability Foo;
     | purposeDeclaration              // TOL agent-native: purpose WorkEscrow;
-    | agentNativeStorageDeclaration   // TOL agent-native: oracle<T>, vote<T> storage slots
+    | agentNativeStorageDeclaration   // TOL agent-native: agent, uno storage slots (oracle<T>/vote<T>/task<T> removed — use stdlib patterns)
     | manifestDeclaration             // TOL agent-native: manifest {} metadata block
     ;
 
@@ -472,23 +472,24 @@ purposeDeclaration
 // ============================================================
 // Agent-native storage slot declarations  (TOL agent-native)
 //
-//   oracle<uint256> price;
-//   oracle<bytes32> jobHash;
-//   vote<uint8>     proposal;
+//   // REMOVED oracle<uint256> price;
+//   // REMOVED oracle<bytes32> jobHash;
+//   // REMOVED vote<uint8>     proposal;
 //   agent           admin;          — agent handle (no type parameter)
 //
 // 'oracle', 'vote', 'task', 'agent' are contextual keywords (Identifier tokens).
+// oracle<T>, vote<T>, task<T> have been removed — use stdlib pattern contracts instead.
 // Optional visibility modifier (public/private/internal) and override may follow
 // the type before the slot name.
-// Storage slots of type mapping(K => task<T>) use the regular storageVariable rule.
+// // REMOVED Storage slots of type mapping(K => task<T>) use the regular storageVariable rule.
 // Production: parseAgentTypeSlot() in parser.go.
 // ============================================================
 
 agentNativeStorageDeclaration
     : Identifier (Lt typeName Gt)? stateVariableModifier* Identifier Semicolon
     ;
-    // Leading Identifier: 'oracle' | 'vote' | 'task' | 'agent' | 'uno'
-    // Lt typeName Gt is present for oracle<T>/vote<T>/task<T>; absent for bare 'agent' / 'uno'.
+    // Leading Identifier: 'agent' | 'uno' (oracle/vote/task removed — use stdlib patterns)
+    // Lt typeName Gt was present for oracle<T>/vote<T>/task<T> (now removed); absent for bare 'agent' / 'uno'.
     // stateVariableModifier allows public/private/internal/override (same as storageVariable).
 
 // ============================================================
@@ -696,9 +697,9 @@ typeName
 
 // Generic agent-native type names  (TOL agent-native)
 //
-//   oracle<uint256>       — oracle storage slot type
-//   task<bytes32>         — task slot type (used inside mapping value position)
-//   vote<uint8>           — vote slot type
+//   // REMOVED oracle<uint256>       — oracle storage slot type
+//   // REMOVED task<bytes32>         — task slot type (used inside mapping value position)
+//   // REMOVED vote<uint8>           — vote slot type
 //   agent                 — agent handle type (no type parameter)
 //
 // 'oracle', 'task', 'vote', 'agent' are contextual keywords (Identifier tokens).
@@ -708,10 +709,10 @@ typeName
 //       Dot Identifier callArgumentList (handled specially in parsePrefixExpr).
 
 genericTypeName
-    : Identifier Lt typeName Gt     // oracle<T>, task<T>, vote<T>
+    : Identifier Lt typeName Gt     // oracle<T>, task<T>, vote<T> — REMOVED, use stdlib patterns
     | Identifier                    // agent (bare, no type param), uno
     ;
-    // Leading Identifier: 'oracle' | 'task' | 'vote' | 'agent' | 'uno'
+    // Leading Identifier: 'agent' | 'uno' (oracle/task/vote removed — use stdlib patterns)
 
 elementaryTypeName
     : UnsignedIntegerType
@@ -1114,12 +1115,13 @@ catchClause
 //   agent(addr).rating_count               → __tol_agent_prop(addr, "rating_count")
 //   agent(addr).suspended                  → __tol_agent_prop(addr, "suspended") ~= 0
 //
-// Oracle OOP member interface (on oracle<T> storage slots):
+// REMOVED Oracle OOP member interface (on oracle<T> storage slots):
 //   price.fulfill(v)                       → oracle_fulfill(price_val_slot, price_set_slot, v)
 //   price.is_set                           → __tol_oracle_is_set(price_set_slot)
 //   price.value                            → __tol_oracle_value(price_val_slot)
+// Use stdlib/Oracle.tol pattern instead: plain value + is_set storage with require(!is_set) guard.
 //
-// Task OOP member interface (on mapping(K => task<T>) storage slots):
+// REMOVED Task OOP member interface (on mapping(K => task<T>) storage slots):
 //   tasks[tid] = task<T>.new(poster, reward, deadline)  — create new task
 //   tasks[tid].accept(worker)              — transition Open → Accepted
 //   tasks[tid].submit(data)                — transition Accepted → Submitted
@@ -1131,10 +1133,12 @@ catchClause
 //   tasks[tid].poster                      — read poster agent
 //   tasks[tid].reward                      — read reward amount
 //   tasks[tid].is_expired                  — deadline < block.timestamp
+// Use stdlib/Task.tol pattern instead: explicit state constants + require() guards.
 //
-// Task local handle:
+// REMOVED Task local handle:
 //   task<bytes32> t = tasks[tid];          — bind task handle to local variable
 //   t.approve();                           — call method on local handle
+// Use individual mappings (task_state, task_poster, etc.) instead.
 // ============================================================
 
 // ============================================================

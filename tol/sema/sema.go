@@ -1932,7 +1932,7 @@ func envMemberScopeKey(e *ast.Expr) (string, string, bool) {
 func isAllowedEnvField(scope, key string) bool {
 	switch scope {
 	case "msg":
-		return key == "sender" || key == "value" || key == "data"
+		return key == "sender" || key == "value" || key == "uno_value" || key == "data"
 	case "tx":
 		return key == "origin" || key == "gasprice"
 	case "block":
@@ -3382,7 +3382,8 @@ func storageArrayLengthMemberTarget(ctx *storageCheckCtx, e *ast.Expr) (string, 
 var unoMethods = map[string]bool{
 	"add": true, "sub": true, "add_scalar": true, "sub_scalar": true,
 	"mul_scalar": true, "div_scalar": true, "mul": true, "div": true,
-	"rem": true, "lt": true, "gt": true, "eq": true, "min": true,
+	"rem": true, "lt": true, "gt": true, "lte": true, "gte": true,
+	"eq": true, "ne": true, "min": true,
 	"max": true, "select": true, "commitment": true, "handle": true,
 	"verify_transfer": true, "verify_eq": true,
 }
@@ -3390,7 +3391,7 @@ var unoMethods = map[string]bool{
 // unoMethodReturnType returns the TOL type produced by the given uno method.
 func unoMethodReturnType(method string) string {
 	switch method {
-	case "lt", "gt", "eq", "verify_transfer", "verify_eq":
+	case "lt", "gt", "lte", "gte", "eq", "ne", "verify_transfer", "verify_eq":
 		return "bool"
 	case "commitment", "handle":
 		return "bytes32"
@@ -4443,8 +4444,15 @@ func checkAgentTransferInExpr(filename string, typeEnv map[string]string, e *ast
 		if callee != nil && callee.Kind == "member" {
 			member := strings.TrimSpace(callee.Member)
 			if member == "transfer" || member == "send" {
-				// Check that the receiver is agent payable.
+				// uno.transfer() is a static bridge method, not an agent payable call.
 				receiver := callee.Object
+				if receiver != nil && receiver.Kind == "ident" && strings.TrimSpace(receiver.Value) == "uno" {
+					for _, a := range e.Args {
+						checkAgentTransferInExpr(filename, typeEnv, a, diags)
+					}
+					return
+				}
+				// Check that the receiver is agent payable.
 				if !isPayableReceiverExpr(typeEnv, receiver) {
 					receiverDesc := "expression"
 					if receiver != nil && receiver.Kind == "ident" {
@@ -4671,7 +4679,7 @@ func checkUnoOperatorsInExpr(filename string, typeEnv map[string]string, e *ast.
 	case "binary":
 		if isUnoOperand(typeEnv, e.Left) || isUnoOperand(typeEnv, e.Right) {
 			switch e.Op {
-			case "+", "-", "*", "/", "%", "<", "<=", ">", ">=":
+			case "+", "-", "*", "/", "%", "<", ">":
 				*diags = append(*diags, diag.Diagnostic{
 					Code:    diag.CodeSemaUnoOperator,
 					Message: fmt.Sprintf("operator '%s' not supported on uno type; use method calls", e.Op),
@@ -4679,9 +4687,13 @@ func checkUnoOperatorsInExpr(filename string, typeEnv map[string]string, e *ast.
 				})
 				return
 			case "!=":
-				// != is allowed — desugared to not tos.ciphertext.eq(a,b)
+				// != is allowed — desugared to tos.ciphertext.ne(a,b)
 			case "==":
 				// == is allowed — desugared to tos.ciphertext.eq(a,b)
+			case "<=":
+				// <= is allowed — desugared to tos.ciphertext.lte(a,b)
+			case ">=":
+				// >= is allowed — desugared to tos.ciphertext.gte(a,b)
 			}
 		}
 		checkUnoOperatorsInExpr(filename, typeEnv, e.Left, diags)

@@ -2969,6 +2969,7 @@ func lowerFunctionToLua(fn lower.Function, env *loweringEnv) (luast.Stmt, error)
 	}
 
 	ctx := newLoweringCtx(env)
+	ctx.payableAsset = fn.PayableAsset
 	for i, name := range parNames {
 		ctx.declareLocalWithType(name, normalizeSelectorType(fn.Params[i].Type))
 	}
@@ -3219,6 +3220,12 @@ func isAllowedDirectIRFnModifier(m string) bool {
 	}
 }
 
+// payableAssetFromModifiers extracts the PayableAsset from a FunctionDecl.
+// Returns "uno" for payable(uno), "" for plain payable or non-payable.
+func payableAssetFromFn(fn tolast.FunctionDecl) string {
+	return fn.PayableAsset
+}
+
 func lowerFallbackToLua(body []tolast.Statement, env *loweringEnv) (luast.Stmt, error) {
 	stmts, err := tolStmtsToLuaWithCtx(newLoweringCtx(env), body)
 	if err != nil {
@@ -3278,6 +3285,7 @@ type loweringCtx struct {
 	ternarySeq       int                 // counter for unique ternary temp names
 	taskLocals       map[string]string   // local var name → storage slot name (for task<T> local handles)
 	delegationLocals map[string]struct{} // local var names that hold a delegation value
+	payableAsset     string              // "uno" for payable(uno) functions; "" for plain payable
 }
 
 func newLoweringCtx(env *loweringEnv) *loweringCtx {
@@ -4159,9 +4167,10 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 		rightType := inferExprType(ctx, e.Right)
 		if leftType == "uno" || rightType == "uno" {
 			switch e.Op {
-			case "+", "-", "*", "/", "%", "<", "<=", ">", ">=":
+			case "+", "-", "*", "/", "%", "<", ">":
 				return nil, fmt.Errorf("[%s] operator '%s' not supported on uno type; use method calls", diag.CodeLowerUnsupportedFeature, e.Op)
-			case "==":
+			case "==", "!=", "<=", ">=":
+				opMap := map[string]string{"==": "eq", "!=": "ne", "<=": "lte", ">=": "gte"}
 				lhsLua, err := tolExprToLua(ctx, e.Left)
 				if err != nil {
 					return nil, err
@@ -4176,32 +4185,11 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 							Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
 							Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
 						}),
-						Key: withLineExpr(&luast.StringExpr{Value: "eq"}),
+						Key: withLineExpr(&luast.StringExpr{Value: opMap[e.Op]}),
 					}),
 					Args:      []luast.Expr{lhsLua, rhsLua},
 					AdjustRet: true,
 				}), nil
-			case "!=":
-				lhsLua, err := tolExprToLua(ctx, e.Left)
-				if err != nil {
-					return nil, err
-				}
-				rhsLua, err := tolExprToLua(ctx, e.Right)
-				if err != nil {
-					return nil, err
-				}
-				eqCall := withLineExpr(&luast.FuncCallExpr{
-					Func: withLineExpr(&luast.AttrGetExpr{
-						Object: withLineExpr(&luast.AttrGetExpr{
-							Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
-							Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
-						}),
-						Key: withLineExpr(&luast.StringExpr{Value: "eq"}),
-					}),
-					Args:      []luast.Expr{lhsLua, rhsLua},
-					AdjustRet: true,
-				})
-				return withLineExpr(&luast.UnaryNotOpExpr{Expr: eqCall}), nil
 			}
 		}
 		lhs, err := tolExprToLua(ctx, e.Left)
@@ -5312,7 +5300,6 @@ func lowerEnumMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, er
 }
 
 func lowerEnvMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
-	_ = ctx
 	if e == nil || e.Kind != "member" {
 		return nil, false, nil
 	}
@@ -5331,6 +5318,14 @@ func lowerEnvMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, err
 	if key == "" {
 		return nil, true, fmt.Errorf("[%s] %s.<field> requires non-empty field name", diag.CodeLowerUnsupportedFeature, scope)
 	}
+
+	// In payable(uno) functions, msg.value desugars to msg.uno_value so the
+	// contract receives the encrypted deposit ciphertext instead of the
+	// public TOS amount.
+	if scope == "msg" && key == "value" && ctx.payableAsset == "uno" {
+		key = "uno_value"
+	}
+
 	return withLineExpr(&luast.FuncCallExpr{
 		Func: withLineExpr(&luast.IdentExpr{Value: "__tol_env_get"}),
 		Args: []luast.Expr{
@@ -6652,6 +6647,7 @@ func lowerUnoMethodExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, err
 		strings.TrimSpace(e.Callee.Object.Value) == "uno" {
 		unoStaticMethods := map[string]bool{
 			"zero": true, "encrypt": true, "select": true, "from_parts": true,
+			"balance": true, "transfer": true,
 		}
 		if !unoStaticMethods[method] {
 			return nil, false, nil
@@ -6708,7 +6704,8 @@ func lowerUnoMethodExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, err
 	unoInstanceMethods := map[string]bool{
 		"add": true, "sub": true, "add_scalar": true, "sub_scalar": true,
 		"mul_scalar": true, "div_scalar": true, "mul": true, "div": true,
-		"rem": true, "lt": true, "gt": true, "eq": true, "min": true,
+		"rem": true, "lt": true, "gt": true, "lte": true, "gte": true,
+		"eq": true, "ne": true, "min": true,
 		"max": true, "select": true, "commitment": true, "handle": true,
 		"verify_transfer": true, "verify_eq": true,
 	}

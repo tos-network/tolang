@@ -1457,12 +1457,23 @@ func (p *Parser) parseFuncSigDecl() *ast.FuncSigDecl {
 		// Has a body - skip it
 		_ = p.consumeBlock("interface function body")
 	}
+	var payableAsset string
+	var cleanMods []string
+	for _, mod := range modifiers {
+		if asset, ok := ParsePayableAsset([]string{mod}); ok && asset != "" {
+			cleanMods = append(cleanMods, "payable")
+			payableAsset = asset
+		} else {
+			cleanMods = append(cleanMods, mod)
+		}
+	}
 	return &ast.FuncSigDecl{
-		Name:      nameTok.Literal,
-		Params:    params,
-		Returns:   returns,
-		Modifiers: modifiers,
-		Doc:       doc,
+		Name:         nameTok.Literal,
+		Params:       params,
+		Returns:      returns,
+		Modifiers:    cleanMods,
+		PayableAsset: payableAsset,
+		Doc:          doc,
 	}
 }
 
@@ -1474,6 +1485,25 @@ func (p *Parser) parseModifiersUntilSemicolon() []string {
 		p.cur.Type != lexer.TokenSemicolon &&
 		p.cur.Type != lexer.TokenRBrace &&
 		p.cur.Type != lexer.TokenKwReturns {
+		// Handle payable(asset) syntax.
+		if p.cur.Type == lexer.TokenKwPayable && p.peek().Type == lexer.TokenLParen {
+			p.next() // consume 'payable'
+			p.next() // consume '('
+			if p.cur.Type == lexer.TokenIdent || p.cur.Type == lexer.TokenKwUno {
+				asset := p.cur.Literal
+				p.next() // consume asset name
+				if p.cur.Type == lexer.TokenRParen {
+					p.next() // consume ')'
+				}
+				mods = append(mods, "payable("+asset+")")
+			} else {
+				if p.cur.Type == lexer.TokenRParen {
+					p.next()
+				}
+				mods = append(mods, "payable")
+			}
+			continue
+		}
 		mods = append(mods, p.cur.Literal)
 		p.next()
 	}
@@ -2750,8 +2780,9 @@ func (p *Parser) parseFunctionDecl(selectorOverride string) *ast.FunctionDecl {
 		rawMods = append(rawMods, extraMods...)
 	}
 
-	// Extract virtual/override from the raw modifier list.
+	// Extract virtual/override/payableAsset from the raw modifier list.
 	var isVirtual, isOverride bool
+	var payableAsset string
 	var modifiers []string
 	for _, mod := range rawMods {
 		switch mod {
@@ -2760,7 +2791,13 @@ func (p *Parser) parseFunctionDecl(selectorOverride string) *ast.FunctionDecl {
 		case "override":
 			isOverride = true
 		default:
-			modifiers = append(modifiers, mod)
+			// Normalize "payable(uno)" → modifier "payable" + PayableAsset "uno".
+			if asset, ok := ParsePayableAsset([]string{mod}); ok && asset != "" {
+				modifiers = append(modifiers, "payable")
+				payableAsset = asset
+			} else {
+				modifiers = append(modifiers, mod)
+			}
 		}
 	}
 
@@ -2777,6 +2814,7 @@ func (p *Parser) parseFunctionDecl(selectorOverride string) *ast.FunctionDecl {
 			Body:             nil,
 			Virtual:          isVirtual,
 			Override:         isOverride,
+			PayableAsset:     payableAsset,
 			Doc:              doc,
 		}
 	}
@@ -2795,6 +2833,7 @@ func (p *Parser) parseFunctionDecl(selectorOverride string) *ast.FunctionDecl {
 		Body:             body,
 		Virtual:          isVirtual,
 		Override:         isOverride,
+		PayableAsset:     payableAsset,
 		Doc:              doc,
 	}
 }
@@ -2814,17 +2853,28 @@ func (p *Parser) parseConstructorDecl() *ast.ConstructorDecl {
 		}
 	}
 
-	modifiers := p.parseModifiersUntilBlock()
+	rawMods := p.parseModifiersUntilBlock()
+	var modifiers []string
+	var payableAsset string
+	for _, mod := range rawMods {
+		if asset, ok := ParsePayableAsset([]string{mod}); ok && asset != "" {
+			modifiers = append(modifiers, "payable")
+			payableAsset = asset
+		} else {
+			modifiers = append(modifiers, mod)
+		}
+	}
 	body, ok := p.parseStatementBlock("constructor body")
 	if !ok {
 		return nil
 	}
 
 	return &ast.ConstructorDecl{
-		Params:    params,
-		Modifiers: modifiers,
-		Body:      body,
-		Doc:       doc,
+		Params:       params,
+		Modifiers:    modifiers,
+		Body:         body,
+		PayableAsset: payableAsset,
+		Doc:          doc,
 	}
 }
 
@@ -2877,13 +2927,17 @@ func (p *Parser) parseReceiveDecl() *ast.ReceiveDecl {
 	if p.cur.Type == lexer.TokenRParen {
 		p.next() // consume ')'
 	}
-	// Consume modifiers: we require "payable" but accept any modifiers silently.
-	// "payable" is now TokenKwPayable, but parseModifiersUntilBlock still reads Literal.
+	// Consume modifiers: we require "payable" (or "payable(uno)") but accept
+	// any modifiers silently.
 	mods := p.parseModifiersUntilBlock()
 	hasPayable := false
+	var payableAsset string
 	for _, m := range mods {
 		if m == "payable" {
 			hasPayable = true
+		} else if asset, ok := ParsePayableAsset([]string{m}); ok && asset != "" {
+			hasPayable = true
+			payableAsset = asset
 		}
 	}
 	if !hasPayable {
@@ -2897,7 +2951,7 @@ func (p *Parser) parseReceiveDecl() *ast.ReceiveDecl {
 	if !ok {
 		return nil
 	}
-	return &ast.ReceiveDecl{Body: body, Doc: doc}
+	return &ast.ReceiveDecl{Body: body, PayableAsset: payableAsset, Doc: doc}
 }
 
 func (p *Parser) parseFieldList(allowIndexed, allowDataLoc bool) ([]ast.FieldDecl, bool) {
@@ -3304,10 +3358,45 @@ func (p *Parser) parseModifiersUntilBlock() []string {
 		if p.cur.Type == lexer.TokenKwReturns {
 			break
 		}
+		// Handle payable(asset) syntax: payable(uno), payable(cc), etc.
+		// Collapsed into a single modifier string "payable(uno)".
+		if p.cur.Type == lexer.TokenKwPayable && p.peek().Type == lexer.TokenLParen {
+			p.next() // consume 'payable'
+			p.next() // consume '('
+			if p.cur.Type == lexer.TokenIdent || p.cur.Type == lexer.TokenKwUno {
+				asset := p.cur.Literal
+				p.next() // consume asset name
+				if p.cur.Type == lexer.TokenRParen {
+					p.next() // consume ')'
+				}
+				mods = append(mods, "payable("+asset+")")
+			} else {
+				// payable() with empty parens — treat as plain payable
+				if p.cur.Type == lexer.TokenRParen {
+					p.next()
+				}
+				mods = append(mods, "payable")
+			}
+			continue
+		}
 		mods = append(mods, p.cur.Literal)
 		p.next()
 	}
 	return mods
+}
+
+// ParsePayableAsset extracts the asset type from a modifier list.
+// Returns ("uno", true) for payable(uno), ("", true) for plain payable, ("", false) for non-payable.
+func ParsePayableAsset(modifiers []string) (asset string, isPayable bool) {
+	for _, m := range modifiers {
+		if m == "payable" {
+			return "", true
+		}
+		if strings.HasPrefix(m, "payable(") && strings.HasSuffix(m, ")") {
+			return m[len("payable(") : len(m)-1], true
+		}
+	}
+	return "", false
 }
 
 func (p *Parser) parseStatementBlock(what string) ([]ast.Statement, bool) {

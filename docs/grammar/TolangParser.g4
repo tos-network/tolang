@@ -749,19 +749,21 @@ elementaryTypeName
 //
 // The sema layer validates:
 //   - uno methods: add, sub, mul, div, rem, add_scalar, sub_scalar,
-//     mul_scalar, div_scalar, lt, gt, eq, min, max, commitment, handle,
-//     verify_transfer, verify_eq (instance); zero, encrypt, from_parts,
-//     select (static)
-//   - == and != on uno compile to a.eq(b) / !a.eq(b)
+//     mul_scalar, div_scalar, lt, gt, lte, gte, eq, ne, min, max,
+//     commitment, handle, verify_transfer, verify_eq (instance);
+//     zero, encrypt, from_parts, select (static)
+//   - ==, !=, <=, >= on uno compile to tos.ciphertext.{eq,ne,lte,gte}(a,b)
 //   - <, >, +, -, *, / operators on uno are rejected (must use methods)
 //   - uno rejected as mapping key type
 //
 // The lowering layer desugars uno methods to tos.ciphertext.* Lua calls:
 //   a.add(b)           →  tos.ciphertext.add(a, b)
+//   a.lte(b)           →  tos.ciphertext.lte(a, b)
+//   a != b             →  tos.ciphertext.ne(a, b)
 //   uno.zero()         →  tos.ciphertext.zero()
 //   uno.select(c,a,b)  →  tos.ciphertext.select(c, a, b)
 //
-// See docs/LVM_HE_OPCODES_PLAN_V2.md for the full 22-method API specification.
+// See docs/LVM_HE_OPCODES_PLAN_V2.md for the full 25-method API specification.
 // ============================================================
 
 userDefinedTypeName

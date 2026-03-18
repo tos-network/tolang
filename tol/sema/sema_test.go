@@ -7864,12 +7864,13 @@ func TestUnoNotMappingKey(t *testing.T) {
 	}
 }
 
-// TestUnoMethods verifies all 18 uno methods are accepted.
+// TestUnoMethods verifies all 21 uno methods are accepted.
 func TestUnoMethods(t *testing.T) {
 	methods := []string{
 		"add", "sub", "add_scalar", "sub_scalar",
 		"mul_scalar", "div_scalar", "mul", "div",
-		"rem", "lt", "gt", "eq", "min",
+		"rem", "lt", "gt", "lte", "gte",
+		"eq", "ne", "min",
 		"max", "select", "commitment", "handle",
 		"verify_transfer",
 	}
@@ -8004,6 +8005,46 @@ func TestUnoOperatorReject(t *testing.T) {
 			}
 			if !found {
 				t.Fatalf("expected diagnostic mentioning '%s' on 'uno', got: %v", op, diags)
+			}
+		})
+	}
+}
+
+// TestUnoLteGteOperator verifies <= and >= on uno are accepted (no error).
+func TestUnoLteGteOperator(t *testing.T) {
+	for _, op := range []string{"<=", ">="} {
+		t.Run(op, func(t *testing.T) {
+			m := &ast.Module{
+				Version: "0.2.0",
+				Contract: &ast.ContractDecl{
+					Name: "UnoTest",
+					Functions: []ast.FunctionDecl{
+						{
+							Name: "test",
+							Params: []ast.FieldDecl{
+								{Name: "a", Type: "uno"},
+								{Name: "b", Type: "uno"},
+							},
+							Body: []ast.Statement{
+								{
+									Kind: "let",
+									Name: "result",
+									Type: "bool",
+									Expr: &ast.Expr{
+										Kind:  "binary",
+										Op:    op,
+										Left:  identExpr("a"),
+										Right: identExpr("b"),
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			_, diags := Check("<test>", m)
+			if diags.HasErrors() {
+				t.Fatalf("%s on uno should be accepted, got: %v", op, diags)
 			}
 		})
 	}

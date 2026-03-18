@@ -226,11 +226,12 @@ type InterfaceDecl struct {
 
 // FuncSigDecl is a function signature without a body (used in interface declarations).
 type FuncSigDecl struct {
-	Name      string
-	Params    []FieldDecl
-	Returns   []FieldDecl
-	Modifiers []string
-	Doc       *DocMeta // structured doc comment metadata (optional)
+	Name         string
+	Params       []FieldDecl
+	Returns      []FieldDecl
+	Modifiers    []string
+	PayableAsset string   // "uno" for payable(uno); "" for plain payable (TOS)
+	Doc          *DocMeta // structured doc comment metadata (optional)
 }
 
 // ErrorDecl is a custom error declaration inside a contract.
@@ -332,14 +333,16 @@ type FunctionDecl struct {
 	Body             []Statement
 	Virtual          bool     // true when "virtual" modifier is present
 	Override         bool     // true when "override" modifier is present
+	PayableAsset     string   // "uno" for payable(uno); "" for plain payable (TOS)
 	Doc              *DocMeta // structured doc comment metadata (optional)
 }
 
 type ConstructorDecl struct {
-	Params    []FieldDecl
-	Modifiers []string
-	Body      []Statement
-	Doc       *DocMeta // structured doc comment metadata (optional)
+	Params       []FieldDecl
+	Modifiers    []string
+	Body         []Statement
+	PayableAsset string   // "uno" for payable(uno); "" for plain payable (TOS)
+	Doc          *DocMeta // structured doc comment metadata (optional)
 }
 
 type FallbackDecl struct {
@@ -348,11 +351,12 @@ type FallbackDecl struct {
 }
 
 // ReceiveDecl is a receive() payable function declaration inside a contract.
-// Syntax: receive() payable { body }
-// Receives plain ETH transfers (msg.data is empty). Must have no parameters.
+// Syntax: receive() payable { body }  or  receive() payable(uno) { body }
+// Receives plain TOS or encrypted UNO transfers (msg.data is empty). Must have no parameters.
 type ReceiveDecl struct {
-	Body []Statement
-	Doc  *DocMeta // structured doc comment metadata (optional)
+	Body         []Statement
+	PayableAsset string   // "uno" for payable(uno); "" for plain payable (TOS)
+	Doc          *DocMeta // structured doc comment metadata (optional)
 }
 
 type FieldDecl struct {

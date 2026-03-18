@@ -122,6 +122,7 @@ type Function struct {
 	Returns          []ast.FieldDecl
 	Modifiers        []string
 	Body             []ast.Statement
+	PayableAsset     string       // "uno" for payable(uno); "" for plain payable (TOS)
 	Doc              *ast.DocMeta // structured doc comment metadata (optional); carries @requires, @pay, etc.
 }
 
@@ -334,6 +335,7 @@ func FromTypedContract(typed *sema.TypedModule, c *ast.ContractDecl) (*Program, 
 			Returns:          cloneFields(fn.Returns),
 			Modifiers:        builtinMods,
 			Body:             expandedBody,
+			PayableAsset:     fn.PayableAsset,
 			Doc:              fn.Doc,
 		})
 	}

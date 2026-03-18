@@ -1,0 +1,58 @@
+pragma tolang 0.4.0;
+
+// ConfidentialVault — bridge between native encrypted balances and contracts.
+//
+// Demonstrates payable(uno): functions that receive encrypted UNO deposits
+// from users' native encrypted balances via msg.value (uno type).
+//
+// Key bridge primitives:
+//   - msg.value    in payable(uno) → the encrypted deposit ciphertext
+//   - uno.balance(addr) → reads an account's on-chain encrypted balance
+//   - uno.transfer(to, ct) → adds ciphertext to recipient's native encrypted balance
+
+contract ConfidentialVault {
+    mapping(agent => uno) deposits;
+    mapping(agent => bytes32) publicKeys;
+
+    event Deposited(agent indexed depositor)
+    event Withdrawn(agent indexed withdrawer)
+    event PublicKeySet(agent indexed account, bytes32 pubkey)
+
+    // Register the user's ElGamal public key (needed for encrypted operations).
+    function setPublicKey(bytes32 pubkey) external {
+        publicKeys[msg.sender] = pubkey;
+        emit PublicKeySet(msg.sender, pubkey);
+    }
+
+    // Deposit: user sends encrypted UNO from their native encrypted balance.
+    // The state transition verifies the proof and deducts from sender's
+    // native balance before contract execution.  msg.value is the verified
+    // encrypted deposit ciphertext.
+    function deposit() external payable(uno) {
+        deposits[msg.sender] = deposits[msg.sender].add(msg.value);
+        emit Deposited(msg.sender);
+    }
+
+    // Withdraw: move encrypted funds from contract back to user's native
+    // encrypted balance.  The contract calls uno.transfer which performs
+    // homomorphic addition to the recipient's on-chain encrypted balance.
+    function withdraw(uno amount) external {
+        uno newBal = deposits[msg.sender].sub(amount);
+        require(newBal.gt(uno.zero()), "InsufficientDeposit");
+
+        deposits[msg.sender] = newBal;
+        uno.transfer(msg.sender, amount);
+
+        emit Withdrawn(msg.sender);
+    }
+
+    // View: check a user's deposit balance within this contract.
+    function depositOf(agent account) public view returns (uno) {
+        return deposits[account];
+    }
+
+    // View: read a user's native on-chain encrypted balance.
+    function nativeBalance(agent account) public view returns (uno) {
+        return uno.balance(account);
+    }
+}

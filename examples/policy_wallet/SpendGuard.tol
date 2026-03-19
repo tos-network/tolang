@@ -96,7 +96,7 @@ contract SpendGuard {
 
         require(value <= single_limit, "OVER_SINGLE");
 
-        let today: u256 = block.timestamp_ms / 86400000;
+        u256 today = block.timestamp_ms / 86400000;
         if (today != spend_day) {
             set daily_spent = 0;
             set spend_day = today;
@@ -123,7 +123,7 @@ contract SpendGuard {
     }
 
     function getDailyRemaining() public view returns (u256) {
-        let today: u256 = block.timestamp_ms / 86400000;
+        u256 today = block.timestamp_ms / 86400000;
         if (today != spend_day) {
             return daily_limit;
         }

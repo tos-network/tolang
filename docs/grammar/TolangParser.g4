@@ -13,7 +13,7 @@
 //
 // Key TOL design choices retained:
 //   - 'set' makes all storage writes explicit (implicit = also accepted)
-//   - 'let' declares local variables (type-first also accepted)
+//   - type-first syntax for local variables (let keyword removed, reserved)
 //   - 'pragma tolang X.Y.Z' version header is mandatory
 //   - Test blocks ('test Name { … }') are first-class constructs
 //   - '@effects' annotation system for formal verification
@@ -816,9 +816,10 @@ block
 
 statement
     : block
-    | letStatement
-    | letTupleStatement
-    | variableDeclarationStatement    // type-first local var (Solidity-compatible)
+    // letStatement — REMOVED (use variableDeclarationStatement)
+    // letTupleStatement — REMOVED (use typeFirstTupleDecl)
+    | variableDeclarationStatement    // type-first local var (the only syntax)
+    | typeFirstTupleDecl              // (T1 a, T2 b) = expr;
     | setStatement
     | prefixIncDecStatement           // ++x; / --x; (prefix-only, not an expression)
     | ifStatement
@@ -840,34 +841,24 @@ statement
     // Note: assemblyStatement is not yet supported in TOL (no Yul backend).
 
 // ============================================================
-// let — TOL-native local variable declaration
+// REMOVED: let — TOL-native local variable declaration
 //
-//   let x: uint256 = 1;
-//   let x: uint256;           — zero-initialised
-//   let (a, b): (T1, T2) = abi.decode(data);
+// The `let` keyword has been removed. Use type-first syntax instead:
+//   let x: uint256 = 1;               → uint256 x = 1;
+//   let (a, b): (T1, T2) = expr;      → (T1 a, T2 b) = expr;
+//
+// `let` remains a reserved keyword (cannot be used as identifier).
 // ============================================================
 
-letStatement
-    : Let Identifier (Colon typeName)? (Assign expression)? Semicolon
-    ;
-    // Type annotation is OPTIONAL — production accepts both:
-    //   let x: uint256 = 1;   — type-annotated
-    //   let x = 1;            — type inferred (no colon+typeName)
-    //   let x: uint256;       — zero-initialised, explicit type
-
-letTupleStatement
-    : Let LParen Identifier (Comma Identifier)+ RParen
-      (Colon LParen typeName (Comma typeName)+ RParen)?
-      Assign expression
-      Semicolon
-    ;
+// letStatement — REMOVED, kept as reserved keyword
+// letTupleStatement — REMOVED, replaced by typeFirstTupleDecl
 
 // ============================================================
-// Type-first local variable declaration  (Solidity-compatible)
+// Type-first local variable declaration  (the only syntax)
 //
 //   uint256 x = 1;
 //   agent owner;
-//   (uint256 a, bool b) = abi.decode(data, (uint256, bool));
+//   (uint256 a, bool b) = abi.decode(data);
 // ============================================================
 
 variableDeclarationStatement
@@ -933,8 +924,7 @@ forStatement
     ;
 
 forInitializer
-    : letStatement
-    | variableDeclarationStatement
+    : variableDeclarationStatement
     | setStatement
     | expressionStatement
     ;
@@ -1168,7 +1158,7 @@ testMember
     : testLifecycleFunction
     | mockDeclaration
     | testFunction
-    | letStatement
+    | variableDeclarationStatement   // test-block variable declaration (was letStatement)
     ;
 
 testLifecycleFunction

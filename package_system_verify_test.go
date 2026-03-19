@@ -33,7 +33,7 @@ pragma tolang 0.2.0;
 import tos.registry.AgentRegistry;
 contract Caller {
     function resolve(agent pkgAddr, bytes32 name) external returns (agent r) {
-        let reg: AgentRegistry = AgentRegistry(pkgAddr);
+        AgentRegistry reg = AgentRegistry(pkgAddr);
         return reg.lookup(name);
     }
 }
@@ -95,7 +95,7 @@ contract AgentRegistry {
 import tos.registry.AgentRegistry;
 contract Caller {
   function resolve(agent pkgAddr, bytes32 name) external returns (agent r) {
-    let reg: AgentRegistry = AgentRegistry(pkgAddr);
+    AgentRegistry reg = AgentRegistry(pkgAddr);
     return reg.lookup(name);
   }
 }
@@ -143,7 +143,7 @@ contract AgentRegistry {
 import tos.registry.AgentRegistry;
 contract Caller {
   function resolve(agent pkgAddr, bytes32 name) external returns (agent r) {
-    let reg: AgentRegistry = AgentRegistry(pkgAddr);
+    AgentRegistry reg = AgentRegistry(pkgAddr);
     return reg.lookup(name);
   }
 }
@@ -205,11 +205,11 @@ contract AgentRegistry {
 import tos.registry.AgentRegistry;
 contract Caller {
   function getFee() external returns (uint256 f) {
-    let fee: uint256 = AgentRegistry.MAX_FEE;
+    uint256 fee = AgentRegistry.MAX_FEE;
     return fee;
   }
   function getKind() external returns (uint256 k) {
-    let kind: uint256 = AgentRegistry.Kind.Pro;
+    uint256 kind = AgentRegistry.Kind.Pro;
     return kind;
   }
 }
@@ -298,7 +298,7 @@ contract Token {
 	userSrc := `pragma tolang 0.2.0;
 contract MyContract {
   function supply(agent tok) external returns (uint256 s) {
-    let t: Token = Token(tok);
+    Token t = Token(tok);
     return t.totalSupply();
   }
 }

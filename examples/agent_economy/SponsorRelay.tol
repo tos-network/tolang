@@ -58,7 +58,7 @@ contract SponsorRelay {
     /// @param  withdraw_amount  Amount to withdraw.
     function withdraw(u256 withdraw_amount) external {
         require(msg.sender == owner, "NOT_SPONSOR");
-        let available: u256 = total_deposited - total_spent;
+        u256 available = total_deposited - total_spent;
         require(withdraw_amount <= available, "INSUFFICIENT_BALANCE");
         set total_deposited = total_deposited - withdraw_amount;
         release(owner, withdraw_amount);
@@ -111,13 +111,13 @@ contract SponsorRelay {
         require(cost > 0, "ZERO_COST");
         require(relayer_spent[msg.sender] + cost <= relayer_budget[msg.sender], "OVER_BUDGET");
 
-        let available: u256 = total_deposited - total_spent;
+        u256 available = total_deposited - total_spent;
         require(cost <= available, "SPONSOR_DEPLETED");
 
         set relayer_spent[msg.sender] = relayer_spent[msg.sender] + cost;
         set total_spent = total_spent + cost;
 
-        let ok: bool = target.call(data);
+        bool ok = target.call(data);
         require(ok, "CALL_FAILED");
 
         emit CallRelayed(msg.sender, target, user, cost);

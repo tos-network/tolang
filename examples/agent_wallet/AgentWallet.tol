@@ -49,7 +49,7 @@ account contract AgentWallet {
     // encoding complexity while keeping slot access O(1).
     mapping(agent => bool)  sk_active;    // false = not registered or revoked
     mapping(agent => u256)  sk_expiry;    // expiry in milliseconds (0 = never)
-    mapping(agent => u256)  sk_value_cap; // max wei per execute() call (0 = no cap)
+    mapping(agent => u256)  sk_value_cap; // max tomi per execute() call (0 = no cap)
 
     // ── Events ────────────────────────────────────────────────────────────────
 
@@ -95,7 +95,7 @@ account contract AgentWallet {
         }
 
         // Session key: must not have expired.
-        let expiry: u256 = sk_expiry[msg.sender];
+        u256 expiry = sk_expiry[msg.sender];
         if (expiry > 0 && block.timestamp_ms >= expiry) {
             return false;
         }
@@ -112,7 +112,7 @@ account contract AgentWallet {
     /// @param  key        Agent to authorise as a session key.
     /// @param  expiry_ms  Unix timestamp in milliseconds when the key expires.
     ///                    Pass 0 for a key that never expires (use with caution).
-    /// @param  value_cap  Maximum wei the key may attach to a single execute() call.
+    /// @param  value_cap  Maximum tomi the key may attach to a single execute() call.
     ///                    Pass 0 for no cap (owner-equivalent spending power).
     ///
     /// @effects reads:  storage.owner
@@ -160,7 +160,7 @@ account contract AgentWallet {
     ///
     /// @param  target  Contract (agent) to call.
     /// @param  data    ABI-encoded calldata (4-byte selector + encoded arguments).
-    /// @param  value   wei to attach to the forwarded call.
+    /// @param  value   tomi to attach to the forwarded call.
     ///
     /// @effects reads:  storage.owner, storage.sk_value_cap[caller]
     /// @effects writes: []
@@ -169,13 +169,13 @@ account contract AgentWallet {
     function execute(agent target, bytes data, u256 value) external payable {
         // Enforce the session key value cap.  The owner is exempt.
         if (msg.sender != owner) {
-            let cap: u256 = sk_value_cap[msg.sender];
+            u256 cap = sk_value_cap[msg.sender];
             if (cap > 0) {
                 require(value <= cap, "SessionKeyValueCapExceeded");
             }
         }
 
-        let ok: bool = target.call{value: value}(data);
+        bool ok = target.call{value: value}(data);
         emit Executed(target, value, ok);
         require(ok, "ExecuteFailed");
     }
@@ -197,7 +197,7 @@ account contract AgentWallet {
         require(msg.sender == owner, "OnlyOwner");
         require(new_owner != "0x0000000000000000000000000000000000000000000000000000000000000000", "ZeroAddress");
 
-        let prev: agent = owner;
+        agent prev = owner;
         set owner = new_owner;
 
         emit OwnerTransferred(prev, new_owner);

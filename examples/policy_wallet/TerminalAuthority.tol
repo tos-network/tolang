@@ -123,7 +123,7 @@ contract TerminalAuthority {
         require(trustTier >= min_trust_tier[terminalClass], "TRUST_TOO_LOW");
         require(value <= max_single_value[terminalClass], "OVER_SINGLE_LIMIT");
 
-        let today: u256 = block.timestamp_ms / 86400000;
+        u256 today = block.timestamp_ms / 86400000;
         if (today != terminal_spend_day[terminalClass]) {
             set terminal_daily_spent[terminalClass] = 0;
             set terminal_spend_day[terminalClass] = today;

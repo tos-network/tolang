@@ -21,14 +21,14 @@ contract Branchy {
     }
   }
   function whileLoop(u256 n) public returns (u256 r) {
-    let i: u256 = 0;
+    u256 i = 0;
     while (i < n) {
       set i = i + 1;
     }
     return i;
   }
   function noElse(u256 x) public returns (u256 r) {
-    let r: u256 = 0;
+    u256 r = 0;
     if (x > 5) {
       set r = x;
     }
@@ -534,7 +534,7 @@ func TestBuildLineCoverageNoBranchesForFlatContract(t *testing.T) {
 	src := `pragma tolang 0.2.0;
 contract Flat {
   function compute(u256 a) public returns (u256 r) {
-    let b: u256 = a + 1;
+    u256 b = a + 1;
     return b;
   }
 }

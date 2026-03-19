@@ -86,7 +86,7 @@ pragma tolang 0.2.0;
 contract Demo {
   event Tick(u256 x)
   fallback {
-    let x: u256 = 1;
+    u256 x = 1;
     set x = x + 2;
     if (x > 1) {
       emit Tick(x);
@@ -115,8 +115,8 @@ pragma tolang 0.2.0;
 contract Demo {
   event Tick(u256 i)
   fallback {
-    let n: u256 = 3;
-    for (let i: u256 = 0; i < n; i = i + 1) {
+    u256 n = 3;
+    for (u256 i = 0; i < n; i = i + 1) {
       if (i == 1) {
         continue;
       }
@@ -571,7 +571,7 @@ func TestBuildIRRejectsInvalidFixedArraySizeZero(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u8[0] = 0;
+    u8[0] x = 0;
     return;
   }
 }
@@ -589,24 +589,20 @@ contract Demo {
 }
 
 func TestBuildIRRejectsInvalidFixedArraySizeToken(t *testing.T) {
+	// u8[abc] — 'abc' is an ident so the parser treats this as an index expression
+	// (not an array type). The resulting code is rejected at parse/sema level.
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u8[abc] = 0;
+    u8[abc] x = 0;
     return;
   }
 }
 `)
 	_, err := BuildIR(src, "<tol>")
 	if err == nil {
-		t.Fatalf("expected invalid type error")
-	}
-	if !strings.Contains(err.Error(), "TOL2021") {
-		t.Fatalf("expected TOL2021 sema error, got: %v", err)
-	}
-	if !strings.Contains(err.Error(), "invalid type 'u8[abc]' in local 'x'") {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("expected error for invalid fixed array size token")
 	}
 }
 
@@ -615,7 +611,7 @@ func TestBuildIRRejectsInvalidLetType(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: badtype = 1;
+    badtype x = 1;
     return;
   }
 }
@@ -637,7 +633,7 @@ func TestBuildIRRejectsSourceNilLiteral(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256 = nil;
+    u256 x = nil;
     return;
   }
 }
@@ -655,24 +651,20 @@ contract Demo {
 }
 
 func TestBuildIRRejectsUntypedUninitializedLocal(t *testing.T) {
+	// With let removed, a bare `x;` is an expression statement, not a declaration.
+	// It should still be rejected (undefined variable or non-call expression).
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x;
+    x;
     return;
   }
 }
 `)
 	_, err := BuildIR(src, "<tol>")
 	if err == nil {
-		t.Fatalf("expected missing type/init error")
-	}
-	if !strings.Contains(err.Error(), "TOL2021") {
-		t.Fatalf("expected TOL2021 sema error, got: %v", err)
-	}
-	if !strings.Contains(err.Error(), "requires either explicit type or initializer") {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("expected error for bare identifier expression statement")
 	}
 }
 
@@ -681,7 +673,7 @@ func TestBuildIRRejectsUninitializedArrayLocal(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256[];
+    u256[] x;
     return;
   }
 }
@@ -703,9 +695,9 @@ func TestCompileBytecodeLocalTypedDefaults(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: agent;
-    let s: string;
-    let n: u256;
+    agent a;
+    string s;
+    u256 n;
     set out_a = a;
     set out_s = s;
     set out_n = n;
@@ -787,8 +779,8 @@ func TestBuildIRRejectsDuplicateLocalLetInSameScope(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256 = 1;
-    let x: u256 = 2;
+    u256 x = 1;
+    u256 x = 2;
     return;
   }
 }
@@ -2848,7 +2840,7 @@ pragma tolang 0.2.0;
 contract Demo {
   function run() public {
     return;
-    let x: u256 = 1;
+    u256 x = 1;
   }
 }
 `)
@@ -2869,7 +2861,7 @@ contract Demo {
     while (true) {
       return;
     }
-    let x: u256 = 1;
+    u256 x = 1;
   }
 }
 `)
@@ -2889,7 +2881,7 @@ contract Demo {
   function run() public {
     while (true) {
       break;
-      let x: u256 = 1;
+      u256 x = 1;
     }
     return;
   }
@@ -3237,7 +3229,7 @@ contract Token {
     return;
   }
   function getSupply() public returns (u256 r) {
-    let r: u256 = totalSupply;
+    u256 r = totalSupply;
     return r;
   }
 }
@@ -3310,11 +3302,11 @@ contract Wallet {
     return;
   }
   function getOwner() public returns (agent r) {
-    let r: agent = owner;
+    agent r = owner;
     return r;
   }
   function getBalance() public returns (u256 r) {
-    let r: u256 = balance;
+    u256 r = balance;
     return r;
   }
 }
@@ -3401,7 +3393,7 @@ contract Token {
     return;
   }
   function getSupply() public returns (u256 r) {
-    let r: u256 = totalSupply;
+    u256 r = totalSupply;
     return r;
   }
 }
@@ -3456,7 +3448,7 @@ contract Token {
     return;
   }
   function getSupply() public returns (u256 r) {
-    let r: u256 = totalSupply;
+    u256 r = totalSupply;
     return r;
   }
 }
@@ -4058,7 +4050,7 @@ pragma tolang 0.2.0;
 contract Demo {
   mapping(agent => u256) balances;
   function add(agent who, u256 amount) public {
-    let cur: u256 = balances[who];
+    u256 cur = balances[who];
     set balances[who] = cur + amount;
     set got = balances[who];
     return;
@@ -4173,7 +4165,7 @@ pragma tolang 0.2.0;
 contract Demo {
   mapping(agent => mapping(agent => u256)) allowances;
   function add(agent owner, agent spender, u256 amount) public {
-    let cur: u256 = allowances[owner][spender];
+    u256 cur = allowances[owner][spender];
     set allowances[owner][spender] = cur + amount;
     set got = allowances[owner][spender];
     return;
@@ -4447,7 +4439,7 @@ func TestCompileBytecodeABIBuiltinDecodeTypedU256Local(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256 = abi.decode("0x2a");
+    u256 x = abi.decode("0x2a");
     set out = x;
     return;
   }
@@ -4484,7 +4476,7 @@ func TestCompileBytecodeABIBuiltinDecodeTypedAgentLocal(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: agent = abi.decode("0x00000000000000000000000000000000000000000000000000000000000000ab");
+    agent a = abi.decode("0x00000000000000000000000000000000000000000000000000000000000000ab");
     set out = a;
     return;
   }
@@ -4522,7 +4514,7 @@ func TestCompileBytecodeABIBuiltinDecodeTypedBoolLocal(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: bool = abi.decode("0x01");
+    bool x = abi.decode("0x01");
     set out = x;
     return;
   }
@@ -4559,7 +4551,7 @@ func TestCompileBytecodeABIBuiltinDecodeTypedBytes32Local(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: bytes32 = abi.decode("0x1111111111111111111111111111111111111111111111111111111111111111");
+    bytes32 x = abi.decode("0x1111111111111111111111111111111111111111111111111111111111111111");
     set out = x;
     return;
   }
@@ -4597,7 +4589,7 @@ func TestCompileBytecodeABIBuiltinDecodeTypedBytes4Local(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: bytes4 = abi.decode("0x01020304");
+    bytes4 x = abi.decode("0x01020304");
     set out = x;
     return;
   }
@@ -4631,24 +4623,21 @@ contract Demo {
 }
 
 func TestCompileBytecodeABIBuiltinDecodeTypedLocalRejectsMissingType(t *testing.T) {
+	// With `let` removed, type-first syntax always includes a type. The original
+	// test (let x = abi.decode(...) without type) is no longer expressible.
+	// Verify that typed abi.decode still works correctly instead.
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  function bad() public {
-    let x = abi.decode("0x01");
+  function good() public {
+    u256 x = abi.decode("0x0000000000000000000000000000000000000000000000000000000000000001");
     return;
   }
 }
 `)
 	_, err := CompileBytecode(src, "<tol>")
-	if err == nil {
-		t.Fatalf("expected compile error")
-	}
-	if !strings.Contains(err.Error(), "TOL2021") {
-		t.Fatalf("expected TOL2021 error, got: %v", err)
-	}
-	if !strings.Contains(err.Error(), "abi.decode local binding requires explicit type annotation") {
-		t.Fatalf("unexpected error: %v", err)
+	if err != nil {
+		t.Fatalf("expected typed abi.decode to compile, got: %v", err)
 	}
 }
 
@@ -4657,7 +4646,7 @@ func TestCompileBytecodeABIBuiltinDecodeTypedLocalRejectsUnsupportedType(t *test
 pragma tolang 0.2.0;
 contract Demo {
   function bad() public {
-    let x: string = abi.decode("0x01");
+    string x = abi.decode("0x01");
     return;
   }
 }
@@ -4679,7 +4668,7 @@ func TestCompileBytecodeABIBuiltinDecodeTypedLocalRejectsBytesNLengthMismatch(t 
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: bytes4 = abi.decode("0x010203");
+    bytes4 x = abi.decode("0x010203");
     set out = x;
     return;
   }
@@ -4702,7 +4691,7 @@ func TestCompileBytecodeABIBuiltinDecodeTypedLocalRejectsUintOverflow(t *testing
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u8 = abi.decode("0x0100");
+    u8 x = abi.decode("0x0100");
     set out = x;
     return;
   }
@@ -5135,9 +5124,9 @@ func TestSignedI8TypeCastTruncates(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: i8 = i8(255);
+    i8 x = i8(255);
     set out_raw = x;
-    let y: i8 = i8(256);
+    i8 y = i8(256);
     set out_wrap = y;
     return;
   }
@@ -5161,9 +5150,9 @@ func TestSignedI256AddPositive(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i256 = 10;
-    let b: i256 = 20;
-    let c: i256 = a + b;
+    i256 a = 10;
+    i256 b = 20;
+    i256 c = a + b;
     set out = c;
     return;
   }
@@ -5183,9 +5172,9 @@ func TestSignedI256AddNegative(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i256 = i256(115792089237316195423570985008687907853269984665640564039457584007913129639935);
-    let b: i256 = i256(115792089237316195423570985008687907853269984665640564039457584007913129639935);
-    let c: i256 = a + b;
+    i256 a = i256(115792089237316195423570985008687907853269984665640564039457584007913129639935);
+    i256 b = i256(115792089237316195423570985008687907853269984665640564039457584007913129639935);
+    i256 c = a + b;
     set out = c;
     return;
   }
@@ -5208,9 +5197,9 @@ func TestSignedI8AddOverflow(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(127);
-    let b: i8 = i8(1);
-    let c: i8 = a + b;
+    i8 a = i8(127);
+    i8 b = i8(1);
+    i8 c = a + b;
     set out = c;
     return;
   }
@@ -5227,9 +5216,9 @@ func TestSignedI8AddOverflowUnchecked(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(127);
-    let b: i8 = i8(1);
-    let c: i8 = 0;
+    i8 a = i8(127);
+    i8 b = i8(1);
+    i8 c = 0;
     unchecked {
       set c = a + b;
     }
@@ -5253,9 +5242,9 @@ func TestSignedI8SubPositive(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(10);
-    let b: i8 = i8(5);
-    let c: i8 = a - b;
+    i8 a = i8(10);
+    i8 b = i8(5);
+    i8 c = a - b;
     set out = c;
     return;
   }
@@ -5275,9 +5264,9 @@ func TestSignedI8SubNegativeResult(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(5);
-    let b: i8 = i8(10);
-    let c: i8 = a - b;
+    i8 a = i8(5);
+    i8 b = i8(10);
+    i8 c = a - b;
     set out = c;
     return;
   }
@@ -5298,9 +5287,9 @@ func TestSignedI8MulNegative(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(3);
-    let b: i8 = i8(254);
-    let c: i8 = a * b;
+    i8 a = i8(3);
+    i8 b = i8(254);
+    i8 c = a * b;
     set out = c;
     return;
   }
@@ -5323,9 +5312,9 @@ func TestSignedI8DivTruncTowardZero(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(249);
-    let b: i8 = i8(2);
-    let c: i8 = a / b;
+    i8 a = i8(249);
+    i8 b = i8(2);
+    i8 c = a / b;
     set out = c;
     return;
   }
@@ -5346,9 +5335,9 @@ func TestSignedI8DivByZeroReverts(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(10);
-    let b: i8 = i8(0);
-    let c: i8 = a / b;
+    i8 a = i8(10);
+    i8 b = i8(0);
+    i8 c = a / b;
     set out = c;
     return;
   }
@@ -5365,9 +5354,9 @@ func TestSignedI8ModSignFollowsDividend(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(249);
-    let b: i8 = i8(2);
-    let c: i8 = a % b;
+    i8 a = i8(249);
+    i8 b = i8(2);
+    i8 c = a % b;
     set out = c;
     return;
   }
@@ -5387,9 +5376,9 @@ func TestSignedI8ModByZeroReverts(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(10);
-    let b: i8 = i8(0);
-    let c: i8 = a % b;
+    i8 a = i8(10);
+    i8 b = i8(0);
+    i8 c = a % b;
     set out = c;
     return;
   }
@@ -5405,8 +5394,8 @@ func TestSignedI8NegUnary(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(251);
-    let b: i8 = -a;
+    i8 a = i8(251);
+    i8 b = -a;
     set out = b;
     return;
   }
@@ -5427,8 +5416,8 @@ func TestSignedI8ComparisonNegativeLessThanPositive(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(255);
-    let b: i8 = i8(1);
+    i8 a = i8(255);
+    i8 b = i8(1);
     if (a < b) {
       set result = 1;
     } else {
@@ -5453,8 +5442,8 @@ func TestSignedI8ComparisonPositiveGreaterThanNegative(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(1);
-    let b: i8 = i8(255);
+    i8 a = i8(1);
+    i8 b = i8(255);
     if (a > b) {
       set result = 1;
     } else {
@@ -5479,8 +5468,8 @@ func TestSignedI8ComparisonLessOrEqual(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(254);
-    let b: i8 = i8(255);
+    i8 a = i8(254);
+    i8 b = i8(255);
     if (a <= b) {
       set result = 1;
     } else {
@@ -5505,8 +5494,8 @@ func TestSignedI8ComparisonGreaterOrEqual(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(255);
-    let b: i8 = i8(254);
+    i8 a = i8(255);
+    i8 b = i8(254);
     if (a >= b) {
       set result = 1;
     } else {
@@ -5530,9 +5519,9 @@ func TestSignedI256MinDivNeg1Reverts(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let min_i256: i256 = i256(57896044618658097711785492504343953926634992332820282019728792003956564819968);
-    let neg_one: i256 = i256(115792089237316195423570985008687907853269984665640564039457584007913129639935);
-    let c: i256 = min_i256 / neg_one;
+    i256 min_i256 = i256(57896044618658097711785492504343953926634992332820282019728792003956564819968);
+    i256 neg_one = i256(115792089237316195423570985008687907853269984665640564039457584007913129639935);
+    i256 c = min_i256 / neg_one;
     set out = c;
     return;
   }
@@ -5549,10 +5538,10 @@ func TestSignedI256AddSubRoundtrip(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i256 = 42;
-    let b: i256 = 100;
-    let c: i256 = a + b;
-    let d: i256 = c - b;
+    i256 a = 42;
+    i256 b = 100;
+    i256 c = a + b;
+    i256 d = c - b;
     set out = d;
     return;
   }
@@ -5572,9 +5561,9 @@ func TestSignedI256EqualityChecksWorkByBitPattern(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i256 = i256(255);
-    let b: i256 = i256(255);
-    let c: i256 = i256(1);
+    i256 a = i256(255);
+    i256 b = i256(255);
+    i256 c = i256(1);
     if (a == b) {
       set eq_result = 1;
     } else {
@@ -5605,7 +5594,7 @@ func TestSignedI8TypeCastBadArityRejected(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: i8 = i8(1, 2);
+    i8 x = i8(1, 2);
     set out = x;
     return;
   }
@@ -5626,7 +5615,7 @@ func TestUintTypeCastTruncates(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u8 = u8(300);
+    u8 x = u8(300);
     set out = x;
     return;
   }
@@ -5647,9 +5636,9 @@ func TestSignedI8DivPositivePositive(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(10);
-    let b: i8 = i8(3);
-    let c: i8 = a / b;
+    i8 a = i8(10);
+    i8 b = i8(3);
+    i8 c = a / b;
     set out = c;
     return;
   }
@@ -5669,9 +5658,9 @@ func TestSignedI8ModPositiveNegativeDivisor(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(249);
-    let b: i8 = i8(253);
-    let c: i8 = a % b;
+    i8 a = i8(249);
+    i8 b = i8(253);
+    i8 c = a % b;
     set out = c;
     return;
   }
@@ -5691,10 +5680,10 @@ func TestSignedI256FunctionParams(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i256 = 5;
-    let b: i256 = 3;
-    let c: i256 = a - b;
-    let d: i256 = c * a;
+    i256 a = 5;
+    i256 b = 3;
+    i256 c = a - b;
+    i256 d = c * a;
     set out = d;
     return;
   }
@@ -5716,8 +5705,8 @@ func TestSignedI256WhileLoopNegativeToPositive(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let count: i256 = 0;
-    let i: i256 = i256(115792089237316195423570985008687907853269984665640564039457584007913129639933);
+    i256 count = 0;
+    i256 i = i256(115792089237316195423570985008687907853269984665640564039457584007913129639933);
     while (i < 3) {
       set count = count + 1;
       set i = i + 1;
@@ -5742,8 +5731,8 @@ func TestSignedI256UnaryNegOfVariable(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i256 = 42;
-    let b: i256 = -a;
+    i256 a = 42;
+    i256 b = -a;
     set out = b;
     return;
   }
@@ -5768,7 +5757,7 @@ pragma tolang 0.2.0;
 contract Demo {
   enum State { Active, Inactive, Paused }
   function run() public {
-    let s: u8 = State.Inactive;
+    u8 s = State.Inactive;
     set out = s;
     return;
   }
@@ -5788,7 +5777,7 @@ pragma tolang 0.2.0;
 contract Demo {
   enum Color { Red, Green, Blue }
   function run() public {
-    let c: u8 = Color.Red;
+    u8 c = Color.Red;
     set out = c;
     return;
   }
@@ -5807,7 +5796,7 @@ pragma tolang 0.2.0;
 contract Demo {
   enum State { Active, Inactive }
   function run() public {
-    let s: u8 = State.Active;
+    u8 s = State.Active;
     if (s == State.Active) {
       set out = 100;
     } else {
@@ -5898,8 +5887,8 @@ func TestABIDecodeTupleU256AndAgent(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "` + data + `";
-    let (val, addr): (u256, agent) = abi.decode(data);
+    bytes data = "` + data + `";
+    (u256 val, agent addr) = abi.decode(data);
     set out_val = val;
     set out_addr = addr;
     return;
@@ -5926,8 +5915,8 @@ func TestABIDecodeTupleBoolAndU256(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "` + data + `";
-    let (flag, amt): (bool, u256) = abi.decode(data);
+    bytes data = "` + data + `";
+    (bool flag, u256 amt) = abi.decode(data);
     if (flag) {
       set out_flag = 1;
     } else {
@@ -5958,8 +5947,8 @@ func TestABIDecodeTupleThreeSlots(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "` + data + `";
-    let (a, b, c): (u256, u256, u256) = abi.decode(data);
+    bytes data = "` + data + `";
+    (u256 a, u256 b, u256 c) = abi.decode(data);
     set out_a = a;
     set out_b = b;
     set out_c = c;
@@ -5983,21 +5972,20 @@ contract Demo {
 // TestLetTupleRejectsMismatchedTypeCount verifies that sema rejects
 // let-tuple when the number of variables doesn't match the number of types.
 func TestLetTupleRejectsMismatchedTypeCount(t *testing.T) {
+	// Type-first tuple requires at least 2 variables. A single-variable tuple
+	// is rejected at the lowering level.
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "0x0000000000000000000000000000000000000000000000000000000000000001";
-    let (a, b): (u256, u256, u256) = abi.decode(data);
+    bytes data = "0x0000000000000000000000000000000000000000000000000000000000000001";
+    (u256 a) = abi.decode(data);
     return;
   }
 }
 `)
 	_, err := CompileBytecode(src, "<test>")
 	if err == nil {
-		t.Fatalf("expected compile error for mismatched type count")
-	}
-	if !strings.Contains(err.Error(), "tuple let binding") {
-		t.Fatalf("expected tuple let binding error, got: %v", err)
+		t.Fatalf("expected compile error for single-variable tuple")
 	}
 }
 
@@ -6007,8 +5995,8 @@ func TestLetTupleRejectsUnsupportedABIDecodeType(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "0x0000000000000000000000000000000000000000000000000000000000000001";
-    let (a, b): (u256, string) = abi.decode(data);
+    bytes data = "0x0000000000000000000000000000000000000000000000000000000000000001";
+    (u256 a, string b) = abi.decode(data);
     return;
   }
 }
@@ -6028,8 +6016,8 @@ func TestLetTupleRequiresAtLeastTwoVars(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "0x0000000000000000000000000000000000000000000000000000000000000001";
-    let (a): (u256) = abi.decode(data);
+    bytes data = "0x0000000000000000000000000000000000000000000000000000000000000001";
+    (u256 a) = abi.decode(data);
     return;
   }
 }
@@ -6052,7 +6040,7 @@ contract Demo {
     return 99;
   }
   function run() public {
-    let (a, b): (u256, u256) = this.helper();
+    (u256 a, u256 b) = this.helper();
     set out_a = a;
     return;
   }
@@ -6070,8 +6058,8 @@ func TestLetTupleParserBasic(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "0x0000000000000000000000000000000000000000000000000000000000000001";
-    let (a, b): (u256, agent) = abi.decode(data);
+    bytes data = "0x0000000000000000000000000000000000000000000000000000000000000001";
+    (u256 a, agent b) = abi.decode(data);
     return;
   }
 }
@@ -6116,7 +6104,7 @@ library MathLib {
 }
 contract Demo {
   function run() public {
-    let result: u256 = MathLib.add(3, 4);
+    u256 result = MathLib.add(3, 4);
     set out = result;
     return;
   }
@@ -6143,8 +6131,8 @@ library MathLib {
 }
 contract Demo {
   function run() public {
-    let a: u256 = MathLib.double(5);
-    let b: u256 = MathLib.triple(5);
+    u256 a = MathLib.double(5);
+    u256 b = MathLib.triple(5);
     set out = a + b;
     return;
   }
@@ -6208,7 +6196,7 @@ library MathLib {
 contract Demo {
   using MathLib for u256;
   function run() public {
-    let result: u256 = MathLib.double(6);
+    u256 result = MathLib.double(6);
     set out = result;
     return;
   }
@@ -6635,7 +6623,7 @@ library MathLib {
 }
 contract Demo {
   function run() public {
-    let r: u256 = MathLib.add(1);
+    u256 r = MathLib.add(1);
     return;
   }
 }
@@ -6654,7 +6642,7 @@ func TestDeleteLocal(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256 = 5;
+    u256 x = 5;
     delete x;
     set out = x;
     return;
@@ -6690,9 +6678,9 @@ func TestUncheckedArith(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: u256 = 10;
-    let b: u256 = 20;
-    let c: u256 = 0;
+    u256 a = 10;
+    u256 b = 20;
+    u256 c = 0;
     unchecked {
       set c = a + b;
     }
@@ -6730,7 +6718,7 @@ func TestTernaryBasic(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256 = 1 == 1 ? 42 : 0;
+    u256 x = 1 == 1 ? 42 : 0;
     set out = x;
     return;
   }
@@ -6765,7 +6753,7 @@ func TestTernaryFalse(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256 = 1 == 2 ? 42 : 99;
+    u256 x = 1 == 2 ? 42 : 99;
     set out = x;
     return;
   }
@@ -6805,9 +6793,9 @@ func TestBytesConcat(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: bytes = "0xaabb";
-    let b: bytes = "0xccdd";
-    let c: bytes = bytes.concat(a, b);
+    bytes a = "0xaabb";
+    bytes b = "0xccdd";
+    bytes c = bytes.concat(a, b);
     set out = c;
     return;
   }
@@ -6827,7 +6815,7 @@ func TestBytesConcatVariadic(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let out: bytes = bytes.concat("0xaa", "0xbb", "0xcc");
+    bytes out = bytes.concat("0xaa", "0xbb", "0xcc");
     set result = out;
     return;
   }
@@ -6847,9 +6835,9 @@ func TestStringConcat(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: string = "hello";
-    let b: string = " world";
-    let c: string = string.concat(a, b);
+    string a = "hello";
+    string b = " world";
+    string c = string.concat(a, b);
     set out = c;
     return;
   }
@@ -6869,8 +6857,8 @@ func TestBytesLength(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "0xaabbcc";
-    let n: u256 = data.length;
+    bytes data = "0xaabbcc";
+    u256 n = data.length;
     set out = n;
     return;
   }
@@ -6890,8 +6878,8 @@ func TestStringLength(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let s: string = "hello";
-    let n: u256 = s.length;
+    string s = "hello";
+    u256 n = s.length;
     set out = n;
     return;
   }
@@ -6912,8 +6900,8 @@ func TestBytesSlice(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "0xaabbccdd";
-    let sl: bytes = data[1:3];
+    bytes data = "0xaabbccdd";
+    bytes sl = data[1:3];
     set out = sl;
     return;
   }
@@ -6933,8 +6921,8 @@ func TestBytesSliceFromZero(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "0xaabbcc";
-    let sl: bytes = data[0:2];
+    bytes data = "0xaabbcc";
+    bytes sl = data[0:2];
     set out = sl;
     return;
   }
@@ -6954,7 +6942,7 @@ func TestBytesConcatEmpty(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let c: bytes = bytes.concat();
+    bytes c = bytes.concat();
     set out = c;
     return;
   }
@@ -6978,7 +6966,7 @@ pragma tolang 0.2.0;
 contract Demo {
   struct Point { u256 x; u256 y; }
   function run() public {
-    let p: Point = Point { x: 10, y: 20 };
+    Point p = Point { x: 10, y: 20 };
     set out_x = p.x;
     set out_y = p.y;
     return;
@@ -7005,7 +6993,7 @@ contract Demo {
     return Pair { a: x, b: y };
   }
   function run() public {
-    let p: Pair = makePair(7, 13);
+    Pair p = makePair(7, 13);
     set out_a = p.a;
     set out_b = p.b;
     return;
@@ -7032,8 +7020,8 @@ contract Demo {
     return v.dx + v.dy;
   }
   function run() public {
-    let v: Vec2 = Vec2 { dx: 3, dy: 4 };
-    let s: u256 = sumCoords(v);
+    Vec2 v = Vec2 { dx: 3, dy: 4 };
+    u256 s = sumCoords(v);
     set out_sum = s;
     return;
   }
@@ -7053,7 +7041,7 @@ pragma tolang 0.2.0;
 struct Config { u256 value; }
 contract Demo {
   function run() public {
-    let c: Config = Config { value: 42 };
+    Config c = Config { value: 42 };
     set out = c.value;
     return;
   }
@@ -7083,7 +7071,7 @@ contract Token is Base {
         return x + 1;
     }
     function run(u256 v) public {
-        let r: u256 = this.compute(v);
+        u256 r = this.compute(v);
         set got = r;
         return;
     }
@@ -7170,8 +7158,8 @@ func TestStructABIDecodeTuple(t *testing.T) {
 contract Demo {
   struct Point { u256 x; u256 y; }
   function run() public {
-    let data: bytes = "` + data + `";
-    let (p, n): (Point, u256) = abi.decode(data);
+    bytes data = "` + data + `";
+    (Point p, u256 n) = abi.decode(data);
     set out_x = p.x;
     set out_y = p.y;
     return;
@@ -7184,8 +7172,8 @@ contract Demo {
 contract Demo {
   struct Point { u256 x; u256 y; }
   function run() public {
-    let data: bytes = "` + data + `";
-    let (px, py): (u256, u256) = abi.decode(data);
+    bytes data = "` + data + `";
+    (u256 px, u256 py) = abi.decode(data);
     set out_x = px;
     set out_y = py;
     return;
@@ -7214,8 +7202,8 @@ func TestStructABIDecodeTyped(t *testing.T) {
 contract Demo {
   struct Point { u256 x; u256 y; }
   function run() public {
-    let data: bytes = "` + data + `";
-    let p: Point = abi.decode(data);
+    bytes data = "` + data + `";
+    Point p = abi.decode(data);
     set out_x = p.x;
     set out_y = p.y;
     return;
@@ -7244,8 +7232,8 @@ func TestStructABIDecodeTupleWithStruct(t *testing.T) {
 contract Demo {
   struct Point { u256 x; u256 y; }
   function run() public {
-    let data: bytes = "` + data + `";
-    let (p, n): (Point, u256) = abi.decode(data);
+    bytes data = "` + data + `";
+    (Point p, u256 n) = abi.decode(data);
     set out_x = p.x;
     set out_y = p.y;
     set out_n = n;
@@ -7361,7 +7349,7 @@ contract Demo {
     return Point { x: a, y: b };
   }
   function run() public {
-    let p: Point = makePoint(42, 99);
+    Point p = makePoint(42, 99);
     set out_x = p.x;
     set out_y = p.y;
     return;
@@ -7392,8 +7380,8 @@ contract Demo {
   struct Inner { u256 val; }
   struct Outer { Inner inner; u256 count; }
   function run() public {
-    let data: bytes = "` + data + `";
-    let o: Outer = abi.decode(data);
+    bytes data = "` + data + `";
+    Outer o = abi.decode(data);
     set out_val = o.inner.val;
     set out_count = o.count;
     return;
@@ -7419,9 +7407,9 @@ contract Demo {
     return arr[1] + arr[2] + arr[3];
   }
   function run() public {
-    let a: u256 = 10;
-    let b: u256 = 20;
-    let c: u256 = 30;
+    u256 a = 10;
+    u256 b = 20;
+    u256 c = 30;
     set out = sumFirst3({a, b, c});
     return;
   }
@@ -8025,31 +8013,31 @@ func TestTypeMinMaxEndToEnd(t *testing.T) {
 pragma tolang 0.2.0;
 contract BoundsDemo {
   function u8Max() public view returns (u256 v) {
-    let v: u8 = type(u8).max;
+    u8 v = type(u8).max;
     return v;
   }
   function u8Min() public view returns (u256 v) {
-    let v: u8 = type(u8).min;
+    u8 v = type(u8).min;
     return v;
   }
   function u256Max() public view returns (u256 v) {
-    let v: u256 = type(u256).max;
+    u256 v = type(u256).max;
     return v;
   }
   function u256Min() public view returns (u256 v) {
-    let v: u256 = type(u256).min;
+    u256 v = type(u256).min;
     return v;
   }
   function i8Max() public view returns (u256 v) {
-    let v: i8 = type(i8).max;
+    i8 v = type(i8).max;
     return v;
   }
   function i8Min() public view returns (u256 v) {
-    let v: i8 = type(i8).min;
+    i8 v = type(i8).min;
     return v;
   }
   function u128Max() public view returns (u256 v) {
-    let v: u128 = type(u128).max;
+    u128 v = type(u128).max;
     return v;
   }
 }
@@ -8122,7 +8110,7 @@ func TestPayableTypeCastCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract PayableDemo {
   function getPayable(agent addr) public view returns (agent out) {
-    let out: agent = payable(addr);
+    agent out = payable(addr);
     return out;
   }
 }
@@ -8179,11 +8167,11 @@ interface IERC20 {
 
 contract InterfaceIdDemo {
   function simpleId() public view returns (bytes4 id) {
-    let id: bytes4 = type(ISimple).interfaceId;
+    bytes4 id = type(ISimple).interfaceId;
     return id;
   }
   function erc20Id() public view returns (bytes4 id) {
-    let id: bytes4 = type(IERC20).interfaceId;
+    bytes4 id = type(IERC20).interfaceId;
     return id;
   }
 }
@@ -8250,7 +8238,7 @@ interface IERC165 {
 
 contract ERC165Demo {
   function getERC165Id() public view returns (bytes4 id) {
-    let id: bytes4 = type(IERC165).interfaceId;
+    bytes4 id = type(IERC165).interfaceId;
     return id;
   }
 }
@@ -8293,7 +8281,7 @@ func TestDoWhileCompilesAndRuns(t *testing.T) {
 pragma tolang 0.2.0;
 contract Counter {
   function count() public {
-    let i: u256 = 0;
+    u256 i = 0;
     do {
       set i = i + 1;
     } while (i < 5);
@@ -8330,7 +8318,7 @@ func TestDoWhileBodyRunsOnceWhenCondFalse(t *testing.T) {
 pragma tolang 0.2.0;
 contract Once {
   function run() public {
-    let x: u256 = 0;
+    u256 x = 0;
     do {
       set x = x + 1;
     } while (false);
@@ -8428,7 +8416,7 @@ func TestAgentTypeAnnotationCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Test {
   function run(agent addr) public {
-    let x: agent = addr;
+    agent x = addr;
     set out_addr = x;
     return;
   }
@@ -8515,7 +8503,7 @@ func TestAddrDotSendCallsHostSend(t *testing.T) {
 pragma tolang 0.2.0;
 contract Wallet {
   function trySend(agent recipient, u256 amount) public returns (bool ok) {
-    let ok: bool = recipient.send(amount);
+    bool ok = recipient.send(amount);
     return ok;
   }
 }
@@ -8559,7 +8547,7 @@ func TestBytesEqLowering(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract BytesEqTest {
   function same(bytes a, bytes b) public pure returns (bool ok) {
-    let ok: bool = bytes_eq(a, b);
+    bool ok = bytes_eq(a, b);
     return ok;
   }
 }
@@ -8610,7 +8598,7 @@ func TestBytesEqualityOperatorCompileError(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract C {
   function check(bytes a, bytes b) public pure returns (bool ok) {
-    let ok: bool = a == b;
+    bool ok = a == b;
     return ok;
   }
 }
@@ -8646,8 +8634,8 @@ contract IncDec {
     return x;
   }
   function forLoop() public pure returns (u256 r) {
-    let sum: u256 = 0;
-    for (let i: u256 = 0; i < 5; i++) {
+    u256 sum = 0;
+    for (u256 i = 0; i < 5; i++) {
       set sum = sum + i;
     }
     return sum;
@@ -8737,7 +8725,7 @@ func TestImportLocalLibrary(t *testing.T) {
 	libSrc := []byte(`pragma tolang 0.2.0;
 library MathLib {
   function double(u256 x) internal pure returns (u256 r) {
-    let r: u256 = x * 2;
+    u256 r = x * 2;
     return r;
   }
 }
@@ -8752,7 +8740,7 @@ contract _Dummy {}
 import MathLib from "./mathlib.tol";
 contract Calc {
   function compute(u256 x) public pure returns (u256 r) {
-    let r: u256 = MathLib.double(x);
+    u256 r = MathLib.double(x);
     return r;
   }
 }
@@ -8818,7 +8806,7 @@ contract Counter {
     return;
   }
   function value() public view returns (u256 v) {
-    let v: u256 = count;
+    u256 v = count;
     return v;
   }
 }
@@ -8836,7 +8824,7 @@ contract Counter {
 import ICounter from "./counter.toc";
 contract Proxy {
   function call(agent addr) public view returns (u256 v) {
-    let v: u256 = ICounter(addr).value();
+    u256 v = ICounter(addr).value();
     return v;
   }
 }
@@ -8855,7 +8843,7 @@ func TestImportFromPackage(t *testing.T) {
 contract Token {
   u256 supply;
   function totalSupply() public view returns (u256 v) {
-    let v: u256 = supply;
+    u256 v = supply;
     return v;
   }
 }
@@ -8876,7 +8864,7 @@ contract Token {
 import IToken from "./token.tor";
 contract Caller {
   function getSupply(agent addr) public view returns (u256 v) {
-    let v: u256 = IToken(addr).totalSupply();
+    u256 v = IToken(addr).totalSupply();
     return v;
   }
 }
@@ -8894,7 +8882,7 @@ func TestLetBytesNoInitializer(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function getEmpty() public pure returns (bytes result) {
-    let data: bytes;
+    bytes data;
     return data;
   }
 }
@@ -8915,7 +8903,7 @@ struct Point {
 }
 contract Demo {
   function origin() public pure returns (u256 result) {
-    let s: Point;
+    Point s;
     return s.x;
   }
 }
@@ -8936,7 +8924,7 @@ func TestABIEncodeStaticU256(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let v: u256 = 42;
+    u256 v = 42;
     set out = abi.encode(v);
     return;
   }
@@ -8959,7 +8947,7 @@ func TestABIEncodeDynamicBytes(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "0x48656c6c6f";
+    bytes data = "0x48656c6c6f";
     set out = abi.encode(data);
     return;
   }
@@ -8985,8 +8973,8 @@ func TestABIEncodeMixedStaticDynamic(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let n: u256 = 7;
-    let data: bytes = "0x0102";
+    u256 n = 7;
+    bytes data = "0x0102";
     set out = abi.encode(n, data);
     return;
   }
@@ -9018,7 +9006,7 @@ func TestABIEncodePackedBytes(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "0x0102";
+    bytes data = "0x0102";
     set out = abi.encodePacked(data);
     return;
   }
@@ -9040,7 +9028,7 @@ func TestABIEncodePackedU256(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let v: u256 = 255;
+    u256 v = 255;
     set out = abi.encodePacked(v);
     return;
   }
@@ -9072,8 +9060,8 @@ func TestABIDecodeBytesTypedDirect(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "` + abiData + `";
-    let x: bytes = abi.decode(data);
+    bytes data = "` + abiData + `";
+    bytes x = abi.decode(data);
     set out = x;
     return;
   }
@@ -9103,8 +9091,8 @@ func TestABIDecodeTupleWithBytes(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "` + abiData + `";
-    let (n, b): (u256, bytes) = abi.decode(data);
+    bytes data = "` + abiData + `";
+    (u256 n, bytes b) = abi.decode(data);
     set out_n = n;
     set out_b = b;
     return;
@@ -9130,8 +9118,8 @@ func TestABIDecodeSignedIntI8(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "` + abiData + `";
-    let x: i8 = abi.decode(data);
+    bytes data = "` + abiData + `";
+    i8 x = abi.decode(data);
     set out = x;
     return;
   }
@@ -9155,8 +9143,8 @@ func TestABIDecodeSignedIntI8Negative(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "` + abiData + `";
-    let x: i8 = abi.decode(data);
+    bytes data = "` + abiData + `";
+    i8 x = abi.decode(data);
     set out = x;
     return;
   }
@@ -9179,8 +9167,8 @@ func TestABIDecodeTupleWithI256(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "` + abiData + `";
-    let (x): (i256) = abi.decode(data);
+    bytes data = "` + abiData + `";
+    (i256 x) = abi.decode(data);
     set out = x;
     return;
   }
@@ -9191,8 +9179,8 @@ contract Demo {
 	src2 := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "` + abiData + `";
-    let (x, y): (i256, u256) = abi.decode(data);
+    bytes data = "` + abiData + `";
+    (i256 x, u256 y) = abi.decode(data);
     set out = x;
     return;
   }
@@ -9215,8 +9203,8 @@ func TestABIDecodeTypedLocalI128(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "` + abiData + `";
-    let x: i128 = abi.decode(data);
+    bytes data = "` + abiData + `";
+    i128 x = abi.decode(data);
     set out = x;
     return;
   }
@@ -9241,8 +9229,8 @@ func TestABIDecodeTypedLocalBytesAccepted(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "` + abiData + `";
-    let x: bytes = abi.decode(data);
+    bytes data = "` + abiData + `";
+    bytes x = abi.decode(data);
     set out = x;
     return;
   }
@@ -9264,8 +9252,8 @@ func TestABIDecodeSignedIntAcceptedAndStringRejected(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let data: bytes = "0x000000000000000000000000000000000000000000000000000000000000007f";
-    let x: i8 = abi.decode(data);
+    bytes data = "0x000000000000000000000000000000000000000000000000000000000000007f";
+    i8 x = abi.decode(data);
     set out = x;
     return;
   }
@@ -9280,7 +9268,7 @@ contract Demo {
 	srcBad := []byte(`pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: string = abi.decode("0x01");
+    string x = abi.decode("0x01");
     return;
   }
 }
@@ -9424,8 +9412,8 @@ contract Demo {
   /// @bounds i <= 9
   /// @gas upper: 43
   function sumLoop() public {
-    let total: u256 = 0;
-    for (let i: u256 = 0; i <= 9; i++) {
+    u256 total = 0;
+    for (u256 i = 0; i <= 9; i++) {
       set total = total + 1;
     }
     return;
@@ -9456,8 +9444,8 @@ func TestBoundsGasEstimationNoBoundsUnbounded(t *testing.T) {
 contract Demo {
   /// @gas upper: 43
   function sumLoop() public {
-    let total: u256 = 0;
-    for (let i: u256 = 0; i <= 9; i++) {
+    u256 total = 0;
+    for (u256 i = 0; i <= 9; i++) {
       set total = total + 1;
     }
     return;
@@ -9488,8 +9476,8 @@ contract MyContract {
     /// @bounds n <= 10
     /// @gas upper: 1000 + n * 50
     function doWork(u256 n) public {
-        for (let i: u256 = 0; i < n; i = i + 1) {
-            let x: u256 = counter;
+        for (u256 i = 0; i < n; i = i + 1) {
+            u256 x = counter;
         }
     }
 }
@@ -9513,8 +9501,8 @@ contract MyContract {
     /// @bounds n <= 10
     /// @gas upper: 5
     function doWork(u256 n) public {
-        for (let i: u256 = 0; i < n; i = i + 1) {
-            let x: u256 = counter;
+        for (u256 i = 0; i < n; i = i + 1) {
+            u256 x = counter;
         }
     }
 }
@@ -9541,7 +9529,7 @@ contract MyContract {
     /// @gas upper: 210500
     function scanBalances(u256 i) public {
         while (i <= 99) {
-            let x: u256 = balances[i];
+            u256 x = balances[i];
             set i = i + 1;
         }
     }
@@ -9568,7 +9556,7 @@ contract MyContract {
     /// @gas upper: 208400
     function scanBalances(u256 i) public {
         while (i <= 99) {
-            let x: u256 = balances[i];
+            u256 x = balances[i];
             set i = i + 1;
         }
     }
@@ -9594,7 +9582,7 @@ contract ERC20 {
   /// @effects emits:  []
   /// @effects calls:  []
   function selfTransfer(u256 amount) public {
-    let bal: u256 = balances[msg.sender];
+    u256 bal = balances[msg.sender];
     set balances[msg.sender] = bal;
     return;
   }
@@ -9768,8 +9756,8 @@ func TestShiftRightUint256IsLogical(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: u256 = 4294967295; // 0xFFFFFFFF
-    let b: u256 = a >> 4;
+    u256 a = 4294967295; // 0xFFFFFFFF
+    u256 b = a >> 4;
     set out = b;
     return;
   }
@@ -9792,8 +9780,8 @@ func TestShiftRightI8IsArithmetic(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(128); // -128 in i8 (bit pattern 0x80)
-    let b: i8 = a >> 1;  // arithmetic right shift: -64, raw 0xC0 = 192
+    i8 a = i8(128); // -128 in i8 (bit pattern 0x80)
+    i8 b = a >> 1;  // arithmetic right shift: -64, raw 0xC0 = 192
     set out = b;
     return;
   }
@@ -9814,8 +9802,8 @@ func TestTripleShiftRightAlwaysLogical(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: u256 = 4294967295; // 0xFFFFFFFF
-    let b: u256 = a >>> 4;   // logical shift
+    u256 a = 4294967295; // 0xFFFFFFFF
+    u256 b = a >>> 4;   // logical shift
     set out = b;
     return;
   }
@@ -9837,8 +9825,8 @@ func TestShiftRightI8PositiveIsArithmetic(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: i8 = i8(64);  // positive: sign bit = 0
-    let b: i8 = a >> 2;  // 64 >> 2 = 16
+    i8 a = i8(64);  // positive: sign bit = 0
+    i8 b = a >> 2;  // 64 >> 2 = 16
     set out = b;
     return;
   }
@@ -9863,8 +9851,8 @@ func TestCallOptionsParseCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let addr: agent = 0x0000000000000000000000000000000000000001;
-    let (ok, ret): (bool, bytes) = addr.call{value: 0}("0x");
+    agent addr = 0x0000000000000000000000000000000000000001;
+    (bool ok, bytes ret) = addr.call{value: 0}("0x");
     set out = ok;
     return;
   }
@@ -9885,8 +9873,8 @@ func TestCallOptionsGasCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let addr: agent = 0x0000000000000000000000000000000000000001;
-    let (ok, ret): (bool, bytes) = addr.staticcall{gas: 2300}("0x");
+    agent addr = 0x0000000000000000000000000000000000000001;
+    (bool ok, bytes ret) = addr.staticcall{gas: 2300}("0x");
     set out = ok;
     return;
   }
@@ -9913,7 +9901,7 @@ pragma tolang 0.2.0;
 type Price is u256;
 contract Demo {
   function run() public {
-    let p: u256 = 100;
+    u256 p = 100;
     set out = p;
     return;
   }
@@ -9936,7 +9924,7 @@ pragma tolang 0.2.0;
 type TokenAmount is u256;
 contract Demo {
   function run() public {
-    let amount: TokenAmount = 42;
+    TokenAmount amount = 42;
     set out = amount;
     return;
   }
@@ -9957,8 +9945,8 @@ type Gwei is u256;
 type Wei is u256;
 contract Demo {
   function run() public {
-    let g: Gwei = 1000000000;
-    let w: Wei = 1000000000000000000;
+    Gwei g = 1000000000;
+    Wei w = 1000000000000000000;
     set out_gwei = g;
     set out_wei = w;
     return;
@@ -9986,7 +9974,7 @@ func TestFunctionTypeInLetCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256 = 1;
+    u256 x = 1;
     set out = x;
     return;
   }
@@ -10038,8 +10026,8 @@ func TestCallOptionsDelegatecallCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let addr: agent = 0x0000000000000000000000000000000000000002;
-    let (ok, ret): (bool, bytes) = addr.delegatecall{gas: 5000}("0x");
+    agent addr = 0x0000000000000000000000000000000000000002;
+    (bool ok, bytes ret) = addr.delegatecall{gas: 5000}("0x");
     set out = ok;
     return;
   }
@@ -10061,8 +10049,8 @@ func TestCallOptionsValueAndGasCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let addr: agent = 0x0000000000000000000000000000000000000003;
-    let (ok, ret): (bool, bytes) = addr.call{value: 100, gas: 3000}("0x");
+    agent addr = 0x0000000000000000000000000000000000000003;
+    (bool ok, bytes ret) = addr.call{value: 100, gas: 3000}("0x");
     set out = ok;
     return;
   }
@@ -10093,7 +10081,7 @@ contract Demo {
     return result;
   }
   function run() public {
-    let p: Price = 50;
+    Price p = 50;
     set out = double(p);
     return;
   }
@@ -10122,7 +10110,7 @@ func TestFunctionTypeStringParsed(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256 = 42;
+    u256 x = 42;
     set out = x;
     return;
   }

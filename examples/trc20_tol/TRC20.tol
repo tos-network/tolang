@@ -110,7 +110,7 @@ contract TRC20 {
     require(from != NOBODY, "NOBODY");
     require(to != NOBODY, "NOBODY");
 
-    let allowed: u256 = allowances[from][msg.sender];
+    u256 allowed = allowances[from][msg.sender];
     require(allowed >= value, "INSUFFICIENT_ALLOWANCE");
     require(balances[from] >= value, "INSUFFICIENT_BALANCE");
 

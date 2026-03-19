@@ -455,7 +455,7 @@ func TestBlockLetAvailableInTestBody(t *testing.T) {
 	dir := t.TempDir()
 	// Block-level let declares 'expected' at the test block scope;
 	// the test body reads it directly.
-	src := []byte("pragma tolang 0.2.0;\ntest Suite {\n  let expected: u256 = 42;\n  function test_reads_let() {\n    assert_eq(expected, 42);\n  }\n}\n")
+	src := []byte("pragma tolang 0.2.0;\ntest Suite {\n  u256 expected = 42;\n  function test_reads_let() {\n    assert_eq(expected, 42);\n  }\n}\n")
 	path := filepath.Join(dir, "let_test.tol")
 	if err := os.WriteFile(path, src, 0o644); err != nil {
 		t.Fatal(err)
@@ -476,7 +476,7 @@ func TestBlockLetAvailableInTestBody(t *testing.T) {
 func TestBlockLetMultipleDeclarations(t *testing.T) {
 	dir := t.TempDir()
 	// Two block-level lets used together in an assertion.
-	src := []byte("pragma tolang 0.2.0;\ntest Suite {\n  let a: u256 = 10;\n  let b: u256 = 32;\n  function test_sum() {\n    assert_eq(a + b, 42);\n  }\n}\n")
+	src := []byte("pragma tolang 0.2.0;\ntest Suite {\n  u256 a = 10;\n  u256 b = 32;\n  function test_sum() {\n    assert_eq(a + b, 42);\n  }\n}\n")
 	path := filepath.Join(dir, "let2_test.tol")
 	if err := os.WriteFile(path, src, 0o644); err != nil {
 		t.Fatal(err)
@@ -494,7 +494,7 @@ func TestBlockLetMultipleDeclarations(t *testing.T) {
 func TestBlockLetVisibleAcrossMultipleTestFns(t *testing.T) {
 	dir := t.TempDir()
 	// The same block-level let must be visible in every test function.
-	src := []byte("pragma tolang 0.2.0;\ntest Suite {\n  let magic: u256 = 7;\n  function test_first() {\n    assert_eq(magic, 7);\n  }\n  function test_second() {\n    assert_eq(magic, 7);\n  }\n}\n")
+	src := []byte("pragma tolang 0.2.0;\ntest Suite {\n  u256 magic = 7;\n  function test_first() {\n    assert_eq(magic, 7);\n  }\n  function test_second() {\n    assert_eq(magic, 7);\n  }\n}\n")
 	path := filepath.Join(dir, "let3_test.tol")
 	if err := os.WriteFile(path, src, 0o644); err != nil {
 		t.Fatal(err)
@@ -521,7 +521,7 @@ func TestBlockLetVisibleInSetup(t *testing.T) {
 	}
 	// Block-level let 'initVal' is used inside the setup body (via assert_eq).
 	// This verifies the let is injected before setup runs.
-	src := []byte("pragma tolang 0.2.0;\ntest Suite {\n  let initVal: u256 = 0;\n  setup { deploy Counter() -> c; assert_eq(initVal, 0); }\n  function test_check() {\n    assert_eq(initVal, 0);\n  }\n}\n")
+	src := []byte("pragma tolang 0.2.0;\ntest Suite {\n  u256 initVal = 0;\n  setup { deploy Counter() -> c; assert_eq(initVal, 0); }\n  function test_check() {\n    assert_eq(initVal, 0);\n  }\n}\n")
 	path := filepath.Join(dir, "letsetup_test.tol")
 	if err := os.WriteFile(path, src, 0o644); err != nil {
 		t.Fatal(err)
@@ -538,7 +538,7 @@ func TestBlockLetVisibleInSetup(t *testing.T) {
 
 func TestBlockLetWithStringValue(t *testing.T) {
 	dir := t.TempDir()
-	src := []byte("pragma tolang 0.2.0;\ntest Suite {\n  let name: string = \"hello\";\n  function test_str() {\n    assert_eq(name, \"hello\");\n  }\n}\n")
+	src := []byte("pragma tolang 0.2.0;\ntest Suite {\n  string name = \"hello\";\n  function test_str() {\n    assert_eq(name, \"hello\");\n  }\n}\n")
 	path := filepath.Join(dir, "letstr_test.tol")
 	if err := os.WriteFile(path, src, 0o644); err != nil {
 		t.Fatal(err)
@@ -556,7 +556,7 @@ func TestBlockLetWithStringValue(t *testing.T) {
 func TestBlockLetWrongValueFails(t *testing.T) {
 	dir := t.TempDir()
 	// The let sets 'x = 1' but the test asserts x == 2, so it must fail.
-	src := []byte("pragma tolang 0.2.0;\ntest Suite {\n  let x: u256 = 1;\n  function test_wrong() {\n    assert_eq(x, 2);\n  }\n}\n")
+	src := []byte("pragma tolang 0.2.0;\ntest Suite {\n  u256 x = 1;\n  function test_wrong() {\n    assert_eq(x, 2);\n  }\n}\n")
 	path := filepath.Join(dir, "letwrong_test.tol")
 	if err := os.WriteFile(path, src, 0o644); err != nil {
 		t.Fatal(err)
@@ -1034,7 +1034,7 @@ test Suite {
     deploy Oracle() -> oracle;
   }
   function test_price() {
-    let p = oracle.get_price();
+    u256 p = oracle.get_price();
     assert_eq(p, "0x0000000000000000000000000000000000000000000000000000000000000064");
   }
 }
@@ -1078,8 +1078,8 @@ test Suite {
     deploy FakeCounter() -> fake;
   }
   function test_both() {
-    let rv = real.value();
-    let fv = fake.value();
+    u256 rv = real.value();
+    u256 fv = fake.value();
     assert_eq(rv, "0x0000000000000000000000000000000000000000000000000000000000000001");
     assert_eq(fv, "0x0000000000000000000000000000000000000000000000000000000000000002");
   }
@@ -1233,7 +1233,7 @@ func TestWithSenderOverridesContext(t *testing.T) {
 	contractSrc := []byte(`pragma tolang 0.2.0;
 contract EchoSender {
   function sender() public view returns (agent s) {
-    let s: agent = msg.sender;
+    agent s = msg.sender;
     return s;
   }
 }
@@ -1300,7 +1300,7 @@ func TestTimeoutFailsWhenBodyExceedsLimit(t *testing.T) {
 test Suite {
   @timeout(1)
   function test_slow_body() {
-    let i: u256 = 0;
+    u256 i = 0;
     while (i < 1000000) {
       i = i + 1;
     }

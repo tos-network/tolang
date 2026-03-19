@@ -121,9 +121,9 @@ account contract PolicyWallet {
         }
 
         // Delegated agents pass if active and not expired.
-        let del_allowance: u256 = delegate_allowance[msg.sender];
+        u256 del_allowance = delegate_allowance[msg.sender];
         if (del_allowance > 0) {
-            let del_expiry: u256 = delegate_expiry[msg.sender];
+            u256 del_expiry = delegate_expiry[msg.sender];
             if (del_expiry > 0 && block.timestamp_ms >= del_expiry) {
                 return false;
             }
@@ -227,7 +227,7 @@ account contract PolicyWallet {
     function completeRecovery() external {
         require(recovery_active == true, "NO_RECOVERY");
         require(block.timestamp_ms >= recovery_initiated_at + recovery_timelock, "TIMELOCK");
-        let new_owner: agent = recovery_new_owner;
+        agent new_owner = recovery_new_owner;
         set owner = new_owner;
         set recovery_active = false;
         set recovery_new_owner = agent(0);
@@ -266,13 +266,13 @@ account contract PolicyWallet {
         require(suspended != true, "SUSPENDED");
 
         // Authorization: owner or active delegate with sufficient allowance.
-        let is_owner: bool = false;
+        bool is_owner = false;
         if (msg.sender == owner) {
             is_owner = true;
         }
         if (is_owner != true) {
             // Check expiry BEFORE allowance to prevent expired delegates from acting.
-            let del_expiry: u256 = delegate_expiry[msg.sender];
+            u256 del_expiry = delegate_expiry[msg.sender];
             if (del_expiry > 0) {
                 require(block.timestamp_ms < del_expiry, "DELEGATE_EXPIRED");
             }
@@ -292,7 +292,7 @@ account contract PolicyWallet {
         require(value <= single_tx_limit, "OVER_SINGLE_LIMIT");
 
         // Daily aggregate spend cap.
-        let today: u256 = block.timestamp_ms / 86400000;
+        u256 today = block.timestamp_ms / 86400000;
         if (today != last_spend_day) {
             set daily_spent = 0;
             set last_spend_day = today;

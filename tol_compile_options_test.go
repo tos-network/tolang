@@ -8,7 +8,7 @@ import (
 const compileOptionsSample = `pragma tolang 0.2.0;
 contract Sample {
   function ping() public view returns (u256 x) {
-    let x: u256 = 1;
+    u256 x = 1;
     return x;
   }
 }

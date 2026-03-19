@@ -476,7 +476,20 @@ func (p *Parser) parseTestMember(td *ast.TestDecl) {
 		return
 	}
 
-	// Block-level let declarations: let alice: address = 0x...;
+	// Block-level variable declarations: Type name = expr;
+	// Must check before the TokenIdent gate because promoted type keywords
+	// (string, bool, agent, uno) are not TokenIdent.
+	if p.isTypeStart() && (p.peek().Type == lexer.TokenIdent || p.peek().Type == lexer.TokenLBracket) {
+		// Exclude test-block contextual keywords (setup, teardown, mock, etc.)
+		if p.cur.Type != lexer.TokenIdent || !isTestBlockKeyword(p.cur.Literal) {
+			stmt, ok := p.parseTypeFirstVarDecl()
+			if ok {
+				td.Lets = append(td.Lets, stmt)
+			}
+			return
+		}
+	}
+	// Legacy let syntax (emits error with migration hint).
 	if p.cur.Type == lexer.TokenKwLet {
 		stmt, ok := p.parseLetStatement(lexer.TokenSemicolon)
 		if ok {
@@ -3428,17 +3441,38 @@ func (p *Parser) parseStatementBlock(what string) ([]ast.Statement, bool) {
 func (p *Parser) parseStatement() (ast.Statement, bool) {
 	line := p.cur.Start.Line
 
+	// Type-first tuple destructuring: (T1 a, T2 b) = expr;
+	// Disambiguate from expression: if '(' followed by type-start followed by ident.
+	if p.cur.Type == lexer.TokenLParen {
+		peek1 := p.peek()
+		if isTypeStartToken(peek1.Type, peek1.Literal) {
+			peek2 := p.lex.PeekSecond()
+			if peek2.Type == lexer.TokenIdent || isIdentLike(peek2.Type) {
+				return p.parseTypeFirstTupleDecl()
+			}
+		}
+	}
 	// Solidity-style local variable declaration: Type name [= expr];
-	// Disambiguate: if current token can start a type (mapping keyword or any ident)
-	// and the NEXT token is an identifier, treat it as a type-first var decl.
-	// Key: `address(x)` does NOT trigger this because next token is '(' not an ident.
-	// Exclude keywords that have their own statement handlers below.
-	if p.isTypeStart() && p.peek().Type == lexer.TokenIdent &&
+	// Disambiguate: if current token can start a type and the NEXT token is an
+	// identifier, treat it as a type-first var decl. Also detect array types
+	// (u256[] x, u256[3] x) where next is '[' and peek-second is ']' or number.
+	// Key: `address(x)` does NOT trigger — next token is '(' not an ident.
+	// Key: `balances[addr]` does NOT trigger — peek-second is ident, not ']'/number.
+	if p.isTypeStart() &&
 		p.cur.Type != lexer.TokenKwDelete &&
 		p.cur.Type != lexer.TokenKwUnchecked &&
 		p.cur.Type != lexer.TokenKwTry &&
 		!(p.cur.Type == lexer.TokenIdent && (p.cur.Literal == "unchecked" || p.cur.Literal == "try")) {
-		return p.parseTypeFirstVarDecl()
+		nxt := p.peek()
+		if nxt.Type == lexer.TokenIdent {
+			return p.parseTypeFirstVarDecl()
+		}
+		if nxt.Type == lexer.TokenLBracket {
+			peek2 := p.lex.PeekSecond()
+			if peek2.Type == lexer.TokenRBracket || peek2.Type == lexer.TokenNumber {
+				return p.parseTypeFirstVarDecl()
+			}
+		}
 	}
 	switch p.cur.Type {
 	case lexer.TokenSemicolon:
@@ -3604,11 +3638,30 @@ func (p *Parser) parseLetStatement(terminator lexer.Type) (ast.Statement, bool) 
 		return ast.Statement{}, false
 	}
 
-	// Tuple let-binding: let (a, b, ...) : (T1, T2, ...) = expr;
+	// Emit error with migration guidance, then parse anyway for error recovery.
 	if p.cur.Type == lexer.TokenLParen {
+		p.addDiag(diag.Diagnostic{
+			Code:    diag.CodeParseUnexpected,
+			Message: "'let' is removed; use type-first tuple syntax: (T1 a, T2 b) = expr;",
+			Span:    diag.Span{File: p.filename, Start: diag.Position{Line: line}},
+		})
 		return p.parseLetTupleStatement(terminator, line)
 	}
 
+	// Single variable: let x: T = expr → error, suggest T x = expr
+	var hint string
+	if p.cur.Type == lexer.TokenIdent {
+		hint = fmt.Sprintf("'let' is removed; use type-first syntax: T %s = expr;", p.cur.Literal)
+	} else {
+		hint = "'let' is removed; use type-first syntax: T name = expr;"
+	}
+	p.addDiag(diag.Diagnostic{
+		Code:    diag.CodeParseUnexpected,
+		Message: hint,
+		Span:    diag.Span{File: p.filename, Start: diag.Position{Line: line}},
+	})
+
+	// Parse the rest for error recovery.
 	nameTok := p.cur
 	if !p.expect(lexer.TokenIdent, diag.CodeParseUnexpected, "expected variable name after 'let'") {
 		return ast.Statement{}, false
@@ -3734,6 +3787,77 @@ func (p *Parser) parseLetTupleStatement(terminator lexer.Type, line int) (ast.St
 		return ast.Statement{}, false
 	}
 
+	return ast.Statement{
+		Kind:  "let-tuple",
+		Names: names,
+		Types: types,
+		Line:  line,
+		Expr:  expr,
+	}, true
+}
+
+// parseTypeFirstTupleDecl parses a Solidity-style tuple variable declaration:
+//
+//	(T1 a, T2 b, ...) = expr;
+//
+// Each element is a type-name pair. Produces the same "let-tuple" AST node
+// as the old let (a, b): (T1, T2) = expr syntax.
+func (p *Parser) parseTypeFirstTupleDecl() (ast.Statement, bool) {
+	line := p.cur.Start.Line
+	if !p.expect(lexer.TokenLParen, diag.CodeParseUnexpected, "expected '(' in tuple declaration") {
+		return ast.Statement{}, false
+	}
+
+	var names []string
+	var types []string
+	for {
+		// Parse each element as a type-name pair using parseField.
+		field, ok := p.parseField(false, false)
+		if !ok || field.Type == "" {
+			p.addDiag(diag.Diagnostic{
+				Code:    diag.CodeParseUnexpected,
+				Message: "expected type and variable name in tuple declaration, e.g. (u256 a, bool b)",
+				Span:    p.span(p.cur),
+			})
+			p.syncUntil(lexer.TokenSemicolon, lexer.TokenRBrace, lexer.TokenEOF)
+			if p.cur.Type == lexer.TokenSemicolon {
+				p.next()
+			}
+			return ast.Statement{}, false
+		}
+		if field.Name == "" {
+			p.addDiag(diag.Diagnostic{
+				Code:    diag.CodeParseUnexpected,
+				Message: fmt.Sprintf("expected variable name after type '%s' in tuple declaration", field.Type),
+				Span:    p.span(p.cur),
+			})
+			p.syncUntil(lexer.TokenSemicolon, lexer.TokenRBrace, lexer.TokenEOF)
+			if p.cur.Type == lexer.TokenSemicolon {
+				p.next()
+			}
+			return ast.Statement{}, false
+		}
+		types = append(types, field.Type)
+		names = append(names, field.Name)
+		if p.cur.Type == lexer.TokenComma {
+			p.next()
+			continue
+		}
+		break
+	}
+	if !p.expect(lexer.TokenRParen, diag.CodeParseUnexpected, "expected ')' after tuple declaration") {
+		return ast.Statement{}, false
+	}
+	if !p.expect(lexer.TokenAssign, diag.CodeParseUnexpected, "expected '=' after tuple declaration") {
+		return ast.Statement{}, false
+	}
+	expr, ok := p.parseExpression(map[lexer.Type]bool{lexer.TokenSemicolon: true})
+	if !ok {
+		return ast.Statement{}, false
+	}
+	if !p.expect(lexer.TokenSemicolon, diag.CodeParseUnexpected, "expected ';' after tuple declaration") {
+		return ast.Statement{}, false
+	}
 	return ast.Statement{
 		Kind:  "let-tuple",
 		Names: names,
@@ -4188,11 +4312,23 @@ func (p *Parser) parseForStatement() (ast.Statement, bool) {
 			init = &s
 		default:
 			// Check for Solidity-style type-first variable declaration:
-			// Type name [= expr]; — e.g. "uint256 i = 0"
-			if p.isTypeStart() && p.peek().Type == lexer.TokenIdent &&
+			// Type name [= expr]; — e.g. "uint256 i = 0" or "u256[] arr = ..."
+			isTypeFirstDecl := false
+			if p.isTypeStart() &&
 				p.cur.Type != lexer.TokenKwDelete &&
 				p.cur.Type != lexer.TokenKwUnchecked &&
 				p.cur.Type != lexer.TokenKwTry {
+				nxt := p.peek()
+				if nxt.Type == lexer.TokenIdent {
+					isTypeFirstDecl = true
+				} else if nxt.Type == lexer.TokenLBracket {
+					peek2 := p.lex.PeekSecond()
+					if peek2.Type == lexer.TokenRBracket || peek2.Type == lexer.TokenNumber {
+						isTypeFirstDecl = true
+					}
+				}
+			}
+			if isTypeFirstDecl {
 				s, ok := p.parseTypeFirstVarDecl()
 				if !ok {
 					return ast.Statement{}, false
@@ -4741,8 +4877,10 @@ func (p *Parser) parsePrefixExpr(stop map[lexer.Type]bool) (*ast.Expr, bool) {
 		tok := p.cur
 		p.next()
 		numVal := tok.Literal
-		// SubDenomination: `1 ether`, `7 days`, etc. — compile-time constant fold.
-		if p.cur.Type == lexer.TokenSubDenom {
+		// SubDenomination: `1 tos`, `7 days`, etc. — compile-time constant fold.
+		// "tos" is emitted as TokenIdent (not TokenSubDenom) because it is also
+		// a valid package name; handle it contextually here.
+		if p.cur.Type == lexer.TokenSubDenom || (p.cur.Type == lexer.TokenIdent && lexer.SubDenomMultiplier(p.cur.Literal) != "") {
 			denomTok := p.cur
 			mult := lexer.SubDenomMultiplier(denomTok.Literal)
 			if denomTok.Literal == "years" {
@@ -5224,11 +5362,26 @@ func (p *Parser) syncUnknownMember() {
 // isTypeStart reports whether the current token can begin a type expression,
 // and therefore a state variable declaration at the contract body level.
 func (p *Parser) isTypeStart() bool {
-	switch p.cur.Type {
+	return isTypeStartToken(p.cur.Type, p.cur.Literal)
+}
+
+// isTypeStartToken reports whether a token type/literal can begin a type expression.
+// Static version of isTypeStart for use with peeked tokens.
+func isTypeStartToken(t lexer.Type, literal string) bool {
+	switch t {
 	case lexer.TokenKwMapping, lexer.TokenIdent,
-		// Promoted type keywords that can start a type expression:
 		lexer.TokenKwAgent, lexer.TokenKwBool, lexer.TokenKwString, lexer.TokenKwUno,
 		lexer.TokenKwMemory, lexer.TokenKwCalldata, lexer.TokenKwStorage:
+		return true
+	}
+	return false
+}
+
+// isTestBlockKeyword returns true for contextual keywords used in test blocks
+// (setup, teardown, mock, etc.) that should not be treated as type names.
+func isTestBlockKeyword(literal string) bool {
+	switch literal {
+	case "setup", "setup_suite", "teardown", "teardown_suite", "mock":
 		return true
 	}
 	return false

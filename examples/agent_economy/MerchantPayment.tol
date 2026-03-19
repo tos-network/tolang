@@ -114,7 +114,7 @@ contract MerchantPayment {
         require(merchant_active[merchant] == true, "MERCHANT_NOT_ACTIVE");
         require(merchant_terminal_enabled[merchant][terminal_class] == true, "TERMINAL_NOT_ENABLED");
 
-        let max_val: u256 = merchant_terminal_max[merchant][terminal_class];
+        u256 max_val = merchant_terminal_max[merchant][terminal_class];
         if (max_val > 0) {
             require(msg.value <= max_val, "OVER_TERMINAL_LIMIT");
         }
@@ -141,15 +141,15 @@ contract MerchantPayment {
     function settle(u256 payment_id) external {
         require(payment_status[payment_id] == 1, "NOT_PENDING");
 
-        let merchant: agent = payment_merchant[payment_id];
-        let window: u256 = merchant_refund_window[merchant];
+        agent merchant = payment_merchant[payment_id];
+        u256 window = merchant_refund_window[merchant];
         if (window == 0) {
             window = default_refund_window_ms;
         }
         require(block.timestamp_ms >= payment_timestamp[payment_id] + window, "REFUND_WINDOW_OPEN");
 
         set payment_status[payment_id] = 2;
-        let pay_amount: u256 = payment_amount[payment_id];
+        u256 pay_amount = payment_amount[payment_id];
         release(merchant, pay_amount);
         emit PaymentSettled(payment_id, merchant, pay_amount);
     }
@@ -162,16 +162,16 @@ contract MerchantPayment {
         require(payment_status[payment_id] == 1, "NOT_PENDING");
         require(msg.sender == payment_merchant[payment_id], "NOT_MERCHANT");
 
-        let merchant: agent = payment_merchant[payment_id];
-        let window: u256 = merchant_refund_window[merchant];
+        agent merchant = payment_merchant[payment_id];
+        u256 window = merchant_refund_window[merchant];
         if (window == 0) {
             window = default_refund_window_ms;
         }
         require(block.timestamp_ms < payment_timestamp[payment_id] + window, "REFUND_WINDOW_CLOSED");
 
         set payment_status[payment_id] = 3;
-        let customer: agent = payment_customer[payment_id];
-        let pay_amount: u256 = payment_amount[payment_id];
+        agent customer = payment_customer[payment_id];
+        u256 pay_amount = payment_amount[payment_id];
         release(customer, pay_amount);
         emit PaymentRefunded(payment_id, customer, pay_amount);
     }

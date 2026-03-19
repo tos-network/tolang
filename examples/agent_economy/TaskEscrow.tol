@@ -118,8 +118,8 @@ contract TaskEscrow {
         require(msg.sender == task_poster[task_id], "NOT_POSTER");
 
         set task_status[task_id] = 4;
-        let worker: agent = task_worker[task_id];
-        let reward: u256 = task_reward[task_id];
+        agent worker = task_worker[task_id];
+        u256 reward = task_reward[task_id];
         release(worker, reward);
         emit TaskApproved(task_id, msg.sender, worker, reward);
     }
@@ -156,15 +156,15 @@ contract TaskEscrow {
         require(msg.sender == oracle_resolver, "NOT_RESOLVER");
 
         set task_status[task_id] = 7;
-        let reward: u256 = task_reward[task_id];
+        u256 reward = task_reward[task_id];
 
         if (worker_wins == true) {
-            let worker: agent = task_worker[task_id];
+            agent worker = task_worker[task_id];
             release(worker, reward);
             emit TaskResolved(task_id, worker, reward);
         }
         if (worker_wins != true) {
-            let poster: agent = task_poster[task_id];
+            agent poster = task_poster[task_id];
             release(poster, reward);
             emit TaskResolved(task_id, poster, reward);
         }
@@ -177,7 +177,7 @@ contract TaskEscrow {
         require(msg.sender == task_poster[task_id], "NOT_POSTER");
 
         set task_status[task_id] = 8;
-        let reward: u256 = task_reward[task_id];
+        u256 reward = task_reward[task_id];
         release(msg.sender, reward);
         emit TaskCancelled(task_id, msg.sender);
     }
@@ -185,14 +185,14 @@ contract TaskEscrow {
     /// @notice Reclaim reward from an expired, unfinished task.
     /// @param  task_id  Task that has passed its deadline.
     function reclaimExpired(u256 task_id) external {
-        let status: u8 = task_status[task_id];
+        u8 status = task_status[task_id];
         require(status == 1 || status == 2, "WRONG_STATUS");
         require(block.timestamp_ms >= task_deadline[task_id], "NOT_EXPIRED");
-        let poster: agent = task_poster[task_id];
+        agent poster = task_poster[task_id];
         require(msg.sender == poster, "NOT_POSTER");
 
         set task_status[task_id] = 8;
-        let reward: u256 = task_reward[task_id];
+        u256 reward = task_reward[task_id];
         release(poster, reward);
         emit TaskCancelled(task_id, poster);
     }

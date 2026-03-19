@@ -126,8 +126,8 @@ contract GuardianRecovery {
         require(active == true, "NOT_ACTIVE");
         require(approval_count >= threshold, "INSUFFICIENT_APPROVALS");
         require(block.timestamp_ms >= initiated_at + timelock, "TIMELOCK");
-        let old_owner: agent = owner;
-        let new_owner: agent = proposed_owner;
+        agent old_owner = owner;
+        agent new_owner = proposed_owner;
         set owner = new_owner;
         set active = false;
         set proposed_owner = agent(0);

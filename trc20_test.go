@@ -24,42 +24,42 @@ contract TRC20 {
   }
 
   function totalSupply() public view returns (u256 s) {
-    let s: u256 = total_supply;
+    u256 s = total_supply;
     return s;
   }
 
   function balanceOf(agent owner) public view returns (u256 balance) {
-    let b: u256 = balances[owner];
+    u256 b = balances[owner];
     return b;
   }
 
   function transfer(agent to, u256 amount) public returns (bool ok) {
-    let from: agent = msg.sender;
-    let from_bal: u256 = balances[from];
+    agent from = msg.sender;
+    u256 from_bal = balances[from];
     require(from_bal >= amount, "INSUFFICIENT_BALANCE");
     set balances[from] = from_bal - amount;
-    let to_bal: u256 = balances[to];
+    u256 to_bal = balances[to];
     set balances[to] = to_bal + amount;
     emit Transfer(from, to, amount);
     return true;
   }
 
   function approve(agent spender, u256 amount) public returns (bool ok) {
-    let owner: agent = msg.sender;
+    agent owner = msg.sender;
     set allowances[owner][spender] = amount;
     emit Approval(owner, spender, amount);
     return true;
   }
 
   function transferFrom(agent from, agent to, u256 amount) public returns (bool ok) {
-    let spender: agent = msg.sender;
-    let allow: u256 = allowances[from][spender];
+    agent spender = msg.sender;
+    u256 allow = allowances[from][spender];
     require(allow >= amount, "INSUFFICIENT_ALLOWANCE");
     set allowances[from][spender] = allow - amount;
-    let from_bal: u256 = balances[from];
+    u256 from_bal = balances[from];
     require(from_bal >= amount, "INSUFFICIENT_BALANCE");
     set balances[from] = from_bal - amount;
-    let to_bal: u256 = balances[to];
+    u256 to_bal = balances[to];
     set balances[to] = to_bal + amount;
     emit Transfer(from, to, amount);
     return true;

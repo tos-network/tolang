@@ -11,7 +11,7 @@
 | 5 | oracle\<T\>/vote\<T\>/task\<T\> baked into compiler as DSL | MAJOR | 1, 8 | **FIX** | ✅ DONE |
 | 6 | Inheritance system (434 lines) with zero agent use case | MAJOR | 1, 8 | **FIX** | TODO |
 | 7 | Modifier guards invisible to @effects | MAJOR | 6, 13 | **FIX** | TODO |
-| 8 | Two variable declaration syntaxes coexist | MODERATE | 5 | **FIX** | TODO |
+| 8 | Two variable declaration syntaxes coexist | MODERATE | 5 | **FIX** | ✅ DONE |
 | 9 | 9 annotation types with inconsistent syntax | MODERATE | 5, 8 | **DEFER** | — |
 | 10 | Type aliases normalized at lex time | MINOR | 4 | **KEEP** | — |
 | 11 | block.timestamp field naming inconsistency | MINOR | 2 | **FIX** | TODO |
@@ -242,19 +242,27 @@ u256 x = 1;        // Solidity-compatible type-first style
 
 Both produce identical AST. Having two syntaxes for the same semantics confuses new developers and increases parser complexity.
 
-**Decision: FIX (phased)**
+**Decision: FIX**
 
-**Plan:**
+**Status: ✅ DONE** — Completed in one step (skipped phased approach).
 
-Phase 1: **Deprecate** the `let` keyword for variable declarations with a compiler warning: `"let x: T is deprecated; use T x instead"`. The type-first form is more widely understood and aligns with Solidity, C, Go, and Java conventions.
+Removed `let` entirely. `let` remains a reserved keyword (cannot be used as identifier). All variable declarations now use type-first syntax, aligned with Solidity.
 
-Phase 2: **Remove** `let` from the parser after one major version cycle.
+**What was done:**
 
-**Rationale for keeping type-first over let:** Type-first is the dominant form in systems languages (C, Go, Java, Solidity, Rust's `let x: T`). The `let` form adds a colon and reverses the type/name order, creating an unnecessary alternative.
+1. **Parser**: `let x: T = expr` → emits error `"'let' is removed; use type-first syntax: T x = expr;"`. Error recovery still parses the statement for better diagnostics.
+2. **Tuple syntax**: Added Solidity-style `(T1 a, T2 b) = expr;` — replaces `let (a, b): (T1, T2) = expr;`. Both produce the same `"let-tuple"` AST node.
+3. **Array type-first**: Extended type-first detection to recognize `u256[] x` and `u256[3] x` (peek-second heuristic: `]` or number → array type; ident → index expression).
+4. **Test block variables**: Type-first declarations now work in test blocks (`test Suite { u256 x = 42; ... }`), with contextual keyword exclusion for `setup`/`teardown`/`mock`.
+5. **All .tol files migrated**: 48 `let` statements across 12 example files converted.
+6. **All Go test files migrated**: ~200+ embedded TOL strings updated across 6 test files.
+7. **Grammar doc**: `letStatement` / `letTupleStatement` marked as REMOVED; `typeFirstTupleDecl` added.
 
-**Files to change (Phase 1):**
-- `tol/parser/parser.go` — emit deprecation warning when parsing `let` declarations
-- `docs/grammar/TolangParser.g4` — mark `let` as deprecated
+**Files changed:**
+- `tol/parser/parser.go` — `parseLetStatement` (error + recovery), `parseTypeFirstTupleDecl` (new), type-first array detection, test block type-first support
+- `docs/grammar/TolangParser.g4` — updated rules
+- `examples/` — 12 .tol files migrated
+- `tol_api_test.go`, `trc20_test.go`, `package_system_verify_test.go`, `tol_compile_options_test.go`, `tol/parser/parser_test.go`, `tol/test/runner_test.go`, `tol/test/coverage_line_test.go` — embedded TOL strings updated
 
 ---
 

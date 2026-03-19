@@ -80,7 +80,7 @@ contract DelegatedAgent {
         require(msg.sender == owner || msg.sender == delegate, "NOT_AUTHORIZED");
         require(amount > 0, "ZERO_AMOUNT");
         require(active[delegate] == true, "NOT_ACTIVE");
-        let del_expiry: u256 = expiry[delegate];
+        u256 del_expiry = expiry[delegate];
         if (del_expiry > 0) {
             require(block.timestamp_ms < del_expiry, "EXPIRED");
         }
@@ -99,7 +99,7 @@ contract DelegatedAgent {
         if (active[delegate] != true) {
             return 0;
         }
-        let del_expiry: u256 = expiry[delegate];
+        u256 del_expiry = expiry[delegate];
         if (del_expiry > 0 && block.timestamp_ms >= del_expiry) {
             return 0;
         }

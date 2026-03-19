@@ -181,7 +181,7 @@ func TestParseLoopStatements(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run(u256 n) public {
-    let i: u256 = 0;
+    u256 i = 0;
     while (i < n) {
       if (i == 5) {
         break;
@@ -190,7 +190,7 @@ contract Demo {
         continue;
       }
     }
-    for (let j: u256 = 0; j < n; j = j + 1) {
+    for (u256 j = 0; j < n; j = j + 1) {
       emit Tick(j);
     }
     return;
@@ -251,7 +251,7 @@ func TestParseExpressionPrecedence(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256 = a + b * c;
+    u256 x = a + b * c;
     set x = (x + 1) * foo(2, arr[i]).v;
   }
 }
@@ -290,7 +290,7 @@ func TestParseBitwiseAndShiftExpressions(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256 = a | b & c ^ d;
+    u256 x = a | b & c ^ d;
     set x = ~x << 2 >> 1;
   }
 }
@@ -702,7 +702,7 @@ func TestParseDeleteStatement(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256 = 5;
+    u256 x = 5;
     delete x;
     return;
   }
@@ -732,7 +732,7 @@ func TestParseUncheckedBlock(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let x: u256 = 0;
+    u256 x = 0;
     unchecked {
       set x = x + 1;
     }
@@ -767,7 +767,7 @@ func TestParseTernaryExpr(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public returns (u256 out) {
-    let x: u256 = 1 == 1 ? 42 : 0;
+    u256 x = 1 == 1 ? 42 : 0;
     return x;
   }
 }
@@ -1046,7 +1046,7 @@ pragma tolang 0.2.0;
 contract Demo {
   struct Point { u256 x; u256 y; }
   function mk() public returns (Point p) {
-    let p: Point = Point { x: 1, y: 2 };
+    Point p = Point { x: 1, y: 2 };
     return p;
   }
 }
@@ -1202,7 +1202,7 @@ func TestParseDoWhileStatement(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let i: u256 = 0;
+    u256 i = 0;
     do {
       set i = i + 1;
     } while (i < 10);
@@ -1270,7 +1270,7 @@ func TestParseForWithParentheses(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract C {
   function run() public {
-    for (let i: u256 = 0; i < 10; i = i + 1) {
+    for (u256 i = 0; i < 10; i = i + 1) {
       set x = i;
     }
     return;
@@ -1293,7 +1293,7 @@ func TestParseForWithAndWithoutParensEquivalent(t *testing.T) {
 	srcNoParen := []byte(`pragma tolang 0.2.0;
 contract C {
   function run() public {
-    for (let i: u256 = 0; i < 10; i = i + 1) {
+    for (u256 i = 0; i < 10; i = i + 1) {
       set x = i;
     }
     return;
@@ -1302,7 +1302,7 @@ contract C {
 	srcParen := []byte(`pragma tolang 0.2.0;
 contract C {
   function run() public {
-    for (let i: u256 = 0; i < 10; i = i + 1) {
+    for (u256 i = 0; i < 10; i = i + 1) {
       set x = i;
     }
     return;
@@ -1441,7 +1441,7 @@ func TestParseForPostStepPostfixInc(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract C {
   function run() public {
-    for (let i: u256 = 0; i < 10; i++) {
+    for (u256 i = 0; i < 10; i++) {
       set x = i;
     }
     return;
@@ -1959,7 +1959,7 @@ func TestTypeFirstVarDeclWithMapping(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    let a: u256 = 0;
+    u256 a = 0;
     uint256 b = 2;
     return;
   }
@@ -1992,7 +1992,7 @@ func TestAgentCallNotTypeDecl(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run(agent x) public {
-    let y: agent = address(x);
+    agent y = address(x);
     return;
   }
 }
@@ -2020,7 +2020,7 @@ contract Demo {
   u256 total_supply;
 
   function run(u256 n) public {
-    let x: u256 = 0;
+    u256 x = 0;
     x = 1;
     x += 2;
     x -= 1;

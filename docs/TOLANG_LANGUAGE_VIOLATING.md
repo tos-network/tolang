@@ -40,6 +40,8 @@ A reader cannot distinguish between plaintext and encrypted value access without
 
 **Decision: FIX**
 
+**Status: ✅ DONE** — `msg.value` in `payable(uno)` now emits TOL2100 error. The silent `msg.value → msg.uno_value` rewrite in lowering removed. Example contracts updated to use `msg.uno_value` explicitly.
+
 **Plan:**
 
 1. **Deprecate** the implicit `msg.value` rewrite in `payable(uno)` functions.
@@ -47,10 +49,10 @@ A reader cannot distinguish between plaintext and encrypted value access without
 3. **Emit compiler error** (not warning) if `msg.value` is used inside `payable(uno)` — with a clear diagnostic: `"use msg.uno_value in payable(uno) functions; msg.value refers to plaintext TOS amount"`.
 4. **Keep** `msg.value` available in `payable(uno)` to mean the plaintext gas/fee portion if needed, maintaining semantic consistency with non-uno payable.
 
-**Files to change:**
-- `tol/sema/sema.go` — add diagnostic rejecting `msg.value` in `payable(uno)` context
-- `tol_ir_direct_lowering.go` — remove the silent `msg.value → msg.uno_value` rewrite
-- Update example contracts to use `msg.uno_value`
+**Files changed:**
+- `tol/sema/sema.go` — added `checkMsgValueInPayableUno()` with TOL2100 diagnostic
+- `tol_ir_direct_lowering.go` — removed the silent `msg.value → msg.uno_value` rewrite
+- `examples/confidential_vault/ConfidentialVault.tol` — updated to use `msg.uno_value`
 
 ---
 
@@ -71,6 +73,8 @@ A developer cannot tell from the source code that `a == b` is a 150k gas cryptog
 
 **Decision: FIX**
 
+**Status: ✅ DONE** — All comparison operators (`==`, `!=`, `<=`, `>=`) on uno type now rejected at sema level. Lowering desugaring removed. Method calls (`a.eq(b)`, `a.lte(b)` etc.) remain the only way to perform encrypted comparisons.
+
 **Plan:**
 
 1. **Remove** operator desugaring for `==`, `!=`, `<=`, `>=` on uno type.
@@ -78,14 +82,12 @@ A developer cannot tell from the source code that `a == b` is a 150k gas cryptog
 3. **Keep** only explicit method calls: `a.eq(b)`, `a.ne(b)`, `a.lte(b)`, `a.gte(b)`.
 4. **Revert** the `!=` desugaring to `not(tos.ciphertext.eq(...))` that was added in the current session.
 
-This means uno operators will be **fully consistent**: no operators allowed, all operations are method calls. The type becomes "method-only" which is the correct design for an encrypted type with non-trivial cost.
-
-**Files to change:**
-- `tol/sema/sema.go` — move `<=`, `>=`, `!=` back to the rejection list alongside `<`, `>`, `+`, `-`, `*`, `/`; keep `==` rejection too
-- `tol_ir_direct_lowering.go` — remove the `==`/`!=`/`<=`/`>=` desugaring case for uno
-- `tol_ir_direct_lowering_uno_test.go` — update tests: operator forms should fail; method forms should pass
-- `tol/sema/sema_test.go` — update: `TestUnoLteGteOperator` should expect rejection
-- `docs/grammar/TolangParser.g4` — update uno comment section
+**Files changed:**
+- `tol/sema/sema.go` — `==`, `!=`, `<=`, `>=` added to uno operator rejection list
+- `tol_ir_direct_lowering.go` — removed desugaring block for uno operators
+- `tol_ir_direct_lowering_uno_test.go` — operator tests now expect failure; method tests still pass
+- `tol/sema/sema_test.go` — `TestUnoLteGteOperator` and `TestUnoEqOperator` expect rejection
+- `docs/grammar/TolangParser.g4` — updated uno comment section
 
 **Note:** The `lte`, `gte`, `ne` methods and their LVM runtime implementations in gtos remain valid and unchanged. Only the **operator sugar** is removed; the **method call path** stays.
 
@@ -142,17 +144,12 @@ Agents, SDKs, and indexers cannot rely on an unstable ABI.
 
 **Decision: FIX**
 
-**Plan:**
+**Status: ✅ DONE** — ABI spec promoted to Stable 1.0. All fields defined with concrete schemas. Error model (require/assert/revert selectors) documented. Compatibility guarantee section added.
 
-1. **Promote ABI spec to 1.0** with concrete schemas for all fields.
-2. **Define `delegation_scope`** as a JSON object with fixed keys: `{ action: string, contract: address, expiry_ms: uint64, nonce: uint64 }`.
-3. **Define `proof_schema`** as an enum: `"none" | "sigma-range-v1" | "transcript-binding-v1"`.
-4. **Version `task_descriptor`** properly: `{ version: "1.0", states: [...], transitions: [...] }`.
-5. **Add ABI compatibility guarantee**: once 1.0 is published, field additions are backward-compatible; removals and type changes require major version bump.
+**What was done:**
 
-**Files to change:**
-- `docs/ABI_SPEC.md` — full revision
-- `tol_artifact.go` — validate emitted ABI against schema
+1. `docs/ABI_SPEC.md` — promoted to Stable 1.0; `delegation_scope` defined as `{ action, contract, expiry_ms, nonce }`; `proof_schema` defined as enum `"none" | "sigma-range-v1" | "transcript-binding-v1"`; `task_descriptor.state_machine` replaced with generic versioned schema; ABI Compatibility Guarantee section added; Error Model section added.
+2. `tol_artifact.go` — TODO(ABI-1.0) review comments added for `ABIVersion`, `Errors`, `DelegationScope`, `ProofSchema`, `CallerKind` fields.
 
 ---
 

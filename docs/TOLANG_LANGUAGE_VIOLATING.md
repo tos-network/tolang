@@ -17,7 +17,7 @@
 | 11 | block.timestamp field naming inconsistency | MINOR | 2 | **FIX** | ✅ DONE |
 | 12 | ++/--, do-while, sub-denominations (tomi/gtomi/tos) | MINOR | 1 | **KEEP** | ✅ wei/gwei/ether replaced |
 | 13 | Solidity reserved keywords (23 unused) | MINOR | 8 | **KEEP** | ✅ pruned + Agent-Native added |
-| 14 | No formatter, no LSP, no source maps | MODERATE | 11 | **DEFER** | — |
+| 14 | No formatter, no LSP, no source maps | MODERATE | 11 | **DEFER** | ✅ source maps + coverage done |
 | 15 | using-for syntax enables implicit operator overloading | MODERATE | 4, 6 | **FIX** | ✅ DONE |
 | 16 | `set` keyword is optional for storage writes | MODERATE | 4, 5 | **FIX** | ✅ DONE |
 
@@ -415,14 +415,14 @@ Reserving keywords prevents developers from using them as identifiers, which wou
 The compiler produces bytecode and ABI but lacks:
 - `tolfmt` code formatter
 - Language Server Protocol implementation
-- Source maps for debugging
-- Coverage tracking
+- ~~Source maps for debugging~~ ✅ Implemented (`--sourcemap` flag, debug metadata in bytecode)
+- ~~Coverage tracking~~ ✅ Implemented (`tol test --cover`, line/branch/function coverage, HTML reports, `--covermin` threshold)
 
-**Decision: DEFER**
+**Decision: DEFER** (formatter and LSP only — source maps and coverage are done)
 
-**Rationale:** These are important but are engineering tasks, not language design issues. They do not affect the correctness or safety of compiled contracts. They should be built after the language spec stabilizes (especially after Issues 1–4 are resolved).
+**Rationale:** Formatter and LSP are important but are engineering tasks, not language design issues. They should be built after the language spec stabilizes (now that Issues 1–16 are resolved).
 
-**Priority order:** formatter > source maps > LSP > coverage.
+**Remaining priority order:** formatter > LSP.
 
 ---
 

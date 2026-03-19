@@ -460,8 +460,8 @@ func Check(filename string, m *ast.Module) (*TypedModule, diag.Diagnostics) {
 	// A test-only or declaration-only file (no contract, but has test blocks or top-level
 	// declarations) is valid.
 	hasTopLevelDecls := len(m.Tests) > 0 || len(m.Interfaces) > 0 || len(m.Libraries) > 0 ||
-		len(m.Structs) > 0 || len(m.TypeDecls) > 0 || len(m.AbstractContracts) > 0 ||
-		len(m.FreeFunctions) > 0 || len(m.Constants) > 0 || len(m.Enums) > 0 ||
+		len(m.Structs) > 0 || len(m.TypeDecls) > 0 || len(m.FreeFunctions) > 0 ||
+		len(m.Constants) > 0 || len(m.Enums) > 0 ||
 		len(m.Errors) > 0 || len(m.Events) > 0 || len(m.UsingDecls) > 0 ||
 		len(m.Capabilities) > 0 || len(m.Contracts) > 0
 	if len(m.Contracts) == 0 && !hasTopLevelDecls {
@@ -971,21 +971,6 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		modifierSeen[name] = struct{}{}
 		contractSupportSeen[name] = "modifier"
 		userModifiers[name] = md
-		// Legacy inheritance modifiers are now hard errors.
-		if md.Virtual {
-			*diags = append(*diags, diag.Diagnostic{
-				Code:    diag.CodeWarnVirtualDeprecated,
-				Message: "'virtual' is not supported; use interfaces plus composition/library instead of polymorphic dispatch",
-				Span:    defaultSpan(filename),
-			})
-		}
-		if md.Override {
-			*diags = append(*diags, diag.Diagnostic{
-				Code:    diag.CodeWarnOverrideDeprecated,
-				Message: "'override' is not supported; use explicit interface implementation plus composition/library instead",
-				Span:    defaultSpan(filename),
-			})
-		}
 	}
 
 	// Build a set of user-defined modifier names for guards checking.
@@ -1093,14 +1078,6 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 			} else {
 				slotSeen[slot.Name] = struct{}{}
 				slotInfos[slot.Name] = buildStorageSlotInfo(slot)
-			}
-			// Legacy inheritance modifiers are now hard errors.
-			if slot.Override {
-				*diags = append(*diags, diag.Diagnostic{
-					Code:    diag.CodeWarnOverrideDeprecated,
-					Message: "'override' is not supported; storage slots must not participate in inheritance-based override chains",
-					Span:    defaultSpan(filename),
-				})
 			}
 		}
 	}
@@ -1266,28 +1243,15 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 				Span:    defaultSpan(filename),
 			})
 		}
-		// A virtual stub (Virtual==true, Body==nil) is only allowed in abstract contracts.
-		if fn.Virtual && fn.Body == nil && !c.Abstract {
+		// Contract functions must always have an implementation body. ABI-only
+		// signatures belong in interfaces.
+		if fn.Body == nil {
 			*diags = append(*diags, diag.Diagnostic{
 				Code:    diag.CodeSemaAbstractFunctionInConcreteContract,
-				Message: fmt.Sprintf("function '%s' is declared virtual with no body; abstract functions are only allowed in 'abstract contract' declarations", fn.Name),
+				Message: fmt.Sprintf("function '%s' has no body; signature-only declarations belong in interfaces", fn.Name),
 				Span:    defaultSpan(filename),
 			})
-		}
-		// Legacy inheritance modifiers are now hard errors.
-		if fn.Virtual {
-			*diags = append(*diags, diag.Diagnostic{
-				Code:    diag.CodeWarnVirtualDeprecated,
-				Message: "'virtual' is not supported; use interfaces plus composition/library instead of polymorphic dispatch",
-				Span:    defaultSpan(filename),
-			})
-		}
-		if fn.Override {
-			*diags = append(*diags, diag.Diagnostic{
-				Code:    diag.CodeWarnOverrideDeprecated,
-				Message: "'override' is not supported; use explicit interface implementation plus composition/library instead",
-				Span:    defaultSpan(filename),
-			})
+			continue
 		}
 		*diags = append(*diags, duplicateParamDiagnostics(filename, "function", fn.Name, fn.Params)...)
 		*diags = append(*diags, duplicateParamDiagnostics(filename, "returns", fn.Name, fn.Returns)...)
@@ -1347,11 +1311,6 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 				selectorSeen[key] = fn.Name
 			}
 		}
-		// Skip body-related checks for abstract virtual stubs (no body).
-		if fn.Body == nil {
-			continue
-		}
-		_ = fn.Virtual // Virtual flag is purely informational after sema; no further check needed here.
 		checkStatements(filename, c.Name, funcVis, funcArity, eventArity, fn.Body, 0, diags, knownStructs)
 		checkDeclaredCustomErrorReverts(filename, errorDeclParams, fn.Body, diags)
 		checkEnumMemberExprs(filename, enumMemberValues, fn.Body, diags)

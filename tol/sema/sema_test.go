@@ -260,6 +260,7 @@ func TestCheckRejectsSetTargetSelectorMemberExpr(t *testing.T) {
 				{
 					Name:      "mark",
 					Modifiers: []string{"public"},
+					Body:      []ast.Statement{},
 				},
 				{
 					Name: "run",
@@ -303,6 +304,7 @@ func TestCheckRejectsAssignExprTargetSelectorMemberExpr(t *testing.T) {
 				{
 					Name:      "mark",
 					Modifiers: []string{"public"},
+					Body:      []ast.Statement{},
 				},
 				{
 					Name: "run",
@@ -350,6 +352,7 @@ func TestCheckRejectsInvalidSelectorOverride(t *testing.T) {
 					Name:             "f",
 					SelectorOverride: "0x123",
 					Modifiers:        []string{"public"},
+					Body:             []ast.Statement{},
 				},
 			},
 		},
@@ -373,11 +376,13 @@ func TestCheckRejectsDuplicatePublicExternalSelector(t *testing.T) {
 					Name:             "a",
 					SelectorOverride: "0x11111111",
 					Modifiers:        []string{"public"},
+					Body:             []ast.Statement{},
 				},
 				{
 					Name:             "b",
 					SelectorOverride: "0x11111111",
 					Modifiers:        []string{"external"},
+					Body:             []ast.Statement{},
 				},
 			},
 		},
@@ -401,6 +406,7 @@ func TestCheckRejectsSelectorOverrideOnNonExternalFunction(t *testing.T) {
 					Name:             "f",
 					SelectorOverride: "0x11111111",
 					Modifiers:        []string{"internal"},
+					Body:             []ast.Statement{},
 				},
 			},
 		},
@@ -424,6 +430,7 @@ func TestCheckAcceptsSelectorOverrideOnExternalFunction(t *testing.T) {
 					Name:             "f",
 					SelectorOverride: "0x11111111",
 					Modifiers:        []string{"external"},
+					Body:             []ast.Statement{},
 				},
 			},
 		},
@@ -839,6 +846,7 @@ func TestCheckRejectsSelectorMemberNonExternalTarget(t *testing.T) {
 				{
 					Name:      "hidden",
 					Modifiers: []string{"internal"},
+					Body:      []ast.Statement{},
 				},
 				{
 					Name: "f",
@@ -882,6 +890,7 @@ func TestCheckAcceptsSelectorMemberExternalTarget(t *testing.T) {
 				{
 					Name:      "pub",
 					Modifiers: []string{"public"},
+					Body:      []ast.Statement{},
 				},
 				{
 					Name: "f",
@@ -922,6 +931,7 @@ func TestCheckAcceptsSelectorMemberExternalTargetWithParens(t *testing.T) {
 				{
 					Name:      "pub",
 					Modifiers: []string{"public"},
+					Body:      []ast.Statement{},
 				},
 				{
 					Name: "f",
@@ -1007,6 +1017,7 @@ func TestCheckRejectsCallingSelectorMemberResult(t *testing.T) {
 				{
 					Name:      "pub",
 					Modifiers: []string{"public"},
+					Body:      []ast.Statement{},
 				},
 				{
 					Name: "run",
@@ -1314,6 +1325,7 @@ func TestCheckRejectsDuplicateFunctionParams(t *testing.T) {
 						{Name: "x", Type: "u256"},
 						{Name: "x", Type: "u256"},
 					},
+					Body: []ast.Statement{},
 				},
 			},
 		},
@@ -4577,58 +4589,8 @@ func TestCheckSuperCallWithoutBases(t *testing.T) {
 	}
 }
 
-// TestLegacyVirtualOverrideRejected verifies that virtual and override are now
-// hard errors rather than warnings.
-func TestLegacyVirtualOverrideRejected(t *testing.T) {
-	m := &ast.Module{
-		Version: "0.2.0",
-		Interfaces: []ast.InterfaceDecl{
-			{
-				Name: "IBase",
-				Functions: []ast.FuncSigDecl{
-					{Name: "setup", Modifiers: []string{"internal"}},
-				},
-			},
-		},
-		Contract: &ast.ContractDecl{
-			Name:  "Child",
-			Bases: []string{"IBase"},
-			Functions: []ast.FunctionDecl{
-				{
-					Name:      "setup",
-					Modifiers: []string{"internal"},
-					Virtual:   true,
-					Override:  true,
-					Body:      []ast.Statement{{Kind: "return"}},
-				},
-			},
-		},
-	}
-	_, diags := Check("<test>", m)
-	if !diags.HasErrors() {
-		t.Fatalf("expected errors for legacy virtual/override")
-	}
-	wantCodes := map[string]bool{
-		"TOL2317": false, // virtual
-		"TOL2318": false, // override
-	}
-	for _, d := range diags {
-		if _, ok := wantCodes[d.Code]; ok {
-			if d.Severity != diag.SeverityError {
-				t.Errorf("diagnostic %s should be an error, got severity %d", d.Code, d.Severity)
-			}
-			wantCodes[d.Code] = true
-		}
-	}
-	for code, found := range wantCodes {
-		if !found {
-			t.Errorf("expected legacy rejection diagnostic %s not found in diagnostics: %v", code, diags)
-		}
-	}
-}
-
 // TestInterfaceImplementationNoLegacyDiagnostics verifies that plain interface
-// implementation does not trigger legacy inheritance diagnostics.
+// implementation does not trigger inheritance diagnostics.
 func TestInterfaceImplementationNoLegacyDiagnostics(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
@@ -4657,12 +4619,6 @@ func TestInterfaceImplementationNoLegacyDiagnostics(t *testing.T) {
 	_, diags := Check("<test>", m)
 	if diags.HasErrors() {
 		t.Fatalf("unexpected errors: %v", diags)
-	}
-	// No legacy inheritance diagnostics should be emitted for plain interface implementation.
-	for _, d := range diags {
-		if d.Code == "TOL2317" || d.Code == "TOL2318" || d.Code == "TOL2319" {
-			t.Errorf("unexpected legacy inheritance diagnostic %s for interface implementation: %s", d.Code, d.Message)
-		}
 	}
 }
 
@@ -6345,60 +6301,27 @@ func TestCheckFieldAccessOnNonStruct(t *testing.T) {
 	_ = diags
 }
 
-// --- Abstract contract tests ---
+// --- Interface-only inheritance tests ---
 
-// TestCheckAbstractContractVirtualStubRejected: abstract contracts are still parsed,
-// but virtual stubs are no longer semantically supported.
-func TestCheckAbstractContractVirtualStubRejected(t *testing.T) {
+func TestCheckBodylessFunctionRejected(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
 		Contract: &ast.ContractDecl{
-			Name:     "Base",
-			Abstract: true,
+			Name: "Token",
 			Functions: []ast.FunctionDecl{
 				{
 					Name:      "transfer",
 					Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
 					Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 					Modifiers: []string{"public"},
-					Virtual:   true,
-					Body:      nil, // abstract stub — no body
+					Body:      nil, // invalid in a contract; ABI-only declarations belong in interfaces
 				},
 			},
 		},
 	}
 	_, diags := Check("<test>", m)
 	if !diags.HasErrors() {
-		t.Fatalf("expected error for abstract contract virtual stub")
-	}
-	if !strings.Contains(diags.Error(), "TOL2317") {
-		t.Fatalf("expected TOL2317, got: %v", diags)
-	}
-}
-
-// TestCheckAbstractFunctionInConcreteContractRejected: a non-abstract contract that
-// declares a function with Virtual==true and Body==nil must be rejected with TOL2069.
-func TestCheckAbstractFunctionInConcreteContractRejected(t *testing.T) {
-	m := &ast.Module{
-		Version: "0.2.0",
-		Contract: &ast.ContractDecl{
-			Name:     "Token",
-			Abstract: false,
-			Functions: []ast.FunctionDecl{
-				{
-					Name:      "transfer",
-					Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
-					Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
-					Modifiers: []string{"public"},
-					Virtual:   true,
-					Body:      nil, // missing body — error in non-abstract contract
-				},
-			},
-		},
-	}
-	_, diags := Check("<test>", m)
-	if !diags.HasErrors() {
-		t.Fatalf("expected error for abstract function in concrete contract")
+		t.Fatalf("expected error for bodyless contract function")
 	}
 	if !strings.Contains(diags.Error(), "TOL2069") {
 		t.Fatalf("expected TOL2069, got: %v", diags)
@@ -6408,31 +6331,12 @@ func TestCheckAbstractFunctionInConcreteContractRejected(t *testing.T) {
 	}
 }
 
-// TestCheckAbstractContractBaseRejected: `is` may only list interfaces, not abstract
-// contracts used as implementation parents.
-func TestCheckAbstractContractBaseRejected(t *testing.T) {
+// TestCheckBaseContractRejected: `is` may only list interfaces, not implementation parents.
+func TestCheckBaseContractRejected(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
-		AbstractContracts: []ast.ContractDecl{
-			{
-				Name:     "Base",
-				Abstract: true,
-				Functions: []ast.FunctionDecl{
-					{
-						Name:      "transfer",
-						Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
-						Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
-						Modifiers: []string{"public"},
-						Body: []ast.Statement{
-							{Kind: "return", Expr: &ast.Expr{Kind: "ident", Value: "true"}},
-						},
-					},
-				},
-			},
-		},
 		Contract: &ast.ContractDecl{
 			Name:      "Token",
-			Abstract:  false,
 			Bases:     []string{"Base"},
 			Functions: []ast.FunctionDecl{},
 		},

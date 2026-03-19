@@ -585,7 +585,7 @@ contract Token is IERC20 {
 	}
 }
 
-func TestParseVirtualOverrideModifiers(t *testing.T) {
+func TestParseVirtualRejected(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Base {
@@ -593,24 +593,20 @@ contract Base {
 }
 `)
 	mod, diags := ParseFile("<test>", src)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics: %v", diags)
+	if !diags.HasErrors() {
+		t.Fatalf("expected diagnostics for legacy virtual")
 	}
 	if mod.Contract == nil || len(mod.Contract.Functions) != 1 {
-		t.Fatalf("expected one function")
+		t.Fatalf("expected parser recovery to keep one function")
 	}
 	fn := mod.Contract.Functions[0]
-	if !fn.Virtual {
-		t.Fatalf("expected Virtual=true")
-	}
-	if fn.Override {
-		t.Fatalf("expected Override=false")
-	}
-	// "virtual" should not appear in Modifiers.
 	for _, m := range fn.Modifiers {
 		if m == "virtual" {
 			t.Fatalf("'virtual' should not be in Modifiers, got: %v", fn.Modifiers)
 		}
+	}
+	if !strings.Contains(diags.Error(), "TOL1002") {
+		t.Fatalf("expected TOL1002, got: %v", diags)
 	}
 }
 
@@ -1090,10 +1086,7 @@ contract Demo {
 	}
 }
 
-// TestParseAbstractContract verifies that "abstract contract" sets Abstract=true on the
-// ContractDecl and that a bodyless function (ending with ';') is accepted and produces a
-// FunctionDecl with Virtual==true and Body==nil.
-func TestParseAbstractContract(t *testing.T) {
+func TestParseAbstractContractRejected(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 abstract contract Foo {
@@ -1102,50 +1095,18 @@ abstract contract Foo {
 }
 `)
 	mod, diags := ParseFile("<test>", src)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics: %v", diags)
+	if !diags.HasErrors() {
+		t.Fatalf("expected diagnostics for abstract contract")
 	}
 	if mod == nil {
-		t.Fatalf("expected non-nil module")
+		t.Fatalf("expected non-nil module for recovery")
 	}
-	// Abstract contract goes into m.AbstractContracts.
-	if len(mod.AbstractContracts) != 1 {
-		t.Fatalf("expected 1 abstract contract, got %d", len(mod.AbstractContracts))
-	}
-	ac := mod.AbstractContracts[0]
-	if ac.Name != "Foo" {
-		t.Fatalf("unexpected abstract contract name: %s", ac.Name)
-	}
-	if !ac.Abstract {
-		t.Fatalf("expected Abstract=true on abstract contract")
-	}
-	if len(ac.Functions) != 2 {
-		t.Fatalf("expected 2 functions, got %d", len(ac.Functions))
-	}
-	// First function: bodyless virtual stub.
-	stub := ac.Functions[0]
-	if stub.Name != "bar" {
-		t.Fatalf("unexpected stub name: %s", stub.Name)
-	}
-	if !stub.Virtual {
-		t.Fatalf("expected Virtual=true on stub function")
-	}
-	if stub.Body != nil {
-		t.Fatalf("expected nil body on stub function, got %d stmts", len(stub.Body))
-	}
-	// Second function: has a body.
-	impl := ac.Functions[1]
-	if impl.Name != "baz" {
-		t.Fatalf("unexpected impl name: %s", impl.Name)
-	}
-	if impl.Body == nil {
-		t.Fatalf("expected non-nil body on implemented function")
+	if !strings.Contains(diags.Error(), "TOL1002") {
+		t.Fatalf("expected TOL1002, got: %v", diags)
 	}
 }
 
-// TestParseAbstractContractWithConcreteContract verifies that an abstract contract
-// followed by a concrete contract are both parsed correctly.
-func TestParseAbstractContractWithConcreteContract(t *testing.T) {
+func TestParseAbstractContractRecoveryKeepsFollowingConcreteContract(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 abstract contract Base {
@@ -1158,26 +1119,14 @@ contract Token is Base {
 }
 `)
 	mod, diags := ParseFile("<test>", src)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics: %v", diags)
-	}
-	if mod == nil {
-		t.Fatalf("expected non-nil module")
-	}
-	if len(mod.AbstractContracts) != 1 {
-		t.Fatalf("expected 1 abstract contract, got %d", len(mod.AbstractContracts))
-	}
-	if mod.AbstractContracts[0].Name != "Base" {
-		t.Fatalf("unexpected abstract contract name: %s", mod.AbstractContracts[0].Name)
+	if !diags.HasErrors() {
+		t.Fatalf("expected diagnostics for legacy inheritance surface")
 	}
 	if mod.Contract == nil {
-		t.Fatalf("expected concrete contract")
+		t.Fatalf("expected following concrete contract to survive recovery")
 	}
 	if mod.Contract.Name != "Token" {
 		t.Fatalf("unexpected concrete contract name: %s", mod.Contract.Name)
-	}
-	if mod.Contract.Abstract {
-		t.Fatalf("expected Abstract=false on concrete contract")
 	}
 	if len(mod.Contract.Bases) != 1 || mod.Contract.Bases[0] != "Base" {
 		t.Fatalf("unexpected bases: %v", mod.Contract.Bases)
@@ -1189,11 +1138,11 @@ contract Token is Base {
 	if fn.Name != "transfer" {
 		t.Fatalf("unexpected function name: %s", fn.Name)
 	}
-	if !fn.Override {
-		t.Fatalf("expected Override=true")
-	}
 	if fn.Body == nil {
 		t.Fatalf("expected non-nil body on concrete function")
+	}
+	if !strings.Contains(diags.Error(), "TOL1002") {
+		t.Fatalf("expected TOL1002, got: %v", diags)
 	}
 }
 
@@ -2276,7 +2225,7 @@ contract Demo {
     u256 public totalSupply;
     agent private owner;
     u256 internal counter;
-    u256 public override balance;
+    u256 public balance;
 }
 `)
 	mod, diags := ParseFile("<test>", src)
@@ -2299,8 +2248,8 @@ contract Demo {
 	if slots[2].Name != "counter" || slots[2].Visibility != "internal" {
 		t.Fatalf("slot[2]: name=%q visibility=%q", slots[2].Name, slots[2].Visibility)
 	}
-	if slots[3].Name != "balance" || slots[3].Visibility != "public" || !slots[3].Override {
-		t.Fatalf("slot[3]: name=%q visibility=%q override=%v", slots[3].Name, slots[3].Visibility, slots[3].Override)
+	if slots[3].Name != "balance" || slots[3].Visibility != "public" {
+		t.Fatalf("slot[3]: name=%q visibility=%q", slots[3].Name, slots[3].Visibility)
 	}
 }
 
@@ -2380,16 +2329,6 @@ contract Demo is Base(1, 2) {
 	}
 	if len(mod.Contract.Bases) != 1 || mod.Contract.Bases[0] != "Base" {
 		t.Fatalf("expected Bases=[Base], got %v", mod.Contract.Bases)
-	}
-	if len(mod.Contract.BaseSpecifiers) != 1 {
-		t.Fatalf("expected 1 base specifier, got %d", len(mod.Contract.BaseSpecifiers))
-	}
-	spec := mod.Contract.BaseSpecifiers[0]
-	if spec.Name != "Base" {
-		t.Fatalf("expected spec.Name=Base, got %q", spec.Name)
-	}
-	if len(spec.Args) != 2 {
-		t.Fatalf("expected 2 constructor args, got %d", len(spec.Args))
 	}
 }
 
@@ -3208,44 +3147,46 @@ contract Demo {
 	}
 }
 
-// 11.2: modifier with virtual/override
-func TestParseModifierVirtualOverride(t *testing.T) {
+func TestParseModifierVirtualRejected(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
-abstract contract Base {
+contract Base {
   modifier auth() virtual {
     _;
   }
 }
 `)
 	mod, diags := ParseFile("<test>", src)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics for virtual modifier: %v", diags)
+	if !diags.HasErrors() {
+		t.Fatalf("expected diagnostics for legacy virtual modifier")
 	}
-	if len(mod.AbstractContracts) != 1 {
-		t.Fatalf("expected 1 abstract contract, got %d", len(mod.AbstractContracts))
+	if mod.Contract == nil || len(mod.Contract.Modifiers) != 1 {
+		t.Fatalf("expected parser recovery to keep modifier")
 	}
-	m := mod.AbstractContracts[0].Modifiers[0]
-	if !m.Virtual {
-		t.Fatalf("expected modifier to be virtual")
+	if !strings.Contains(diags.Error(), "TOL1002") {
+		t.Fatalf("expected TOL1002, got: %v", diags)
 	}
 }
 
-// 11.3: abstract modifier (semicolon body)
-func TestParseModifierAbstract(t *testing.T) {
+func TestParseBodylessModifierRejected(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
-abstract contract Base {
-  modifier auth() virtual;
+contract Base {
+  modifier auth();
 }
 `)
 	mod, diags := ParseFile("<test>", src)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics for abstract modifier: %v", diags)
+	if !diags.HasErrors() {
+		t.Fatalf("expected diagnostics for bodyless modifier")
 	}
-	m := mod.AbstractContracts[0].Modifiers[0]
-	if !m.Abstract {
-		t.Fatalf("expected modifier to be abstract (semicolon body)")
+	if mod.Contract == nil {
+		t.Fatalf("expected contract recovery")
+	}
+	if len(mod.Contract.Modifiers) != 0 {
+		t.Fatalf("expected bodyless modifier to be rejected, got %d modifiers", len(mod.Contract.Modifiers))
+	}
+	if !strings.Contains(diags.Error(), "TOL1002") {
+		t.Fatalf("expected TOL1002, got: %v", diags)
 	}
 }
 

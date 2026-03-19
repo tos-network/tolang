@@ -85,25 +85,24 @@ type TypeDecl struct {
 
 // Module is the root node for a TOL source file.
 type Module struct {
-	Version           string
-	Package           string          // declared package path, e.g. "tolang.registry"; empty if not declared
-	Imports           []ImportDecl    // import declarations
-	SkippedTopDecls   []SkippedTopDecl
-	Interfaces        []InterfaceDecl // parsed interface declarations
-	Libraries         []LibraryDecl   // parsed library declarations
-	Structs           []StructDecl    // top-level struct declarations
-	TypeDecls         []TypeDecl      // user-defined value type declarations (type X is Y;)
-	AbstractContracts []ContractDecl  // abstract contract declarations (may precede the concrete contract)
+	Version         string
+	Package         string       // declared package path, e.g. "tolang.registry"; empty if not declared
+	Imports         []ImportDecl // import declarations
+	SkippedTopDecls []SkippedTopDecl
+	Interfaces      []InterfaceDecl // parsed interface declarations
+	Libraries       []LibraryDecl   // parsed library declarations
+	Structs         []StructDecl    // top-level struct declarations
+	TypeDecls       []TypeDecl      // user-defined value type declarations (type X is Y;)
 	// Top-level free declarations (outside any contract/library)
-	FreeFunctions []FunctionDecl  // free functions at file level
-	Constants     []ConstantDecl  // top-level compile-time constants
-	Enums         []EnumDecl      // top-level enum declarations
-	Errors        []ErrorDecl     // top-level error declarations
-	Events        []EventDecl     // top-level event declarations
-	UsingDecls    []UsingDecl     // top-level using-for declarations
+	FreeFunctions []FunctionDecl   // free functions at file level
+	Constants     []ConstantDecl   // top-level compile-time constants
+	Enums         []EnumDecl       // top-level enum declarations
+	Errors        []ErrorDecl      // top-level error declarations
+	Events        []EventDecl      // top-level event declarations
+	UsingDecls    []UsingDecl      // top-level using-for declarations
 	Capabilities  []CapabilityDecl // top-level capability declarations (shared across all contracts in file)
-	Contract      *ContractDecl   // primary (first) concrete contract; kept for backward compatibility
-	Contracts     []ContractDecl  // all concrete contract declarations in declaration order
+	Contract      *ContractDecl    // primary (first) concrete contract; kept for backward compatibility
+	Contracts     []ContractDecl   // all concrete contract declarations in declaration order
 	Tests         []TestDecl
 }
 
@@ -157,21 +156,21 @@ type TestLifecycleFn struct {
 
 // TestFn is a single test function (name must start with "test_" or "fuzz_").
 type TestFn struct {
-	Name       string
-	Params     []FieldDecl // receives bindings from setup
-	Tags       []string    // from #[tag("slow")]
-	Skip       bool        // from #[skip]
-	Body       []Statement
-	Cases      *CasesTable // non-nil when @cases attribute is present
-	Fuzz       bool        // true when @fuzz attribute present
-	FuzzCount  int         // 0 → runner uses Runner.FuzzCount default (100)
-	Timeout    int         // milliseconds; 0 = no limit
+	Name      string
+	Params    []FieldDecl // receives bindings from setup
+	Tags      []string    // from #[tag("slow")]
+	Skip      bool        // from #[skip]
+	Body      []Statement
+	Cases     *CasesTable // non-nil when @cases attribute is present
+	Fuzz      bool        // true when @fuzz attribute present
+	FuzzCount int         // 0 → runner uses Runner.FuzzCount default (100)
+	Timeout   int         // milliseconds; 0 = no limit
 }
 
 // MockDecl is an inline stub contract declared in a test block.
 type MockDecl struct {
 	Name      string
-	Interface string       // name after ':' (informational; not validated)
+	Interface string // name after ':' (informational; not validated)
 	Methods   []MockMethod
 }
 
@@ -196,29 +195,25 @@ type SkippedTopDecl struct {
 
 // ModifierDecl is a modifier declaration inside a contract.
 // The body contains ordinary statements plus zero or one Statement with Kind="placeholder" (_; ).
-// Body is nil when the modifier is abstract (declared with ';' instead of a block, 11.3).
 type ModifierDecl struct {
-	Name     string
-	Params   []FieldDecl // optional parameter list (11.1)
-	Virtual  bool        // true when "virtual" is present (11.2)
-	Override bool        // true when "override" is present (11.2)
-	Abstract bool        // true when body is ';' instead of block (11.3)
-	Body     []Statement
+	Name   string
+	Params []FieldDecl // optional parameter list (11.1)
+	Body   []Statement
 }
 
 // InterfaceDecl is a top-level interface declaration.
 // Interfaces may contain function signatures, events, errors, enums, UDVTs, structs, and using declarations.
 // Interfaces may not contain state variables or constructors.
 type InterfaceDecl struct {
-	Name        string
-	Functions   []FuncSigDecl
-	Events      []EventDecl
-	Errors      []ErrorDecl
-	Enums       []EnumDecl
-	Structs     []StructDecl
-	TypeDecls   []TypeDecl
-	UsingDecls  []UsingDecl
-	Constants   []ConstantDecl // compile-time constants (populated for package imports from contracts)
+	Name       string
+	Functions  []FuncSigDecl
+	Events     []EventDecl
+	Errors     []ErrorDecl
+	Enums      []EnumDecl
+	Structs    []StructDecl
+	TypeDecls  []TypeDecl
+	UsingDecls []UsingDecl
+	Constants  []ConstantDecl // compile-time constants (populated for package imports from contracts)
 	// Package origin (set when imported via "import tolang.pkg.Contract;"):
 	PackageName  string // origin package path, e.g. "tolang.registry"; empty for file imports
 	ContractName string // concrete contract name in the package, e.g. "AgentRegistry"
@@ -266,34 +261,26 @@ type ConstantDecl struct {
 	Value *Expr // must be a literal expression (Kind == "number", "string", or bool ident)
 }
 
-// BaseSpecifier is an entry in the inheritance clause: Base or Base(arg1, arg2).
-type BaseSpecifier struct {
-	Name string   // base contract name
-	Args []*Expr  // optional constructor arguments (nil means no args provided)
-}
-
 // ContractDecl is a contract declaration node.
 type ContractDecl struct {
-	Name           string
-	Abstract       bool            // true if declared as "abstract contract"
-	IsAccount      bool            // true for "account contract" declarations (AA wallet marker)
-	Bases          []string        // direct parent names, in declaration order (e.g. "is A, B")
-	BaseSpecifiers []BaseSpecifier // full inheritance specifiers with optional constructor args
-	SkippedDecls   []SkippedContractDecl
-	UsingDecls     []UsingDecl    // using LibName for Type; declarations
-	Constants      []ConstantDecl // compile-time constant declarations
-	TypeDecls      []TypeDecl     // user-defined value type declarations (type X is Y;) inside contract
-	Storage        *StorageDecl
-	Immutables     []ImmutableDecl // immutable variable declarations
-	Events         []EventDecl
-	Errors         []ErrorDecl
-	Enums          []EnumDecl
-	Structs        []StructDecl   // struct declarations inside contract
-	Modifiers      []ModifierDecl
-	Functions      []FunctionDecl
-	Constructor    *ConstructorDecl
-	Fallback       *FallbackDecl
-	Receive        *ReceiveDecl
+	Name         string
+	IsAccount    bool     // true for "account contract" declarations (AA wallet marker)
+	Bases        []string // direct interface names from the `is` clause, in declaration order
+	SkippedDecls []SkippedContractDecl
+	UsingDecls   []UsingDecl    // using LibName for Type; declarations
+	Constants    []ConstantDecl // compile-time constant declarations
+	TypeDecls    []TypeDecl     // user-defined value type declarations (type X is Y;) inside contract
+	Storage      *StorageDecl
+	Immutables   []ImmutableDecl // immutable variable declarations
+	Events       []EventDecl
+	Errors       []ErrorDecl
+	Enums        []EnumDecl
+	Structs      []StructDecl // struct declarations inside contract
+	Modifiers    []ModifierDecl
+	Functions    []FunctionDecl
+	Constructor  *ConstructorDecl
+	Fallback     *FallbackDecl
+	Receive      *ReceiveDecl
 	// Agent-native declarations
 	Capabilities []CapabilityDecl // capability declarations (resolved at runtime via tos.capabilitybit)
 	Purposes     []PurposeDecl    // purpose declarations (ordinals assigned in declaration order)
@@ -314,7 +301,6 @@ type StorageSlot struct {
 	Type        string
 	IsTransient bool   // true for EIP-1153 transient storage (tload/tstore)
 	Visibility  string // "public", "private", "internal", or "" (default internal)
-	Override    bool   // true when "override" modifier is present
 	InitExpr    *Expr  // optional inline initializer: uint256 x = 1;
 }
 
@@ -331,8 +317,6 @@ type FunctionDecl struct {
 	Returns          []FieldDecl
 	Modifiers        []string
 	Body             []Statement
-	Virtual          bool     // true when "virtual" modifier is present
-	Override         bool     // true when "override" modifier is present
 	PayableAsset     string   // "uno" for payable(uno); "" for plain payable (TOS)
 	Doc              *DocMeta // structured doc comment metadata (optional)
 }
@@ -381,11 +365,11 @@ type DocMeta struct {
 	Bounds  *BoundsDecl
 	Gas     *GasDecl
 	// Agent-native annotations
-	RequiresCap  []string // @requires(caller: X) — list of capability names
-	HasPay       bool     // true when @pay(...) annotation is present
-	PayAmount    string   // @pay(amount: expr) — amount expression text (literal if known)
-	PayRecipient string   // @pay(recipient: expr) — recipient expression text
-	PayIsBare    bool     // true when @pay(expr) bare form used (no named keys)
+	RequiresCap    []string // @requires(caller: X) — list of capability names
+	HasPay         bool     // true when @pay(...) annotation is present
+	PayAmount      string   // @pay(amount: expr) — amount expression text (literal if known)
+	PayRecipient   string   // @pay(recipient: expr) — recipient expression text
+	PayIsBare      bool     // true when @pay(expr) bare form used (no named keys)
 	Delegated      bool     // @delegated — function accepts delegated calls
 	Verifiable     bool     // @verifiable — function result is verifiable off-chain
 	VerifiableStub bool     // true for auto-generated verify_* stub functions
@@ -450,7 +434,7 @@ type Statement struct {
 	Type    string
 	Types   []string // used by "let-tuple": per-variable type annotations
 	Text    string
-	Line    int // source line (1-based); 0 = unknown
+	Line    int    // source line (1-based); 0 = unknown
 	Op      string // used by "set": empty = plain assign, "+=" etc = compound assign, "++" / "--" = inc/dec
 	Expr    *Expr
 	Target  *Expr
@@ -491,8 +475,8 @@ type Expr struct {
 	Right        *Expr
 	Callee       *Expr
 	Args         []*Expr
-	NamedArgs    []NamedArg    // named call arguments: {name: expr, ...}; used when Kind == "named_call"
-	Options      []CallOption  // call options block: {gas: X, value: Y}; non-nil when Options block present
+	NamedArgs    []NamedArg   // named call arguments: {name: expr, ...}; used when Kind == "named_call"
+	Options      []CallOption // call options block: {gas: X, value: Y}; non-nil when Options block present
 	Object       *Expr
 	Member       string
 	Index        *Expr
@@ -530,9 +514,6 @@ func (m *Module) String() string {
 			bases = " is " + strings.Join(m.Contract.Bases, ", ")
 		}
 		prefix := "contract"
-		if m.Contract.Abstract {
-			prefix = "abstract contract"
-		}
 		out += fmt.Sprintf("%s %s%s {\n", prefix, m.Contract.Name, bases)
 
 		if m.Contract.Storage != nil {

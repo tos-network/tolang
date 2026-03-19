@@ -11,13 +11,12 @@ import (
 )
 
 type Parser struct {
-	filename           string
-	lex                *lexer.Lexer
-	cur                lexer.Token
-	diags              diag.Diagnostics
-	structNames        map[string]struct{} // known struct names for struct literal disambiguation
-	inAbstractContract bool                // true when parsing the body of an abstract contract
-	pendingDoc         *ast.DocMeta        // accumulated from TokenDocComment; cleared after binding
+	filename    string
+	lex         *lexer.Lexer
+	cur         lexer.Token
+	diags       diag.Diagnostics
+	structNames map[string]struct{} // known struct names for struct literal disambiguation
+	pendingDoc  *ast.DocMeta        // accumulated from TokenDocComment; cleared after binding
 }
 
 func ParseFile(filename string, src []byte) (*ast.Module, diag.Diagnostics) {
@@ -122,7 +121,7 @@ func (p *Parser) parseModule() *ast.Module {
 		}
 	}
 
-	// Parse top-level declarations: interfaces, libraries, structs, abstract contracts,
+	// Parse top-level declarations: interfaces, libraries, structs,
 	// free functions, constants, enums, errors, events, and using declarations.
 	// These may appear in any order before the (optional) concrete contract.
 	for {
@@ -192,24 +191,7 @@ func (p *Parser) parseModule() *ast.Module {
 				mod.Capabilities = append(mod.Capabilities, *cd)
 			}
 		} else if p.cur.Type == lexer.TokenKwAbstract {
-			// Look-ahead: "abstract contract <Name> { ... }" → abstract contract decl.
-			saved := p.cur
-			p.next() // consume "abstract"
-			if p.cur.Type == lexer.TokenKwContract {
-				ac := p.parseContractDecl(true)
-				if ac != nil {
-					mod.AbstractContracts = append(mod.AbstractContracts, *ac)
-				}
-			} else {
-				// Not a contract keyword — put the token back by re-adding it as a
-				// diagnostic and break out of the loop.
-				p.addDiag(diag.Diagnostic{
-					Code:    diag.CodeParseUnexpected,
-					Message: fmt.Sprintf("expected 'contract' after 'abstract', got '%s'", p.cur.Literal),
-					Span:    p.span(saved),
-				})
-				break
-			}
+			p.rejectAbstractContractDecl()
 		} else if p.isTypeStart() {
 			// Peek ahead: type-first constant at top level: uint256 constant MAX = 1000000;
 			nxt := p.peekTok()
@@ -235,11 +217,11 @@ func (p *Parser) parseModule() *ast.Module {
 	}
 
 	// Parse zero or more concrete contract declarations (multi-contract files).
-	// Interfaces, abstract contracts, and libraries may be interspersed between contracts.
+	// Interfaces and libraries may be interspersed between contracts.
 	for {
 		switch p.cur.Type {
 		case lexer.TokenKwContract:
-			concrete := p.parseContractDecl(false)
+			concrete := p.parseContractDecl()
 			if concrete != nil {
 				mod.Contracts = append(mod.Contracts, *concrete)
 				// Maintain backward-compatible mod.Contract pointing to the first contract.
@@ -256,7 +238,7 @@ func (p *Parser) parseModule() *ast.Module {
 				saved := p.cur
 				p.next() // consume "account"
 				if p.cur.Type == lexer.TokenKwContract {
-					concrete := p.parseContractDecl(false)
+					concrete := p.parseContractDecl()
 					if concrete != nil {
 						concrete.IsAccount = true
 						mod.Contracts = append(mod.Contracts, *concrete)
@@ -288,21 +270,7 @@ func (p *Parser) parseModule() *ast.Module {
 				mod.Libraries = append(mod.Libraries, *lib)
 			}
 		case lexer.TokenKwAbstract:
-			saved := p.cur
-			p.next() // consume "abstract"
-			if p.cur.Type == lexer.TokenKwContract {
-				ac := p.parseContractDecl(true)
-				if ac != nil {
-					mod.AbstractContracts = append(mod.AbstractContracts, *ac)
-				}
-			} else {
-				p.addDiag(diag.Diagnostic{
-					Code:    diag.CodeParseUnexpected,
-					Message: fmt.Sprintf("expected 'contract' after 'abstract', got '%s'", p.cur.Literal),
-					Span:    p.span(saved),
-				})
-				goto afterContracts
-			}
+			p.rejectAbstractContractDecl()
 		case lexer.TokenKwTest:
 			// Test blocks may follow each contract declaration.
 			for p.cur.Type == lexer.TokenKwTest {
@@ -330,8 +298,7 @@ afterContracts:
 		if p.cur.Type == lexer.TokenEOF {
 			return mod
 		}
-		hasTopDecls := len(mod.Tests) > 0 || len(mod.AbstractContracts) > 0 ||
-			len(mod.Interfaces) > 0 || len(mod.Libraries) > 0 ||
+		hasTopDecls := len(mod.Tests) > 0 || len(mod.Interfaces) > 0 || len(mod.Libraries) > 0 ||
 			len(mod.FreeFunctions) > 0 || len(mod.Constants) > 0 ||
 			len(mod.Enums) > 0 || len(mod.Errors) > 0 ||
 			len(mod.Events) > 0 || len(mod.UsingDecls) > 0 ||
@@ -365,10 +332,36 @@ afterContracts:
 	return mod
 }
 
-// parseContractDecl parses a contract declaration (abstract or concrete).
-// The 'abstract' keyword has already been consumed when isAbstract=true;
-// the 'contract' keyword has NOT been consumed yet.
-func (p *Parser) parseContractDecl(isAbstract bool) *ast.ContractDecl {
+func (p *Parser) rejectAbstractContractDecl() {
+	start := p.cur
+	p.addDiag(diag.Diagnostic{
+		Code:    diag.CodeParseUnsupported,
+		Message: "'abstract contract' is removed; use interfaces for ABI shape and composition/library for shared behavior",
+		Span:    p.span(start),
+	})
+	p.next() // consume "abstract"
+	if p.cur.Type != lexer.TokenKwContract {
+		return
+	}
+	p.next() // consume "contract"
+	if isIdentLike(p.cur.Type) {
+		p.next()
+	}
+	for p.cur.Type != lexer.TokenLBrace && p.cur.Type != lexer.TokenSemicolon && p.cur.Type != lexer.TokenEOF {
+		p.next()
+	}
+	if p.cur.Type == lexer.TokenLBrace {
+		_ = p.consumePaired(lexer.TokenLBrace, lexer.TokenRBrace, "abstract contract body")
+		return
+	}
+	if p.cur.Type == lexer.TokenSemicolon {
+		p.next()
+	}
+}
+
+// parseContractDecl parses a concrete contract declaration.
+// The 'contract' keyword has NOT been consumed yet.
+func (p *Parser) parseContractDecl() *ast.ContractDecl {
 	if !p.expect(lexer.TokenKwContract, diag.CodeParseUnexpected, "expected 'contract' declaration") {
 		return nil
 	}
@@ -377,7 +370,7 @@ func (p *Parser) parseContractDecl(isAbstract bool) *ast.ContractDecl {
 	if !p.expect(lexer.TokenIdent, diag.CodeParseUnexpected, "expected contract name") {
 		return nil
 	}
-	c := &ast.ContractDecl{Name: contractName.Literal, Abstract: isAbstract}
+	c := &ast.ContractDecl{Name: contractName.Literal}
 
 	// Parse optional interface implementation specification: is IFoo, IBar, ...
 	if p.cur.Type == lexer.TokenKwIs || (p.cur.Type == lexer.TokenIdent && p.cur.Literal == "is") {
@@ -393,7 +386,6 @@ func (p *Parser) parseContractDecl(isAbstract bool) *ast.ContractDecl {
 			}
 			baseName := p.cur.Literal
 			p.next()
-			spec := ast.BaseSpecifier{Name: baseName}
 			// Base constructor arguments are intentionally unsupported: `is` is now
 			// reserved for interface implementation only. Consume the list for recovery.
 			if p.cur.Type == lexer.TokenLParen {
@@ -403,16 +395,14 @@ func (p *Parser) parseContractDecl(isAbstract bool) *ast.ContractDecl {
 					Span:    p.span(p.cur),
 				})
 				p.next() // consume '('
-				var args []*ast.Expr
 				for p.cur.Type != lexer.TokenRParen && p.cur.Type != lexer.TokenEOF {
-					arg, ok := p.parseExpression(map[lexer.Type]bool{
+					_, ok := p.parseExpression(map[lexer.Type]bool{
 						lexer.TokenComma:  true,
 						lexer.TokenRParen: true,
 					})
 					if !ok {
 						break
 					}
-					args = append(args, arg)
 					if p.cur.Type == lexer.TokenComma {
 						p.next()
 					}
@@ -420,10 +410,8 @@ func (p *Parser) parseContractDecl(isAbstract bool) *ast.ContractDecl {
 				if p.cur.Type == lexer.TokenRParen {
 					p.next()
 				}
-				spec.Args = args
 			}
 			c.Bases = append(c.Bases, baseName)
-			c.BaseSpecifiers = append(c.BaseSpecifiers, spec)
 			if p.cur.Type == lexer.TokenComma {
 				p.next() // consume ','
 				continue
@@ -436,11 +424,9 @@ func (p *Parser) parseContractDecl(isAbstract bool) *ast.ContractDecl {
 		return nil
 	}
 
-	p.inAbstractContract = isAbstract
 	for p.cur.Type != lexer.TokenRBrace && p.cur.Type != lexer.TokenEOF {
 		p.parseContractMember(c)
 	}
-	p.inAbstractContract = false
 	if !p.expect(lexer.TokenRBrace, diag.CodeParseUnexpected, "expected '}' to close contract body") {
 		return nil
 	}
@@ -2438,35 +2424,36 @@ func (p *Parser) parseModifierDecl() *ast.ModifierDecl {
 		}
 	}
 
-	// 11.2: optional virtual / override after param list.
-	isVirtual := false
-	isOverride := false
 	for p.cur.Type == lexer.TokenKwVirtual || p.cur.Type == lexer.TokenKwOverride {
 		if p.cur.Type == lexer.TokenKwVirtual {
-			isVirtual = true
-		} else {
-			isOverride = true
-			// optional overrideSpecifier: override(Base1, Base2)
-			if p.peek().Type == lexer.TokenLParen {
-				p.next()
-				_ = p.consumePaired(lexer.TokenLParen, lexer.TokenRParen, "override specifier")
-				continue
-			}
+			p.addDiag(diag.Diagnostic{
+				Code:    diag.CodeParseUnsupported,
+				Message: "'virtual' is removed; use interfaces plus composition/library instead of inheritance-based dispatch",
+				Span:    p.span(p.cur),
+			})
+			p.next()
+			continue
 		}
+		p.addDiag(diag.Diagnostic{
+			Code:    diag.CodeParseUnsupported,
+			Message: "'override' is removed; implement interfaces directly without inheritance-based overrides",
+			Span:    p.span(p.cur),
+		})
 		p.next()
+		if p.cur.Type == lexer.TokenLParen {
+			_ = p.consumePaired(lexer.TokenLParen, lexer.TokenRParen, "override specifier")
+		}
 	}
 
-	// 11.3: abstract modifier body: semicolon instead of block.
+	// Bodyless modifier declarations were only useful in the old abstract/override model.
 	if p.cur.Type == lexer.TokenSemicolon {
+		p.addDiag(diag.Diagnostic{
+			Code:    diag.CodeParseUnsupported,
+			Message: "bodyless modifier declarations are removed; modifiers must have an explicit body",
+			Span:    p.span(p.cur),
+		})
 		p.next()
-		return &ast.ModifierDecl{
-			Name:     nameTok.Literal,
-			Params:   params,
-			Virtual:  isVirtual,
-			Override: isOverride,
-			Abstract: true,
-			Body:     nil,
-		}
+		return nil
 	}
 
 	body, ok := p.parseModifierBody()
@@ -2474,12 +2461,9 @@ func (p *Parser) parseModifierDecl() *ast.ModifierDecl {
 		return nil
 	}
 	return &ast.ModifierDecl{
-		Name:     nameTok.Literal,
-		Params:   params,
-		Virtual:  isVirtual,
-		Override: isOverride,
-		Abstract: false,
-		Body:     body,
+		Name:   nameTok.Literal,
+		Params: params,
+		Body:   body,
 	}
 }
 
@@ -2528,7 +2512,8 @@ func (p *Parser) parseModifierBody() ([]ast.Statement, bool) {
 	return stmts, true
 }
 
-// isStateVariableModifier returns true if the identifier is a state variable modifier.
+// isStateVariableModifier returns true if the identifier is a state variable
+// modifier or a legacy modifier kept only for parser recovery.
 func isStateVariableModifier(lit string) bool {
 	switch lit {
 	case "public", "private", "internal", "override":
@@ -2537,7 +2522,8 @@ func isStateVariableModifier(lit string) bool {
 	return false
 }
 
-// isStateVariableModifierToken returns true if the token type is a promoted state variable modifier keyword.
+// isStateVariableModifierToken returns true if the token type is a promoted
+// state variable modifier keyword or a legacy keyword kept for parser recovery.
 func isStateVariableModifierToken(t lexer.Type) bool {
 	switch t {
 	case lexer.TokenKwPublic, lexer.TokenKwPrivate, lexer.TokenKwInternal, lexer.TokenKwOverride:
@@ -2556,7 +2542,7 @@ func isStateVariableModifierToken(t lexer.Type) bool {
 //	mapping(address => u256) balances;
 //	transient u256 lock_status;
 //	uint256 public totalSupply;
-//	uint256 public override balance;
+//	uint256 public balance;
 //	uint256 x = 1;
 func (p *Parser) parseStorageSlot() *ast.StorageSlot {
 	isTransient := false
@@ -2575,12 +2561,13 @@ func (p *Parser) parseStorageSlot() *ast.StorageSlot {
 		return nil
 	}
 
-	// Collect optional state variable modifiers: public, private, internal, override.
+	// Collect optional state variable modifiers: public, private, internal, plus
+	// legacy override for parser-level rejection and recovery.
 	// Since these are now promoted keywords, parseField may have absorbed them into field.Type
 	// as ident-like tokens (e.g. "uint256 public"), or returned them as field.Name (legacy),
 	// or the current token may be a modifier keyword after a complete type+name parse failed.
 	visibility := ""
-	isOverride := false
+	overrideSeen := false
 
 	// extractModifierFromType checks if the field type string ends with a visibility/override
 	// modifier that was absorbed into the type during parsing (because the keywords are
@@ -2597,7 +2584,7 @@ func (p *Parser) parseStorageSlot() *ast.StorageSlot {
 					case "public", "private", "internal":
 						visibility = mod
 					case "override":
-						isOverride = true
+						overrideSeen = true
 					}
 					stripped = true
 					break
@@ -2625,7 +2612,7 @@ func (p *Parser) parseStorageSlot() *ast.StorageSlot {
 			p.next()
 			return true
 		case lexer.TokenKwOverride:
-			isOverride = true
+			overrideSeen = true
 			p.next()
 			return true
 		}
@@ -2634,7 +2621,7 @@ func (p *Parser) parseStorageSlot() *ast.StorageSlot {
 			case "public", "private", "internal":
 				visibility = p.cur.Literal
 			case "override":
-				isOverride = true
+				overrideSeen = true
 			}
 			p.next()
 			return true
@@ -2648,7 +2635,7 @@ func (p *Parser) parseStorageSlot() *ast.StorageSlot {
 		case "public", "private", "internal":
 			visibility = field.Name
 		case "override":
-			isOverride = true
+			overrideSeen = true
 		}
 		// Continue consuming remaining modifiers from the stream (promoted or contextual).
 		for isStateVariableModifierToken(p.cur.Type) || (p.cur.Type == lexer.TokenIdent && isStateVariableModifier(p.cur.Literal)) {
@@ -2728,12 +2715,18 @@ func (p *Parser) parseStorageSlot() *ast.StorageSlot {
 	if !p.expect(lexer.TokenSemicolon, diag.CodeParseUnexpected, "expected ';' after storage variable declaration") {
 		return nil
 	}
+	if overrideSeen {
+		p.addDiag(diag.Diagnostic{
+			Code:    diag.CodeParseUnsupported,
+			Message: "'override' is removed; storage slots cannot participate in inheritance-based override chains",
+			Span:    p.span(p.cur),
+		})
+	}
 	return &ast.StorageSlot{
 		Name:        field.Name,
 		Type:        field.Type,
 		IsTransient: isTransient,
 		Visibility:  visibility,
-		Override:    isOverride,
 		InitExpr:    initExpr,
 	}
 }
@@ -2802,43 +2795,28 @@ func (p *Parser) parseFunctionDecl(selectorOverride string) *ast.FunctionDecl {
 		rawMods = append(rawMods, extraMods...)
 	}
 
-	// Extract virtual/override/payableAsset from the raw modifier list.
-	var isVirtual, isOverride bool
+	// Extract payableAsset from the raw modifier list. Legacy inheritance modifiers are
+	// rejected directly in parseModifiersUntilBlock and never enter this slice.
 	var payableAsset string
 	var modifiers []string
 	for _, mod := range rawMods {
-		switch mod {
-		case "virtual":
-			isVirtual = true
-		case "override":
-			isOverride = true
-		default:
-			// Normalize "payable(uno)" → modifier "payable" + PayableAsset "uno".
-			if asset, ok := ParsePayableAsset([]string{mod}); ok && asset != "" {
-				modifiers = append(modifiers, "payable")
-				payableAsset = asset
-			} else {
-				modifiers = append(modifiers, mod)
-			}
+		// Normalize "payable(uno)" → modifier "payable" + PayableAsset "uno".
+		if asset, ok := ParsePayableAsset([]string{mod}); ok && asset != "" {
+			modifiers = append(modifiers, "payable")
+			payableAsset = asset
+		} else {
+			modifiers = append(modifiers, mod)
 		}
 	}
 
-	// If the current token is not '{', the modifiers already consumed a ';' terminator —
-	// this is a bodyless function declaration. In abstract contracts this is a valid
-	// virtual stub; in concrete contracts sema will report an error (TOL2060).
+	// Signature-only function declarations belong in interfaces, not contracts.
 	if p.cur.Type != lexer.TokenLBrace {
-		return &ast.FunctionDecl{
-			Name:             nameTok.Literal,
-			SelectorOverride: selectorOverride,
-			Params:           params,
-			Returns:          returns,
-			Modifiers:        modifiers,
-			Body:             nil,
-			Virtual:          isVirtual,
-			Override:         isOverride,
-			PayableAsset:     payableAsset,
-			Doc:              doc,
-		}
+		p.addDiag(diag.Diagnostic{
+			Code:    diag.CodeParseUnsupported,
+			Message: "bodyless function declarations are removed; put signature-only declarations in interfaces",
+			Span:    p.span(p.cur),
+		})
+		return nil
 	}
 
 	body, ok := p.parseStatementBlock("function body")
@@ -2853,8 +2831,6 @@ func (p *Parser) parseFunctionDecl(selectorOverride string) *ast.FunctionDecl {
 		Returns:          returns,
 		Modifiers:        modifiers,
 		Body:             body,
-		Virtual:          isVirtual,
-		Override:         isOverride,
 		PayableAsset:     payableAsset,
 		Doc:              doc,
 	}
@@ -3364,9 +3340,8 @@ func stripMappingKeyValueNames(tokens []string) []string {
 func (p *Parser) parseModifiersUntilBlock() []string {
 	var mods []string
 	for p.cur.Type != lexer.TokenEOF && p.cur.Type != lexer.TokenLBrace {
-		// A ';' terminates a bodyless (virtual stub) function declaration.
-		// When inside an abstract contract this is valid; when outside, sema will
-		// report the error (TOL2060). The parser handles the token in both cases.
+		// A ';' terminates a bodyless declaration. The caller decides whether that
+		// form is valid in the current context.
 		if p.cur.Type == lexer.TokenSemicolon {
 			p.next()
 			return mods
@@ -3374,6 +3349,28 @@ func (p *Parser) parseModifiersUntilBlock() []string {
 		// Stop at 'returns' keyword so the caller can handle the returns clause.
 		if p.cur.Type == lexer.TokenKwReturns {
 			break
+		}
+		if p.cur.Type == lexer.TokenKwVirtual {
+			p.addDiag(diag.Diagnostic{
+				Code:    diag.CodeParseUnsupported,
+				Message: "'virtual' is removed; use interfaces plus composition/library instead of inheritance-based dispatch",
+				Span:    p.span(p.cur),
+			})
+			p.next()
+			continue
+		}
+		if p.cur.Type == lexer.TokenKwOverride {
+			start := p.cur
+			p.addDiag(diag.Diagnostic{
+				Code:    diag.CodeParseUnsupported,
+				Message: "'override' is removed; implement interfaces directly without inheritance-based overrides",
+				Span:    p.span(start),
+			})
+			p.next()
+			if p.cur.Type == lexer.TokenLParen {
+				_ = p.consumePaired(lexer.TokenLParen, lexer.TokenRParen, "override specifier")
+			}
+			continue
 		}
 		// Handle payable(asset) syntax: payable(uno), payable(cc), etc.
 		// Collapsed into a single modifier string "payable(uno)".
@@ -6405,9 +6402,10 @@ func (p *Parser) parseAgentTypeSlot() *ast.StorageSlot {
 		}
 	}
 
-	// Parse optional visibility modifiers (public/private/internal/override)
+	// Parse optional visibility modifiers (public/private/internal) and consume
+	// legacy override for parser-level rejection and recovery.
 	visibility := ""
-	isOverride := false
+	overrideSeen := false
 	for {
 		switch p.cur.Type {
 		case lexer.TokenKwPublic:
@@ -6423,13 +6421,19 @@ func (p *Parser) parseAgentTypeSlot() *ast.StorageSlot {
 			p.next()
 			continue
 		case lexer.TokenKwOverride:
-			isOverride = true
+			overrideSeen = true
 			p.next()
 			continue
 		}
 		break
 	}
-	_ = isOverride // stored on slot via existing fields if needed
+	if overrideSeen {
+		p.addDiag(diag.Diagnostic{
+			Code:    diag.CodeParseUnsupported,
+			Message: "'override' is removed; storage slots cannot participate in inheritance-based override chains",
+			Span:    p.span(p.cur),
+		})
+	}
 
 	if p.cur.Type != lexer.TokenIdent {
 		p.addDiag(diag.Diagnostic{

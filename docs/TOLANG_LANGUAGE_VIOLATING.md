@@ -9,7 +9,7 @@
 | 3 | Three error modes (require/assert/revert) with no semantic distinction | CRITICAL | 9 | **FIX** | ✅ DONE |
 | 4 | ABI spec is Draft 0.1, critical fields undefined | CRITICAL | 10 | **FIX** | ✅ DONE |
 | 5 | oracle\<T\>/vote\<T\>/task\<T\> baked into compiler as DSL | MAJOR | 1, 8 | **FIX** | ✅ DONE |
-| 6 | Polymorphic inheritance system with zero agent use case | MAJOR | 1, 8 | **FIX** | ✅ DONE (Phase 2) |
+| 6 | Polymorphic inheritance system with zero agent use case | MAJOR | 1, 8 | **FIX** | ✅ DONE (Phase 3) |
 | 7 | Modifier guards invisible to @effects | MAJOR | 6, 13 | **FIX** | ✅ DONE |
 | 8 | Two variable declaration syntaxes coexist | MODERATE | 5 | **FIX** | ✅ DONE |
 | 9 | 9 annotation types with inconsistent syntax | MODERATE | 5, 8 | **DEFER** | — |
@@ -188,54 +188,57 @@ Skipped directly to Phase 3: removed all compiler intrinsics entirely and replac
 
 **Problem:**
 
-TOL currently carries a full inheritance stack in `inherit.go`: C3 linearization, `virtual`/`override` dispatch, `super` calls, and abstract-contract validation. That is a general object-oriented polymorphism model, but TOL's execution model is selector-based and capability-oriented. No agent protocol in the repository depends on polymorphic base-contract dispatch.
+TOL previously carried a full inheritance stack in `inherit.go`: C3 linearization, `virtual`/`override` dispatch, `super` calls, and abstract-contract validation. That is a general object-oriented polymorphism model, but TOL's execution model is selector-based and capability-oriented. No agent protocol in the repository depends on polymorphic base-contract dispatch.
 
 Interface conformance is still useful. Polymorphic inheritance is not.
 
 **Decision: FIX (phased retirement)**
 
-**Status: ✅ DONE (Phase 2)** — `is` is now restricted to known interfaces only. Base-contract inheritance, abstract-contract inheritance, constructor-style base arguments, C3 linearization, and `super` are no longer part of the supported model. Interface implementation remains supported.
+**Status: ✅ DONE (Phase 3)** — inheritance is fully retired as a language surface. `is` is restricted to known interfaces only. Base-contract inheritance, abstract contracts, constructor-style base arguments, C3 linearization, `super`, `virtual`, and `override` are all outside the supported grammar/AST model. Interface implementation remains supported.
 
 **Current policy:**
 
 - **Supported and intended:** interface implementation, including multiple interfaces, e.g. `contract Foo is IBar, IBaz { ... }`
 - **Rejected:** base contracts, abstract contracts, and constructor-style base arguments in the `is` clause
 - **Rejected:** `super` calls and C3 linearization-based dispatch
-- **Rejected at sema:** `virtual` and `override` (still parsed for migration diagnostics, but compilation fails)
+- **Rejected at parser:** `abstract contract`, `virtual`, `override`, and bodyless contract/modifier declarations
 - **Replacement direction:** composition, libraries, and explicit capability references
 
-**Plan:**
+**Retirement path (all complete):**
 
-Phase 1 (short-term): **Deprecate** `virtual`, `override`, and `super` keywords with compiler warnings. Document that inheritance is supported only for **interface implementation** (contract implements interface), not for polymorphic hierarchies.
+Phase 1 (completed): **Deprecate** `virtual`, `override`, and `super` keywords with compiler warnings. Document that inheritance is supported only for **interface implementation** (contract implements interface), not for polymorphic hierarchies.
 
-Phase 2 (medium-term): **Restrict** inheritance to interface implementation only: `contract Foo is IBar, IBaz { }` where each base must be an interface. Remove contract/abstract-contract bases, constructor-style base arguments, C3 linearization, `super`, and legacy `virtual`/`override` usage.
+Phase 2 (completed): **Restrict** inheritance to interface implementation only: `contract Foo is IBar, IBaz { }` where each base must be an interface. Remove contract/abstract-contract bases, constructor-style base arguments, C3 linearization, `super`, and legacy `virtual`/`override` usage.
 
-Phase 3 (long-term): Replace inheritance with **composition + capability references**. A contract that needs "base" behavior imports a library.
+Phase 3 (completed): Replace inheritance with **composition + capability references**. A contract that needs "base" behavior imports a library.
 
-**What was done (Phase 2):**
+**What was done (Phase 2 + Phase 3):**
 
 1. **Rewrote `tol/sema/inherit.go`** around interface conformance only. Every name in a contract's `is` clause must now resolve to a known interface; otherwise sema emits TOL2043.
 2. **Removed C3-based inheritance semantics** from the active sema path. Multiple interfaces are treated as a flat required surface, not an inheritance hierarchy.
 3. **Rejected `super` at sema level** — `super.method()` now emits TOL2046 with guidance to use explicit library/helper calls or composition.
 4. **Rejected constructor-style base arguments in parser** — `contract Foo is Base(1, 2)` now emits a parse error and suggests interfaces + composition/library.
-5. **Rejected `virtual` / `override` at sema level** — the parser still accepts them for migration diagnostics, but compilation now fails with TOL2317 / TOL2318.
-6. **Stopped lowering `super`** — the lowering path that rewrote `super.fn(args)` to a direct call was removed.
-7. **Interface implementation remains supported** — single and multiple interface implementation continue to compile cleanly.
-8. **Tests and examples updated** — sema/API/parser coverage now expects interface-only `is` clauses; abstract-contract examples are retained only where they intentionally verify rejection or parser compatibility.
+5. **Removed legacy inheritance syntax from the parser surface** — `abstract contract`, `virtual`, `override`, bodyless contract functions, and bodyless modifiers now fail during parsing instead of surviving to sema.
+6. **Removed legacy inheritance state from the AST** — `AbstractContracts`, `BaseSpecifier`, contract-level `Abstract`, and function/modifier/storage override flags are gone.
+7. **Simplified formatter output** — the formatter no longer emits `abstract contract`, `virtual`, `override`, or base-argument forms.
+8. **Stopped lowering `super`** — the lowering path that rewrote `super.fn(args)` to a direct call was removed.
+9. **Interface implementation remains supported** — single and multiple interface implementation continue to compile cleanly.
+10. **Tests and examples updated** — parser/sema/API coverage now expects interface-only `is` clauses and parser-level rejection of the legacy inheritance surface.
 
 **Author guidance:**
 
 - Use interfaces to express ABI conformance and callable surface area.
 - Move reusable behavior into libraries or helper contracts called explicitly.
-- Do not introduce `virtual` / `override`; they now fail compilation.
+- Do not introduce `abstract contract`, `virtual`, or `override`; they now fail in the parser.
 
 **Files changed:**
-- `tol/parser/parser.go` — rejects constructor-style base arguments in the `is` clause
+- `tol/parser/parser.go` — rejects abstract contracts, constructor-style base arguments, `virtual`, `override`, and bodyless legacy declarations
+- `tol/ast/ast.go` — removed legacy inheritance-only AST fields
+- `tol/format/format.go` — emits only the interface-only contract surface
 - `tol/sema/inherit.go` — interface-only conformance checks; `super` now rejected
-- `tol/sema/sema.go` — `virtual` / `override` upgraded from warnings to hard errors
-- `tol/diag/diag.go` — legacy inheritance diagnostic comments updated to reflect current status
+- `tol/sema/sema.go` — contract functions without bodies are rejected; legacy inheritance-specific branches removed
 - `tol_ir_direct_lowering.go` — removed legacy `super` lowering path
-- `tol/sema/sema_test.go`, `tol/parser/parser_test.go`, `tol_api_test.go` — updated for interface-only `is` semantics
+- `tol/sema/sema_test.go`, `tol/parser/parser_test.go`, `tol_api_test.go` — updated for parser-level rejection and interface-only `is` semantics
 
 ---
 

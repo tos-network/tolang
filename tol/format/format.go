@@ -136,12 +136,6 @@ func (f *formatter) formatModule(mod *ast.Module) {
 		f.formatLibrary(&lib)
 	}
 
-	// Abstract contracts
-	for _, c := range mod.AbstractContracts {
-		f.buf.WriteByte('\n')
-		f.formatContract(&c)
-	}
-
 	// Concrete contracts
 	for _, c := range mod.Contracts {
 		f.buf.WriteByte('\n')
@@ -318,9 +312,6 @@ func (f *formatter) formatLibrary(lib *ast.LibraryDecl) {
 
 func (f *formatter) formatContract(c *ast.ContractDecl) {
 	prefix := "contract"
-	if c.Abstract {
-		prefix = "abstract contract"
-	}
 	if c.IsAccount {
 		prefix = "account contract"
 	}
@@ -328,25 +319,7 @@ func (f *formatter) formatContract(c *ast.ContractDecl) {
 	f.buf.WriteString(prefix)
 	f.writef(" %s", c.Name)
 
-	if len(c.BaseSpecifiers) > 0 {
-		f.buf.WriteString(" is ")
-		for i, bs := range c.BaseSpecifiers {
-			if i > 0 {
-				f.buf.WriteString(", ")
-			}
-			f.buf.WriteString(bs.Name)
-			if len(bs.Args) > 0 {
-				f.buf.WriteByte('(')
-				for j, arg := range bs.Args {
-					if j > 0 {
-						f.buf.WriteString(", ")
-					}
-					f.formatExpr(arg)
-				}
-				f.buf.WriteByte(')')
-			}
-		}
-	} else if len(c.Bases) > 0 {
+	if len(c.Bases) > 0 {
 		f.buf.WriteString(" is ")
 		f.buf.WriteString(strings.Join(c.Bases, ", "))
 	}
@@ -560,9 +533,6 @@ func (f *formatter) formatStorageSlot(slot *ast.StorageSlot) {
 		f.buf.WriteString(slot.Visibility)
 		f.buf.WriteByte(' ')
 	}
-	if slot.Override {
-		f.buf.WriteString("override ")
-	}
 	f.buf.WriteString(slot.Type)
 	f.buf.WriteByte(' ')
 	f.buf.WriteString(slot.Name)
@@ -664,16 +634,6 @@ func (f *formatter) formatModifier(mod *ast.ModifierDecl) {
 		f.writeParams(mod.Params)
 		f.buf.WriteByte(')')
 	}
-	if mod.Virtual {
-		f.buf.WriteString(" virtual")
-	}
-	if mod.Override {
-		f.buf.WriteString(" override")
-	}
-	if mod.Abstract {
-		f.buf.WriteString(";\n")
-		return
-	}
 	f.buf.WriteString(" {\n")
 	f.depth++
 	f.formatStatements(mod.Body)
@@ -720,12 +680,6 @@ func (f *formatter) formatFunction(fn *ast.FunctionDecl, depth int) {
 	f.writeParams(fn.Params)
 	f.buf.WriteByte(')')
 	f.writeModifiers(fn.Modifiers)
-	if fn.Virtual {
-		f.buf.WriteString(" virtual")
-	}
-	if fn.Override {
-		f.buf.WriteString(" override")
-	}
 	if len(fn.Returns) > 0 {
 		f.buf.WriteString(" returns (")
 		f.writeReturns(fn.Returns)

@@ -2,7 +2,7 @@ package sema
 
 // inherit.go — interface implementation checks and legacy super rejection.
 //
-// TOL Phase 2 keeps only one role for the `is` clause: interface implementation.
+// TOL Phase 3 keeps only one role for the `is` clause: interface implementation.
 // Base contracts, abstract base hierarchies, constructor-style base arguments, and
 // C3 linearization are intentionally outside the supported model. Shared behavior
 // should be expressed with composition and libraries, not base-contract dispatch.

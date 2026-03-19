@@ -7185,12 +7185,12 @@ contract Demo {
 	}
 }
 
-// TestAbstractContractBaseRejected verifies that abstract contracts can no longer be
-// used as implementation parents in the `is` clause.
-func TestAbstractContractBaseRejected(t *testing.T) {
+// TestBaseContractInheritanceRejected verifies that only interfaces may appear
+// in the `is` clause.
+func TestBaseContractInheritanceRejected(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
-abstract contract Base {
+contract Base {
     function compute(u256 x) public returns (u256 result) {
         return x + 1;
     }
@@ -7208,37 +7208,30 @@ contract Token is Base {
 `)
 	_, err := CompileBytecode(src, "<tol>")
 	if err == nil {
-		t.Fatalf("expected compile error for abstract contract base")
+		t.Fatalf("expected compile error for concrete contract base")
 	}
 	if !strings.Contains(err.Error(), "TOL2043") {
 		t.Fatalf("expected TOL2043, got: %v", err)
 	}
 }
 
-// TestAbstractContractBodylessStubCompiles verifies that an abstract contract
-// with only a bodyless stub compiles without error and does not generate any
-// dispatchable Lua function for the stub.
-func TestAbstractContractBodylessStubCompiles(t *testing.T) {
+func TestAbstractContractSyntaxRejected(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 abstract contract IToken {
     function totalSupply() public virtual returns (u256 supply) ;
 }
 `)
-	// Abstract contract with only a stub: no concrete contract, so sema will
-	// report "missing contract" only if m.Contract is nil. Since abstract contracts
-	// go into m.AbstractContracts and m.Contract is nil, sema emits TOL2002.
-	// This test verifies that the PARSER accepts the source without errors.
-	_, parserDiags := ParseModule(src, "<tol>")
-	if parserDiags != nil {
-		t.Logf("note: parser/sema error (expected for abstract-only file): %v", parserDiags)
+	_, err := ParseModule(src, "<tol>")
+	if err == nil {
+		t.Fatalf("expected parse error for abstract contract syntax")
 	}
-	// The abstract contract body should be parseable. We just check no panic occurred.
+	if !strings.Contains(err.Error(), "TOL1002") {
+		t.Fatalf("expected TOL1002, got: %v", err)
+	}
 }
 
-// TestAbstractContractVirtualStubRejectedInConcreteContract verifies that a
-// concrete contract with a virtual bodyless function produces TOL2069.
-func TestAbstractContractVirtualStubRejectedInConcreteContract(t *testing.T) {
+func TestBodylessFunctionDeclarationRejected(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Token {
@@ -7247,10 +7240,10 @@ contract Token {
 `)
 	_, err := BuildIR(src, "<tol>")
 	if err == nil {
-		t.Fatalf("expected error for virtual stub in concrete contract")
+		t.Fatalf("expected parse error for bodyless function declaration")
 	}
-	if !strings.Contains(err.Error(), "TOL2069") {
-		t.Fatalf("expected TOL2069, got: %v", err)
+	if !strings.Contains(err.Error(), "TOL1002") {
+		t.Fatalf("expected TOL1002, got: %v", err)
 	}
 }
 

@@ -89,7 +89,7 @@ A function that makes arbitrary external calls is marked `non_composable: true` 
 
 ## Agent-Native Primitives
 
-TOL 0.3 introduces five first-class primitives that eliminate boilerplate guards and manual state machines in agent contracts.
+TOL provides first-class primitives that eliminate boilerplate guards and manual state machines in agent contracts.
 
 ### `capability` — Permission Declarations
 
@@ -108,49 +108,49 @@ function rule(u256 dispute_id, agent winner, u16 slash_bps, string reason) publi
 
 Emitted in the `.toc` ABI as `"requires_capability": "Arbitrator"` — so any agent can check authorization without reading source.
 
-### `oracle<T>` — Write-Once Value Slot
+### Write-Once Oracle Pattern (stdlib)
+
+No compiler magic — use plain storage with `require(!is_set)` guard:
 
 ```tol
-oracle<u8> winning_outcome;   // write-once; second fulfill() is a hard revert
-```
+u8   winning_outcome;
+bool outcome_is_set;
 
-```tol
 @requires(caller: OracleResolver)
 function resolve(u8 outcome) public {
-    winning_outcome.fulfill(outcome);   // compiler prevents double-resolution
+    require(!outcome_is_set, "AlreadyResolved");   // write-once guard
+    set winning_outcome = outcome;
+    set outcome_is_set = true;
     emit Resolved(outcome, agent(msg.sender));
 }
 
 function claim() public {
-    require(winning_outcome.is_set, "NotResolved");
-    u256 payout = shares[msg.sender][winning_outcome.value] * totalPool / totalShares;
+    require(outcome_is_set, "NotResolved");
+    u256 payout = shares[msg.sender][winning_outcome] * totalPool / totalShares;
     release(agent(msg.sender), payout);
 }
 ```
 
-### `task<T>` — Compiler-Enforced State Machine
+See `stdlib/Oracle.tol`, `stdlib/Vote.tol`, `stdlib/Task.tol` for reusable patterns.
 
-Replaces `mapping(u256 => u8)` + raw numeric codes. The compiler tracks valid transitions:
+### Task State Machine Pattern (stdlib)
 
-```
-Open → Accepted → Submitted → Approved
-                ↘ Rejected  → Disputed
-Open → Cancelled
-```
+Use explicit state constants and `require()` guards — no hardcoded compiler state machine:
 
 ```tol
-mapping(u256 => task<bytes32>) tasks;
+u8 constant STATE_OPEN      = 1;
+u8 constant STATE_ACCEPTED  = 2;
+u8 constant STATE_SUBMITTED = 3;
+u8 constant STATE_APPROVED  = 4;
 
-function postTask(bytes32 spec_hash, u64 deadline_ms) public payable returns (u256 task_id) {
-    task_id = next_task_id++;
-    tasks[task_id] = task<bytes32>.new(agent(msg.sender), msg.value, deadline_ms);
-    escrow(agent(msg.sender), msg.value);
-}
+mapping(u256 => u8)    task_state;
+mapping(u256 => agent) task_worker;
+mapping(u256 => u256)  task_reward;
 
 function approveTask(u256 task_id) public {
-    task<bytes32> t = tasks[task_id];
-    t.approve();                          // compile error if status != Submitted
-    release(t.worker, t.reward);
+    require(task_state[task_id] == STATE_SUBMITTED, "TaskNotSubmitted");
+    set task_state[task_id] = STATE_APPROVED;
+    release(task_worker[task_id], task_reward[task_id]);
 }
 ```
 
@@ -237,7 +237,7 @@ The `examples/agent_economy/` directory contains five canonical contracts that d
 | **SponsorRelay** | `SponsorRelay.tol` | Gas sponsorship relay — a sponsor pays gas on behalf of an agent, with policy-bound attribution and audit receipts |
 | **MerchantPayment** | `MerchantPayment.tol` | Merchant payment acceptance with terminal-class restrictions, spend cap enforcement, and settlement callbacks |
 
-These contracts use TOL's agent-native primitives (`task<T>`, `oracle<T>`, `escrow`/`release`/`slash`, `capability`, `@delegated`) to eliminate boilerplate and make the economic logic machine-verifiable.
+These contracts use TOL's agent-native primitives (`agent`, `escrow`/`release`/`slash`, `capability`, `@delegated`) and stdlib patterns (`stdlib/Task.tol`, `stdlib/Oracle.tol`) to eliminate boilerplate and make the economic logic machine-verifiable.
 
 ---
 
@@ -325,10 +325,10 @@ contract TRC20 {
 
 ## Agent-Native Example
 
-The following excerpt shows a prediction market where double-resolution is structurally impossible and payout is automatic — no manual guard required:
+The following excerpt shows a prediction market where double-resolution is structurally impossible and payout is automatic — using plain storage with write-once guards:
 
 ```tol
-pragma tolang 0.3.0;
+pragma tolang 0.4.0;
 
 capability OracleResolver;
 
@@ -339,22 +339,25 @@ contract PredictionMarket is IPredictionMarket {
         spec:         "ipfs://Qm_prediction_market_spec";
     }
 
-    oracle<u8> winning_outcome;            // write-once; second .fulfill() reverts
+    u8   winning_outcome;
+    bool outcome_is_set;                           // write-once guard
     mapping(u8 => u256)                    pool;
     mapping(agent => mapping(u8 => u256)) shares;
 
     @requires(caller: OracleResolver)
     function resolve(u8 outcome) public {
         require(block.timestamp_ms >= close_time_ms, "MarketNotClosed");
-        winning_outcome.fulfill(outcome);  // compiler enforces single-write
+        require(!outcome_is_set, "AlreadyResolved");   // write-once
+        set winning_outcome = outcome;
+        set outcome_is_set = true;
         emit Resolved(outcome, agent(msg.sender));
     }
 
     function claim() public {
-        require(winning_outcome.is_set, "NotResolved");
-        u256 payout = shares[msg.sender][winning_outcome.value]
+        require(outcome_is_set, "NotResolved");
+        u256 payout = shares[msg.sender][winning_outcome]
                       * (pool[0] + pool[1])
-                      / pool[winning_outcome.value];
+                      / pool[winning_outcome];
         release(agent(msg.sender), payout);
         emit Claimed(agent(msg.sender), payout);
     }
@@ -450,14 +453,83 @@ go build -o bin/tol ./cmd/tolang
 tol compile Contract.tol             # compile to .toc artifact
 tol compile --emit abi Contract.tol  # compile to .abi interface
 tol compile --emit tor ./pkg/        # compile to .tor package
+tol compile --strict Contract.tol    # reject Solidity aliases (uint256 etc.)
+tol fmt Contract.tol                 # format source to stdout
+tol fmt -w Contract.tol              # format in place
+tol fmt -l ./contracts/              # list files that need formatting
+tol lsp                              # start Language Server (stdin/stdout)
 tol inspect artifact.toc             # show metadata (text)
 tol inspect --json artifact.toc      # show metadata (JSON)
 tol verify artifact.toc              # verify artifact integrity
 tol verify --source src.tol a.toc    # verify + source hash check
 tol pack -o out.tor ./contracts/     # package directory into .tor
 tol test ./contracts/                # run *_test.tol test files
+tol test --cover --covermin 80 .     # with coverage gate
 tol --help
 ```
+
+---
+
+## Developer Tooling
+
+### Formatter — `tol fmt`
+
+Canonical code formatting, like `gofmt` for TOL:
+
+```bash
+tol fmt Contract.tol           # print formatted source to stdout
+tol fmt -w Contract.tol        # format in place
+tol fmt -w ./contracts/        # recursively format all .tol files
+tol fmt -l ./contracts/        # list files that need formatting (CI gate)
+```
+
+4-space indentation, consistent brace style, preserved doc comments. Idempotent — formatting twice produces identical output.
+
+### Language Server — `tol lsp`
+
+IDE integration via the Language Server Protocol:
+
+```bash
+tol lsp                        # start LSP server on stdin/stdout
+```
+
+Features:
+- **Real-time diagnostics** — parse errors and sema warnings as you type
+- **Hover** — type information for keywords and built-in types
+- Works with any LSP-compatible editor (VS Code, Neovim, Helix, etc.)
+
+### Strict Mode — `--strict`
+
+Reject Solidity type aliases and enforce canonical TOL types:
+
+```bash
+tol compile --strict Contract.tol
+# Error: Solidity type alias 'uint256' is not allowed in strict mode; use 'u256'
+```
+
+### Coverage — `tol test --cover`
+
+Line, branch, and function coverage with HTML reports:
+
+```bash
+tol test --cover ./contracts/              # print coverage summary
+tol test --cover --covermin 80 ./contracts/ # fail if coverage < 80%
+```
+
+---
+
+## Safety by Design
+
+TOL enforces several safety properties at the language level:
+
+| Rule | Enforcement |
+|------|------------|
+| **Storage writes require `set`** | `balances[addr] = 100` → error; must write `set balances[addr] = 100` |
+| **UNO encrypted ops are explicit** | `a == b` on `uno` type → error; must write `a.eq(b)` (150k gas) |
+| **`msg.value` unambiguous** | `msg.value` in `payable(uno)` → error; must write `msg.uno_value` |
+| **Error model typed** | `require` → `Error(string)`, `assert` → `Panic(uint256)`, `revert` → custom selector |
+| **No implicit operator overloading** | `using SafeMath for u256` allows `x.add(y)` but NOT `x + y` dispatch |
+| **Effects verified** | `@effects writes: [storage.x]` checked against actual code — undeclared writes fail compilation |
 
 ---
 
@@ -489,12 +561,6 @@ test TRC20Suite {
 ```bash
 tol test ./examples/trc20_tol/
 # ok   ./examples/trc20_tol/trc20_test.tol   (10 tests, 0 failures)
-```
-
-Coverage gates:
-
-```bash
-tol test --cover --covermin 80 ./contracts/
 ```
 
 ---

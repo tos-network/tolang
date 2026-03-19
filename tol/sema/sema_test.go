@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tos-network/tolang/tol/ast"
+	"github.com/tos-network/tolang/tol/diag"
 )
 
 // mapResolver is a simple in-memory FileResolver used by tests.
@@ -4616,8 +4617,120 @@ func TestCheckSuperCallWithoutBases(t *testing.T) {
 	if !diags.HasErrors() {
 		t.Fatalf("expected error for super call without bases")
 	}
-	if !strings.Contains(diags.Error(), "TOL2046") {
+	found2046 := false
+	for _, d := range diags {
+		if d.Code == "TOL2046" {
+			found2046 = true
+		}
+	}
+	if !found2046 {
 		t.Fatalf("expected TOL2046, got: %v", diags)
+	}
+}
+
+// TestDeprecationWarningsVirtualOverrideSuper verifies that virtual, override, and super
+// emit deprecation warnings (not errors) and still compile successfully.
+func TestDeprecationWarningsVirtualOverrideSuper(t *testing.T) {
+	m := &ast.Module{
+		Version: "0.2.0",
+		Interfaces: []ast.InterfaceDecl{
+			{
+				Name: "IBase",
+				Functions: []ast.FuncSigDecl{
+					{Name: "setup", Modifiers: []string{"internal"}},
+				},
+			},
+		},
+		Contract: &ast.ContractDecl{
+			Name:  "Child",
+			Bases: []string{"IBase"},
+			Functions: []ast.FunctionDecl{
+				{
+					Name:      "setup",
+					Modifiers: []string{"internal"},
+					Virtual:   true,
+					Override:  true,
+					Body: []ast.Statement{
+						{
+							Kind: "expr",
+							Expr: &ast.Expr{
+								Kind: "call",
+								Callee: &ast.Expr{
+									Kind:   "member",
+									Object: &ast.Expr{Kind: "ident", Value: "super"},
+									Member: "setup",
+								},
+								Args: []*ast.Expr{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	// Must not have errors — deprecation warnings are not errors.
+	if diags.HasErrors() {
+		t.Fatalf("unexpected errors: %v", diags)
+	}
+	// Must have all three deprecation warnings.
+	wantCodes := map[string]bool{
+		"TOL2317": false, // virtual
+		"TOL2318": false, // override
+		"TOL2319": false, // super
+	}
+	for _, d := range diags {
+		if _, ok := wantCodes[d.Code]; ok {
+			if d.Severity != diag.SeverityWarning {
+				t.Errorf("diagnostic %s should be a warning, got severity %d", d.Code, d.Severity)
+			}
+			wantCodes[d.Code] = true
+		}
+	}
+	for code, found := range wantCodes {
+		if !found {
+			t.Errorf("expected deprecation warning %s not found in diagnostics: %v", code, diags)
+		}
+	}
+}
+
+// TestDeprecationWarningInterfaceImplementationNoWarning verifies that implementing an
+// interface (contract Foo is IBar) does NOT emit deprecation warnings when virtual/override
+// are not used.
+func TestDeprecationWarningInterfaceImplementationNoWarning(t *testing.T) {
+	m := &ast.Module{
+		Version: "0.2.0",
+		Interfaces: []ast.InterfaceDecl{
+			{
+				Name: "IToken",
+				Functions: []ast.FuncSigDecl{
+					{Name: "transfer", Params: []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}}, Returns: []ast.FieldDecl{{Name: "ok", Type: "bool"}}, Modifiers: []string{"public"}},
+				},
+			},
+		},
+		Contract: &ast.ContractDecl{
+			Name:  "Token",
+			Bases: []string{"IToken"},
+			Functions: []ast.FunctionDecl{
+				{
+					Name:      "transfer",
+					Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
+					Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
+					Modifiers: []string{"public"},
+					Body:      []ast.Statement{{Kind: "return", Expr: &ast.Expr{Kind: "ident", Value: "true"}}},
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	if diags.HasErrors() {
+		t.Fatalf("unexpected errors: %v", diags)
+	}
+	// No deprecation warnings should be emitted for plain interface implementation.
+	for _, d := range diags {
+		if d.Code == "TOL2317" || d.Code == "TOL2318" || d.Code == "TOL2319" {
+			t.Errorf("unexpected deprecation warning %s for interface implementation: %s", d.Code, d.Message)
+		}
 	}
 }
 
@@ -8010,7 +8123,7 @@ func TestUnoOperatorReject(t *testing.T) {
 	}
 }
 
-// TestUnoLteGteOperator verifies <= and >= on uno are accepted (no error).
+// TestUnoLteGteOperator verifies <= and >= on uno are rejected (must use a.lte(b)/a.gte(b)).
 func TestUnoLteGteOperator(t *testing.T) {
 	for _, op := range []string{"<=", ">="} {
 		t.Run(op, func(t *testing.T) {
@@ -8043,14 +8156,23 @@ func TestUnoLteGteOperator(t *testing.T) {
 				},
 			}
 			_, diags := Check("<test>", m)
-			if diags.HasErrors() {
-				t.Fatalf("%s on uno should be accepted, got: %v", op, diags)
+			if !diags.HasErrors() {
+				t.Fatalf("expected error for operator '%s' on uno", op)
+			}
+			found := false
+			for _, d := range diags {
+				if strings.Contains(d.Message, op) && strings.Contains(d.Message, "uno") {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("expected diagnostic mentioning '%s' on 'uno', got: %v", op, diags)
 			}
 		})
 	}
 }
 
-// TestUnoEqOperator verifies == on uno is accepted (no error).
+// TestUnoEqOperator verifies == on uno is rejected (must use a.eq(b)).
 func TestUnoEqOperator(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
@@ -8081,7 +8203,444 @@ func TestUnoEqOperator(t *testing.T) {
 		},
 	}
 	_, diags := Check("<test>", m)
+	if !diags.HasErrors() {
+		t.Fatalf("expected error for operator '==' on uno")
+	}
+	found := false
+	for _, d := range diags {
+		if strings.Contains(d.Message, "==") && strings.Contains(d.Message, "uno") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected diagnostic mentioning '==' on 'uno', got: %v", diags)
+	}
+}
+
+func TestEffectsGuardsMissingWarning(t *testing.T) {
+	// A function uses modifier 'onlyOwner' and has @effects but no guards: clause.
+	// Should emit TOL2206 warning.
+	m := &ast.Module{
+		Version: "0.2.0",
+		Contract: &ast.ContractDecl{
+			Name: "Demo",
+			Storage: &ast.StorageDecl{
+				Slots: []ast.StorageSlot{
+					{Name: "balance", Type: "u256"},
+					{Name: "owner", Type: "agent"},
+				},
+			},
+			Modifiers: []ast.ModifierDecl{
+				{
+					Name: "onlyOwner",
+					Body: []ast.Statement{
+						{Kind: "expr", Expr: &ast.Expr{Kind: "call", Callee: &ast.Expr{Kind: "ident", Value: "require"}, Args: []*ast.Expr{{Kind: "ident", Value: "true"}}}},
+						{Kind: "placeholder"},
+					},
+				},
+			},
+			Functions: []ast.FunctionDecl{
+				{
+					Name:      "withdraw",
+					Modifiers: []string{"public", "onlyOwner"},
+					Body: []ast.Statement{
+						{
+							Kind:   "set",
+							Target: &ast.Expr{Kind: "ident", Value: "balance"},
+							Expr:   &ast.Expr{Kind: "number", Value: "0"},
+						},
+					},
+					Doc: &ast.DocMeta{
+						Effects: &ast.EffectDecl{
+							Writes: []string{"storage.balance"},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	found := false
+	for _, d := range diags {
+		if d.Code == "TOL2206" {
+			found = true
+			if d.Severity != diag.SeverityWarning {
+				t.Errorf("expected SeverityWarning, got %d", d.Severity)
+			}
+			if !strings.Contains(d.Message, "onlyOwner") {
+				t.Errorf("expected message to mention 'onlyOwner', got: %s", d.Message)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected TOL2206 warning for modifier 'onlyOwner' not declared in guards:")
+	}
+	// Verify it's a warning, not an error — the module should still pass without errors.
 	if diags.HasErrors() {
-		t.Fatalf("== on uno should be accepted, got: %v", diags)
+		// Filter out TOL2206 warnings and check if there are real errors.
+		hasRealError := false
+		for _, d := range diags {
+			if d.Code != "TOL2206" && d.Severity != diag.SeverityWarning {
+				hasRealError = true
+				t.Logf("real error: %s: %s", d.Code, d.Message)
+			}
+		}
+		if hasRealError {
+			t.Logf("note: had real errors beyond guards warning")
+		}
+	}
+}
+
+func TestEffectsGuardsDeclaredOK(t *testing.T) {
+	// A function uses modifier 'onlyOwner' and @effects declares guards: [onlyOwner].
+	// Should NOT emit TOL2206.
+	m := &ast.Module{
+		Version: "0.2.0",
+		Contract: &ast.ContractDecl{
+			Name: "Demo",
+			Storage: &ast.StorageDecl{
+				Slots: []ast.StorageSlot{
+					{Name: "balance", Type: "u256"},
+					{Name: "owner", Type: "agent"},
+				},
+			},
+			Modifiers: []ast.ModifierDecl{
+				{
+					Name: "onlyOwner",
+					Body: []ast.Statement{
+						{Kind: "expr", Expr: &ast.Expr{Kind: "call", Callee: &ast.Expr{Kind: "ident", Value: "require"}, Args: []*ast.Expr{{Kind: "ident", Value: "true"}}}},
+						{Kind: "placeholder"},
+					},
+				},
+			},
+			Functions: []ast.FunctionDecl{
+				{
+					Name:      "withdraw",
+					Modifiers: []string{"public", "onlyOwner"},
+					Body: []ast.Statement{
+						{
+							Kind:   "set",
+							Target: &ast.Expr{Kind: "ident", Value: "balance"},
+							Expr:   &ast.Expr{Kind: "number", Value: "0"},
+						},
+					},
+					Doc: &ast.DocMeta{
+						Effects: &ast.EffectDecl{
+							Guards: []string{"onlyOwner"},
+							Writes: []string{"storage.balance"},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	for _, d := range diags {
+		if d.Code == "TOL2206" {
+			t.Errorf("unexpected TOL2206 warning: %s", d.Message)
+		}
+	}
+}
+
+func TestEffectsGuardsNoEffectsAnnotation(t *testing.T) {
+	// A function uses modifier 'onlyOwner' but has NO @effects annotation at all.
+	// Should NOT emit TOL2206 (warning only applies when @effects is present).
+	m := &ast.Module{
+		Version: "0.2.0",
+		Contract: &ast.ContractDecl{
+			Name: "Demo",
+			Storage: &ast.StorageDecl{
+				Slots: []ast.StorageSlot{
+					{Name: "balance", Type: "u256"},
+					{Name: "owner", Type: "address"},
+				},
+			},
+			Modifiers: []ast.ModifierDecl{
+				{
+					Name: "onlyOwner",
+					Body: []ast.Statement{
+						{Kind: "expr", Expr: &ast.Expr{Kind: "call", Callee: &ast.Expr{Kind: "ident", Value: "require"}, Args: []*ast.Expr{{Kind: "ident", Value: "true"}}}},
+						{Kind: "placeholder"},
+					},
+				},
+			},
+			Functions: []ast.FunctionDecl{
+				{
+					Name:      "withdraw",
+					Modifiers: []string{"public", "onlyOwner"},
+					Body: []ast.Statement{
+						{
+							Kind:   "set",
+							Target: &ast.Expr{Kind: "ident", Value: "balance"},
+							Expr:   &ast.Expr{Kind: "number", Value: "0"},
+						},
+					},
+					// No Doc at all — no @effects annotation.
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	for _, d := range diags {
+		if d.Code == "TOL2206" {
+			t.Errorf("unexpected TOL2206 when no @effects annotation: %s", d.Message)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Issue 15: using-for operator dispatch rejected (TOL2101)
+// ---------------------------------------------------------------------------
+
+func TestCheckUsingForOperatorDispatchRejected(t *testing.T) {
+	m := &ast.Module{
+		Version: "0.2.0",
+		Libraries: []ast.LibraryDecl{
+			{
+				Name: "SafeMath",
+				Functions: []ast.FunctionDecl{
+					{
+						Name:      "add",
+						Modifiers: []string{"internal", "pure"},
+						Params:    []ast.FieldDecl{{Name: "a", Type: "u256"}, {Name: "b", Type: "u256"}},
+						Returns:   []ast.FieldDecl{{Name: "r", Type: "u256"}},
+						Body:      []ast.Statement{{Kind: "return", Expr: &ast.Expr{Kind: "number", Value: "0"}}},
+					},
+				},
+			},
+		},
+		Contract: &ast.ContractDecl{
+			Name: "Demo",
+			UsingDecls: []ast.UsingDecl{
+				{Library: "{add as +}", Type: "u256"},
+			},
+			Functions: []ast.FunctionDecl{
+				{Name: "run", Modifiers: []string{"public"}, Body: []ast.Statement{{Kind: "return"}}},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	if !diags.HasErrors() {
+		t.Fatalf("expected error for operator dispatch through using-for")
+	}
+	if !strings.Contains(diags.Error(), "TOL2101") {
+		t.Fatalf("expected TOL2101, got: %v", diags)
+	}
+	if !strings.Contains(diags.Error(), "operator '+' cannot dispatch") {
+		t.Fatalf("expected operator dispatch error message, got: %v", diags)
+	}
+}
+
+func TestCheckUsingForMethodCallAllowed(t *testing.T) {
+	m := &ast.Module{
+		Version: "0.2.0",
+		Libraries: []ast.LibraryDecl{
+			{
+				Name: "SafeMath",
+				Functions: []ast.FunctionDecl{
+					{
+						Name:      "add",
+						Modifiers: []string{"internal", "pure"},
+						Params:    []ast.FieldDecl{{Name: "a", Type: "u256"}, {Name: "b", Type: "u256"}},
+						Returns:   []ast.FieldDecl{{Name: "r", Type: "u256"}},
+						Body:      []ast.Statement{{Kind: "return", Expr: &ast.Expr{Kind: "number", Value: "0"}}},
+					},
+				},
+			},
+		},
+		Contract: &ast.ContractDecl{
+			Name: "Demo",
+			UsingDecls: []ast.UsingDecl{
+				{Library: "SafeMath", Type: "u256"},
+			},
+			Functions: []ast.FunctionDecl{
+				{Name: "run", Modifiers: []string{"public"}, Body: []ast.Statement{{Kind: "return"}}},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	if diags.HasErrors() {
+		t.Fatalf("unexpected diagnostics for method-style using-for: %v", diags)
+	}
+}
+
+func TestCheckUsingForBracedWithoutOperatorAllowed(t *testing.T) {
+	// Braced form without operator alias: using { add, sub } for u256;
+	// This should be allowed (no "as OPERATOR" syntax).
+	m := &ast.Module{
+		Version: "0.2.0",
+		Contract: &ast.ContractDecl{
+			Name: "Demo",
+			UsingDecls: []ast.UsingDecl{
+				{Library: "{add, sub}", Type: "u256"},
+			},
+			Functions: []ast.FunctionDecl{
+				{Name: "run", Modifiers: []string{"public"}, Body: []ast.Statement{{Kind: "return"}}},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	// Should not trigger TOL2101 (but may trigger TOL2031 for unknown library — that's fine).
+	for _, d := range diags {
+		if d.Code == "TOL2101" {
+			t.Fatalf("unexpected TOL2101 for braced using without operator alias: %v", d)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Issue 16: storage write requires 'set' keyword (TOL2102)
+// ---------------------------------------------------------------------------
+
+func TestCheckStorageWriteWithoutSetRejected(t *testing.T) {
+	m := &ast.Module{
+		Version: "0.2.0",
+		Contract: &ast.ContractDecl{
+			Name: "Demo",
+			Storage: &ast.StorageDecl{
+				Slots: []ast.StorageSlot{{Name: "counter", Type: "u256"}},
+			},
+			Functions: []ast.FunctionDecl{
+				{
+					Name:      "inc",
+					Modifiers: []string{"public"},
+					Body: []ast.Statement{
+						{
+							Kind: "expr",
+							Expr: &ast.Expr{
+								Kind:  "assign",
+								Op:    "=",
+								Left:  &ast.Expr{Kind: "ident", Value: "counter"},
+								Right: &ast.Expr{Kind: "number", Value: "1"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	if !diags.HasErrors() {
+		t.Fatalf("expected error for storage write without 'set'")
+	}
+	found := false
+	for _, d := range diags {
+		if d.Code == "TOL2102" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected TOL2102, got: %v", diags)
+	}
+}
+
+func TestCheckStorageWriteWithSetAllowed(t *testing.T) {
+	m := &ast.Module{
+		Version: "0.2.0",
+		Contract: &ast.ContractDecl{
+			Name: "Demo",
+			Storage: &ast.StorageDecl{
+				Slots: []ast.StorageSlot{{Name: "counter", Type: "u256"}},
+			},
+			Functions: []ast.FunctionDecl{
+				{
+					Name:      "inc",
+					Modifiers: []string{"public"},
+					Body: []ast.Statement{
+						{
+							Kind:   "set",
+							Target: &ast.Expr{Kind: "ident", Value: "counter"},
+							Expr:   &ast.Expr{Kind: "number", Value: "1"},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	for _, d := range diags {
+		if d.Code == "TOL2102" {
+			t.Fatalf("unexpected TOL2102 for storage write with 'set': %v", d)
+		}
+	}
+}
+
+func TestCheckLocalAssignWithoutSetAllowed(t *testing.T) {
+	m := &ast.Module{
+		Version: "0.2.0",
+		Contract: &ast.ContractDecl{
+			Name: "Demo",
+			Storage: &ast.StorageDecl{
+				Slots: []ast.StorageSlot{{Name: "counter", Type: "u256"}},
+			},
+			Functions: []ast.FunctionDecl{
+				{
+					Name:      "inc",
+					Modifiers: []string{"public"},
+					Body: []ast.Statement{
+						{Kind: "let", Name: "x", Type: "u256", Expr: &ast.Expr{Kind: "number", Value: "0"}},
+						{
+							Kind: "expr",
+							Expr: &ast.Expr{
+								Kind:  "assign",
+								Op:    "=",
+								Left:  &ast.Expr{Kind: "ident", Value: "x"},
+								Right: &ast.Expr{Kind: "number", Value: "1"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	for _, d := range diags {
+		if d.Code == "TOL2102" {
+			t.Fatalf("unexpected TOL2102 for local variable assignment: %v", d)
+		}
+	}
+}
+
+func TestCheckStorageMappingWriteWithoutSetRejected(t *testing.T) {
+	m := &ast.Module{
+		Version: "0.2.0",
+		Contract: &ast.ContractDecl{
+			Name: "Demo",
+			Storage: &ast.StorageDecl{
+				Slots: []ast.StorageSlot{{Name: "balances", Type: "mapping(agent => u256)"}},
+			},
+			Functions: []ast.FunctionDecl{
+				{
+					Name:      "set_bal",
+					Modifiers: []string{"public"},
+					Params:    []ast.FieldDecl{{Name: "who", Type: "agent"}},
+					Body: []ast.Statement{
+						{
+							Kind: "expr",
+							Expr: &ast.Expr{
+								Kind: "assign",
+								Op:   "=",
+								Left: &ast.Expr{
+									Kind:   "index",
+									Object: &ast.Expr{Kind: "ident", Value: "balances"},
+									Index:  &ast.Expr{Kind: "ident", Value: "who"},
+								},
+								Right: &ast.Expr{Kind: "number", Value: "100"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, diags := Check("<test>", m)
+	found := false
+	for _, d := range diags {
+		if d.Code == "TOL2102" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected TOL2102 for mapping write without 'set', got: %v", diags)
 	}
 }

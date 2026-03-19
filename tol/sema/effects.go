@@ -1011,6 +1011,46 @@ func checkDeclaredEffects(filename string, fn ast.FunctionDecl, storageSlots map
 	}
 }
 
+// checkEffectsGuards emits a warning when a function uses user-defined modifiers
+// but the @effects annotation does not declare them in a guards: clause.
+// This is a WARNING only — existing code continues to compile.
+func checkEffectsGuards(filename string, fn ast.FunctionDecl, userMods map[string]bool, diags *diag.Diagnostics) {
+	if len(userMods) == 0 {
+		return
+	}
+	// Collect user-defined modifiers used by this function.
+	var usedGuards []string
+	for _, m := range fn.Modifiers {
+		if userMods[m] {
+			usedGuards = append(usedGuards, m)
+		}
+	}
+	if len(usedGuards) == 0 {
+		return
+	}
+	// If the function has no @effects annotation at all, skip — the warning only
+	// applies when @effects is present but guards: is missing/incomplete.
+	if fn.Doc == nil || fn.Doc.Effects == nil {
+		return
+	}
+	// Build set of declared guards.
+	declaredGuards := make(map[string]bool, len(fn.Doc.Effects.Guards))
+	for _, g := range fn.Doc.Effects.Guards {
+		declaredGuards[g] = true
+	}
+	// Warn for each used modifier not declared in guards:.
+	for _, m := range usedGuards {
+		if !declaredGuards[m] {
+			*diags = append(*diags, diag.Diagnostic{
+				Code:     diag.CodeEffectGuardMissing,
+				Message:  fmt.Sprintf("function '%s' uses modifier '%s' but @effects does not declare it in guards: clause", fn.Name, m),
+				Span:     diag.Span{File: filename},
+				Severity: diag.SeverityWarning,
+			})
+		}
+	}
+}
+
 // isRefCovered returns true if ref is covered by any entry in declared.
 // Wildcard '*' in declared covers anything with the same slot prefix.
 func isRefCovered(ref string, declared []string) bool {

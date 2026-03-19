@@ -120,8 +120,13 @@ const (
 	CodeSemaTolLangReserved = "TOL2097" // package "tol.lang" is a reserved platform namespace; external packages may not declare it
 
 	// UNO encrypted type errors.
-	CodeSemaUnoOperator      = "TOL2098" // arithmetic/comparison operator on uno type; use method calls
-	CodeSemaUnoInvalidMethod = "TOL2099" // unknown method called on uno type
+	CodeSemaUnoOperator          = "TOL2098" // arithmetic/comparison operator on uno type; use method calls
+	CodeSemaUnoInvalidMethod     = "TOL2099" // unknown method called on uno type
+	CodeSemaMsgValueInPayableUno = "TOL2100" // msg.value used in payable(uno) function; use msg.uno_value
+
+	// Using-for operator dispatch and storage-write enforcement.
+	CodeSemaUsingForOperator     = "TOL2101" // operator dispatch through using-for binding; use explicit method call
+	CodeSemaStorageWriteNeedsSet = "TOL2102" // storage write requires 'set' keyword
 
 	// Deprecation warnings (aligned with Solidity error codes where applicable).
 	CodeWarnYearsUnit = "TOL4820" // 'years' unit denomination is deprecated (Solidity 4820)
@@ -130,8 +135,9 @@ const (
 	CodeEffectUndeclared     = "TOL2200" // inferred effect not covered by declared effect set
 	CodeEffectGasUnbounded   = "TOL2201" // @gas upper declared but function is UNBOUNDED
 	CodeEffectGasTooLow      = "TOL2202" // declared @gas upper < inferred conservative upper bound
-	CodeEffectEmptyCalls     = "TOL2204" // @effects calls:[] declared but external call found in IR
-	CodeEffectSelectorNoSite = "TOL2205" // @effects calls: declared selector has no matching IR call site
+	CodeEffectEmptyCalls        = "TOL2204" // @effects calls:[] declared but external call found in IR
+	CodeEffectSelectorNoSite    = "TOL2205" // @effects calls: declared selector has no matching IR call site
+	CodeEffectGuardMissing      = "TOL2206" // function uses modifier but @effects does not declare it in guards:
 	CodeEffectTotalCostExceeded = "TOL2209" // @total_cost(max) inconsistent with @gas and @pay
 
 	// Agent-native diagnostics (TOL2300–TOL2315)
@@ -152,6 +158,11 @@ const (
 	CodeAgentVerifiableNonPure      = "TOL2314" // @verifiable requires pure or view function
 	// RESERVED: TOL2315 (was task state transition check — intrinsic removed)
 	CodeAgentMissingValidate        = "TOL2316" // account contract missing validate(bytes32,bytes)→bool
+
+	// Inheritance deprecation warnings.
+	CodeWarnVirtualDeprecated  = "TOL2317" // 'virtual' modifier is deprecated
+	CodeWarnOverrideDeprecated = "TOL2318" // 'override' modifier is deprecated
+	CodeWarnSuperDeprecated    = "TOL2319" // 'super' calls are deprecated
 
 	CodeLowerNotImplemented      = "TOL3001"
 	CodeLowerUnsupportedFeature  = "TOL3002"

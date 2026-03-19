@@ -238,11 +238,11 @@ contract TaskEscrow is ITaskEscrow {
   function postTask(bytes32 spec_hash, u64 deadline_ms) public payable returns (u256 task_id) {
     require(agent(msg.sender).is_active, "AgentNotActive");
     task_id = next_task_id;
-    next_task_id = next_task_id + 1;
-    task_state[task_id] = STATE_OPEN;
-    task_poster[task_id] = agent(msg.sender);
-    task_reward[task_id] = msg.value;
-    task_deadline[task_id] = u256(deadline_ms);
+    set next_task_id = next_task_id + 1;
+    set task_state[task_id] = STATE_OPEN;
+    set task_poster[task_id] = agent(msg.sender);
+    set task_reward[task_id] = msg.value;
+    set task_deadline[task_id] = u256(deadline_ms);
     escrow(agent(msg.sender), msg.value);
     emit TaskPosted(task_id, agent(msg.sender), msg.value, deadline_ms, spec_hash);
   }
@@ -250,21 +250,21 @@ contract TaskEscrow is ITaskEscrow {
   function acceptTask(u256 task_id) public {
     require(agent(msg.sender).is_active, "AgentNotActive");
     require(task_state[task_id] == STATE_OPEN, "TaskNotOpen");
-    task_state[task_id] = STATE_ACCEPTED;
-    task_worker[task_id] = agent(msg.sender);
+    set task_state[task_id] = STATE_ACCEPTED;
+    set task_worker[task_id] = agent(msg.sender);
     emit TaskAccepted(task_id, agent(msg.sender));
   }
 
   function submitTask(u256 task_id, bytes32 result_hash) public {
     require(task_state[task_id] == STATE_ACCEPTED, "TaskNotAccepted");
-    task_state[task_id] = STATE_SUBMITTED;
-    task_data[task_id] = result_hash;
+    set task_state[task_id] = STATE_SUBMITTED;
+    set task_data[task_id] = result_hash;
     emit TaskSubmitted(task_id, task_worker[task_id], result_hash);
   }
 
   function approveTask(u256 task_id) public {
     require(task_state[task_id] == STATE_SUBMITTED, "TaskNotSubmitted");
-    task_state[task_id] = STATE_APPROVED;
+    set task_state[task_id] = STATE_APPROVED;
     release(task_poster[task_id], 0);
     release(task_worker[task_id], task_reward[task_id]);
     emit TaskApproved(task_id, task_poster[task_id], task_worker[task_id], task_reward[task_id]);
@@ -272,28 +272,28 @@ contract TaskEscrow is ITaskEscrow {
 
   function rejectTask(u256 task_id, string reason) public {
     require(task_state[task_id] == STATE_SUBMITTED, "TaskNotSubmitted");
-    task_state[task_id] = STATE_REJECTED;
+    set task_state[task_id] = STATE_REJECTED;
     emit TaskRejected(task_id, task_poster[task_id], task_worker[task_id], reason);
   }
 
   function disputeTask(u256 task_id) public payable {
     u8 s = task_state[task_id];
     require(s == STATE_SUBMITTED || s == STATE_REJECTED, "InvalidStateForDispute");
-    task_state[task_id] = STATE_DISPUTED;
+    set task_state[task_id] = STATE_DISPUTED;
     escrow(agent(msg.sender), msg.value);
     emit TaskDisputed(task_id, agent(msg.sender), msg.value);
   }
 
   function cancelTask(u256 task_id) public {
     require(task_state[task_id] == STATE_OPEN, "TaskNotOpen");
-    task_state[task_id] = STATE_CANCELLED;
+    set task_state[task_id] = STATE_CANCELLED;
     release(task_poster[task_id], task_reward[task_id]);
     emit TaskCancelled(task_id, task_poster[task_id]);
   }
 
   function reclaimExpired(u256 task_id) public {
     require(task_deadline[task_id] > 0 && block.timestamp_ms >= task_deadline[task_id], "NotExpired");
-    task_state[task_id] = STATE_CANCELLED;
+    set task_state[task_id] = STATE_CANCELLED;
     release(task_poster[task_id], task_reward[task_id]);
     emit TaskCancelled(task_id, task_poster[task_id]);
   }
@@ -343,11 +343,11 @@ contract DisputeResolver is IDisputeResolver {
   function openDispute(u256 task_id, bytes32 evidence_hash) public payable returns (u256 dispute_id) {
     require(agent(msg.sender).is_active, "AgentNotActive");
     dispute_id = next_dispute_id;
-    next_dispute_id = next_dispute_id + 1;
-    dispute_task_id[dispute_id]   = task_id;
-    dispute_opener[dispute_id]    = agent(msg.sender);
-    dispute_bond[dispute_id]      = msg.value;
-    dispute_status[dispute_id]    = 1;
+    set next_dispute_id = next_dispute_id + 1;
+    set dispute_task_id[dispute_id]   = task_id;
+    set dispute_opener[dispute_id]    = agent(msg.sender);
+    set dispute_bond[dispute_id]      = msg.value;
+    set dispute_status[dispute_id]    = 1;
     escrow(agent(msg.sender), msg.value);
     emit DisputeOpened(dispute_id, task_id, agent(msg.sender), msg.value);
     emit EvidenceSubmitted(dispute_id, agent(msg.sender), evidence_hash);
@@ -361,7 +361,7 @@ contract DisputeResolver is IDisputeResolver {
   @requires(caller: Arbitrator)
   function rule(u256 dispute_id, agent winner, u16 slash_bps, string reason) public {
     require(dispute_status[dispute_id] == 1, "NotOpen");
-    dispute_status[dispute_id] = 2;
+    set dispute_status[dispute_id] = 2;
     agent loser = (dispute_opener[dispute_id] == winner)
                   ? dispute_counterparty[dispute_id]
                   : dispute_opener[dispute_id];
@@ -432,8 +432,8 @@ contract PredictionMarketFactory is IPredictionMarketFactory {
     require(market_by_question[question_id] == agent(0), "MarketExists");
     // deploy PredictionMarket child contract (agent returned by runtime)
     market = deploy PredictionMarket(question_id, close_time_ms, oracle_agent, fee_bps, fee_recipient);
-    market_by_question[question_id] = market;
-    market_count = market_count + 1;
+    set market_by_question[question_id] = market;
+    set market_count = market_count + 1;
     emit MarketCreated(market, agent(msg.sender), question_id, close_time_ms, oracle_agent, fee_bps);
   }
 }
@@ -504,10 +504,10 @@ contract PredictionMarket is IPredictionMarket {
   function addLiquidity() public payable {
     // AMM liquidity minting logic (unchanged from v1)
     u256 minted = (total_lp_shares == 0) ? msg.value : msg.value * total_lp_shares / (pool[0] + pool[1]);
-    pool[0] = pool[0] + msg.value / 2;
-    pool[1] = pool[1] + msg.value / 2;
-    lp_shares[msg.sender] = lp_shares[msg.sender] + minted;
-    total_lp_shares = total_lp_shares + minted;
+    set pool[0] = pool[0] + msg.value / 2;
+    set pool[1] = pool[1] + msg.value / 2;
+    set lp_shares[msg.sender] = lp_shares[msg.sender] + minted;
+    set total_lp_shares = total_lp_shares + minted;
     emit LiquidityAdded(agent(msg.sender), msg.value, minted);
   }
 
@@ -515,10 +515,10 @@ contract PredictionMarket is IPredictionMarket {
     require(lp_shares[msg.sender] >= lp_shares_in, "InsufficientShares");
     u256 total_pool = pool[0] + pool[1];
     u256 amount_out = lp_shares_in * total_pool / total_lp_shares;
-    lp_shares[msg.sender] = lp_shares[msg.sender] - lp_shares_in;
-    total_lp_shares = total_lp_shares - lp_shares_in;
-    pool[0] = pool[0] - lp_shares_in * pool[0] / (total_lp_shares + lp_shares_in);
-    pool[1] = pool[1] - lp_shares_in * pool[1] / (total_lp_shares + lp_shares_in);
+    set lp_shares[msg.sender] = lp_shares[msg.sender] - lp_shares_in;
+    set total_lp_shares = total_lp_shares - lp_shares_in;
+    set pool[0] = pool[0] - lp_shares_in * pool[0] / (total_lp_shares + lp_shares_in);
+    set pool[1] = pool[1] - lp_shares_in * pool[1] / (total_lp_shares + lp_shares_in);
     release(agent(msg.sender), amount_out);
     emit LiquidityRemoved(agent(msg.sender), lp_shares_in, amount_out);
   }
@@ -529,8 +529,8 @@ contract PredictionMarket is IPredictionMarket {
     u256 net      = msg.value - fee;
     u256 shares_out = net;   // simplified; real LMSR math goes here
     require(shares_out >= min_shares_out, "Slippage");
-    pool[outcome] = pool[outcome] + net;
-    shares[msg.sender][outcome] = shares[msg.sender][outcome] + shares_out;
+    set pool[outcome] = pool[outcome] + net;
+    set shares[msg.sender][outcome] = shares[msg.sender][outcome] + shares_out;
     release(fee_recipient, fee);
     emit Bought(agent(msg.sender), outcome, msg.value, shares_out, fee);
   }
@@ -540,8 +540,8 @@ contract PredictionMarket is IPredictionMarket {
     require(shares[msg.sender][outcome] >= shares_in, "InsufficientShares");
     u256 amount_out = shares_in;   // simplified; real LMSR math goes here
     require(amount_out >= min_amount_out, "Slippage");
-    shares[msg.sender][outcome] = shares[msg.sender][outcome] - shares_in;
-    pool[outcome] = pool[outcome] - amount_out;
+    set shares[msg.sender][outcome] = shares[msg.sender][outcome] - shares_in;
+    set pool[outcome] = pool[outcome] - amount_out;
     release(agent(msg.sender), amount_out);
     emit Sold(agent(msg.sender), outcome, shares_in, amount_out, 0);
   }
@@ -558,7 +558,7 @@ contract PredictionMarket is IPredictionMarket {
   function claim() public {
     require(outcome_is_set, "NotResolved");
     require(!claimed[msg.sender], "AlreadyClaimed");
-    claimed[msg.sender] = true;
+    set claimed[msg.sender] = true;
     u256 user_shares  = shares[msg.sender][winning_outcome];
     u256 total_shares = pool[winning_outcome];
     u256 payout       = user_shares * (pool[0] + pool[1]) / total_shares;
@@ -627,7 +627,7 @@ contract RewardVault is IRewardVault {
   event SignerSet(agent indexed signer, bool enabled)
 
   function fund(bytes32 campaign_id) public payable {
-    campaign_fund[campaign_id] = campaign_fund[campaign_id] + msg.value;
+    set campaign_fund[campaign_id] = campaign_fund[campaign_id] + msg.value;
     escrow(admin, msg.value);   // funds held in vault; admin is the escrow anchor
     emit RewardFunded(campaign_id, agent(msg.sender), msg.value);
   }
@@ -635,8 +635,8 @@ contract RewardVault is IRewardVault {
   @requires(caller: RewardSigner)
   function allocate(bytes32 campaign_id, agent user, u256 amount, string reason) public {
     require(remainingOf(campaign_id) >= amount, "InsufficientFund");
-    allocated[campaign_id][agent(user)] = allocated[campaign_id][agent(user)] + amount;
-    campaign_allocated_total[campaign_id] = campaign_allocated_total[campaign_id] + amount;
+    set allocated[campaign_id][agent(user)] = allocated[campaign_id][agent(user)] + amount;
+    set campaign_allocated_total[campaign_id] = campaign_allocated_total[campaign_id] + amount;
     emit RewardAllocated(campaign_id, user, amount, reason);
   }
 
@@ -644,7 +644,7 @@ contract RewardVault is IRewardVault {
     u256 claimable = allocated[campaign_id][msg.sender]
                    - claimed_amount[campaign_id][msg.sender];
     require(claimable > 0, "NothingToClaim");
-    claimed_amount[campaign_id][msg.sender] = claimed_amount[campaign_id][msg.sender] + claimable;
+    set claimed_amount[campaign_id][msg.sender] = claimed_amount[campaign_id][msg.sender] + claimable;
     release(agent(msg.sender), claimable);
     emit RewardClaimed(campaign_id, agent(msg.sender), claimable);
   }

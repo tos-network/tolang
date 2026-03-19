@@ -32,13 +32,13 @@ contract PrivateOTC {
     event DealFilled(u64 indexed dealId, agent indexed taker)
 
     constructor(agent _tokenA, agent _tokenB) {
-        tokenA = _tokenA;
-        tokenB = _tokenB;
-        nextDealId = 0;
+        set tokenA = _tokenA;
+        set tokenB = _tokenB;
+        set nextDealId = 0;
     }
 
     function registerPublicKey(bytes32 pubkey) external {
-        publicKeys[msg.sender] = pubkey;
+        set publicKeys[msg.sender] = pubkey;
         emit PublicKeyRegistered(msg.sender);
     }
 
@@ -47,9 +47,9 @@ contract PrivateOTC {
         require(publicKeys[msg.sender] != bytes32(0), "NotRegistered");
 
         if (isTokenA) {
-            balancesA[msg.sender] = balancesA[msg.sender].add(depositAmount);
+            set balancesA[msg.sender] = balancesA[msg.sender].add(depositAmount);
         } else {
-            balancesB[msg.sender] = balancesB[msg.sender].add(depositAmount);
+            set balancesB[msg.sender] = balancesB[msg.sender].add(depositAmount);
         }
 
         emit Deposited(msg.sender, isTokenA);
@@ -62,14 +62,14 @@ contract PrivateOTC {
         // Deduct from maker's tokenA balance
         uno newBal = balancesA[msg.sender].sub(offerAmount);
         require(newBal.gt(uno.zero()), "InsufficientBalance");
-        balancesA[msg.sender] = newBal;
+        set balancesA[msg.sender] = newBal;
 
         u64 dealId = nextDealId;
-        nextDealId = nextDealId + 1;
-        dealMaker[dealId] = msg.sender;
-        dealOfferCt[dealId] = offerAmount;
-        dealOpen[dealId] = true;
-        dealSettled[dealId] = false;
+        set nextDealId = nextDealId + 1;
+        set dealMaker[dealId] = msg.sender;
+        set dealOfferCt[dealId] = offerAmount;
+        set dealOpen[dealId] = true;
+        set dealSettled[dealId] = false;
 
         emit DealCreated(dealId, msg.sender);
         return dealId;
@@ -91,18 +91,18 @@ contract PrivateOTC {
         // Deduct tokenB from taker
         uno newTakerBal = balancesB[msg.sender].sub(paymentAmount);
         require(newTakerBal.gt(uno.zero()), "InsufficientBalance");
-        balancesB[msg.sender] = newTakerBal;
+        set balancesB[msg.sender] = newTakerBal;
 
         // Atomic swap:
         // Taker receives maker's tokenA offer
-        balancesA[msg.sender] = balancesA[msg.sender].add(dealOfferCt[dealId]);
+        set balancesA[msg.sender] = balancesA[msg.sender].add(dealOfferCt[dealId]);
         // Maker receives taker's tokenB payment
-        balancesB[maker] = balancesB[maker].add(paymentAmount);
+        set balancesB[maker] = balancesB[maker].add(paymentAmount);
 
-        dealTaker[dealId] = msg.sender;
-        dealPaymentCt[dealId] = paymentAmount;
-        dealSettled[dealId] = true;
-        dealOpen[dealId] = false;
+        set dealTaker[dealId] = msg.sender;
+        set dealPaymentCt[dealId] = paymentAmount;
+        set dealSettled[dealId] = true;
+        set dealOpen[dealId] = false;
 
         emit DealFilled(dealId, msg.sender);
     }

@@ -52,7 +52,7 @@ func CheckWithResolver(filename string, m *ast.Module, resolver FileResolver) (*
 	if diags.HasErrors() {
 		return nil, diags
 	}
-	return typed, nil
+	return typed, diags
 }
 
 // autoImportTolLang automatically imports all contracts from the tol.lang package
@@ -632,7 +632,7 @@ func Check(filename string, m *ast.Module) (*TypedModule, diag.Diagnostics) {
 	if diags.HasErrors() {
 		return nil, diags
 	}
-	return &TypedModule{AST: m}, nil
+	return &TypedModule{AST: m}, diags
 }
 
 // checkOneContract runs all per-contract semantic checks for a single contract c.
@@ -971,6 +971,29 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		modifierSeen[name] = struct{}{}
 		contractSupportSeen[name] = "modifier"
 		userModifiers[name] = md
+		// Deprecation warnings for virtual and override on modifier declarations.
+		if md.Virtual {
+			*diags = append(*diags, diag.Diagnostic{
+				Code:     diag.CodeWarnVirtualDeprecated,
+				Message:  "'virtual' modifier is deprecated; TOL contracts should use interface implementation instead of polymorphic dispatch",
+				Span:     defaultSpan(filename),
+				Severity: diag.SeverityWarning,
+			})
+		}
+		if md.Override {
+			*diags = append(*diags, diag.Diagnostic{
+				Code:     diag.CodeWarnOverrideDeprecated,
+				Message:  "'override' modifier is deprecated; use interface implementation (contract Foo is IBar) instead",
+				Span:     defaultSpan(filename),
+				Severity: diag.SeverityWarning,
+			})
+		}
+	}
+
+	// Build a set of user-defined modifier names for guards checking.
+	userModNames := make(map[string]bool, len(userModifiers))
+	for name := range userModifiers {
+		userModNames[name] = true
 	}
 
 	funcVis := map[string]string{}
@@ -1072,6 +1095,15 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 			} else {
 				slotSeen[slot.Name] = struct{}{}
 				slotInfos[slot.Name] = buildStorageSlotInfo(slot)
+			}
+			// Deprecation warning for override on storage slots.
+			if slot.Override {
+				*diags = append(*diags, diag.Diagnostic{
+					Code:     diag.CodeWarnOverrideDeprecated,
+					Message:  "'override' modifier is deprecated; use interface implementation (contract Foo is IBar) instead",
+					Span:     defaultSpan(filename),
+					Severity: diag.SeverityWarning,
+				})
 			}
 		}
 	}
@@ -1245,6 +1277,23 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 				Span:    defaultSpan(filename),
 			})
 		}
+		// Deprecation warnings for virtual and override modifiers.
+		if fn.Virtual {
+			*diags = append(*diags, diag.Diagnostic{
+				Code:     diag.CodeWarnVirtualDeprecated,
+				Message:  "'virtual' modifier is deprecated; TOL contracts should use interface implementation instead of polymorphic dispatch",
+				Span:     defaultSpan(filename),
+				Severity: diag.SeverityWarning,
+			})
+		}
+		if fn.Override {
+			*diags = append(*diags, diag.Diagnostic{
+				Code:     diag.CodeWarnOverrideDeprecated,
+				Message:  "'override' modifier is deprecated; use interface implementation (contract Foo is IBar) instead",
+				Span:     defaultSpan(filename),
+				Severity: diag.SeverityWarning,
+			})
+		}
 		*diags = append(*diags, duplicateParamDiagnostics(filename, "function", fn.Name, fn.Params)...)
 		*diags = append(*diags, duplicateParamDiagnostics(filename, "returns", fn.Name, fn.Returns)...)
 		*diags = append(*diags, checkParamReturnNameCollisions(filename, fn.Name, fn.Params, fn.Returns)...)
@@ -1339,10 +1388,14 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		}
 		// New effect-check passes.
 		checkFunctionEffects(filename, fn, storageSlotNames, diags)
+		checkEffectsGuards(filename, fn, userModNames, diags)
 		checkUninitializedReads(filename, fn.Name, fn.Params, fn.Body, diags, knownStructs)
 		checkAgentTransferCalls(filename, fn.Params, fn.Body, diags)
 		checkBytesStringEquality(filename, slotInfos, fn.Params, fn.Body, diags)
 		checkUnoOperators(filename, slotInfos, fn.Params, fn.Body, diags)
+		if fn.PayableAsset == "uno" {
+			checkMsgValueInPayableUno(filename, fn.Body, diags)
+		}
 	}
 
 	if c.Constructor != nil {
@@ -1406,6 +1459,9 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		checkAgentTransferCalls(filename, nil, c.Receive.Body, diags)
 		checkBytesStringEquality(filename, slotInfos, nil, c.Receive.Body, diags)
 		checkUnoOperators(filename, slotInfos, nil, c.Receive.Body, diags)
+		if c.Receive.PayableAsset == "uno" {
+			checkMsgValueInPayableUno(filename, c.Receive.Body, diags)
+		}
 	}
 
 	// Validate 'using LibName for Type' declarations.
@@ -3102,6 +3158,19 @@ func checkStorageStatements(filename string, ctx *storageCheckCtx, stmts []ast.S
 			ctx.popScope()
 		case "delete":
 			checkStorageSetTarget(filename, ctx, s.Expr, diags)
+		case "expr":
+			// Check if this is an assignment expression targeting a storage variable.
+			// Storage writes must use the "set" statement kind, not bare assignment expressions.
+			if s.Expr != nil && s.Expr.Kind == "assign" {
+				if slotName, _, ok := ctx.storagePathFromExpr(s.Expr.Left); ok {
+					*diags = append(*diags, diag.Diagnostic{
+						Code:    diag.CodeSemaStorageWriteNeedsSet,
+						Message: fmt.Sprintf("storage write requires 'set' keyword: set %s = VALUE", slotName),
+						Span:    defaultSpan(filename),
+					})
+				}
+			}
+			checkStorageExpr(filename, ctx, s.Expr, storageUseValue, diags)
 		case "unchecked":
 			ctx.pushScope()
 			checkStorageStatements(filename, ctx, s.Body, diags)
@@ -4550,9 +4619,11 @@ func isUnoOperand(typeEnv map[string]string, e *ast.Expr) bool {
 	return false
 }
 
-// checkUnoOperators is a pass that rejects arithmetic/comparison operators on uno operands (TOL2098)
+// checkUnoOperators is a pass that rejects ALL operators on uno operands (TOL2098)
 // and validates that only known methods are called on uno values (TOL2099).
-// The == operator is allowed (desugared to tos.ciphertext.eq).
+// All comparison operators (==, !=, <=, >=) are rejected — developers must use
+// explicit method calls (a.eq(b), a.ne(b), a.lte(b), a.gte(b)) which make the
+// 150k gas proof verification cost visible.
 func checkUnoOperators(filename string, slotInfos map[string]storageSlotInfo, params []ast.FieldDecl, body []ast.Statement, diags *diag.Diagnostics) {
 	typeEnv := make(map[string]string, len(slotInfos)+len(params)+8)
 	for name, info := range slotInfos {
@@ -4611,14 +4682,34 @@ func checkUnoOperatorsInExpr(filename string, typeEnv map[string]string, e *ast.
 					Span:    defaultSpan(filename),
 				})
 				return
-			case "!=":
-				// != is allowed — desugared to tos.ciphertext.ne(a,b)
 			case "==":
-				// == is allowed — desugared to tos.ciphertext.eq(a,b)
+				*diags = append(*diags, diag.Diagnostic{
+					Code:    diag.CodeSemaUnoOperator,
+					Message: "operator '==' not supported on uno type; use a.eq(b) to make the 150k gas proof verification explicit",
+					Span:    defaultSpan(filename),
+				})
+				return
+			case "!=":
+				*diags = append(*diags, diag.Diagnostic{
+					Code:    diag.CodeSemaUnoOperator,
+					Message: "operator '!=' not supported on uno type; use a.ne(b) to make the 150k gas proof verification explicit",
+					Span:    defaultSpan(filename),
+				})
+				return
 			case "<=":
-				// <= is allowed — desugared to tos.ciphertext.lte(a,b)
+				*diags = append(*diags, diag.Diagnostic{
+					Code:    diag.CodeSemaUnoOperator,
+					Message: "operator '<=' not supported on uno type; use a.lte(b) to make the 150k gas proof verification explicit",
+					Span:    defaultSpan(filename),
+				})
+				return
 			case ">=":
-				// >= is allowed — desugared to tos.ciphertext.gte(a,b)
+				*diags = append(*diags, diag.Diagnostic{
+					Code:    diag.CodeSemaUnoOperator,
+					Message: "operator '>=' not supported on uno type; use a.gte(b) to make the 150k gas proof verification explicit",
+					Span:    defaultSpan(filename),
+				})
+				return
 			}
 		}
 		checkUnoOperatorsInExpr(filename, typeEnv, e.Left, diags)
@@ -4657,6 +4748,61 @@ func checkUnoOperatorsInExpr(filename string, typeEnv map[string]string, e *ast.
 	case "assign":
 		checkUnoOperatorsInExpr(filename, typeEnv, e.Left, diags)
 		checkUnoOperatorsInExpr(filename, typeEnv, e.Right, diags)
+	}
+}
+
+// checkMsgValueInPayableUno rejects msg.value inside payable(uno) functions (TOL2100).
+// Developers must use msg.uno_value explicitly to make the encrypted nature visible.
+func checkMsgValueInPayableUno(filename string, body []ast.Statement, diags *diag.Diagnostics) {
+	for _, s := range body {
+		checkMsgValueInPayableUnoExpr(filename, s.Expr, diags)
+		checkMsgValueInPayableUnoExpr(filename, s.Target, diags)
+		checkMsgValueInPayableUnoExpr(filename, s.Cond, diags)
+		checkMsgValueInPayableUnoExpr(filename, s.Post, diags)
+		if s.Init != nil {
+			checkMsgValueInPayableUno(filename, []ast.Statement{*s.Init}, diags)
+		}
+		checkMsgValueInPayableUno(filename, s.Then, diags)
+		checkMsgValueInPayableUno(filename, s.Else, diags)
+		checkMsgValueInPayableUno(filename, s.Body, diags)
+		for _, clause := range s.Catches {
+			checkMsgValueInPayableUno(filename, clause.Body, diags)
+		}
+	}
+}
+
+func checkMsgValueInPayableUnoExpr(filename string, e *ast.Expr, diags *diag.Diagnostics) {
+	if e == nil {
+		return
+	}
+	if scope, key, ok := envMemberScopeKey(e); ok {
+		if scope == "msg" && key == "value" {
+			*diags = append(*diags, diag.Diagnostic{
+				Code:    diag.CodeSemaMsgValueInPayableUno,
+				Message: "use msg.uno_value in payable(uno) functions; msg.value refers to plaintext TOS amount",
+				Span:    defaultSpan(filename),
+			})
+		}
+		return
+	}
+	switch e.Kind {
+	case "call":
+		checkMsgValueInPayableUnoExpr(filename, e.Callee, diags)
+		for _, a := range e.Args {
+			checkMsgValueInPayableUnoExpr(filename, a, diags)
+		}
+	case "member":
+		checkMsgValueInPayableUnoExpr(filename, e.Object, diags)
+	case "index":
+		checkMsgValueInPayableUnoExpr(filename, e.Object, diags)
+		checkMsgValueInPayableUnoExpr(filename, e.Index, diags)
+	case "binary", "assign":
+		checkMsgValueInPayableUnoExpr(filename, e.Left, diags)
+		checkMsgValueInPayableUnoExpr(filename, e.Right, diags)
+	case "unary":
+		checkMsgValueInPayableUnoExpr(filename, e.Right, diags)
+	case "paren":
+		checkMsgValueInPayableUnoExpr(filename, e.Left, diags)
 	}
 }
 
@@ -5447,12 +5593,37 @@ func checkLibraryDecl(filename string, lib ast.LibraryDecl, fnMap map[string]int
 
 // checkUsingDecls validates 'using LibName for Type' declarations inside a contract.
 // It ensures the referenced library exists and the type is a valid TOL type.
+// usingForOperators is the set of operators that cannot be dispatched through using-for bindings.
+var usingForOperators = map[string]bool{
+	"+": true, "-": true, "*": true, "/": true, "%": true,
+	"==": true, "!=": true, "<": true, ">": true, "<=": true, ">=": true,
+}
+
 func checkUsingDecls(filename string, decls []ast.UsingDecl, libFuncs map[string]map[string]int) diag.Diagnostics {
 	var diags diag.Diagnostics
 	for _, ud := range decls {
 		libName := strings.TrimSpace(ud.Library)
 		if libName == "" {
 			continue
+		}
+		// Reject operator aliases in braced using-for declarations.
+		// The braced form "using { add as + } for u256;" stores Library as "{add as +}".
+		if strings.HasPrefix(libName, "{") && strings.HasSuffix(libName, "}") {
+			inner := libName[1 : len(libName)-1]
+			for _, part := range strings.Split(inner, ",") {
+				part = strings.TrimSpace(part)
+				if idx := strings.Index(part, " as "); idx >= 0 {
+					op := strings.TrimSpace(part[idx+4:])
+					if usingForOperators[op] {
+						fnName := strings.TrimSpace(part[:idx])
+						diags = append(diags, diag.Diagnostic{
+							Code:    diag.CodeSemaUsingForOperator,
+							Message: fmt.Sprintf("operator '%s' cannot dispatch through using-for binding; use explicit method call x.%s(y) instead", op, fnName),
+							Span:    defaultSpan(filename),
+						})
+					}
+				}
+			}
 		}
 		if _, exists := libFuncs[libName]; !exists {
 			diags = append(diags, diag.Diagnostic{

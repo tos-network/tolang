@@ -21,26 +21,26 @@ contract PrivatePayroll {
     event SalaryPaid(agent indexed employee, u64 indexed period)
 
     constructor(agent _employer) {
-        employer = _employer;
+        set employer = _employer;
     }
 
     function addEmployee(agent employee) external {
         require(msg.sender == employer, "OnlyEmployer");
         require(isEmployee[employee] != true, "AlreadyEmployee");
-        isEmployee[employee] = true;
-        payCount[employee] = 0;
+        set isEmployee[employee] = true;
+        set payCount[employee] = 0;
         emit EmployeeAdded(employee);
     }
 
     function removeEmployee(agent employee) external {
         require(msg.sender == employer, "OnlyEmployer");
-        isEmployee[employee] = false;
+        set isEmployee[employee] = false;
         emit EmployeeRemoved(employee);
     }
 
     function registerPublicKey(bytes32 pubkey) external {
         require(isEmployee[msg.sender] == true, "NotEmployee");
-        publicKeys[msg.sender] = pubkey;
+        set publicKeys[msg.sender] = pubkey;
     }
 
     // Pay: employer creates encrypted salary off-chain, submits as uno.
@@ -50,8 +50,8 @@ contract PrivatePayroll {
         require(isEmployee[employee] == true, "NotEmployee");
         require(publicKeys[employee] != bytes32(0), "EmployeeKeyNotRegistered");
 
-        accumulatedPay[employee] = accumulatedPay[employee].add(salary);
-        payCount[employee] = payCount[employee] + 1;
+        set accumulatedPay[employee] = accumulatedPay[employee].add(salary);
+        set payCount[employee] = payCount[employee] + 1;
 
         emit SalaryPaid(employee, payCount[employee]);
     }

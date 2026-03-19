@@ -30,16 +30,16 @@ contract PrivateAuction {
         u64 _bidDeadline_ms,
         u64 _settleDeadline_ms
     ) {
-        auctioneer = _auctioneer;
-        auctioneerPubKey = _auctioneerPubKey;
-        bidDeadline_ms = _bidDeadline_ms;
-        settleDeadline_ms = _settleDeadline_ms;
-        settled = false;
-        bidCount = 0;
+        set auctioneer = _auctioneer;
+        set auctioneerPubKey = _auctioneerPubKey;
+        set bidDeadline_ms = _bidDeadline_ms;
+        set settleDeadline_ms = _settleDeadline_ms;
+        set settled = false;
+        set bidCount = 0;
     }
 
     function registerPublicKey(bytes32 pubkey) external {
-        publicKeys[msg.sender] = pubkey;
+        set publicKeys[msg.sender] = pubkey;
     }
 
     // Submit a sealed bid. The bid is an encrypted uno value.
@@ -52,9 +52,9 @@ contract PrivateAuction {
         // gt(bid, zero) verified via proof bundle — ensures non-negative
         require(encryptedBid.gt(uno.zero()), "InvalidBid");
 
-        encryptedBids[msg.sender] = encryptedBid;
-        hasBid[msg.sender] = true;
-        bidCount = bidCount + 1;
+        set encryptedBids[msg.sender] = encryptedBid;
+        set hasBid[msg.sender] = true;
+        set bidCount = bidCount + 1;
 
         emit BidSubmitted(msg.sender);
     }
@@ -67,8 +67,8 @@ contract PrivateAuction {
         require(settled != true, "AlreadySettled");
         require(hasBid[_winner] == true, "WinnerDidNotBid");
 
-        settled = true;
-        winner = _winner;
+        set settled = true;
+        set winner = _winner;
 
         emit AuctionSettled(_winner);
     }

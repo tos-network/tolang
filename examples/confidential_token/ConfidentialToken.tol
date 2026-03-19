@@ -20,11 +20,11 @@ contract ConfidentialToken {
     event Burn(agent indexed from)
 
     constructor(agent _minter) {
-        minter = _minter;
+        set minter = _minter;
     }
 
     function registerPublicKey(bytes32 pubkey) external {
-        publicKeys[msg.sender] = pubkey;
+        set publicKeys[msg.sender] = pubkey;
         emit PublicKeyRegistered(msg.sender, pubkey);
     }
 
@@ -32,7 +32,7 @@ contract ConfidentialToken {
     function mint(agent to, uno mintAmount) external {
         require(msg.sender == minter, "OnlyMinter");
         require(publicKeys[to] != bytes32(0), "NotRegistered");
-        balances[to] = balances[to].add(mintAmount);
+        set balances[to] = balances[to].add(mintAmount);
         emit Mint(to);
     }
 
@@ -52,8 +52,8 @@ contract ConfidentialToken {
         uno newBal = balances[msg.sender].sub(amount);
         require(newBal.gt(uno.zero()), "InsufficientBalance");
 
-        balances[msg.sender] = newBal;
-        balances[to] = balances[to].add(amount);
+        set balances[msg.sender] = newBal;
+        set balances[to] = balances[to].add(amount);
 
         emit ConfidentialTransfer(msg.sender, to);
     }
@@ -65,7 +65,7 @@ contract ConfidentialToken {
         uno newBal = balances[msg.sender].sub(burnAmount);
         require(newBal.gt(uno.zero()), "InsufficientBalance");
 
-        balances[msg.sender] = newBal;
+        set balances[msg.sender] = newBal;
         emit Burn(msg.sender);
     }
 

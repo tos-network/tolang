@@ -4,22 +4,22 @@
 
 | # | Issue | Severity | Principle | Decision | Status |
 |---|-------|----------|-----------|----------|--------|
-| 1 | `msg.value` silently rewritten in `payable(uno)` | CRITICAL | 3, 4 | **FIX** | TODO |
-| 2 | `==`/`!=`/`<=`/`>=` on uno hides 150k gas crypto ops | CRITICAL | 4, 7, 14 | **FIX** | TODO |
-| 3 | Three error modes (require/assert/revert) with no semantic distinction | CRITICAL | 9 | **FIX** | TODO |
-| 4 | ABI spec is Draft 0.1, critical fields undefined | CRITICAL | 10 | **FIX** | TODO |
+| 1 | `msg.value` silently rewritten in `payable(uno)` | CRITICAL | 3, 4 | **FIX** | ✅ DONE |
+| 2 | `==`/`!=`/`<=`/`>=` on uno hides 150k gas crypto ops | CRITICAL | 4, 7, 14 | **FIX** | ✅ DONE |
+| 3 | Three error modes (require/assert/revert) with no semantic distinction | CRITICAL | 9 | **FIX** | ✅ DONE |
+| 4 | ABI spec is Draft 0.1, critical fields undefined | CRITICAL | 10 | **FIX** | ✅ DONE |
 | 5 | oracle\<T\>/vote\<T\>/task\<T\> baked into compiler as DSL | MAJOR | 1, 8 | **FIX** | ✅ DONE |
-| 6 | Inheritance system (434 lines) with zero agent use case | MAJOR | 1, 8 | **FIX** | TODO |
-| 7 | Modifier guards invisible to @effects | MAJOR | 6, 13 | **FIX** | TODO |
+| 6 | Inheritance system (434 lines) with zero agent use case | MAJOR | 1, 8 | **FIX** | ✅ DONE (Phase 1) |
+| 7 | Modifier guards invisible to @effects | MAJOR | 6, 13 | **FIX** | ✅ DONE |
 | 8 | Two variable declaration syntaxes coexist | MODERATE | 5 | **FIX** | ✅ DONE |
 | 9 | 9 annotation types with inconsistent syntax | MODERATE | 5, 8 | **DEFER** | — |
 | 10 | Type aliases normalized at lex time | MINOR | 4 | **KEEP** | — |
-| 11 | block.timestamp field naming inconsistency | MINOR | 2 | **FIX** | TODO |
+| 11 | block.timestamp field naming inconsistency | MINOR | 2 | **FIX** | ✅ DONE |
 | 12 | ++/--, do-while, sub-denominations (tomi/gtomi/tos) | MINOR | 1 | **KEEP** | ✅ wei/gwei/ether replaced |
 | 13 | Solidity reserved keywords (23 unused) | MINOR | 8 | **KEEP** | — |
 | 14 | No formatter, no LSP, no source maps | MODERATE | 11 | **DEFER** | — |
-| 15 | using-for syntax enables implicit operator overloading | MODERATE | 4, 6 | **FIX** | TODO |
-| 16 | `set` keyword is optional for storage writes | MODERATE | 4, 5 | **FIX** | TODO |
+| 15 | using-for syntax enables implicit operator overloading | MODERATE | 4, 6 | **FIX** | ✅ DONE |
+| 16 | `set` keyword is optional for storage writes | MODERATE | 4, 5 | **FIX** | ✅ DONE |
 
 ---
 
@@ -103,23 +103,27 @@ An agent cannot determine from the ABI whether a function failure is recoverable
 
 **Decision: FIX**
 
-**Plan:**
+**Status: ✅ DONE**
 
-1. **Define and document** the semantic distinction:
-   - `require(cond, msg)` — **precondition check** (caller error, recoverable). Used for input validation, permission checks, balance checks. Emits error with selector `Error(string)`.
-   - `assert(cond)` — **invariant check** (bug indicator, should never trigger in correct code). Emits error with selector `Panic(uint256)` and panic code.
-   - `revert CustomError(args)` — **explicit revert** with typed error. Emits custom error selector.
-2. **Differentiate at codegen level:**
-   - `require` → `error({selector=0x08c379a0, msg=...})` (Error(string) ABI)
-   - `assert` → `error({selector=0x4e487b71, code=...})` (Panic(uint256) ABI)
-   - `revert` → `error({selector=custom_selector, args=...})`
-3. **Document in ABI spec** which functions use which error types.
-4. **Restrict try-catch**: only catch typed errors, not Lua runtime panics. A Lua stack overflow should be uncatchable (it indicates a VM bug, not a contract error).
+**What was done:**
 
-**Files to change:**
-- `tol_ir_direct_lowering.go` — differentiate require/assert/revert codegen
-- `docs/ABI_SPEC.md` — add error model section
-- `docs/TOLANG_LANGUAGE_DESIGN_PRINCIPLES.md` — reference error model
+1. **Differentiated codegen** in `tol_ir_direct_lowering.go`:
+   - `require(cond, msg)` now lowers to `if not (cond) then error({selector="0x08c379a0", msg=msg}) end` — Error(string) ABI selector for precondition failures.
+   - `assert(cond)` now lowers to `if not (cond) then error({selector="0x4e487b71", code=1}) end` — Panic(uint256) ABI selector for invariant violations.
+   - `revert "msg"` now lowers to `error({selector="0x08c379a0", msg="msg"})` — Error(string) for plain reverts.
+   - `revert CustomError(args)` now lowers to `error({selector="custom", data=<abi-encoded>})` — typed custom error.
+2. **Documented error model** in `docs/ABI_SPEC.md` section 7.10 — covers all three error types, their selectors, runtime representation, try-catch interaction, and agent implications.
+3. **try-catch limitation documented** — `pcall` catches all errors indiscriminately; filtering to only catch typed contract errors (selector-tagged tables) is deferred.
+4. **Updated test infrastructure** — `extractApiRevertMsg` and `extractErrorMessage` helpers handle table-valued errors in test assertions.
+5. **Added tests** — `TestRequireErrorSelector`, `TestAssertErrorSelector`, `TestRevertErrorSelector` verify correct selector and payload for each error type.
+
+**Files changed:**
+- `tol_ir_direct_lowering.go` — differentiated require/assert/revert lowering
+- `docs/ABI_SPEC.md` — added Error Model section (7.10)
+- `tol_api_test.go` — added 3 selector verification tests, updated existing error checks
+- `trc20_test.go` — updated error message extraction for table errors
+- `tol/test/runner.go` — updated `assert_revert` to handle table error values
+- `testutils_test.go` — added `extractApiRevertMsg` helper
 
 ---
 
@@ -191,17 +195,30 @@ The inheritance system (`inherit.go`, 434 lines) implements full C3 linearizatio
 
 **Decision: FIX (phased)**
 
+**Status: ✅ DONE (Phase 1)** — Deprecation warnings implemented (2026-03-19).
+
 **Plan:**
 
-Phase 1 (short-term): **Deprecate** `virtual` and `super` keywords with compiler warnings. Document that inheritance is supported only for **interface implementation** (contract implements interface), not for polymorphic hierarchies.
+Phase 1 (short-term): **Deprecate** `virtual`, `override`, and `super` keywords with compiler warnings. Document that inheritance is supported only for **interface implementation** (contract implements interface), not for polymorphic hierarchies.
 
 Phase 2 (medium-term): **Restrict** inheritance to single-level interface implementation only: `contract Foo is IBar { }` where IBar must be an interface. Remove multi-level inheritance, C3 linearization, virtual, override, and super.
 
 Phase 3 (long-term): Replace inheritance with **composition + capability references**. A contract that needs "base" behavior imports a library.
 
-**Files to change (Phase 1):**
-- `tol/sema/sema.go` — emit deprecation warning for `virtual`, `super`
-- `docs/ARCHITECTURE.md` — document the deprecation path
+**What was done (Phase 1):**
+
+1. **Added deprecation warning codes** — TOL2317 (`virtual`), TOL2318 (`override`), TOL2319 (`super`) in `tol/diag/diag.go`.
+2. **Emit warnings in sema** — `tol/sema/sema.go` emits `SeverityWarning` diagnostics when `virtual` or `override` modifiers are used on function declarations, modifier declarations, or storage slots.
+3. **Emit warnings for super calls** — `tol/sema/inherit.go` emits TOL2319 warning whenever `super.method()` is detected.
+4. **Interface implementation unaffected** — `contract Foo is IBar` where IBar is an interface does NOT emit warnings (this is the intended usage pattern).
+5. **Warnings propagated to callers** — `Check()` and `CheckWithResolver()` now return warning-only diagnostics instead of discarding them. Callers already use `HasErrors()` for error detection, so warnings are non-breaking.
+6. **Tests added** — `TestDeprecationWarningsVirtualOverrideSuper` (all three warnings emitted, no errors) and `TestDeprecationWarningInterfaceImplementationNoWarning` (no warnings for clean interface implementation).
+
+**Files changed:**
+- `tol/diag/diag.go` — added TOL2317, TOL2318, TOL2319 warning codes
+- `tol/sema/sema.go` — deprecation warnings for virtual/override on functions, modifiers, storage slots; fixed `Check()`/`CheckWithResolver()` to return warnings
+- `tol/sema/inherit.go` — deprecation warning for super calls
+- `tol/sema/sema_test.go` — two new tests, one existing test updated
 
 ---
 
@@ -215,16 +232,26 @@ A modifier like `onlyOwner` contains a `require(msg.sender == owner)` guard, but
 
 **Decision: FIX**
 
-**Plan:**
+**Status: ✅ DONE**
 
-1. **Extend @effects syntax** to support a `guards:` clause: `@effects guards: [onlyOwner], writes: [storage.balance]`.
-2. **Emit compiler warning** if a function uses a modifier but does not declare its guard in @effects.
-3. **Long-term**: consider replacing modifiers entirely with `@requires` capability checks, which ARE visible in the effects system and ABI.
+**What was done:**
 
-**Files to change:**
-- `tol/ast/ast.go` — add `Guards` field to EffectsAnnotation
-- `tol/sema/sema.go` — validate guards reference declared modifiers
-- `tol_ir_direct_lowering.go` — no change (modifier lowering stays the same)
+1. **Extended `@effects` syntax** with a `guards:` clause: `@effects guards: [onlyOwner], writes: [storage.balance]`. The parser supports bracket-enclosed lists and multi-clause single-line format.
+2. **Added `Guards []string` field** to `EffectDecl` in `tol/ast/ast.go`.
+3. **Extended `parseEffectsTag`** in `tol/parser/parser.go` to parse the `guards:` key, strip brackets from all clause values, and handle multiple clauses on a single `@effects` line via recursive tail parsing.
+4. **Added `checkEffectsGuards` validation** in `tol/sema/effects.go`: emits TOL2206 WARNING (not error) when a function uses a user-defined modifier but the `@effects` annotation does not declare it in a `guards:` clause. The warning only fires when `@effects` is present — functions without `@effects` are unaffected.
+5. **Added 5 tests**: 2 parser tests (`TestParseDocMetaGuards`, `TestParseDocMetaGuardsMultiLine`) and 3 sema tests (`TestEffectsGuardsMissingWarning`, `TestEffectsGuardsDeclaredOK`, `TestEffectsGuardsNoEffectsAnnotation`).
+
+**Files changed:**
+- `tol/ast/ast.go` — added `Guards` field to `EffectDecl`
+- `tol/diag/diag.go` — added `CodeEffectGuardMissing` (TOL2206)
+- `tol/parser/parser.go` — extended `parseEffectsTag` with `guards:` key, bracket stripping, multi-clause tail parsing
+- `tol/sema/effects.go` — added `checkEffectsGuards` function
+- `tol/sema/sema.go` — built `userModNames` set and wired `checkEffectsGuards` call
+- `tol/parser/parser_test.go` — 2 new parser tests
+- `tol/sema/sema_test.go` — 3 new sema tests
+
+**Long-term**: consider replacing modifiers entirely with `@requires` capability checks, which ARE visible in the effects system and ABI.
 
 ---
 
@@ -335,6 +362,8 @@ Standardize on `block.timestamp_ms` everywhere. The TOS chain uses millisecond-r
 **Files to change:**
 - `tol_ir_direct_lowering.go` — find and replace all `block.timestamp` references to `block.timestamp_ms`
 
+**Status: DONE** — Standardized on `block.timestamp_ms` in the lowered Lua runtime code (`tol_ir_direct_lowering.go`), default state globals (`state.go`), test runner defaults (`tol/test/runner.go`), and API tests (`tol_api_test.go`).
+
 ---
 
 ## Issue 12: ++/--, do-while, Sub-Denominations
@@ -408,15 +437,15 @@ The compiler produces bytecode and ABI but lacks:
 
 **Decision: FIX**
 
-**Plan:**
+**Status: DONE**
 
-1. **Restrict using-for** to method-style calls only: `using SafeMath for u256` allows `x.add(y)` but NOT operator overloading of `+`.
-2. **Reject** operator-form dispatch from using-for declarations at sema level.
-3. This preserves the utility of using-for (attaching methods to types) while eliminating the implicit operator overloading problem.
+**What was done:**
 
-**Files to change:**
-- `tol/sema/sema.go` — reject operator dispatch from using-for bindings
-- `docs/grammar/TolangParser.g4` — update using-for documentation
+1. Added `checkUsingDecls` validation in `tol/sema/sema.go` that detects `as OPERATOR` aliases in braced using-for declarations (e.g., `using { add as + } for u256;`).
+2. Emits **TOL2101** error: `"operator 'OP' cannot dispatch through using-for binding; use explicit method call x.fn(y) instead"` for any of `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `>`, `<=`, `>=`.
+3. Method-style calls (`x.add(y)`) through `using SafeMath for u256` remain allowed.
+4. Added diagnostic code `CodeSemaUsingForOperator = "TOL2101"` in `tol/diag/diag.go`.
+5. Added tests: `TestCheckUsingForOperatorDispatchRejected`, `TestCheckUsingForMethodCallAllowed`, `TestCheckUsingForBracedWithoutOperatorAllowed`.
 
 ---
 
@@ -436,15 +465,15 @@ This defeats the purpose. If `set` is optional, it provides no safety guarantee.
 
 **Decision: FIX**
 
-**Plan:**
+**Status: DONE**
 
-1. **Make `set` mandatory** for all storage writes (state variable assignments, mapping writes, array element writes).
-2. **Emit compiler error** if a storage write lacks the `set` keyword.
-3. **Keep `set` optional** for local variable reassignment (local mutation is less dangerous than storage mutation).
+**What was done:**
 
-This makes storage writes grep-able: `grep "set "` finds all state mutations. Auditors can verify storage safety without reading the full control flow.
+1. Added storage-write enforcement in `checkStorageStatements` (`tol/sema/sema.go`): when an `"expr"` statement contains an `"assign"` expression whose left-hand side resolves to a storage slot (via `storagePathFromExpr`), emits **TOL2102** error: `"storage write requires 'set' keyword: set VARIABLE = VALUE"`.
+2. Local variable reassignment (`x = x + 1` where `x` is a local) does NOT require `set` -- the check only triggers when the assignment target is a known storage slot or indexed path into a storage slot.
+3. Added diagnostic code `CodeSemaStorageWriteNeedsSet = "TOL2102"` in `tol/diag/diag.go`.
+4. Added tests: `TestCheckStorageWriteWithoutSetRejected`, `TestCheckStorageWriteWithSetAllowed`, `TestCheckLocalAssignWithoutSetAllowed`, `TestCheckStorageMappingWriteWithoutSetRejected`.
+5. Updated all example `.tol` files (`ConfidentialToken`, `PrivateAuction`, `PrivateOTC`, `PrivateVoting`, `PrivatePayroll`, `PrivatePrediction`) to use `set` for storage writes.
+6. Updated `docs/AGENT_PROTOCOL_DRAFT2.tol` to use `set` for all storage writes.
 
-**Files to change:**
-- `tol/sema/sema.go` — add check: assignment to storage without `set` is an error
-- `tol/parser/parser.go` — no change (parser already supports both forms)
-- Update all example contracts to use `set` for storage writes
+Storage writes are now grep-able: `grep "set "` finds all state mutations.

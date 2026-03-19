@@ -51,7 +51,7 @@ contract UnoStorageTest {
   uno balance;
 
   function setBalance(uno val) external {
-    balance = val;
+    set balance = val;
   }
 
   function getBalance() external returns (uno) {
@@ -76,7 +76,7 @@ contract UnoMappingTest {
   mapping(agent => uno) balances;
 
   function setBalance(agent addr, uno val) external {
-    balances[addr] = val;
+    set balances[addr] = val;
   }
 
   function getBalance(agent addr) external returns (uno) {
@@ -94,8 +94,8 @@ contract UnoMappingTest {
 	}
 }
 
-// TestLowerUnoEqOperator verifies == on uno compiles to tos.ciphertext.eq.
-func TestLowerUnoEqOperator(t *testing.T) {
+// TestLowerUnoEqOperatorReject verifies == on uno is rejected (must use a.eq(b) method).
+func TestLowerUnoEqOperatorReject(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract UnoEqTest {
   function doEq(uno a, uno b) public pure returns (bool) {
@@ -104,12 +104,12 @@ contract UnoEqTest {
   }
 }
 `)
-	bc, err := CompileBytecode(src, "<tol>")
-	if err != nil {
-		t.Fatalf("compile error: %v", err)
+	_, err := CompileBytecode(src, "<tol>")
+	if err == nil {
+		t.Fatal("expected compile error for == on uno")
 	}
-	if len(bc) == 0 {
-		t.Fatal("bytecode is empty")
+	if !strings.Contains(err.Error(), "uno") {
+		t.Fatalf("expected error mentioning 'uno', got: %v", err)
 	}
 }
 
@@ -132,8 +132,8 @@ contract UnoAddOpTest {
 	}
 }
 
-// TestLowerUnoNeOperator verifies != on uno compiles to tos.ciphertext.ne.
-func TestLowerUnoNeOperator(t *testing.T) {
+// TestLowerUnoNeOperatorReject verifies != on uno is rejected (must use a.ne(b) method).
+func TestLowerUnoNeOperatorReject(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract UnoNeTest {
   function doNe(uno a, uno b) public pure returns (bool) {
@@ -142,17 +142,17 @@ contract UnoNeTest {
   }
 }
 `)
-	bc, err := CompileBytecode(src, "<tol>")
-	if err != nil {
-		t.Fatalf("compile error: %v", err)
+	_, err := CompileBytecode(src, "<tol>")
+	if err == nil {
+		t.Fatal("expected compile error for != on uno")
 	}
-	if len(bc) == 0 {
-		t.Fatal("bytecode is empty")
+	if !strings.Contains(err.Error(), "uno") {
+		t.Fatalf("expected error mentioning 'uno', got: %v", err)
 	}
 }
 
-// TestLowerUnoLteOperator verifies <= on uno compiles to tos.ciphertext.lte.
-func TestLowerUnoLteOperator(t *testing.T) {
+// TestLowerUnoLteOperatorReject verifies <= on uno is rejected (must use a.lte(b) method).
+func TestLowerUnoLteOperatorReject(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract UnoLteTest {
   function doLte(uno a, uno b) public pure returns (bool) {
@@ -161,17 +161,17 @@ contract UnoLteTest {
   }
 }
 `)
-	bc, err := CompileBytecode(src, "<tol>")
-	if err != nil {
-		t.Fatalf("compile error: %v", err)
+	_, err := CompileBytecode(src, "<tol>")
+	if err == nil {
+		t.Fatal("expected compile error for <= on uno")
 	}
-	if len(bc) == 0 {
-		t.Fatal("bytecode is empty")
+	if !strings.Contains(err.Error(), "uno") {
+		t.Fatalf("expected error mentioning 'uno', got: %v", err)
 	}
 }
 
-// TestLowerUnoGteOperator verifies >= on uno compiles to tos.ciphertext.gte.
-func TestLowerUnoGteOperator(t *testing.T) {
+// TestLowerUnoGteOperatorReject verifies >= on uno is rejected (must use a.gte(b) method).
+func TestLowerUnoGteOperatorReject(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract UnoGteTest {
   function doGte(uno a, uno b) public pure returns (bool) {
@@ -180,12 +180,12 @@ contract UnoGteTest {
   }
 }
 `)
-	bc, err := CompileBytecode(src, "<tol>")
-	if err != nil {
-		t.Fatalf("compile error: %v", err)
+	_, err := CompileBytecode(src, "<tol>")
+	if err == nil {
+		t.Fatal("expected compile error for >= on uno")
 	}
-	if len(bc) == 0 {
-		t.Fatal("bytecode is empty")
+	if !strings.Contains(err.Error(), "uno") {
+		t.Fatalf("expected error mentioning 'uno', got: %v", err)
 	}
 }
 
@@ -247,13 +247,13 @@ contract UnoNeMethodTest {
 }
 
 // TestLowerPayableUno verifies that payable(uno) functions compile successfully
-// and msg.value is correctly desugared to msg.uno_value.
+// with msg.uno_value (explicit encrypted deposit access).
 func TestLowerPayableUno(t *testing.T) {
 	src := []byte(`pragma tolang 0.4.0;
 contract PayableUnoTest {
   mapping(agent => uno) deposits;
   function deposit() external payable(uno) {
-    deposits[msg.sender] = deposits[msg.sender].add(msg.value);
+    set deposits[msg.sender] = deposits[msg.sender].add(msg.uno_value);
   }
 }
 `)
@@ -264,9 +264,28 @@ contract PayableUnoTest {
 	if len(bc) == 0 {
 		t.Fatal("bytecode is empty")
 	}
-	// Verify the bytecode string pool contains "uno_value" (the desugared field name).
+	// Verify the bytecode string pool contains "uno_value" (the explicit field name).
 	if !strings.Contains(string(bc), "uno_value") {
-		t.Fatal("expected 'uno_value' in bytecode constant pool (msg.value desugared)")
+		t.Fatal("expected 'uno_value' in bytecode constant pool")
+	}
+}
+
+// TestLowerPayableUnoMsgValueReject verifies that msg.value in payable(uno) is rejected.
+func TestLowerPayableUnoMsgValueReject(t *testing.T) {
+	src := []byte(`pragma tolang 0.4.0;
+contract PayableUnoTest {
+  mapping(agent => uno) deposits;
+  function deposit() external payable(uno) {
+    set deposits[msg.sender] = deposits[msg.sender].add(msg.value);
+  }
+}
+`)
+	_, err := CompileBytecode(src, "<tol>")
+	if err == nil {
+		t.Fatal("expected compile error for msg.value in payable(uno)")
+	}
+	if !strings.Contains(err.Error(), "TOL2100") {
+		t.Fatalf("expected TOL2100 error, got: %v", err)
 	}
 }
 
@@ -276,7 +295,7 @@ func TestLowerPayablePlainMsgValue(t *testing.T) {
 contract PayablePlainTest {
   u256 total;
   function deposit() external payable {
-    total = total + msg.value;
+    set total = total + msg.value;
   }
 }
 `)
@@ -317,7 +336,7 @@ func TestLowerUnoTransfer(t *testing.T) {
 contract UnoTransferTest {
   mapping(agent => uno) deposits;
   function withdraw(uno amount) external {
-    deposits[msg.sender] = deposits[msg.sender].sub(amount);
+    set deposits[msg.sender] = deposits[msg.sender].sub(amount);
     uno.transfer(msg.sender, amount);
   }
 }
@@ -342,18 +361,18 @@ contract ConfidentialVault {
   event Withdrawn(agent indexed withdrawer)
 
   function setPublicKey(bytes32 pubkey) external {
-    publicKeys[msg.sender] = pubkey;
+    set publicKeys[msg.sender] = pubkey;
   }
 
   function deposit() external payable(uno) {
-    deposits[msg.sender] = deposits[msg.sender].add(msg.value);
+    set deposits[msg.sender] = deposits[msg.sender].add(msg.uno_value);
     emit Deposited(msg.sender);
   }
 
   function withdraw(uno amount) external {
     uno newBal = deposits[msg.sender].sub(amount);
     require(newBal.gt(uno.zero()), "InsufficientDeposit");
-    deposits[msg.sender] = newBal;
+    set deposits[msg.sender] = newBal;
     uno.transfer(msg.sender, amount);
     emit Withdrawn(msg.sender);
   }

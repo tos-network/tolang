@@ -25,18 +25,18 @@ contract PrivateVoting {
     event VotingClosed()
 
     constructor(agent _admin, bytes32 _tallyPubKey, u64 _deadline_ms) {
-        admin = _admin;
-        tallyPubKey = _tallyPubKey;
-        deadline_ms = _deadline_ms;
-        voterCount = 0;
-        closed = false;
+        set admin = _admin;
+        set tallyPubKey = _tallyPubKey;
+        set deadline_ms = _deadline_ms;
+        set voterCount = 0;
+        set closed = false;
     }
 
     function registerVoter(agent voter) external {
         require(msg.sender == admin, "OnlyAdmin");
         require(eligible[voter] != true, "AlreadyRegistered");
-        eligible[voter] = true;
-        voterCount = voterCount + 1;
+        set eligible[voter] = true;
+        set voterCount = voterCount + 1;
         emit VoterRegistered(voter);
     }
 
@@ -49,8 +49,8 @@ contract PrivateVoting {
         require(hasVoted[msg.sender] != true, "AlreadyVoted");
 
         // Homomorphic tally: sum += vote (uno + uno)
-        encryptedTally = encryptedTally.add(encryptedVote);
-        hasVoted[msg.sender] = true;
+        set encryptedTally = encryptedTally.add(encryptedVote);
+        set hasVoted[msg.sender] = true;
 
         emit VoteCast(msg.sender);
     }
@@ -59,7 +59,7 @@ contract PrivateVoting {
         require(msg.sender == admin, "OnlyAdmin");
         require(block.timestamp_ms > deadline_ms, "VotingNotClosed");
         require(closed != true, "AlreadyClosed");
-        closed = true;
+        set closed = true;
         emit VotingClosed();
     }
 

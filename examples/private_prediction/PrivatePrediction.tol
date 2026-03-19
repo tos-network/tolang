@@ -33,15 +33,15 @@ contract PrivatePrediction {
     event WinningsClaimed(agent indexed winner)
 
     constructor(agent _oracle, bytes32 _oraclePubKey, u64 _betDeadline_ms) {
-        oracle = _oracle;
-        oraclePubKey = _oraclePubKey;
-        betDeadline_ms = _betDeadline_ms;
-        resolved = false;
-        outcome = false;
+        set oracle = _oracle;
+        set oraclePubKey = _oraclePubKey;
+        set betDeadline_ms = _betDeadline_ms;
+        set resolved = false;
+        set outcome = false;
     }
 
     function registerPublicKey(bytes32 pubkey) external {
-        publicKeys[msg.sender] = pubkey;
+        set publicKeys[msg.sender] = pubkey;
     }
 
     // Place a bet. The uno value is encrypted off-chain under oracle's key.
@@ -55,14 +55,14 @@ contract PrivatePrediction {
 
         if (betYes) {
             require(hasBetYes[msg.sender] != true, "AlreadyBetYes");
-            yesBets[msg.sender] = encryptedBet;
-            encryptedYesPool = encryptedYesPool.add(encryptedBet);
-            hasBetYes[msg.sender] = true;
+            set yesBets[msg.sender] = encryptedBet;
+            set encryptedYesPool = encryptedYesPool.add(encryptedBet);
+            set hasBetYes[msg.sender] = true;
         } else {
             require(hasBetNo[msg.sender] != true, "AlreadyBetNo");
-            noBets[msg.sender] = encryptedBet;
-            encryptedNoPool = encryptedNoPool.add(encryptedBet);
-            hasBetNo[msg.sender] = true;
+            set noBets[msg.sender] = encryptedBet;
+            set encryptedNoPool = encryptedNoPool.add(encryptedBet);
+            set hasBetNo[msg.sender] = true;
         }
 
         emit BetPlaced(msg.sender, betYes);
@@ -74,8 +74,8 @@ contract PrivatePrediction {
         require(block.timestamp_ms > betDeadline_ms, "BettingNotClosed");
         require(resolved != true, "AlreadyResolved");
 
-        resolved = true;
-        outcome = _outcome;
+        set resolved = true;
+        set outcome = _outcome;
         emit MarketResolved(_outcome);
     }
 
@@ -85,7 +85,7 @@ contract PrivatePrediction {
         require(resolved == true, "NotResolved");
         require(hasClaimed[winner] != true, "AlreadyPosted");
 
-        winnings[winner] = encryptedPayout;
+        set winnings[winner] = encryptedPayout;
         emit WinningsPosted(winner);
     }
 
@@ -94,7 +94,7 @@ contract PrivatePrediction {
         require(hasClaimed[msg.sender] != true, "AlreadyClaimed");
         require(winnings[msg.sender].gt(uno.zero()), "NoWinnings");
 
-        hasClaimed[msg.sender] = true;
+        set hasClaimed[msg.sender] = true;
         emit WinningsClaimed(msg.sender);
     }
 

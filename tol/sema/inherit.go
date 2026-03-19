@@ -273,6 +273,13 @@ func checkSuperCallsInExpr(filename, ownerFn string, e *ast.Expr, baseFuncNames 
 			obj := stripParens(callee.Object)
 			if obj != nil && obj.Kind == "ident" && strings.TrimSpace(obj.Value) == "super" {
 				fnName := strings.TrimSpace(callee.Member)
+				// Deprecation warning for all super calls.
+				*diags = append(*diags, diag.Diagnostic{
+					Code:     diag.CodeWarnSuperDeprecated,
+					Message:  "'super' calls are deprecated; use direct library calls or composition instead",
+					Span:     defaultSpan(filename),
+					Severity: diag.SeverityWarning,
+				})
 				if !hasBases {
 					*diags = append(*diags, diag.Diagnostic{
 						Code:    diag.CodeSemaInvalidSuperCall,

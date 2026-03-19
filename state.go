@@ -1434,7 +1434,7 @@ func initDeterministicHostGlobals(ls *LState) {
 	if ls.GetGlobal("block") == LNil {
 		block := ls.NewTable()
 		ls.SetField(block, "number", LUint256Zero)
-		ls.SetField(block, "timestamp", LUint256Zero)
+		ls.SetField(block, "timestamp_ms", LUint256Zero)
 		ls.SetGlobal("block", block)
 	}
 	if ls.GetGlobal("gas") == LNil {

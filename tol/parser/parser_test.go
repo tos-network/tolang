@@ -3350,3 +3350,64 @@ contract Token is IERC20 {
 		t.Fatalf("unexpected diagnostics for 'is' keyword: %v", diags)
 	}
 }
+
+func TestParseDocMetaGuards(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract Demo {
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
+    /// @effects guards: [onlyOwner], writes: [storage.balance]
+    function withdraw() public onlyOwner {}
+}
+`)
+	mod, diags := ParseFile("<test>", src)
+	if diags.HasErrors() {
+		t.Fatalf("unexpected errors: %v", diags)
+	}
+	if mod.Contract == nil || len(mod.Contract.Functions) == 0 {
+		t.Fatal("expected function")
+	}
+	fn := mod.Contract.Functions[0]
+	if fn.Doc == nil {
+		t.Fatal("expected Doc to be set on function")
+	}
+	if fn.Doc.Effects == nil {
+		t.Fatal("expected Effects")
+	}
+	if len(fn.Doc.Effects.Guards) != 1 || fn.Doc.Effects.Guards[0] != "onlyOwner" {
+		t.Errorf("expected Guards=[onlyOwner], got %v", fn.Doc.Effects.Guards)
+	}
+	if len(fn.Doc.Effects.Writes) == 0 || fn.Doc.Effects.Writes[0] != "storage.balance" {
+		t.Errorf("unexpected writes: %v", fn.Doc.Effects.Writes)
+	}
+}
+
+func TestParseDocMetaGuardsMultiLine(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract Demo {
+    modifier onlyOwner() { require(msg.sender == owner); _; }
+    modifier whenActive() { require(active); _; }
+    /// @effects guards: [onlyOwner, whenActive]
+    /// @effects writes: [storage.x]
+    function doStuff() public onlyOwner whenActive {}
+}
+`)
+	mod, diags := ParseFile("<test>", src)
+	if diags.HasErrors() {
+		t.Fatalf("unexpected errors: %v", diags)
+	}
+	fn := mod.Contract.Functions[0]
+	if fn.Doc == nil || fn.Doc.Effects == nil {
+		t.Fatal("expected Doc.Effects")
+	}
+	if len(fn.Doc.Effects.Guards) != 2 {
+		t.Fatalf("expected 2 guards, got %d: %v", len(fn.Doc.Effects.Guards), fn.Doc.Effects.Guards)
+	}
+	if fn.Doc.Effects.Guards[0] != "onlyOwner" || fn.Doc.Effects.Guards[1] != "whenActive" {
+		t.Errorf("unexpected guards: %v", fn.Doc.Effects.Guards)
+	}
+}

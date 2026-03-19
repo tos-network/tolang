@@ -5827,7 +5827,9 @@ func parseDocMeta(raw string) *ast.DocMeta {
 	return meta
 }
 
-// parseEffectsTag parses one "@effects key: values" line into meta.
+// parseEffectsTag parses one or more "@effects key: values" clauses from a single line.
+// Multiple clauses may appear on one line separated by commas outside brackets:
+//   @effects guards: [onlyOwner], writes: [storage.balance]
 func parseEffectsTag(meta *ast.DocMeta, rest string) {
 	// rest is like "reads:  storage.balances[caller], storage.x" or "calls: []"
 	colonIdx := strings.Index(rest, ":")
@@ -5837,22 +5839,54 @@ func parseEffectsTag(meta *ast.DocMeta, rest string) {
 	key := strings.TrimSpace(rest[:colonIdx])
 	val := strings.TrimSpace(rest[colonIdx+1:])
 
+	// When the value starts with '[', find the matching ']' and check if there
+	// are additional clauses after it (e.g. "], writes: [...]").
+	var tail string
+	if strings.HasPrefix(val, "[") {
+		bracketDepth := 0
+		for i := 0; i < len(val); i++ {
+			switch val[i] {
+			case '[':
+				bracketDepth++
+			case ']':
+				bracketDepth--
+				if bracketDepth == 0 {
+					// Everything after the closing bracket is a potential tail clause.
+					after := strings.TrimSpace(val[i+1:])
+					val = val[:i+1]
+					if strings.HasPrefix(after, ",") {
+						tail = strings.TrimSpace(after[1:])
+					}
+					goto done
+				}
+			}
+		}
+	}
+done:
+
+	// Strip surrounding brackets from val for bracket-enclosed lists: [storage.x] → storage.x
+	// This is needed when multiple clauses appear on one line: guards: [onlyOwner], writes: [storage.x]
+	strippedVal := val
+	if strings.HasPrefix(strippedVal, "[") && strings.HasSuffix(strippedVal, "]") {
+		strippedVal = strippedVal[1 : len(strippedVal)-1]
+	}
+
 	if meta.Effects == nil {
 		meta.Effects = &ast.EffectDecl{}
 	}
 	switch key {
 	case "reads":
 		if val != "" && val != "[]" {
-			meta.Effects.Reads = append(meta.Effects.Reads, parseCommaRefs(val)...)
+			meta.Effects.Reads = append(meta.Effects.Reads, parseCommaRefs(strippedVal)...)
 		}
 	case "writes":
 		if val != "" && val != "[]" {
-			meta.Effects.Writes = append(meta.Effects.Writes, parseCommaRefs(val)...)
+			meta.Effects.Writes = append(meta.Effects.Writes, parseCommaRefs(strippedVal)...)
 		}
 	case "emits":
 		// Event names are case-sensitive (PascalCase); do NOT canonicalize.
 		if val != "" && val != "[]" {
-			for _, name := range strings.Split(val, ",") {
+			for _, name := range strings.Split(strippedVal, ",") {
 				name = strings.TrimSpace(name)
 				if name != "" {
 					meta.Effects.Emits = append(meta.Effects.Emits, name)
@@ -5868,6 +5902,20 @@ func parseEffectsTag(meta *ast.DocMeta, rest string) {
 			cr := parseCallRef(val)
 			meta.Effects.Calls = append(meta.Effects.Calls, cr)
 		}
+	case "guards":
+		// Parse guard modifier names: guards: [onlyOwner, onlyAdmin] or guards: onlyOwner, onlyAdmin
+		if val != "" && val != "[]" {
+			for _, name := range strings.Split(strippedVal, ",") {
+				name = strings.TrimSpace(name)
+				if name != "" {
+					meta.Effects.Guards = append(meta.Effects.Guards, name)
+				}
+			}
+		}
+	}
+	// If there was a tail clause (multi-clause line), recursively parse it.
+	if tail != "" {
+		parseEffectsTag(meta, tail)
 	}
 }
 

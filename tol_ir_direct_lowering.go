@@ -985,7 +985,7 @@ local __tol_delegation_subdelegate = function(parent_d, sub_agent, sub_scope, ex
   if parent_d == nil or parent_d.is_valid ~= true then
     error("SubdelegationInvalidParent")
   end
-  local now_ms = block ~= nil and block.timestamp or 0
+  local now_ms = block ~= nil and block.timestamp_ms or 0
   if expiry_ms ~= nil and expiry_ms > 0 and now_ms > 0 and expiry_ms < now_ms then
     error("SubdelegationExpired")
   end
@@ -3537,59 +3537,130 @@ func tolStmtToLua(ctx *loweringCtx, stmt tolast.Statement) (luast.Stmt, error) {
 			AdjustRet: true,
 		})
 		return withLineStmt(&luast.FuncCallStmt{Expr: call}, stmt.Line), nil
-	case "require", "assert":
-		// require(cond, "msg") → assert(cond, "msg")
-		// assert(cond, "msg") → assert(cond, "msg")
-		// Lua's assert(v, msg) raises an error with msg if v is falsy.
-		//
-		// Solidity compliance: require(cond) with NO message reverts with Panic(0x01),
-		// not Error(""). The parser stores stmt.Text = `""` (empty string literal, 2
-		// chars) when no message argument was provided. We detect this case for
-		// "require" and emit "Panic(0x01)" to match Solidity reference behaviour.
-		args := []luast.Expr{}
+	case "require":
+		// require(cond, "msg") → if not (cond) then error({selector="0x08c379a0", msg=msg}) end
+		// Selector 0x08c379a0 = keccak256("Error(string)") ABI selector.
+		// This differentiates require (precondition/caller error) from assert (invariant/bug).
+		var condExpr luast.Expr
 		if stmt.Expr != nil {
 			ex, err := tolExprToLua(ctx, stmt.Expr)
 			if err != nil {
 				return nil, err
 			}
-			args = append(args, ex)
+			condExpr = ex
+		} else {
+			condExpr = withLineExpr(&luast.FalseExpr{})
 		}
+		requireMsg := ""
 		if stmt.Text != "" {
-			msg := unquoteIfNeeded(stmt.Text)
-			if stmt.Kind == "require" && msg == "" {
-				// No message provided to require() → Solidity emits Panic(0x01).
-				msg = "Panic(0x01)"
-			}
-			args = append(args, withLineExpr(&luast.StringExpr{Value: msg}))
+			requireMsg = unquoteIfNeeded(stmt.Text)
 		}
-		call := withLineExpr(&luast.FuncCallExpr{
-			Func:      withLineExpr(&luast.IdentExpr{Value: "assert"}),
-			Args:      args,
+		if requireMsg == "" {
+			// No message provided to require() → Solidity emits Panic(0x01).
+			requireMsg = "Panic(0x01)"
+		}
+		requireErrorTable := withLineExpr(&luast.TableExpr{
+			Fields: []*luast.Field{
+				{Key: withLineExpr(&luast.StringExpr{Value: "selector"}), Value: withLineExpr(&luast.StringExpr{Value: "0x08c379a0"})},
+				{Key: withLineExpr(&luast.StringExpr{Value: "msg"}), Value: withLineExpr(&luast.StringExpr{Value: requireMsg})},
+			},
+		})
+		requireErrorCall := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "error"}),
+			Args:      []luast.Expr{requireErrorTable},
 			AdjustRet: true,
 		})
-		return withLineStmt(&luast.FuncCallStmt{Expr: call}, stmt.Line), nil
+		return withLineStmt(&luast.IfStmt{
+			Condition: withLineExpr(&luast.UnaryNotOpExpr{Expr: condExpr}),
+			Then:      []luast.Stmt{withLineStmt(&luast.FuncCallStmt{Expr: requireErrorCall}, stmt.Line)},
+		}, stmt.Line), nil
+	case "assert":
+		// assert(cond) → if not (cond) then error({selector="0x4e487b71", code=1}) end
+		// Selector 0x4e487b71 = keccak256("Panic(uint256)") ABI selector.
+		// Panic code 1 = assertion failure. This differentiates assert (invariant/bug)
+		// from require (precondition/caller error).
+		var assertCondExpr luast.Expr
+		if stmt.Expr != nil {
+			ex, err := tolExprToLua(ctx, stmt.Expr)
+			if err != nil {
+				return nil, err
+			}
+			assertCondExpr = ex
+		} else {
+			assertCondExpr = withLineExpr(&luast.FalseExpr{})
+		}
+		assertErrorTable := withLineExpr(&luast.TableExpr{
+			Fields: []*luast.Field{
+				{Key: withLineExpr(&luast.StringExpr{Value: "selector"}), Value: withLineExpr(&luast.StringExpr{Value: "0x4e487b71"})},
+				{Key: withLineExpr(&luast.StringExpr{Value: "code"}), Value: withLineExpr(&luast.NumberExpr{Value: "1"})},
+			},
+		})
+		assertErrorCall := withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "error"}),
+			Args:      []luast.Expr{assertErrorTable},
+			AdjustRet: true,
+		})
+		return withLineStmt(&luast.IfStmt{
+			Condition: withLineExpr(&luast.UnaryNotOpExpr{Expr: assertCondExpr}),
+			Then:      []luast.Stmt{withLineStmt(&luast.FuncCallStmt{Expr: assertErrorCall}, stmt.Line)},
+		}, stmt.Line), nil
 	case "revert":
-		// revert "msg" → error("msg")
-		args := []luast.Expr{}
+		// revert "msg" → error({selector="0x08c379a0", msg="msg"})
+		// revert CustomError(args) → error({selector="custom", data=<abi-encoded>})
+		// Wraps the error value in a table with a selector field so the runtime
+		// can distinguish error types during try-catch dispatch.
 		if stmt.Expr != nil {
 			if ex, ok, err := lowerCustomErrorRevertExpr(ctx, stmt.Expr); err != nil {
 				return nil, err
 			} else if ok {
-				args = append(args, ex)
-			} else {
-				ex, err := tolExprToLua(ctx, stmt.Expr)
-				if err != nil {
-					return nil, err
-				}
-				args = append(args, ex)
+				// Custom error path: lowerCustomErrorRevertExpr already produces the
+				// ABI-encoded payload. Wrap it in a selector table.
+				revertTable := withLineExpr(&luast.TableExpr{
+					Fields: []*luast.Field{
+						{Key: withLineExpr(&luast.StringExpr{Value: "selector"}), Value: withLineExpr(&luast.StringExpr{Value: "custom"})},
+						{Key: withLineExpr(&luast.StringExpr{Value: "data"}), Value: ex},
+					},
+				})
+				revertCall := withLineExpr(&luast.FuncCallExpr{
+					Func:      withLineExpr(&luast.IdentExpr{Value: "error"}),
+					Args:      []luast.Expr{revertTable},
+					AdjustRet: true,
+				})
+				return withLineStmt(&luast.FuncCallStmt{Expr: revertCall}, stmt.Line), nil
 			}
 		}
-		call := withLineExpr(&luast.FuncCallExpr{
+		// Plain revert with string message or no message.
+		if stmt.Expr != nil {
+			ex, err := tolExprToLua(ctx, stmt.Expr)
+			if err != nil {
+				return nil, err
+			}
+			plainRevertTable := withLineExpr(&luast.TableExpr{
+				Fields: []*luast.Field{
+					{Key: withLineExpr(&luast.StringExpr{Value: "selector"}), Value: withLineExpr(&luast.StringExpr{Value: "0x08c379a0"})},
+					{Key: withLineExpr(&luast.StringExpr{Value: "msg"}), Value: ex},
+				},
+			})
+			plainRevertCall := withLineExpr(&luast.FuncCallExpr{
+				Func:      withLineExpr(&luast.IdentExpr{Value: "error"}),
+				Args:      []luast.Expr{plainRevertTable},
+				AdjustRet: true,
+			})
+			return withLineStmt(&luast.FuncCallStmt{Expr: plainRevertCall}, stmt.Line), nil
+		}
+		// Bare revert with no message.
+		bareRevertTable := withLineExpr(&luast.TableExpr{
+			Fields: []*luast.Field{
+				{Key: withLineExpr(&luast.StringExpr{Value: "selector"}), Value: withLineExpr(&luast.StringExpr{Value: "0x08c379a0"})},
+				{Key: withLineExpr(&luast.StringExpr{Value: "msg"}), Value: withLineExpr(&luast.StringExpr{Value: ""})},
+			},
+		})
+		bareRevertCall := withLineExpr(&luast.FuncCallExpr{
 			Func:      withLineExpr(&luast.IdentExpr{Value: "error"}),
-			Args:      args,
+			Args:      []luast.Expr{bareRevertTable},
 			AdjustRet: true,
 		})
-		return withLineStmt(&luast.FuncCallStmt{Expr: call}, stmt.Line), nil
+		return withLineStmt(&luast.FuncCallStmt{Expr: bareRevertCall}, stmt.Line), nil
 	case "delete":
 		return lowerDeleteStmt(ctx, stmt)
 	case "unchecked":
@@ -3639,6 +3710,13 @@ func tolStmtsToLuaWithCtx(ctx *loweringCtx, in []tolast.Statement) ([]luast.Stmt
 //	else
 //	    <catch_body>  -- with param bound to __tol_try_result_N if applicable
 //	end
+//
+// LIMITATION: pcall catches ALL Lua errors indiscriminately, including Lua
+// runtime panics (stack overflow, OOM, type errors). Ideally catch should
+// only intercept typed contract errors (tables with a "selector" field from
+// require/assert/revert) and let Lua runtime panics propagate uncaught.
+// This would require replacing pcall with a filtered error handler, which
+// is deferred to a future change.
 func lowerTryCatchStmt(ctx *loweringCtx, stmt tolast.Statement) (luast.Stmt, error) {
 	ctx.trySeq++
 	n := ctx.trySeq
@@ -3993,29 +4071,8 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 		rightType := inferExprType(ctx, e.Right)
 		if leftType == "uno" || rightType == "uno" {
 			switch e.Op {
-			case "+", "-", "*", "/", "%", "<", ">":
+			case "+", "-", "*", "/", "%", "<", ">", "==", "!=", "<=", ">=":
 				return nil, fmt.Errorf("[%s] operator '%s' not supported on uno type; use method calls", diag.CodeLowerUnsupportedFeature, e.Op)
-			case "==", "!=", "<=", ">=":
-				opMap := map[string]string{"==": "eq", "!=": "ne", "<=": "lte", ">=": "gte"}
-				lhsLua, err := tolExprToLua(ctx, e.Left)
-				if err != nil {
-					return nil, err
-				}
-				rhsLua, err := tolExprToLua(ctx, e.Right)
-				if err != nil {
-					return nil, err
-				}
-				return withLineExpr(&luast.FuncCallExpr{
-					Func: withLineExpr(&luast.AttrGetExpr{
-						Object: withLineExpr(&luast.AttrGetExpr{
-							Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
-							Key:    withLineExpr(&luast.StringExpr{Value: "ciphertext"}),
-						}),
-						Key: withLineExpr(&luast.StringExpr{Value: opMap[e.Op]}),
-					}),
-					Args:      []luast.Expr{lhsLua, rhsLua},
-					AdjustRet: true,
-				}), nil
 			}
 		}
 		lhs, err := tolExprToLua(ctx, e.Left)
@@ -5104,13 +5161,6 @@ func lowerEnvMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, err
 	key := strings.TrimSpace(e.Member)
 	if key == "" {
 		return nil, true, fmt.Errorf("[%s] %s.<field> requires non-empty field name", diag.CodeLowerUnsupportedFeature, scope)
-	}
-
-	// In payable(uno) functions, msg.value desugars to msg.uno_value so the
-	// contract receives the encrypted deposit ciphertext instead of the
-	// public TOS amount.
-	if scope == "msg" && key == "value" && ctx.payableAsset == "uno" {
-		key = "uno_value"
 	}
 
 	return withLineExpr(&luast.FuncCallExpr{

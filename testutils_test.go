@@ -76,3 +76,26 @@ func errorIfGFuncNotFail(t *testing.T, L *LState, f LGFunction, pattern string) 
 	}
 	t.Errorf("%v LGFunction should fail", positionString(1))
 }
+
+// extractApiRevertMsg extracts the human-readable message from a Lua revert error.
+// If the error is a typed revert table (from require/assert/revert lowering with
+// selector-tagged error tables), the msg or data field is extracted. Otherwise
+// falls back to err.Error().
+func extractApiRevertMsg(err error) string {
+	apiErr, ok := err.(*ApiError)
+	if !ok {
+		return err.Error()
+	}
+	if tbl, ok := apiErr.Object.(*LTable); ok {
+		if msg := tbl.RawGetString("msg"); msg != LNil {
+			return msg.String()
+		}
+		if data := tbl.RawGetString("data"); data != LNil {
+			return data.String()
+		}
+		if sel := tbl.RawGetString("selector"); sel != LNil {
+			return "revert:" + sel.String()
+		}
+	}
+	return err.Error()
+}

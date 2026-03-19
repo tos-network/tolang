@@ -141,6 +141,28 @@ func callTRC20Err(t *testing.T, L *LState, tos LValue, fnSig string, args ...LVa
 	if err == nil {
 		t.Fatalf("expected error calling %s, got none", fnSig)
 	}
+	return extractRevertMsg(err)
+}
+
+// extractRevertMsg extracts the human-readable message from a Lua revert error.
+// If the error is a typed revert table (from require/assert/revert lowering),
+// the msg field is extracted. Otherwise falls back to err.Error().
+func extractRevertMsg(err error) string {
+	apiErr, ok := err.(*ApiError)
+	if !ok {
+		return err.Error()
+	}
+	if tbl, ok := apiErr.Object.(*LTable); ok {
+		if msg := tbl.RawGetString("msg"); msg != LNil {
+			return msg.String()
+		}
+		if data := tbl.RawGetString("data"); data != LNil {
+			return data.String()
+		}
+		if sel := tbl.RawGetString("selector"); sel != LNil {
+			return "revert:" + sel.String()
+		}
+	}
 	return err.Error()
 }
 
@@ -438,8 +460,9 @@ func TestTRC20FallbackRevertsOnUnknownSelector(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected revert on unknown selector")
 	}
-	if !strings.Contains(err.Error(), "UNKNOWN_SELECTOR") {
-		t.Fatalf("expected UNKNOWN_SELECTOR, got: %v", err)
+	gotMsg := extractRevertMsg(err)
+	if !strings.Contains(gotMsg, "UNKNOWN_SELECTOR") {
+		t.Fatalf("expected UNKNOWN_SELECTOR, got: %v", gotMsg)
 	}
 }
 

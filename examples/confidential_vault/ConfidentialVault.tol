@@ -3,10 +3,10 @@ pragma tolang 0.4.0;
 // ConfidentialVault — bridge between native encrypted balances and contracts.
 //
 // Demonstrates payable(uno): functions that receive encrypted UNO deposits
-// from users' native encrypted balances via msg.value (uno type).
+// from users' native encrypted balances via msg.uno_value (uno type).
 //
 // Key bridge primitives:
-//   - msg.value    in payable(uno) → the encrypted deposit ciphertext
+//   - msg.uno_value in payable(uno) → the encrypted deposit ciphertext
 //   - uno.balance(addr) → reads an account's on-chain encrypted balance
 //   - uno.transfer(to, ct) → adds ciphertext to recipient's native encrypted balance
 
@@ -20,16 +20,16 @@ contract ConfidentialVault {
 
     // Register the user's ElGamal public key (needed for encrypted operations).
     function setPublicKey(bytes32 pubkey) external {
-        publicKeys[msg.sender] = pubkey;
+        set publicKeys[msg.sender] = pubkey;
         emit PublicKeySet(msg.sender, pubkey);
     }
 
     // Deposit: user sends encrypted UNO from their native encrypted balance.
     // The state transition verifies the proof and deducts from sender's
-    // native balance before contract execution.  msg.value is the verified
+    // native balance before contract execution.  msg.uno_value is the verified
     // encrypted deposit ciphertext.
     function deposit() external payable(uno) {
-        deposits[msg.sender] = deposits[msg.sender].add(msg.value);
+        set deposits[msg.sender] = deposits[msg.sender].add(msg.uno_value);
         emit Deposited(msg.sender);
     }
 
@@ -40,7 +40,7 @@ contract ConfidentialVault {
         uno newBal = deposits[msg.sender].sub(amount);
         require(newBal.gt(uno.zero()), "InsufficientDeposit");
 
-        deposits[msg.sender] = newBal;
+        set deposits[msg.sender] = newBal;
         uno.transfer(msg.sender, amount);
 
         emit Withdrawn(msg.sender);

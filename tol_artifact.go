@@ -75,6 +75,12 @@ type tocABIManifest struct {
 	Extra       map[string]string `json:"extra,omitempty"`
 }
 
+// tocABI is the emitted ABI object. As of ABI spec 1.0 (docs/ABI_SPEC.md),
+// this struct should be extended to include:
+//   - ABIVersion string field (must emit "1.0")
+//   - Errors []tocABIError field for the Error Model (spec section 12)
+//   - Top-level "kind" field ("contract" or "interface")
+// TODO(ABI-1.0): add ABIVersion, Errors, Kind fields and validate on encode.
 type tocABI struct {
 	GasModel        tocABIGasModel   `json:"gas_model"`
 	Functions       []tocABIFunction `json:"functions"`
@@ -101,6 +107,14 @@ type tocABIFunction struct {
 	NamedReturns       []tocABIParam `json:"named_returns,omitempty"`
 	Doc                *tocABIDoc    `json:"doc,omitempty"`
 	// Agent-native ABI extensions
+	// TODO(ABI-1.0): add DelegationScope field per spec section 7.2:
+	//   { "action": string, "contract": "agent", "expiry_ms": u64, "nonce": u64 }
+	//   Required when Delegated is true.
+	// TODO(ABI-1.0): add ProofSchema field per spec section 7.4:
+	//   enum: "none" | "sigma-range-v1" | "transcript-binding-v1"
+	//   Required when Verifiable is true.
+	// TODO(ABI-1.0): add CallerKind field per spec section 7.2:
+	//   enum: "user" | "agent" | "contract" | "any" (default "any")
 	RequiresCapability string     `json:"requires_capability,omitempty"`
 	PayAmountTomi      string     `json:"pay_amount_tomi,omitempty"`
 	PayRecipient       string     `json:"pay_recipient,omitempty"`
@@ -122,6 +136,8 @@ type tocABIEvent struct {
 }
 
 // tocABIDoc is the optional doc metadata emitted per function in the ABI JSON.
+// TODO(ABI-1.0): add RevertSchema field per spec section 7.9 for structured
+// revert descriptors referencing custom error types.
 type tocABIDoc struct {
 	Notice        string         `json:"notice,omitempty"`
 	Effects       *tocABIEffects `json:"effects,omitempty"`

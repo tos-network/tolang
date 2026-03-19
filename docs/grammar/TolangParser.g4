@@ -753,14 +753,15 @@ elementaryTypeName
 //     mul_scalar, div_scalar, lt, gt, lte, gte, eq, ne, min, max,
 //     commitment, handle, verify_transfer, verify_eq (instance);
 //     zero, encrypt, from_parts, select (static)
-//   - ==, !=, <=, >= on uno compile to tos.ciphertext.{eq,ne,lte,gte}(a,b)
-//   - <, >, +, -, *, / operators on uno are rejected (must use methods)
+//   - ALL operators on uno are rejected: ==, !=, <=, >=, <, >, +, -, *, /
+//     Developers must use explicit method calls: a.eq(b), a.ne(b), a.lte(b),
+//     a.gte(b), a.add(b), etc. to make the 150k gas proof verification cost visible
 //   - uno rejected as mapping key type
 //
 // The lowering layer desugars uno methods to tos.ciphertext.* Lua calls:
 //   a.add(b)           →  tos.ciphertext.add(a, b)
 //   a.lte(b)           →  tos.ciphertext.lte(a, b)
-//   a != b             →  tos.ciphertext.ne(a, b)
+//   a.eq(b)            →  tos.ciphertext.eq(a, b)
 //   uno.zero()         →  tos.ciphertext.zero()
 //   uno.select(c,a,b)  →  tos.ciphertext.select(c, a, b)
 //

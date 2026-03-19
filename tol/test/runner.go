@@ -1087,7 +1087,6 @@ if type(tx) ~= "table" then tx = {} end
 if tx.origin == nil then tx.origin = msg.sender end
 if type(block) ~= "table" then block = {} end
 if block.number == nil then block.number = 0 end
-if block.timestamp == nil then block.timestamp = 0 end
 if block.timestamp_ms == nil then block.timestamp_ms = 1000000000000 end
 `); err != nil {
 		// Should never fail; panic would be overkill — continue without event capture.
@@ -1307,13 +1306,37 @@ if block.timestamp_ms == nil then block.timestamp_ms = 1000000000000 end
 		}
 		// Revert occurred; if a message was specified, verify it is contained in the error.
 		if wantMsg != "" {
-			gotMsg := err.Error()
+			gotMsg := extractErrorMessage(err)
 			if !strings.Contains(gotMsg, wantMsg) {
 				L.RaiseError("assert_revert: expected message containing %q, got %q", wantMsg, gotMsg)
 			}
 		}
 		return 0
 	})
+}
+
+// extractErrorMessage extracts the human-readable message from a Lua error.
+// If the error is a typed revert (table with selector/msg fields produced by
+// require/assert/revert), the msg field is returned. Otherwise falls back to
+// the standard err.Error() string representation.
+func extractErrorMessage(err error) string {
+	apiErr, ok := err.(*lua.ApiError)
+	if !ok {
+		return err.Error()
+	}
+	if tbl, ok := apiErr.Object.(*lua.LTable); ok {
+		if msg := tbl.RawGetString("msg"); msg != lua.LNil {
+			return msg.String()
+		}
+		if data := tbl.RawGetString("data"); data != lua.LNil {
+			return data.String()
+		}
+		// Fallback: include selector for debugging.
+		if sel := tbl.RawGetString("selector"); sel != lua.LNil {
+			return "revert:" + sel.String()
+		}
+	}
+	return err.Error()
 }
 
 func luaValuesEqual(a, b lua.LValue) bool {

@@ -402,6 +402,7 @@ type EffectDecl struct {
 	Writes []string
 	Emits  []string
 	Calls  []CallRef // nil = not declared; len==0 = declared empty
+	Guards []string  // modifier names declared in guards: clause (e.g. onlyOwner)
 }
 
 // CallRef is a single structured external call declaration.

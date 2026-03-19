@@ -1792,7 +1792,7 @@ contract Demo {
     set v = msg.value;
     set o = tx.origin;
     set n = block.number;
-    set ts = block.timestamp;
+    set ts = block.timestamp_ms;
     set g = gas.left();
     return;
   }
@@ -1812,7 +1812,7 @@ contract Demo {
 	L.SetField(txTable, "origin", LString("0xbbb"))
 	blockTable := L.NewTable()
 	L.SetField(blockTable, "number", lu256FromInt(123))
-	L.SetField(blockTable, "timestamp", lu256FromInt(456))
+	L.SetField(blockTable, "timestamp_ms", lu256FromInt(456))
 
 	tosTable := L.NewTable()
 	L.SetField(tosTable, "msg", msgTable)
@@ -1851,7 +1851,7 @@ contract Demo {
 		t.Fatalf("unexpected block.number: got=%s want=123", got)
 	}
 	if got := LVAsString(L.GetGlobal("ts")); got != "456" {
-		t.Fatalf("unexpected block.timestamp: got=%s want=456", got)
+		t.Fatalf("unexpected block.timestamp_ms: got=%s want=456", got)
 	}
 	if got := LVAsString(L.GetGlobal("g")); got != "999" {
 		t.Fatalf("unexpected gas.left(): got=%s want=999", got)
@@ -1914,7 +1914,7 @@ contract Demo {
     set s = msg.sender;
     set o = tx.origin;
     set n = block.number;
-    set ts = block.timestamp;
+    set ts = block.timestamp_ms;
     set g = gas.left();
     return;
   }
@@ -1950,7 +1950,7 @@ contract Demo {
 		t.Fatalf("unexpected default block.number: got=%s want=0", got)
 	}
 	if got := LVAsString(L.GetGlobal("ts")); got != "0" {
-		t.Fatalf("unexpected default block.timestamp: got=%s want=0", got)
+		t.Fatalf("unexpected default block.timestamp_ms: got=%s want=0", got)
 	}
 	if got := LVAsString(L.GetGlobal("g")); got != "0" {
 		t.Fatalf("unexpected default gas.left: got=%s want=0", got)
@@ -3082,8 +3082,8 @@ contract Demo {
 	if err == nil {
 		t.Fatalf("expected UNKNOWN_SELECTOR error")
 	}
-	if !strings.Contains(err.Error(), "UNKNOWN_SELECTOR") {
-		t.Fatalf("unexpected error: %v", err)
+	if !strings.Contains(extractApiRevertMsg(err), "UNKNOWN_SELECTOR") {
+		t.Fatalf("unexpected error: %v", extractApiRevertMsg(err))
 	}
 }
 
@@ -3120,8 +3120,151 @@ contract Demo {
 	if err == nil {
 		t.Fatalf("expected custom error revert")
 	}
-	if !strings.Contains(err.Error(), "InsufficientBalance(7,9)") {
-		t.Fatalf("unexpected custom error revert payload: %v", err)
+	gotMsg := extractApiRevertMsg(err)
+	if !strings.Contains(gotMsg, "InsufficientBalance(7,9)") {
+		t.Fatalf("unexpected custom error revert payload: %v", gotMsg)
+	}
+}
+
+// TestRequireErrorSelector verifies that require(false, "bad") produces an error
+// with selector 0x08c379a0 (Error(string) ABI selector).
+func TestRequireErrorSelector(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract Demo {
+  function run() public {
+    require(false, "bad");
+  }
+}
+`)
+	bc, err := CompileBytecode(src, "<tol>")
+	if err != nil {
+		t.Fatalf("unexpected compile error: %v", err)
+	}
+	L := NewState()
+	defer L.Close()
+	if err := L.DoBytecode(bc); err != nil {
+		t.Fatalf("DoBytecode failed: %v", err)
+	}
+
+	tos := L.GetGlobal("tos")
+	oninvoke := L.GetField(tos, "oninvoke")
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("run()")))
+	err = L.PCall(1, 0, nil)
+	if err == nil {
+		t.Fatalf("expected require to revert")
+	}
+	apiErr, ok := err.(*ApiError)
+	if !ok {
+		t.Fatalf("expected ApiError, got %T", err)
+	}
+	tbl, ok := apiErr.Object.(*LTable)
+	if !ok {
+		t.Fatalf("expected error value to be a table, got %T (%v)", apiErr.Object, apiErr.Object)
+	}
+	sel := tbl.RawGetString("selector")
+	if sel.String() != "0x08c379a0" {
+		t.Fatalf("expected require selector 0x08c379a0, got %v", sel)
+	}
+	msg := tbl.RawGetString("msg")
+	if msg.String() != "bad" {
+		t.Fatalf("expected require msg 'bad', got %v", msg)
+	}
+}
+
+// TestAssertErrorSelector verifies that assert(false) produces an error
+// with selector 0x4e487b71 (Panic(uint256) ABI selector) and code=1.
+func TestAssertErrorSelector(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract Demo {
+  function run() public {
+    assert(false);
+  }
+}
+`)
+	bc, err := CompileBytecode(src, "<tol>")
+	if err != nil {
+		t.Fatalf("unexpected compile error: %v", err)
+	}
+	L := NewState()
+	defer L.Close()
+	if err := L.DoBytecode(bc); err != nil {
+		t.Fatalf("DoBytecode failed: %v", err)
+	}
+
+	tos := L.GetGlobal("tos")
+	oninvoke := L.GetField(tos, "oninvoke")
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("run()")))
+	err = L.PCall(1, 0, nil)
+	if err == nil {
+		t.Fatalf("expected assert to revert")
+	}
+	apiErr, ok := err.(*ApiError)
+	if !ok {
+		t.Fatalf("expected ApiError, got %T", err)
+	}
+	tbl, ok := apiErr.Object.(*LTable)
+	if !ok {
+		t.Fatalf("expected error value to be a table, got %T (%v)", apiErr.Object, apiErr.Object)
+	}
+	sel := tbl.RawGetString("selector")
+	if sel.String() != "0x4e487b71" {
+		t.Fatalf("expected assert selector 0x4e487b71, got %v", sel)
+	}
+	code := tbl.RawGetString("code")
+	if code.String() != "1" {
+		t.Fatalf("expected assert panic code 1, got %v", code)
+	}
+}
+
+// TestRevertErrorSelector verifies that revert "msg" produces an error
+// with selector 0x08c379a0 and the provided message, and that all three
+// error types (require/assert/revert) still cause the contract to revert.
+func TestRevertErrorSelector(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract Demo {
+  function run() public {
+    revert "something wrong";
+  }
+}
+`)
+	bc, err := CompileBytecode(src, "<tol>")
+	if err != nil {
+		t.Fatalf("unexpected compile error: %v", err)
+	}
+	L := NewState()
+	defer L.Close()
+	if err := L.DoBytecode(bc); err != nil {
+		t.Fatalf("DoBytecode failed: %v", err)
+	}
+
+	tos := L.GetGlobal("tos")
+	oninvoke := L.GetField(tos, "oninvoke")
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("run()")))
+	err = L.PCall(1, 0, nil)
+	if err == nil {
+		t.Fatalf("expected revert")
+	}
+	apiErr, ok := err.(*ApiError)
+	if !ok {
+		t.Fatalf("expected ApiError, got %T", err)
+	}
+	tbl, ok := apiErr.Object.(*LTable)
+	if !ok {
+		t.Fatalf("expected error value to be a table, got %T (%v)", apiErr.Object, apiErr.Object)
+	}
+	sel := tbl.RawGetString("selector")
+	if sel.String() != "0x08c379a0" {
+		t.Fatalf("expected revert selector 0x08c379a0, got %v", sel)
+	}
+	msg := tbl.RawGetString("msg")
+	if msg.String() != "something wrong" {
+		t.Fatalf("expected revert msg 'something wrong', got %v", msg)
 	}
 }
 

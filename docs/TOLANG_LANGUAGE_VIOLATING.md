@@ -16,7 +16,7 @@
 | 10 | Type aliases normalized at lex time | MINOR | 4 | **KEEP** | ✅ --strict flag added |
 | 11 | block.timestamp field naming inconsistency | MINOR | 2 | **FIX** | ✅ DONE |
 | 12 | ++/--, do-while, sub-denominations (tomi/gtomi/tos) | MINOR | 1 | **KEEP** | ✅ wei/gwei/ether replaced |
-| 13 | Solidity reserved keywords (23 unused) | MINOR | 8 | **KEEP** | — |
+| 13 | Solidity reserved keywords (23 unused) | MINOR | 8 | **KEEP** | ✅ pruned + Agent-Native added |
 | 14 | No formatter, no LSP, no source maps | MODERATE | 11 | **DEFER** | — |
 | 15 | using-for syntax enables implicit operator overloading | MODERATE | 4, 6 | **FIX** | ✅ DONE |
 | 16 | `set` keyword is optional for storage writes | MODERATE | 4, 5 | **FIX** | ✅ DONE |
@@ -397,6 +397,8 @@ Sub-denominations now use native TOS naming: `tomi` (base unit, 1), `gtomi` (1e9
 23 Solidity-reserved keywords (`after`, `alias`, `apply`, `auto`, `byte`, `case`, `copyof`, `default`, `define`, `final`, `implements`, `in`, `inline`, `macro`, `match`, `mutable`, `null`, `of`, `partial`, `promise`, `reference`, `relocatable`, `sealed`, `sizeof`, `static`, `supports`, `switch`, `typedef`, `typeof`, `var`) are reserved in TOL but serve no purpose.
 
 **Decision: KEEP**
+
+**✅ Improvement applied:** Pruned 13 unused C++-heritage keywords (`after`, `alias`, `apply`, `auto`, `copyof`, `define`, `inline`, `macro`, `mutable`, `of`, `partial`, `promise`, `reference`, `relocatable`, `sealed`, `supports`). Retained 14 useful Solidity keywords (`byte`, `case`, `default`, `final`, `implements`, `in`, `match`, `null`, `sizeof`, `static`, `switch`, `typedef`, `typeof`, `var`). Added 6 Agent-Native future keywords (`async`, `await`, `spawn`, `intent`, `session`, `attest`, `stream`). Domain nouns (`oracle`, `guardian`, `task`, `vote`, `stake`, `market`, etc.) are NOT reserved because they are commonly used as variable/parameter names.
 
 **Rationale:**
 

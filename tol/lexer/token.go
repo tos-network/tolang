@@ -71,7 +71,7 @@ const (
 	TokenKwPackage     // "package"
 	TokenKwTransient   // "transient"
 	TokenKwStruct      // "struct"
-	TokenReserved      // reserved Solidity keywords
+	TokenReserved      // reserved keywords (Solidity subset + Agent-Native future)
 	TokenKwConstructor
 	TokenKwFallback
 	TokenKwError
@@ -543,11 +543,16 @@ func keywordType(lit string) Type {
 		return TokenKwView
 	case "virtual":
 		return TokenKwVirtual
-	case "after", "alias", "apply", "auto", "byte", "case", "copyof",
-		"default", "define", "final", "implements", "in", "inline",
-		"macro", "match", "mutable", "null", "of", "partial", "promise",
-		"reference", "relocatable", "sealed", "sizeof", "static",
-		"supports", "switch", "typedef", "typeof", "var":
+	// Reserved keywords: Solidity-inherited (useful subset) + Agent-Native future keywords.
+	// Only reserve words likely to become language-level keywords (control flow, type
+	// system, concurrency). Domain nouns (oracle, guardian, task, etc.) are NOT reserved
+	// because they are commonly used as variable/parameter names.
+	case "byte", "case", "default", "final", "implements", "in",
+		"match", "null", "sizeof", "static", "switch", "typedef", "typeof", "var",
+		// Agent-Native reserved: concurrency primitives + verification keywords.
+		"async", "await", "spawn",
+		"intent", "session",
+		"attest", "stream":
 		return TokenReserved
 	default:
 		return TokenIdent

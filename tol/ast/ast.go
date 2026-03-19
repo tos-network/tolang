@@ -60,8 +60,8 @@ type ImportAlias struct {
 //	import { A, B } from "path";          — named imports
 //	import { A as AA, B } from "path";    — named imports with per-symbol aliases
 //	import * as X from "path";            — namespace import (star)
-//	import tos.registry.AgentRegistry;    — package import (dotted, NEW)
-//	import tos.registry.AgentRegistry as IRegistry; — package import with alias (NEW)
+//	import tolang.registry.AgentRegistry;    — package import (dotted, NEW)
+//	import tolang.registry.AgentRegistry as IRegistry; — package import with alias (NEW)
 type ImportDecl struct {
 	Name   string        // identifier to import (old-style "import Name from") or star-alias, or local alias for package imports
 	Alias  string        // as-alias (e.g. import "path" as Alias;)
@@ -70,8 +70,8 @@ type ImportDecl struct {
 	Named  []ImportAlias // named imports from "import { A, B as BB } from "path";"
 	IsStar bool          // true for "import * as X from "path";"
 	// Package import fields (IsPackageImport == true):
-	IsPackageImport bool   // true for "import tos.registry.AgentRegistry;" form
-	PackagePath     string // package path component, e.g. "tos.registry"
+	IsPackageImport bool   // true for "import tolang.registry.AgentRegistry;" form
+	PackagePath     string // package path component, e.g. "tolang.registry"
 	PackageContract string // contract/interface name, e.g. "AgentRegistry"
 }
 
@@ -86,7 +86,7 @@ type TypeDecl struct {
 // Module is the root node for a TOL source file.
 type Module struct {
 	Version           string
-	Package           string          // declared package path, e.g. "tos.registry"; empty if not declared
+	Package           string          // declared package path, e.g. "tolang.registry"; empty if not declared
 	Imports           []ImportDecl    // import declarations
 	SkippedTopDecls   []SkippedTopDecl
 	Interfaces        []InterfaceDecl // parsed interface declarations
@@ -219,8 +219,8 @@ type InterfaceDecl struct {
 	TypeDecls   []TypeDecl
 	UsingDecls  []UsingDecl
 	Constants   []ConstantDecl // compile-time constants (populated for package imports from contracts)
-	// Package origin (set when imported via "import tos.pkg.Contract;"):
-	PackageName  string // origin package path, e.g. "tos.registry"; empty for file imports
+	// Package origin (set when imported via "import tolang.pkg.Contract;"):
+	PackageName  string // origin package path, e.g. "tolang.registry"; empty for file imports
 	ContractName string // concrete contract name in the package, e.g. "AgentRegistry"
 }
 

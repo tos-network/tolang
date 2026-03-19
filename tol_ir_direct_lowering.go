@@ -207,7 +207,7 @@ type loweringEnv struct {
 	constantByName map[string]*tolast.Expr
 	// interfaceByName maps interface name → list of function signatures (for type(I).interfaceId).
 	interfaceByName map[string][]lower.InterfaceFuncSig
-	// packageByInterface maps interface local name → origin package path (e.g. "AgentRegistry" → "tos.registry").
+	// packageByInterface maps interface local name → origin package path (e.g. "AgentRegistry" → "tolang.registry").
 	packageByInterface map[string]string
 	// contractByInterface maps interface local name → concrete contract name (e.g. "IRegistry" → "AgentRegistry").
 	contractByInterface map[string]string
@@ -5275,7 +5275,7 @@ func lowerContractScopedCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, 
 			if _, isIface := ctx.env.interfaceByName[localType]; isIface {
 				return lowerInterfaceVarCall(ctx, scope, localType, fnName, e)
 			}
-			// Step 9a: handle fully-qualified type like "tos.registry.AgentRegistry".
+			// Step 9a: handle fully-qualified type like "tolang.registry.AgentRegistry".
 			// Fall back to looking up the last dot-segment as an interface name.
 			if strings.Contains(localType, ".") {
 				if idx := strings.LastIndex(localType, "."); idx > 0 {

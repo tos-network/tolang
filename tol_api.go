@@ -31,8 +31,8 @@ func (r *OSFileResolver) Resolve(importingFile string, importPath string, import
 	if strings.HasPrefix(importPath, "github.com/") {
 		return resolveGitHubImport(importPath, importName)
 	}
-	// Package-style dotted path (e.g. "tos.registry" with importName="AgentRegistry"):
-	// Convert "tos.registry" → directory "tos/registry/" and look for importName.{tol,abi,toc,tor}.
+	// Package-style dotted path (e.g. "tolang.registry" with importName="AgentRegistry"):
+	// Convert "tolang.registry" → directory "tolang/registry/" and look for importName.{tol,abi,toc,tor}.
 	if importName != "" && isPackageStylePath(importPath) {
 		return r.resolvePackagePath(importingFile, importPath, importName)
 	}
@@ -65,7 +65,7 @@ func (r *OSFileResolver) Resolve(importingFile string, importPath string, import
 }
 
 // isPackageStylePath reports whether importPath looks like a package namespace path
-// (e.g. "tos.registry") rather than a file path. A package path:
+// (e.g. "tolang.registry") rather than a file path. A package path:
 //   - contains at least one dot
 //   - has no file separators
 //   - has no file extension (doesn't end in .tol, .abi, etc.)
@@ -90,7 +90,7 @@ func isPackageStylePath(p string) bool {
 	return true
 }
 
-// resolvePackagePath resolves a package-style import path (e.g. pkgPath="tos.registry",
+// resolvePackagePath resolves a package-style import path (e.g. pkgPath="tolang.registry",
 // name="AgentRegistry") by converting the dotted path to a directory and looking for
 // name.{tol,toi,toc,tor} under that directory.
 func (r *OSFileResolver) resolvePackagePath(importingFile, pkgPath, name string) ([]byte, string, error) {
@@ -98,7 +98,7 @@ func (r *OSFileResolver) resolvePackagePath(importingFile, pkgPath, name string)
 	if base == "" {
 		base = filepath.Dir(importingFile)
 	}
-	// Convert dotted package path to filesystem directory: "tos.registry" → "tos/registry"
+	// Convert dotted package path to filesystem directory: "tolang.registry" → "tolang/registry"
 	dirPath := strings.ReplaceAll(pkgPath, ".", string(filepath.Separator))
 	dir := filepath.Join(base, dirPath)
 	// Try candidate filenames in preference order.

@@ -105,7 +105,7 @@ func (p *Parser) parseModule() *ast.Module {
 	// then take the first token that looks like a version number (digits + dots).
 	mod.Version = extractPragmaVersion(pragmaTokens)
 
-	// Optional package declaration: package tos.registry;
+	// Optional package declaration: package tolang.registry;
 	if p.cur.Type == lexer.TokenKwPackage {
 		p.next() // consume 'package'
 		mod.Package = p.parseDottedName()
@@ -1052,7 +1052,7 @@ func (p *Parser) parseWithStatement() (ast.Statement, bool) {
 //	import * as X from "path";       — namespace import (star)
 //	import Identifier from "path";   — old TOL-style (still accepted)
 // parseDottedName reads a dot-separated identifier sequence and returns the concatenated string.
-// Example: "tos" "." "registry" "." "AgentRegistry" → "tos.registry.AgentRegistry"
+// Example: "tos" "." "registry" "." "AgentRegistry" → "tolang.registry.AgentRegistry"
 // Requires at least one identifier. Stops when next token is not a dot followed by an ident.
 func (p *Parser) parseDottedName() string {
 	if p.cur.Type != lexer.TokenIdent {
@@ -1234,7 +1234,7 @@ func (p *Parser) parseImportDecl() *ast.ImportDecl {
 		return &ast.ImportDecl{Path: path, Named: named, Line: line}
 	}
 
-	// Package import form: import tos.registry.AgentRegistry [as LocalAlias];
+	// Package import form: import tolang.registry.AgentRegistry [as LocalAlias];
 	// Detected when an identifier is followed by a dot (dotted path) and no 'from'.
 	// Must have at least one dot: "import Foo;" without a dot is ambiguous with old style
 	// but we require 'from' for old style, so if no 'from' follows, treat as package import.
@@ -1256,12 +1256,12 @@ func (p *Parser) parseImportDecl() *ast.ImportDecl {
 				full += "." + p.cur.Literal
 				p.next() // consume ident
 			}
-			// Split on last dot: "tos.registry.AgentRegistry" → pkg="tos.registry", contract="AgentRegistry"
+			// Split on last dot: "tolang.registry.AgentRegistry" → pkg="tolang.registry", contract="AgentRegistry"
 			idx := strings.LastIndex(full, ".")
 			if idx <= 0 {
 				p.addDiag(diag.Diagnostic{
 					Code:    diag.CodeParseUnexpected,
-					Message: "package import requires a dotted path with at least two segments (e.g. tos.registry.AgentRegistry)",
+					Message: "package import requires a dotted path with at least two segments (e.g. tolang.registry.AgentRegistry)",
 					Span:    p.span(savedCur),
 				})
 				return nil
@@ -1269,7 +1269,7 @@ func (p *Parser) parseImportDecl() *ast.ImportDecl {
 			pkgPath := full[:idx]
 			contractName := full[idx+1:]
 			localName := contractName // default: local binding = contract name
-			// Optional alias: import tos.registry.AgentRegistry as IRegistry;
+			// Optional alias: import tolang.registry.AgentRegistry as IRegistry;
 			if p.cur.Type == lexer.TokenKwAs {
 				p.next() // consume 'as'
 				if p.cur.Type != lexer.TokenIdent {

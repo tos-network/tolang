@@ -112,7 +112,7 @@ pragmaToken
 // ============================================================
 // Package declaration  (TOL-specific)
 //
-//   package tos.registry;
+//   package tolang.registry;
 //   package com.example.myapp;
 //
 // Must appear at most once, immediately after the pragma directive.
@@ -133,12 +133,12 @@ packageDeclaration
 //   import {A, B as C} from "path";             — named symbols
 //   import * as Alias from "path";              — star alias
 //   import Name from "path";                    — legacy TOL form
-//   import tos.registry.AgentRegistry;          — package import  (TOL-specific)
-//   import tos.registry.AgentRegistry as IFoo;  — package import with alias  (TOL-specific)
+//   import tolang.registry.AgentRegistry;          — package import  (TOL-specific)
+//   import tolang.registry.AgentRegistry as IFoo;  — package import with alias  (TOL-specific)
 //
 // Package imports use a dotted identifier path (no string literal).
 // The last segment is the contract/interface name; the preceding segments
-// form the package path (e.g. "tos.registry").
+// form the package path (e.g. "tolang.registry").
 // The production resolver (tol_api.go OSFileResolver) maps the dotted path
 // to a filesystem location: tos/registry/AgentRegistry.{tol,toi,toc,tor}.
 // ============================================================

@@ -50,13 +50,13 @@ func TestBuildDiscoveryManifest(t *testing.T) {
 		Capabilities: []string{"token_send"},
 	}
 
-	dm := BuildDiscoveryManifest(meta, "tos.tokens.test")
+	dm := BuildDiscoveryManifest(meta, "tolang.tokens.test")
 
 	if dm.SchemaVersion != DiscoverySchemaVersion {
 		t.Errorf("SchemaVersion = %q, want %q", dm.SchemaVersion, DiscoverySchemaVersion)
 	}
-	if dm.PackageName != "tos.tokens.test" {
-		t.Errorf("PackageName = %q, want %q", dm.PackageName, "tos.tokens.test")
+	if dm.PackageName != "tolang.tokens.test" {
+		t.Errorf("PackageName = %q, want %q", dm.PackageName, "tolang.tokens.test")
 	}
 	if dm.PackageVersion != "1.0.0" {
 		t.Errorf("PackageVersion = %q, want %q", dm.PackageVersion, "1.0.0")

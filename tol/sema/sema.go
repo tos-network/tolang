@@ -126,7 +126,7 @@ func resolveImports(filename string, m *ast.Module, resolver FileResolver, diags
 		return diag.Span{File: filename, Start: diag.Position{Line: line, Column: 1}}
 	}
 	for _, imp := range m.Imports {
-		// --- Package import: "import tos.registry.AgentRegistry [as Alias];" ---
+		// --- Package import: "import tolang.registry.AgentRegistry [as Alias];" ---
 		if imp.IsPackageImport {
 			if resolver == nil {
 				*diags = append(*diags, diag.Diagnostic{
@@ -4709,7 +4709,7 @@ func validateTypeForContextWithStructs(filename, typeName, context string, allow
 			return
 		}
 	}
-	// Package-qualified types (e.g. "tos.registry.AgentRegistry") are accepted as valid.
+	// Package-qualified types (e.g. "tolang.registry.AgentRegistry") are accepted as valid.
 	// They represent contract/interface references resolved via package imports.
 	// Actual type validity is verified at IR lowering time.
 	if strings.Contains(norm, ".") && !strings.Contains(norm, "(") && !strings.Contains(norm, "[") {

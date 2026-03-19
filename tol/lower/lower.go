@@ -42,7 +42,7 @@ type InterfaceDecl struct {
 	Functions    []InterfaceFuncSig
 	Enums        []EnumDecl     // enum declarations (propagated from package imports)
 	Constants    []ConstantDecl // compile-time constants (propagated from package imports)
-	PackageName  string // origin package path, e.g. "tos.registry"; empty for file imports
+	PackageName  string // origin package path, e.g. "tolang.registry"; empty for file imports
 	ContractName string // concrete contract name in the package, e.g. "AgentRegistry"
 }
 
@@ -55,7 +55,7 @@ type InterfaceFuncSig struct {
 // Program is the backend-agnostic lowered form.
 type Program struct {
 	ContractName      string
-	PackageName       string // declared package path from source, e.g. "tos.registry"
+	PackageName       string // declared package path from source, e.g. "tolang.registry"
 	StorageSlots      []StorageSlot
 	Events            []Event
 	Errors            []ErrorDecl    // custom error declarations

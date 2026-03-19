@@ -13,7 +13,7 @@ import (
 func TestPackageImportParsing(t *testing.T) {
     src := `
 pragma tolang 0.2.0;
-package tos.registry;
+package tolang.registry;
 contract Registry {
     function get(bytes32 k) external returns (agent r) { return agent(0); }
 }
@@ -22,15 +22,15 @@ contract Registry {
     if diags.HasErrors() {
         t.Fatal("parse error:", diags)
     }
-    if mod.Package != "tos.registry" {
-        t.Errorf("expected package=tos.registry, got %q", mod.Package)
+    if mod.Package != "tolang.registry" {
+        t.Errorf("expected package=tolang.registry, got %q", mod.Package)
     }
 }
 
 func TestPackageImportDecl(t *testing.T) {
     src := `
 pragma tolang 0.2.0;
-import tos.registry.AgentRegistry;
+import tolang.registry.AgentRegistry;
 contract Caller {
     function resolve(agent pkgAddr, bytes32 name) external returns (agent r) {
         AgentRegistry reg = AgentRegistry(pkgAddr);
@@ -49,8 +49,8 @@ contract Caller {
     if !imp.IsPackageImport {
         t.Error("expected IsPackageImport=true")
     }
-    if imp.PackagePath != "tos.registry" {
-        t.Errorf("expected PackagePath=tos.registry, got %q", imp.PackagePath)
+    if imp.PackagePath != "tolang.registry" {
+        t.Errorf("expected PackagePath=tolang.registry, got %q", imp.PackagePath)
     }
     if imp.PackageContract != "AgentRegistry" {
         t.Errorf("expected PackageContract=AgentRegistry, got %q", imp.PackageContract)
@@ -63,7 +63,7 @@ contract Caller {
 func TestPackageImportWithAlias(t *testing.T) {
     src := `
 pragma tolang 0.2.0;
-import tos.registry.AgentRegistry as IRegistry;
+import tolang.registry.AgentRegistry as IRegistry;
 contract Caller {
     function foo(agent a) external returns (agent r) { return agent(0); }
 }
@@ -86,13 +86,13 @@ contract Caller {
 
 func TestPackageImportSemaResolution(t *testing.T) {
     modSrc := `pragma tolang 0.2.0;
-package tos.registry;
+package tolang.registry;
 contract AgentRegistry {
   function lookup(bytes32 name) external returns (agent addr) { return agent(0); }
 }
 `
     src := `pragma tolang 0.2.0;
-import tos.registry.AgentRegistry;
+import tolang.registry.AgentRegistry;
 contract Caller {
   function resolve(agent pkgAddr, bytes32 name) external returns (agent r) {
     AgentRegistry reg = AgentRegistry(pkgAddr);
@@ -100,8 +100,8 @@ contract Caller {
   }
 }
 `
-    os.MkdirAll("/tmp/toltest_pkg/tos/registry", 0755)
-    os.WriteFile("/tmp/toltest_pkg/tos/registry/AgentRegistry.tol", []byte(modSrc), 0644)
+    os.MkdirAll("/tmp/toltest_pkg/tolang/registry", 0755)
+    os.WriteFile("/tmp/toltest_pkg/tolang/registry/AgentRegistry.tol", []byte(modSrc), 0644)
     
     resolver := NewOSFileResolver("/tmp/toltest_pkg")
     mod, diags := parser.ParseFile("/tmp/toltest_pkg/Caller.tol", []byte(src))
@@ -118,8 +118,8 @@ contract Caller {
     found := false
     for _, iface := range typed.AST.Interfaces {
         if iface.Name == "AgentRegistry" {
-            if iface.PackageName != "tos.registry" {
-                t.Errorf("expected PackageName=tos.registry, got %q", iface.PackageName)
+            if iface.PackageName != "tolang.registry" {
+                t.Errorf("expected PackageName=tolang.registry, got %q", iface.PackageName)
             }
             if iface.ContractName != "AgentRegistry" {
                 t.Errorf("expected ContractName=AgentRegistry, got %q", iface.ContractName)
@@ -134,13 +134,13 @@ contract Caller {
 
 func TestPackageImportLoweringHasPackageInfo(t *testing.T) {
     modSrc := `pragma tolang 0.2.0;
-package tos.registry;
+package tolang.registry;
 contract AgentRegistry {
   function lookup(bytes32 name) external returns (agent addr) { return agent(0); }
 }
 `
     src := `pragma tolang 0.2.0;
-import tos.registry.AgentRegistry;
+import tolang.registry.AgentRegistry;
 contract Caller {
   function resolve(agent pkgAddr, bytes32 name) external returns (agent r) {
     AgentRegistry reg = AgentRegistry(pkgAddr);
@@ -148,8 +148,8 @@ contract Caller {
   }
 }
 `
-    os.MkdirAll("/tmp/toltest_pkg/tos/registry", 0755)
-    os.WriteFile("/tmp/toltest_pkg/tos/registry/AgentRegistry.tol", []byte(modSrc), 0644)
+    os.MkdirAll("/tmp/toltest_pkg/tolang/registry", 0755)
+    os.WriteFile("/tmp/toltest_pkg/tolang/registry/AgentRegistry.tol", []byte(modSrc), 0644)
     
     resolver := NewOSFileResolver("/tmp/toltest_pkg")
     mod, diags := parser.ParseFile("/tmp/toltest_pkg/Caller.tol", []byte(src))
@@ -169,8 +169,8 @@ contract Caller {
     found := false
     for _, iface := range prog.Interfaces {
         if iface.Name == "AgentRegistry" {
-            if iface.PackageName != "tos.registry" {
-                t.Errorf("lowered: expected PackageName=tos.registry, got %q", iface.PackageName)
+            if iface.PackageName != "tolang.registry" {
+                t.Errorf("lowered: expected PackageName=tolang.registry, got %q", iface.PackageName)
             }
             if iface.ContractName != "AgentRegistry" {
                 t.Errorf("lowered: expected ContractName=AgentRegistry, got %q", iface.ContractName)
@@ -193,7 +193,7 @@ contract Caller {
 func TestQualifiedConstantAccess(t *testing.T) {
 	// Provider contract with constants and enums
 	providerSrc := `pragma tolang 0.2.0;
-package tos.registry;
+package tolang.registry;
 contract AgentRegistry {
   constant MAX_FEE: uint256 = 1000;
   enum Kind { Free, Pro, Enterprise }
@@ -202,7 +202,7 @@ contract AgentRegistry {
 `
 	// Caller uses qualified constant and enum access
 	callerSrc := `pragma tolang 0.2.0;
-import tos.registry.AgentRegistry;
+import tolang.registry.AgentRegistry;
 contract Caller {
   function getFee() external returns (uint256 f) {
     uint256 fee = AgentRegistry.MAX_FEE;
@@ -214,8 +214,8 @@ contract Caller {
   }
 }
 `
-	os.MkdirAll("/tmp/toltest_qual/tos/registry", 0755)
-	os.WriteFile("/tmp/toltest_qual/tos/registry/AgentRegistry.tol", []byte(providerSrc), 0644)
+	os.MkdirAll("/tmp/toltest_qual/tolang/registry", 0755)
+	os.WriteFile("/tmp/toltest_qual/tolang/registry/AgentRegistry.tol", []byte(providerSrc), 0644)
 
 	resolver := NewOSFileResolver("/tmp/toltest_qual")
 	mod, diags := parser.ParseFile("/tmp/toltest_qual/Caller.tol", []byte(callerSrc))
@@ -261,7 +261,7 @@ contract Caller {
 
 func TestPackageImportManifest(t *testing.T) {
     src := `pragma tolang 0.2.0;
-package tos.registry;
+package tolang.registry;
 contract Registry {
   function get(bytes32 k) external returns (agent r) { return agent(0); }
 }
@@ -275,12 +275,12 @@ contract Registry {
         t.Fatal("DecodePackage error:", err)
     }
     // Check manifest has "package" field
-    if !strings.Contains(string(pkg.ManifestJSON), `"package":"tos.registry"`) {
+    if !strings.Contains(string(pkg.ManifestJSON), `"package":"tolang.registry"`) {
         t.Errorf("manifest does not contain package field, got: %s", pkg.ManifestJSON)
     }
     // Check pkgName was set from package declaration
-    if !strings.Contains(string(pkg.ManifestJSON), `"name":"tos.registry"`) {
-        t.Errorf("manifest name should be tos.registry, got: %s", pkg.ManifestJSON)
+    if !strings.Contains(string(pkg.ManifestJSON), `"name":"tolang.registry"`) {
+        t.Errorf("manifest name should be tolang.registry, got: %s", pkg.ManifestJSON)
     }
 }
 

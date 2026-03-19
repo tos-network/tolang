@@ -4577,9 +4577,9 @@ func TestCheckSuperCallWithoutBases(t *testing.T) {
 	}
 }
 
-// TestDeprecationWarningsVirtualOverride verifies that virtual and override still
-// emit deprecation warnings while plain interface implementation remains allowed.
-func TestDeprecationWarningsVirtualOverride(t *testing.T) {
+// TestLegacyVirtualOverrideRejected verifies that virtual and override are now
+// hard errors rather than warnings.
+func TestLegacyVirtualOverrideRejected(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
 		Interfaces: []ast.InterfaceDecl{
@@ -4605,8 +4605,8 @@ func TestDeprecationWarningsVirtualOverride(t *testing.T) {
 		},
 	}
 	_, diags := Check("<test>", m)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected errors: %v", diags)
+	if !diags.HasErrors() {
+		t.Fatalf("expected errors for legacy virtual/override")
 	}
 	wantCodes := map[string]bool{
 		"TOL2317": false, // virtual
@@ -4614,23 +4614,22 @@ func TestDeprecationWarningsVirtualOverride(t *testing.T) {
 	}
 	for _, d := range diags {
 		if _, ok := wantCodes[d.Code]; ok {
-			if d.Severity != diag.SeverityWarning {
-				t.Errorf("diagnostic %s should be a warning, got severity %d", d.Code, d.Severity)
+			if d.Severity != diag.SeverityError {
+				t.Errorf("diagnostic %s should be an error, got severity %d", d.Code, d.Severity)
 			}
 			wantCodes[d.Code] = true
 		}
 	}
 	for code, found := range wantCodes {
 		if !found {
-			t.Errorf("expected deprecation warning %s not found in diagnostics: %v", code, diags)
+			t.Errorf("expected legacy rejection diagnostic %s not found in diagnostics: %v", code, diags)
 		}
 	}
 }
 
-// TestDeprecationWarningInterfaceImplementationNoWarning verifies that implementing an
-// interface (contract Foo is IBar) does NOT emit deprecation warnings when virtual/override
-// are not used.
-func TestDeprecationWarningInterfaceImplementationNoWarning(t *testing.T) {
+// TestInterfaceImplementationNoLegacyDiagnostics verifies that plain interface
+// implementation does not trigger legacy inheritance diagnostics.
+func TestInterfaceImplementationNoLegacyDiagnostics(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
 		Interfaces: []ast.InterfaceDecl{
@@ -4659,10 +4658,10 @@ func TestDeprecationWarningInterfaceImplementationNoWarning(t *testing.T) {
 	if diags.HasErrors() {
 		t.Fatalf("unexpected errors: %v", diags)
 	}
-	// No deprecation warnings should be emitted for plain interface implementation.
+	// No legacy inheritance diagnostics should be emitted for plain interface implementation.
 	for _, d := range diags {
 		if d.Code == "TOL2317" || d.Code == "TOL2318" || d.Code == "TOL2319" {
-			t.Errorf("unexpected deprecation warning %s for interface implementation: %s", d.Code, d.Message)
+			t.Errorf("unexpected legacy inheritance diagnostic %s for interface implementation: %s", d.Code, d.Message)
 		}
 	}
 }
@@ -6348,9 +6347,9 @@ func TestCheckFieldAccessOnNonStruct(t *testing.T) {
 
 // --- Abstract contract tests ---
 
-// TestCheckAbstractContractAccepted: abstract contract with a virtual stub function
-// (Virtual==true, Body==nil) should produce no errors.
-func TestCheckAbstractContractAccepted(t *testing.T) {
+// TestCheckAbstractContractVirtualStubRejected: abstract contracts are still parsed,
+// but virtual stubs are no longer semantically supported.
+func TestCheckAbstractContractVirtualStubRejected(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
 		Contract: &ast.ContractDecl{
@@ -6369,8 +6368,11 @@ func TestCheckAbstractContractAccepted(t *testing.T) {
 		},
 	}
 	_, diags := Check("<test>", m)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics for valid abstract contract: %v", diags)
+	if !diags.HasErrors() {
+		t.Fatalf("expected error for abstract contract virtual stub")
+	}
+	if !strings.Contains(diags.Error(), "TOL2317") {
+		t.Fatalf("expected TOL2317, got: %v", diags)
 	}
 }
 
@@ -6421,8 +6423,9 @@ func TestCheckAbstractContractBaseRejected(t *testing.T) {
 						Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
 						Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
 						Modifiers: []string{"public"},
-						Virtual:   true,
-						Body:      nil,
+						Body: []ast.Statement{
+							{Kind: "return", Expr: &ast.Expr{Kind: "ident", Value: "true"}},
+						},
 					},
 				},
 			},

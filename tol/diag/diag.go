@@ -11,54 +11,54 @@ const (
 )
 
 const (
-	CodeParseUnexpected          = "TOL1001"
-	CodeParseUnsupported         = "TOL1002"
-	CodeSemaUnsupportedVer       = "TOL2001"
-	CodeSemaMissingContract      = "TOL2002"
-	CodeSemaDuplicateSlot        = "TOL2003"
-	CodeSemaDuplicateFunction    = "TOL2004"
-	CodeSemaCtorParams           = "TOL2005"
-	CodeSemaBreakOutsideLoop     = "TOL2006"
-	CodeSemaContinueOutsideLoop  = "TOL2007"
-	CodeSemaInvalidSetTarget     = "TOL2008"
-	CodeSemaMissingCondition     = "TOL2009"
-	CodeSemaInvalidSelector      = "TOL2010"
-	CodeSemaDuplicateSelector    = "TOL2011"
-	CodeSemaInvalidSelectorExpr  = "TOL2012"
-	CodeSemaSelectorTarget       = "TOL2013"
-	CodeSemaInvalidFnModifier    = "TOL2014"
-	CodeSemaConflictingModifier  = "TOL2015"
-	CodeSemaDuplicateParam       = "TOL2016"
-	CodeSemaInvalidReturn        = "TOL2017"
-	CodeSemaStorageAccess        = "TOL2018"
-	CodeSemaCallArity            = "TOL2019"
-	CodeSemaInvalidAssignExpr    = "TOL2020"
-	CodeSemaInvalidStmtShape     = "TOL2021"
-	CodeSemaInvalidRevert        = "TOL2022"
-	CodeSemaEmitArity            = "TOL2023"
-	CodeSemaDuplicateEvent       = "TOL2024"
-	CodeSemaUnknownEmitEvent     = "TOL2025"
-	CodeSemaNameCollision        = "TOL2026"
-	CodeSemaSelectorVisibility   = "TOL2027"
-	CodeSemaDuplicateLocal       = "TOL2028"
-	CodeSemaParamReturnCollision = "TOL2029"
-	CodeSemaUnreachableStmt      = "TOL2030"
-	CodeSemaUnknownCallTarget    = "TOL2031"
-	CodeSemaCallVisibility       = "TOL2032"
-	CodeSemaReservedName         = "TOL2033"
-	CodeSemaInvalidTypeBoundsType   = "TOL2034"
-	CodeSemaTestInNonTestFile       = "TOL2035"
-	CodeSemaInvalidTestFnName       = "TOL2036"
-	CodeSemaInspectInNonTestFile    = "TOL2037"
-	CodeSemaUnknownModifier         = "TOL2038"
-	CodeSemaDuplicateModifier       = "TOL2039"
-	CodeSemaModifierPlaceholder     = "TOL2040"
-	CodeSemaInheritCycle            = "TOL2041"
-	CodeSemaInheritC3Conflict       = "TOL2042"
-	CodeSemaUnknownBase             = "TOL2043"
-	CodeSemaInterfaceNotImpl        = "TOL2044"
-	CodeSemaOverrideSigMismatch     = "TOL2045"
-	CodeSemaInvalidSuperCall        = "TOL2046"
+	CodeParseUnexpected           = "TOL1001"
+	CodeParseUnsupported          = "TOL1002"
+	CodeSemaUnsupportedVer        = "TOL2001"
+	CodeSemaMissingContract       = "TOL2002"
+	CodeSemaDuplicateSlot         = "TOL2003"
+	CodeSemaDuplicateFunction     = "TOL2004"
+	CodeSemaCtorParams            = "TOL2005"
+	CodeSemaBreakOutsideLoop      = "TOL2006"
+	CodeSemaContinueOutsideLoop   = "TOL2007"
+	CodeSemaInvalidSetTarget      = "TOL2008"
+	CodeSemaMissingCondition      = "TOL2009"
+	CodeSemaInvalidSelector       = "TOL2010"
+	CodeSemaDuplicateSelector     = "TOL2011"
+	CodeSemaInvalidSelectorExpr   = "TOL2012"
+	CodeSemaSelectorTarget        = "TOL2013"
+	CodeSemaInvalidFnModifier     = "TOL2014"
+	CodeSemaConflictingModifier   = "TOL2015"
+	CodeSemaDuplicateParam        = "TOL2016"
+	CodeSemaInvalidReturn         = "TOL2017"
+	CodeSemaStorageAccess         = "TOL2018"
+	CodeSemaCallArity             = "TOL2019"
+	CodeSemaInvalidAssignExpr     = "TOL2020"
+	CodeSemaInvalidStmtShape      = "TOL2021"
+	CodeSemaInvalidRevert         = "TOL2022"
+	CodeSemaEmitArity             = "TOL2023"
+	CodeSemaDuplicateEvent        = "TOL2024"
+	CodeSemaUnknownEmitEvent      = "TOL2025"
+	CodeSemaNameCollision         = "TOL2026"
+	CodeSemaSelectorVisibility    = "TOL2027"
+	CodeSemaDuplicateLocal        = "TOL2028"
+	CodeSemaParamReturnCollision  = "TOL2029"
+	CodeSemaUnreachableStmt       = "TOL2030"
+	CodeSemaUnknownCallTarget     = "TOL2031"
+	CodeSemaCallVisibility        = "TOL2032"
+	CodeSemaReservedName          = "TOL2033"
+	CodeSemaInvalidTypeBoundsType = "TOL2034"
+	CodeSemaTestInNonTestFile     = "TOL2035"
+	CodeSemaInvalidTestFnName     = "TOL2036"
+	CodeSemaInspectInNonTestFile  = "TOL2037"
+	CodeSemaUnknownModifier       = "TOL2038"
+	CodeSemaDuplicateModifier     = "TOL2039"
+	CodeSemaModifierPlaceholder   = "TOL2040"
+	CodeSemaInheritCycle          = "TOL2041"
+	CodeSemaInheritC3Conflict     = "TOL2042"
+	CodeSemaUnknownBase           = "TOL2043"
+	CodeSemaInterfaceNotImpl      = "TOL2044"
+	CodeSemaOverrideSigMismatch   = "TOL2045"
+	CodeSemaInvalidSuperCall      = "TOL2046"
 
 	// Effect / mutability enforcement (P-new).
 	CodeSemaPureFunctionStorageRead  = "TOL2050"
@@ -72,18 +72,18 @@ const (
 	CodeSemaNonPayableMsgValue       = "TOL2058"
 	CodeSemaUninitializedRead        = "TOL2060"
 
-	CodeSemaInvalidDeleteTarget     = "TOL2061"
+	CodeSemaInvalidDeleteTarget = "TOL2061"
 
 	// Try/catch error handling.
-	CodeSemaTryNonCall              = "TOL2062"
-	CodeSemaDuplicateCatch          = "TOL2063"
+	CodeSemaTryNonCall     = "TOL2062"
+	CodeSemaDuplicateCatch = "TOL2063"
 
 	// Struct types.
-	CodeSemaDuplicateStruct         = "TOL2064"
-	CodeSemaUnknownStructType       = "TOL2065"
-	CodeSemaStructLiteralArity      = "TOL2066"
-	CodeSemaStructLiteralUnknown    = "TOL2067"
-	CodeSemaStructFieldNotFound     = "TOL2068"
+	CodeSemaDuplicateStruct      = "TOL2064"
+	CodeSemaUnknownStructType    = "TOL2065"
+	CodeSemaStructLiteralArity   = "TOL2066"
+	CodeSemaStructLiteralUnknown = "TOL2067"
+	CodeSemaStructFieldNotFound  = "TOL2068"
 
 	// Abstract contracts.
 	CodeSemaAbstractFunctionInConcreteContract  = "TOL2069"
@@ -101,10 +101,10 @@ const (
 	CodeSemaImmutableNotAssigned      = "TOL2082" // immutable never assigned in constructor
 
 	// type(I).interfaceId and payable(...) checks.
-	CodeSemaInterfaceIdUnknown      = "TOL2083" // type(I).interfaceId: I is not a known interface
-	CodeSemaPayableArity            = "TOL2084" // payable(...) arity error
-	CodeSemaTransferOnNonPayable    = "TOL2085" // .transfer()/.send() called on non-payable address
-	CodeSemaBytesEqualityOperator   = "TOL2086" // == / != on bytes/string; use bytes_eq/string_eq
+	CodeSemaInterfaceIdUnknown    = "TOL2083" // type(I).interfaceId: I is not a known interface
+	CodeSemaPayableArity          = "TOL2084" // payable(...) arity error
+	CodeSemaTransferOnNonPayable  = "TOL2085" // .transfer()/.send() called on non-payable address
+	CodeSemaBytesEqualityOperator = "TOL2086" // == / != on bytes/string; use bytes_eq/string_eq
 
 	// Import resolution errors.
 	CodeSemaImportNoResolver   = "TOL2090" // import used but no resolver provided
@@ -132,18 +132,18 @@ const (
 	CodeWarnYearsUnit = "TOL4820" // 'years' unit denomination is deprecated (Solidity 4820)
 
 	// Effect annotation diagnostics (TOL2200–TOL2209)
-	CodeEffectUndeclared     = "TOL2200" // inferred effect not covered by declared effect set
-	CodeEffectGasUnbounded   = "TOL2201" // @gas(upper: ...) declared but function is UNBOUNDED
-	CodeEffectGasTooLow      = "TOL2202" // declared @gas(upper: N) < inferred conservative upper bound
+	CodeEffectUndeclared        = "TOL2200" // inferred effect not covered by declared effect set
+	CodeEffectGasUnbounded      = "TOL2201" // @gas(upper: ...) declared but function is UNBOUNDED
+	CodeEffectGasTooLow         = "TOL2202" // declared @gas(upper: N) < inferred conservative upper bound
 	CodeEffectEmptyCalls        = "TOL2204" // @effects(calls: []) declared but external call found in IR
 	CodeEffectSelectorNoSite    = "TOL2205" // @effects(calls: ...) declared selector has no matching IR call site
 	CodeEffectGuardMissing      = "TOL2206" // function uses modifier but @effects does not declare it in guards:
 	CodeEffectTotalCostExceeded = "TOL2209" // @total_cost(max) inconsistent with @gas and @pay
 
 	// Agent-native diagnostics (TOL2300–TOL2315)
-	CodeAgentCapabilityDup          = "TOL2300" // capability already declared in this contract
-	CodeAgentPurposeDup             = "TOL2301" // purpose already declared in this contract
-	CodeAgentRequiresUnknownCap     = "TOL2302" // @requires references undeclared capability
+	CodeAgentCapabilityDup      = "TOL2300" // capability already declared in this contract
+	CodeAgentPurposeDup         = "TOL2301" // purpose already declared in this contract
+	CodeAgentRequiresUnknownCap = "TOL2302" // @requires references undeclared capability
 	// RESERVED: TOL2303 (was oracle<T> type check — intrinsic removed)
 	// RESERVED: TOL2304 (was vote<T> type check — intrinsic removed)
 	// RESERVED: TOL2305 (was task<T> type check — intrinsic removed)
@@ -157,16 +157,16 @@ const (
 	CodeAgentCapabilityNameNotLit   = "TOL2313" // capability name must be a string literal
 	CodeAgentVerifiableNonPure      = "TOL2314" // @verifiable requires pure or view function
 	// RESERVED: TOL2315 (was task state transition check — intrinsic removed)
-	CodeAgentMissingValidate        = "TOL2316" // account contract missing validate(bytes32,bytes)→bool
+	CodeAgentMissingValidate = "TOL2316" // account contract missing validate(bytes32,bytes)→bool
 
-	// Inheritance deprecation warnings.
-	CodeWarnVirtualDeprecated  = "TOL2317" // 'virtual' modifier is deprecated
-	CodeWarnOverrideDeprecated = "TOL2318" // 'override' modifier is deprecated
-	CodeWarnSuperDeprecated    = "TOL2319" // 'super' calls are deprecated
+	// Legacy inheritance diagnostics (historically warnings; now rejected or reserved).
+	CodeWarnVirtualDeprecated  = "TOL2317" // 'virtual' modifier is rejected
+	CodeWarnOverrideDeprecated = "TOL2318" // 'override' modifier is rejected
+	CodeWarnSuperDeprecated    = "TOL2319" // RESERVED legacy warning code for 'super'
 
-	CodeLowerNotImplemented      = "TOL3001"
-	CodeLowerUnsupportedFeature  = "TOL3002"
-	CodeCodegenNotImplemented    = "TOL4001"
+	CodeLowerNotImplemented     = "TOL3001"
+	CodeLowerUnsupportedFeature = "TOL3002"
+	CodeCodegenNotImplemented   = "TOL4001"
 )
 
 // Position describes a line/column position in a source file.

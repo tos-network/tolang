@@ -7191,11 +7191,13 @@ func TestAbstractContractBaseRejected(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 abstract contract Base {
-    function compute(u256 x) public virtual returns (u256 result) ;
+    function compute(u256 x) public returns (u256 result) {
+        return x + 1;
+    }
 }
 contract Token is Base {
     function compute(u256 x) public returns (u256 result) {
-        return x + 1;
+        return x + 2;
     }
     function run(u256 v) public {
         u256 r = this.compute(v);

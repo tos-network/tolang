@@ -971,21 +971,19 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 		modifierSeen[name] = struct{}{}
 		contractSupportSeen[name] = "modifier"
 		userModifiers[name] = md
-		// Deprecation warnings for virtual and override on modifier declarations.
+		// Legacy inheritance modifiers are now hard errors.
 		if md.Virtual {
 			*diags = append(*diags, diag.Diagnostic{
-				Code:     diag.CodeWarnVirtualDeprecated,
-				Message:  "'virtual' modifier is deprecated; TOL contracts should use interface implementation instead of polymorphic dispatch",
-				Span:     defaultSpan(filename),
-				Severity: diag.SeverityWarning,
+				Code:    diag.CodeWarnVirtualDeprecated,
+				Message: "'virtual' is not supported; use interfaces plus composition/library instead of polymorphic dispatch",
+				Span:    defaultSpan(filename),
 			})
 		}
 		if md.Override {
 			*diags = append(*diags, diag.Diagnostic{
-				Code:     diag.CodeWarnOverrideDeprecated,
-				Message:  "'override' modifier is deprecated; use interface implementation (contract Foo is IBar) instead",
-				Span:     defaultSpan(filename),
-				Severity: diag.SeverityWarning,
+				Code:    diag.CodeWarnOverrideDeprecated,
+				Message: "'override' is not supported; use explicit interface implementation plus composition/library instead",
+				Span:    defaultSpan(filename),
 			})
 		}
 	}
@@ -1096,13 +1094,12 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 				slotSeen[slot.Name] = struct{}{}
 				slotInfos[slot.Name] = buildStorageSlotInfo(slot)
 			}
-			// Deprecation warning for override on storage slots.
+			// Legacy inheritance modifiers are now hard errors.
 			if slot.Override {
 				*diags = append(*diags, diag.Diagnostic{
-					Code:     diag.CodeWarnOverrideDeprecated,
-					Message:  "'override' modifier is deprecated; use interface implementation (contract Foo is IBar) instead",
-					Span:     defaultSpan(filename),
-					Severity: diag.SeverityWarning,
+					Code:    diag.CodeWarnOverrideDeprecated,
+					Message: "'override' is not supported; storage slots must not participate in inheritance-based override chains",
+					Span:    defaultSpan(filename),
 				})
 			}
 		}
@@ -1277,21 +1274,19 @@ func checkOneContract(filename string, m *ast.Module, c *ast.ContractDecl, topSe
 				Span:    defaultSpan(filename),
 			})
 		}
-		// Deprecation warnings for virtual and override modifiers.
+		// Legacy inheritance modifiers are now hard errors.
 		if fn.Virtual {
 			*diags = append(*diags, diag.Diagnostic{
-				Code:     diag.CodeWarnVirtualDeprecated,
-				Message:  "'virtual' modifier is deprecated; TOL contracts should use interface implementation instead of polymorphic dispatch",
-				Span:     defaultSpan(filename),
-				Severity: diag.SeverityWarning,
+				Code:    diag.CodeWarnVirtualDeprecated,
+				Message: "'virtual' is not supported; use interfaces plus composition/library instead of polymorphic dispatch",
+				Span:    defaultSpan(filename),
 			})
 		}
 		if fn.Override {
 			*diags = append(*diags, diag.Diagnostic{
-				Code:     diag.CodeWarnOverrideDeprecated,
-				Message:  "'override' modifier is deprecated; use interface implementation (contract Foo is IBar) instead",
-				Span:     defaultSpan(filename),
-				Severity: diag.SeverityWarning,
+				Code:    diag.CodeWarnOverrideDeprecated,
+				Message: "'override' is not supported; use explicit interface implementation plus composition/library instead",
+				Span:    defaultSpan(filename),
 			})
 		}
 		*diags = append(*diags, duplicateParamDiagnostics(filename, "function", fn.Name, fn.Params)...)

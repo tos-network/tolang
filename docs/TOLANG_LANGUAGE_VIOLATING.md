@@ -201,14 +201,14 @@ Interface conformance is still useful. Polymorphic inheritance is not.
 - **Supported and intended:** interface implementation, including multiple interfaces, e.g. `contract Foo is IBar, IBaz { ... }`
 - **Rejected:** base contracts, abstract contracts, and constructor-style base arguments in the `is` clause
 - **Rejected:** `super` calls and C3 linearization-based dispatch
-- **Deprecated but still parsed:** `virtual` and `override` (warning-only legacy syntax)
+- **Rejected at sema:** `virtual` and `override` (still parsed for migration diagnostics, but compilation fails)
 - **Replacement direction:** composition, libraries, and explicit capability references
 
 **Plan:**
 
 Phase 1 (short-term): **Deprecate** `virtual`, `override`, and `super` keywords with compiler warnings. Document that inheritance is supported only for **interface implementation** (contract implements interface), not for polymorphic hierarchies.
 
-Phase 2 (medium-term): **Restrict** inheritance to interface implementation only: `contract Foo is IBar, IBaz { }` where each base must be an interface. Remove contract/abstract-contract bases, constructor-style base arguments, C3 linearization, and `super`.
+Phase 2 (medium-term): **Restrict** inheritance to interface implementation only: `contract Foo is IBar, IBaz { }` where each base must be an interface. Remove contract/abstract-contract bases, constructor-style base arguments, C3 linearization, `super`, and legacy `virtual`/`override` usage.
 
 Phase 3 (long-term): Replace inheritance with **composition + capability references**. A contract that needs "base" behavior imports a library.
 
@@ -218,19 +218,22 @@ Phase 3 (long-term): Replace inheritance with **composition + capability referen
 2. **Removed C3-based inheritance semantics** from the active sema path. Multiple interfaces are treated as a flat required surface, not an inheritance hierarchy.
 3. **Rejected `super` at sema level** — `super.method()` now emits TOL2046 with guidance to use explicit library/helper calls or composition.
 4. **Rejected constructor-style base arguments in parser** — `contract Foo is Base(1, 2)` now emits a parse error and suggests interfaces + composition/library.
-5. **Stopped lowering `super`** — the lowering path that rewrote `super.fn(args)` to a direct call was removed.
-6. **Interface implementation remains supported** — single and multiple interface implementation continue to compile cleanly.
-7. **Tests updated** — sema/API/parser coverage now expects interface-only `is` clauses and rejects abstract/contract bases plus `super`.
+5. **Rejected `virtual` / `override` at sema level** — the parser still accepts them for migration diagnostics, but compilation now fails with TOL2317 / TOL2318.
+6. **Stopped lowering `super`** — the lowering path that rewrote `super.fn(args)` to a direct call was removed.
+7. **Interface implementation remains supported** — single and multiple interface implementation continue to compile cleanly.
+8. **Tests and examples updated** — sema/API/parser coverage now expects interface-only `is` clauses; abstract-contract examples are retained only where they intentionally verify rejection or parser compatibility.
 
 **Author guidance:**
 
 - Use interfaces to express ABI conformance and callable surface area.
 - Move reusable behavior into libraries or helper contracts called explicitly.
-- Treat `virtual`/`override` syntax as legacy and avoid introducing new uses.
+- Do not introduce `virtual` / `override`; they now fail compilation.
 
 **Files changed:**
 - `tol/parser/parser.go` — rejects constructor-style base arguments in the `is` clause
 - `tol/sema/inherit.go` — interface-only conformance checks; `super` now rejected
+- `tol/sema/sema.go` — `virtual` / `override` upgraded from warnings to hard errors
+- `tol/diag/diag.go` — legacy inheritance diagnostic comments updated to reflect current status
 - `tol_ir_direct_lowering.go` — removed legacy `super` lowering path
 - `tol/sema/sema_test.go`, `tol/parser/parser_test.go`, `tol_api_test.go` — updated for interface-only `is` semantics
 

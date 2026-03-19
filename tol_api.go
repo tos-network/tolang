@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/tos-network/tolang/tol/ast"
+	"github.com/tos-network/tolang/tol/diag"
 	"github.com/tos-network/tolang/tol/lower"
 	"github.com/tos-network/tolang/tol/parser"
 	"github.com/tos-network/tolang/tol/sema"
@@ -359,17 +360,35 @@ func abiDeclaresName(src []byte, name string) bool {
 }
 
 
-// CompileOptions controls bytecode debug metadata emission.
+// CompileOptions controls bytecode compilation behavior.
 type CompileOptions struct {
 	// IncludeSourceMap controls whether debug metadata (source map / line table /
 	// local/call/upvalue debug sections) is embedded in output bytecode.
 	// Default is true for backward compatibility.
 	IncludeSourceMap bool
+	// Strict rejects Solidity type aliases (uint256, int128, etc.) and requires
+	// canonical TOL types (u256, i128, etc.) only.
+	Strict bool
 }
 
 // ParseModule parses TOL source into a syntax tree.
 func ParseModule(source []byte, name string) (*ast.Module, error) {
-	mod, diags := parser.ParseFile(name, source)
+	return parseModule(source, name, false)
+}
+
+// ParseModuleStrict parses in strict mode (rejects Solidity type aliases).
+func ParseModuleStrict(source []byte, name string) (*ast.Module, error) {
+	return parseModule(source, name, true)
+}
+
+func parseModule(source []byte, name string, strict bool) (*ast.Module, error) {
+	var mod *ast.Module
+	var diags diag.Diagnostics
+	if strict {
+		mod, diags = parser.ParseFileStrict(name, source)
+	} else {
+		mod, diags = parser.ParseFile(name, source)
+	}
 	if diags.HasErrors() {
 		return nil, diags
 	}
@@ -408,7 +427,20 @@ func CompileBytecode(source []byte, name string) ([]byte, error) {
 // CompileBytecodeWithOptions compiles TOL source into deterministic
 // bytecode with configurable debug metadata emission.
 func CompileBytecodeWithOptions(source []byte, name string, opts *CompileOptions) ([]byte, error) {
-	irp, err := BuildIR(source, name)
+	strict := opts != nil && opts.Strict
+	mod, err := parseModule(source, name, strict)
+	if err != nil {
+		return nil, err
+	}
+	typed, diags := sema.CheckWithResolver(name, mod, NewOSFileResolver(filepath.Dir(name)))
+	if diags.HasErrors() {
+		return nil, diags
+	}
+	prog, lerr := lower.FromTyped(typed)
+	if lerr != nil {
+		return nil, lerr
+	}
+	irp, err := BuildIRFromLowered(prog, name)
 	if err != nil {
 		return nil, err
 	}

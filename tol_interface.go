@@ -12,6 +12,7 @@ import (
 type InterfaceOptions struct {
 	InterfaceName string // interface name to emit (defaults to "I"+ContractName)
 	ContractName  string // which contract to render (defaults to first contract in module)
+	Strict        bool   // reject Solidity type aliases
 }
 
 // CompileInterface compiles TOL source into a textual .abi interface declaration.
@@ -21,7 +22,8 @@ func CompileInterface(source []byte, name string) ([]byte, error) {
 
 // CompileInterfaceWithOptions compiles TOL source into textual .abi with options.
 func CompileInterfaceWithOptions(source []byte, name string, opts *InterfaceOptions) ([]byte, error) {
-	mod, err := ParseModule(source, name)
+	strict := opts != nil && opts.Strict
+	mod, err := parseModule(source, name, strict)
 	if err != nil {
 		return nil, err
 	}

@@ -37,11 +37,13 @@ type Artifact struct {
 	ContainsUnboundedLoop bool
 }
 
-// ArtifactOptions controls .artifact bytecode debug metadata emission.
+// ArtifactOptions controls .artifact compilation behavior.
 type ArtifactOptions struct {
 	// IncludeSourceMap controls whether embedded bytecode contains source map/debug metadata.
 	// Default is true for backward compatibility.
 	IncludeSourceMap bool
+	// Strict rejects Solidity type aliases (uint256 etc.) and requires canonical TOL types.
+	Strict bool
 }
 
 // gasModelVersion is the version string embedded in the gas_model ABI field.
@@ -200,8 +202,10 @@ func CompileArtifactWithOptions(source []byte, name string, opts *ArtifactOption
 	if opts != nil {
 		includeSourceMap = opts.IncludeSourceMap
 	}
+	strict := opts != nil && opts.Strict
 	bytecode, err := CompileBytecodeWithOptions(source, name, &CompileOptions{
 		IncludeSourceMap: includeSourceMap,
+		Strict:           strict,
 	})
 	if err != nil {
 		return nil, err

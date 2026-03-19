@@ -47,6 +47,8 @@ type PackageOptions struct {
 	// SigningKey is an ed25519 private key seed (32 bytes) used to sign the package.
 	// If nil, the package is produced unsigned. Unsigned packages are always accepted.
 	SigningKey []byte
+	// Strict rejects Solidity type aliases (uint256 etc.) and requires canonical TOL types.
+	Strict bool
 }
 
 // IsPackage reports whether input starts with local-file ZIP magic.
@@ -73,7 +75,8 @@ func PackageHash(data []byte) string {
 // PackageOptions path overrides (ArtifactPath, InterfacePath, InterfaceName) are applied only
 // when there is exactly one contract; they are ignored for multi-contract packages.
 func CompilePackage(source []byte, name string, opts *PackageOptions) ([]byte, error) {
-	mod, err := ParseModule(source, name)
+	strict := opts != nil && opts.Strict
+	mod, err := parseModule(source, name, strict)
 	if err != nil {
 		return nil, err
 	}

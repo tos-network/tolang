@@ -21,9 +21,20 @@ type Parser struct {
 }
 
 func ParseFile(filename string, src []byte) (*ast.Module, diag.Diagnostics) {
+	return parseFileWith(filename, src, false)
+}
+
+// ParseFileStrict parses in strict mode: rejects Solidity type aliases (uint256 → u256 etc.).
+func ParseFileStrict(filename string, src []byte) (*ast.Module, diag.Diagnostics) {
+	return parseFileWith(filename, src, true)
+}
+
+func parseFileWith(filename string, src []byte, strict bool) (*ast.Module, diag.Diagnostics) {
+	lex := lexer.New(src)
+	lex.Strict = strict
 	p := &Parser{
 		filename:    filename,
-		lex:         lexer.New(src),
+		lex:         lex,
 		structNames: map[string]struct{}{},
 	}
 	p.next()

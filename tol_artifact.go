@@ -13,8 +13,10 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// gweiPerGas is the assumed gas price for total_cost_wei computation: 10 gwei per gas unit.
-const gweiPerGas = uint64(10_000_000_000)
+// gtomiPerGas is the assumed gas price for total_cost_tomi computation: 10 gtomi per gas unit.
+// Alias: gweiPerGas (backward compatibility).
+const gtomiPerGas = uint64(10_000_000_000)
+const gweiPerGas = gtomiPerGas
 
 var tocMagic = [4]byte{'T', 'O', 'C', 0}
 
@@ -102,16 +104,18 @@ type tocABIFunction struct {
 	Doc                *tocABIDoc    `json:"doc,omitempty"`
 	// Agent-native ABI extensions
 	RequiresCapability string     `json:"requires_capability,omitempty"`
-	PayAmountWei       string     `json:"pay_amount_wei,omitempty"`
+	PayAmountTomi      string     `json:"pay_amount_tomi,omitempty"`
+	PayAmountWei       string     `json:"pay_amount_wei,omitempty"` // deprecated alias for PayAmountTomi
 	PayRecipient       string     `json:"pay_recipient,omitempty"`
-	TotalCostWei       string     `json:"total_cost_wei,omitempty"`
+	TotalCostTomi      string     `json:"total_cost_tomi,omitempty"`
+	TotalCostWei       string     `json:"total_cost_wei,omitempty"` // deprecated alias for TotalCostTomi
 	Verifiable         bool       `json:"verifiable,omitempty"`
 	Delegated          bool       `json:"delegated,omitempty"`
 	VerifiableStub     bool       `json:"verifiable_stub,omitempty"`
 	// @quota annotation
 	QuotaCalls string `json:"quota_calls,omitempty"`
 	QuotaPrice string `json:"quota_price,omitempty"`
-	// @total_cost annotation (declared max, separate from computed TotalCostWei)
+	// @total_cost annotation (declared max, separate from computed TotalCostTomi)
 	DeclaredTotalCostMax string `json:"declared_total_cost_max,omitempty"`
 }
 
@@ -561,18 +565,20 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 				abiFn.RequiresCapability = strings.Join(fn.Doc.RequiresCap, ",")
 			}
 			if fn.Doc.PayAmount != "" {
-				abiFn.PayAmountWei = fn.Doc.PayAmount
+				abiFn.PayAmountTomi = fn.Doc.PayAmount
+				abiFn.PayAmountWei = fn.Doc.PayAmount // backward compat
 			}
 			if fn.Doc.PayRecipient != "" {
 				abiFn.PayRecipient = fn.Doc.PayRecipient
 			}
-			// total_cost_wei = pay_amount_wei + gas_upper × 10gwei (when both are known).
+			// total_cost_tomi = pay_amount_tomi + gas_upper × 10gtomi (when both are known).
 			if fn.Doc.HasPay && fn.Doc.PayAmount != "" && fn.Doc.Gas != nil && fn.Doc.Gas.Upper > 0 {
 				if payInt, err := strconv.ParseUint(fn.Doc.PayAmount, 10, 64); err == nil {
-					gasCost := fn.Doc.Gas.Upper * gweiPerGas
+					gasCost := fn.Doc.Gas.Upper * gtomiPerGas
 					total := payInt + gasCost
 					if total >= payInt { // overflow guard
-						abiFn.TotalCostWei = strconv.FormatUint(total, 10)
+						abiFn.TotalCostTomi = strconv.FormatUint(total, 10)
+						abiFn.TotalCostWei = abiFn.TotalCostTomi // backward compat
 					}
 				}
 			}

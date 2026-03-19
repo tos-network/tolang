@@ -18,7 +18,7 @@ func dispatchSubcommand(args []string) (bool, int) {
 		return false, 0
 	}
 	switch name := args[0]; name {
-	case "compile", "pack", "inspect", "verify", "test":
+	case "compile", "pack", "inspect", "verify", "test", "lsp", "fmt", "format":
 		return true, runNamedSubcommand(name, args[1:])
 	case "--version", "version":
 		fmt.Println(lua.PackageCopyRight)
@@ -49,6 +49,10 @@ func runNamedSubcommand(name string, args []string) int {
 		return cmdVerify(args)
 	case "test":
 		return cmdTest(args)
+	case "lsp":
+		return cmdLSP(args)
+	case "fmt", "format":
+		return cmdFormat(args)
 	default:
 		fmt.Printf("unknown subcommand %q\n", name)
 		return 1
@@ -66,6 +70,8 @@ Subcommands:
   inspect   inspect .toc/.abi/.tor metadata
   verify    verify .toc/.abi/.tor integrity
   test      run *_test.tol test files
+  fmt       format .tol source files
+  lsp       start Language Server Protocol server (stdin/stdout)
 
 Global:
   --version print version

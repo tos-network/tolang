@@ -9,7 +9,7 @@
 | 3 | Three error modes (require/assert/revert) with no semantic distinction | CRITICAL | 9 | **FIX** | ✅ DONE |
 | 4 | ABI spec is Draft 0.1, critical fields undefined | CRITICAL | 10 | **FIX** | ✅ DONE |
 | 5 | oracle\<T\>/vote\<T\>/task\<T\> baked into compiler as DSL | MAJOR | 1, 8 | **FIX** | ✅ DONE |
-| 6 | Inheritance system (434 lines) with zero agent use case | MAJOR | 1, 8 | **FIX** | ✅ DONE (Phase 1) |
+| 6 | Polymorphic inheritance system with zero agent use case | MAJOR | 1, 8 | **FIX** | ✅ DONE (Phase 1) |
 | 7 | Modifier guards invisible to @effects | MAJOR | 6, 13 | **FIX** | ✅ DONE |
 | 8 | Two variable declaration syntaxes coexist | MODERATE | 5 | **FIX** | ✅ DONE |
 | 9 | 9 annotation types with inconsistent syntax | MODERATE | 5, 8 | **DEFER** | — |
@@ -17,7 +17,7 @@
 | 11 | block.timestamp field naming inconsistency | MINOR | 2 | **FIX** | ✅ DONE |
 | 12 | ++/--, do-while, sub-denominations (tomi/gtomi/tos) | MINOR | 1 | **KEEP** | ✅ wei/gwei/ether replaced |
 | 13 | Solidity reserved keywords (23 unused) | MINOR | 8 | **KEEP** | ✅ pruned + Agent-Native added |
-| 14 | No formatter, no LSP, no source maps | MODERATE | 11 | **DEFER** | ✅ source maps + coverage done |
+| 14 | No formatter, no LSP, no source maps | MODERATE | 11 | **FIX** | ✅ ALL DONE |
 | 15 | using-for syntax enables implicit operator overloading | MODERATE | 4, 6 | **FIX** | ✅ DONE |
 | 16 | `set` keyword is optional for storage writes | MODERATE | 4, 5 | **FIX** | ✅ DONE |
 
@@ -182,17 +182,26 @@ Skipped directly to Phase 3: removed all compiler intrinsics entirely and replac
 
 ---
 
-## Issue 6: Inheritance System with Zero Agent Use Case
+## Issue 6: Polymorphic Inheritance Has No Agent-Native Justification
 
 **Principles violated:** 1 (Purpose Before Features), 8 (Restrict Complexity)
 
 **Problem:**
 
-The inheritance system (`inherit.go`, 434 lines) implements full C3 linearization, virtual/override dispatch, super calls, and abstract contract validation. No agent protocol in the codebase uses polymorphic dispatch. Agents call fixed function selectors, not virtual methods.
+TOL currently carries a full inheritance stack in `inherit.go`: C3 linearization, `virtual`/`override` dispatch, `super` calls, and abstract-contract validation. That is a general object-oriented polymorphism model, but TOL's execution model is selector-based and capability-oriented. No agent protocol in the repository depends on polymorphic base-contract dispatch.
 
-**Decision: FIX (phased)**
+Interface conformance is still useful. Polymorphic inheritance is not.
 
-**Status: ✅ DONE (Phase 1)** — Deprecation warnings implemented (2026-03-19).
+**Decision: FIX (phased retirement)**
+
+**Status: ✅ DONE (Phase 1)** — The polymorphism surface is now deprecated (2026-03-19). Phase 1 adds warnings only; it does **not** yet remove base clauses or C3 logic. Interface implementation remains supported.
+
+**Current policy:**
+
+- **Supported and intended:** interface implementation, e.g. `contract Foo is IBar { ... }`
+- **Deprecated:** `virtual`, `override`, and `super`
+- **On the removal path:** multi-level contract inheritance, C3 linearization, and abstract base-contract hierarchies used for shared behavior
+- **Replacement direction:** composition, libraries, and explicit capability references
 
 **Plan:**
 
@@ -210,6 +219,12 @@ Phase 3 (long-term): Replace inheritance with **composition + capability referen
 4. **Interface implementation unaffected** — `contract Foo is IBar` where IBar is an interface does NOT emit warnings (this is the intended usage pattern).
 5. **Warnings propagated to callers** — `Check()` and `CheckWithResolver()` now return warning-only diagnostics instead of discarding them. Callers already use `HasErrors()` for error detection, so warnings are non-breaking.
 6. **Tests added** — `TestDeprecationWarningsVirtualOverrideSuper` (all three warnings emitted, no errors) and `TestDeprecationWarningInterfaceImplementationNoWarning` (no warnings for clean interface implementation).
+
+**Author guidance:**
+
+- Use interfaces to express ABI conformance and callable surface area.
+- Move reusable behavior into libraries or helper contracts called explicitly.
+- Treat `super` chains and `virtual`/`override` hierarchies as legacy patterns to migrate away from.
 
 **Files changed:**
 - `tol/diag/diag.go` — added TOL2317, TOL2318, TOL2319 warning codes
@@ -413,16 +428,18 @@ Reserving keywords prevents developers from using them as identifiers, which wou
 **Problem:**
 
 The compiler produces bytecode and ABI but lacks:
-- `tolfmt` code formatter
-- Language Server Protocol implementation
+- ~~`tolfmt` code formatter~~ ✅ Implemented (`tol fmt` — AST-based, 4-space indent, `-w` in-place, `-l` list mode, recursive directory support)
+- ~~Language Server Protocol implementation~~ ✅ Implemented (`tol lsp` — diagnostics via parser+sema, hover for keywords/types, JSON-RPC 2.0 over stdin/stdout)
 - ~~Source maps for debugging~~ ✅ Implemented (`--sourcemap` flag, debug metadata in bytecode)
 - ~~Coverage tracking~~ ✅ Implemented (`tol test --cover`, line/branch/function coverage, HTML reports, `--covermin` threshold)
 
-**Decision: DEFER** (formatter and LSP only — source maps and coverage are done)
+**Status: ✅ ALL DONE**
 
-**Rationale:** Formatter and LSP are important but are engineering tasks, not language design issues. They should be built after the language spec stabilizes (now that Issues 1–16 are resolved).
-
-**Remaining priority order:** formatter > LSP.
+All four tooling items are now implemented:
+1. **Formatter** (`tol/format/format.go`) — AST-based canonical formatting, handles all TOL syntax, preserves doc comments, idempotent
+2. **LSP** (`cmd/tolang/cmd_lsp.go`) — real-time diagnostics from parser+sema, keyword/type hover, standard LSP protocol
+3. **Source maps** — `--sourcemap` flag embeds debug metadata in bytecode
+4. **Coverage** — `tol test --cover` with line/branch/function tracking and HTML reports
 
 ---
 

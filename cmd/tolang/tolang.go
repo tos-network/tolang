@@ -47,6 +47,7 @@ Subcommands:
   inspect   inspect .toc/.abi/.tor metadata
   verify    verify .toc/.abi/.tor integrity
   test      run *_test.tol test files
+  fmt       format .tol source files
 
 Lua/VM options:
 	Available options are:

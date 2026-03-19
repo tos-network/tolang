@@ -15,7 +15,7 @@
 | 9 | 9 annotation types with inconsistent syntax | MODERATE | 5, 8 | **DEFER** | — |
 | 10 | Type aliases normalized at lex time | MINOR | 4 | **KEEP** | — |
 | 11 | block.timestamp field naming inconsistency | MINOR | 2 | **FIX** | TODO |
-| 12 | ++/--, do-while, sub-denominations (tomi/gtomi/tos) | MINOR | 1 | **KEEP** | — |
+| 12 | ++/--, do-while, sub-denominations (tomi/gtomi/tos) | MINOR | 1 | **KEEP** | ✅ wei/gwei/ether replaced |
 | 13 | Solidity reserved keywords (23 unused) | MINOR | 8 | **KEEP** | — |
 | 14 | No formatter, no LSP, no source maps | MODERATE | 11 | **DEFER** | — |
 | 15 | using-for syntax enables implicit operator overloading | MODERATE | 4, 6 | **FIX** | TODO |
@@ -356,7 +356,9 @@ Standardize on `block.timestamp_ms` everywhere. The TOS chain uses millisecond-r
 3. **Sub-denominations** — `days` and `hours` are useful for deadline expressions (`block.timestamp_ms + 7 days`). The unit suffixes are computed at compile time with zero runtime overhead.
 4. **do-while** — rare but occasionally clearer than while for "execute at least once" patterns.
 
-Sub-denominations now use native TOS naming: `tomi` (base unit), `gtomi` (1e9), `tos` (1e18).
+Sub-denominations now use native TOS naming: `tomi` (base unit, 1), `gtomi` (1e9), `tos` (1e18).
+
+**✅ Improvement applied:** `wei`, `gwei`, `ether` have been removed from the lexer. Using them now produces a parse error. Replaced with TOS-native denominations: `tomi`, `gtomi`, `tos`. Time units (`seconds`, `minutes`, `hours`, `days`, `weeks`) retained. `years` retained but marked deprecated (consistent with Solidity EIP-4820).
 
 ---
 

@@ -195,7 +195,7 @@ func TestQualifiedConstantAccess(t *testing.T) {
 	providerSrc := `pragma tolang 0.2.0;
 package tolang.registry;
 contract AgentRegistry {
-  constant MAX_FEE: uint256 = 1000;
+  constant MAX_FEE: u256 = 1000;
   enum Kind { Free, Pro, Enterprise }
   function lookup(bytes32 name) external returns (agent addr) { return agent(0); }
 }
@@ -204,12 +204,12 @@ contract AgentRegistry {
 	callerSrc := `pragma tolang 0.2.0;
 import tolang.registry.AgentRegistry;
 contract Caller {
-  function getFee() external returns (uint256 f) {
-    uint256 fee = AgentRegistry.MAX_FEE;
+  function getFee() external returns (u256 f) {
+    u256 fee = AgentRegistry.MAX_FEE;
     return fee;
   }
-  function getKind() external returns (uint256 k) {
-    uint256 kind = AgentRegistry.Kind.Pro;
+  function getKind() external returns (u256 k) {
+    u256 kind = AgentRegistry.Kind.Pro;
     return kind;
   }
 }
@@ -291,13 +291,13 @@ func TestTolLangAutoImport(t *testing.T) {
 	platformSrc := `pragma tolang 0.2.0;
 package tol.lang;
 contract Token {
-  function totalSupply() external returns (uint256 s) { return 0; }
+  function totalSupply() external returns (u256 s) { return 0; }
 }
 `
 	// User contract — no import, just uses Token directly
 	userSrc := `pragma tolang 0.2.0;
 contract MyContract {
-  function supply(agent tok) external returns (uint256 s) {
+  function supply(agent tok) external returns (u256 s) {
     Token t = Token(tok);
     return t.totalSupply();
   }

@@ -13,7 +13,7 @@
 | 7 | Modifier guards invisible to @effects | MAJOR | 6, 13 | **FIX** | ✅ DONE |
 | 8 | Two variable declaration syntaxes coexist | MODERATE | 5 | **FIX** | ✅ DONE |
 | 9 | 9 annotation types with inconsistent syntax | MODERATE | 5, 8 | **DEFER** | — |
-| 10 | Type aliases normalized at lex time | MINOR | 4 | **KEEP** | ✅ --strict flag added |
+| 10 | Type aliases normalized at lex time | MINOR | 4 | **FIX** | ✅ DONE — aliases removed |
 | 11 | block.timestamp field naming inconsistency | MINOR | 2 | **FIX** | ✅ DONE |
 | 12 | ++/--, do-while, sub-denominations (tomi/gtomi/tos) | MINOR | 1 | **KEEP** | ✅ wei/gwei/ether replaced |
 | 13 | Solidity reserved keywords (23 unused) | MINOR | 8 | **KEEP** | ✅ pruned + Agent-Native added |
@@ -368,7 +368,7 @@ Unified all parameterized annotations on parenthesized colon-separated syntax. B
 3. **Single point of normalization** — only one function (`normalizeTypeAlias`) handles all mappings; no leakage into parser/sema/codegen.
 4. **Compiler diagnostics** could optionally emit an info-level hint: `"uint256 is accepted as alias for u256"`, giving visibility without breaking compatibility.
 
-**✅ Optional improvement implemented:** `--strict` compiler flag added. In strict mode, Solidity aliases (`uint256`, `int128`, etc.) are rejected at lex time with a clear error: `"Solidity type alias 'uint256' is not allowed in strict mode; use 'u256'"`. Default mode preserves backward compatibility. Flag threaded through all compile paths (toc/abi/tor).
+**✅ DONE:** Solidity type aliases (`uint256`, `int128`, etc.) are now **always rejected** at lex time. There is no backward-compatible mode — TOL requires canonical types (`u256`, `i128`, etc.) exclusively. The `--strict` flag was removed (strict is now the only mode). `normalizeTypeAlias()` is retained only to produce the helpful error message pointing to the correct canonical type.
 
 ---
 

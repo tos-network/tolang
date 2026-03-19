@@ -85,7 +85,7 @@ func cmdCompile(args []string) int {
 	fs.SetOutput(os.Stderr)
 
 	var emit, output, name, packageName, packageVersion, signKey string
-	var includeSource, emitABI, dumpAST, emitSourceMap, strict bool
+	var includeSource, emitABI, dumpAST, emitSourceMap bool
 	fs.StringVar(&emit, "emit", "toc", "emit format: toc|abi|tor")
 	fs.StringVar(&output, "o", "", "output artifact path")
 	fs.StringVar(&output, "output", "", "output artifact path")
@@ -97,7 +97,6 @@ func cmdCompile(args []string) int {
 	fs.BoolVar(&emitABI, "abi", false, "write .abi.json alongside .toc")
 	fs.BoolVar(&dumpAST, "ast", false, "dump parsed TOL module")
 	fs.StringVar(&signKey, "sign", "", "ed25519 private key seed file (32-byte hex) to sign the .tor package")
-	fs.BoolVar(&strict, "strict", false, "reject Solidity type aliases (uint256 etc.); require canonical TOL types")
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage: tol compile [--emit toc|abi|tor] [-o <output>] [options] <input.tol>")
 		fs.PrintDefaults()
@@ -162,7 +161,6 @@ func cmdCompile(args []string) int {
 	case "toc":
 		artifactBytes, err := lua.CompileArtifactWithOptions(source, input, &lua.ArtifactOptions{
 			IncludeSourceMap: emitSourceMap,
-			Strict:           strict,
 		})
 		if err != nil {
 			fmt.Println(err.Error())
@@ -191,7 +189,6 @@ func cmdCompile(args []string) int {
 	case "abi":
 		ifaceBytes, err := lua.CompileInterfaceWithOptions(source, input, &lua.InterfaceOptions{
 			InterfaceName: strings.TrimSpace(name),
-			Strict:        strict,
 		})
 		if err != nil {
 			fmt.Println(err.Error())
@@ -218,7 +215,6 @@ func cmdCompile(args []string) int {
 			IncludeSourceMap: &sm,
 			IncludeSource:    includeSource,
 			SigningKey:       signingKey,
-			Strict:          strict,
 		})
 		if err != nil {
 			fmt.Println(err.Error())

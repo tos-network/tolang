@@ -1775,7 +1775,7 @@ func TestParseConstantTypeFirst(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  uint256 constant MAX_SUPPLY = 1000000;
+  u256 constant MAX_SUPPLY = 1000000;
   constant ZERO: agent = "0x0000000000000000000000000000000000000000000000000000000000000000";
   function run() public { return; }
 }
@@ -1811,9 +1811,9 @@ func TestParseImmutableTypeFirst(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  uint256 immutable maxAmount;
+  u256 immutable maxAmount;
   immutable owner: agent;
-  constructor(agent o, uint256 m) public {
+  constructor(agent o, u256 m) public {
     set owner = o;
     set maxAmount = m;
   }
@@ -1848,8 +1848,8 @@ func TestParseBothOldAndNewConstantForms(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-  constant OLD_STYLE: uint256 = 42;
-  uint256 constant NEW_STYLE = 99;
+  constant OLD_STYLE: u256 = 42;
+  u256 constant NEW_STYLE = 99;
   function run() public { return; }
 }
 `)
@@ -1876,8 +1876,8 @@ contract Demo {
   u256 total_supply;
 
   function run(u256 n) public {
-    uint256 x = 1;
-    uint256 y;
+    u256 x = 1;
+    u256 y;
     agent owner = msg.sender;
     bool flag = true;
     return;
@@ -1960,7 +1960,7 @@ pragma tolang 0.2.0;
 contract Demo {
   function run() public {
     u256 a = 0;
-    uint256 b = 2;
+    u256 b = 2;
     return;
   }
 }
@@ -2170,7 +2170,7 @@ func TestCallOptionsSingleOption(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   agent token;
-  function run(agent to, uint256 amount) public {
+  function run(agent to, u256 amount) public {
     token.transfer{value: amount}(to);
   }
 }
@@ -2273,10 +2273,10 @@ func TestParseStateVarVisibility(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-    uint256 public totalSupply;
+    u256 public totalSupply;
     agent private owner;
-    uint256 internal counter;
-    uint256 public override balance;
+    u256 internal counter;
+    u256 public override balance;
 }
 `)
 	mod, diags := ParseFile("<test>", src)
@@ -2309,8 +2309,8 @@ func TestParseStateVarInitialValue(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-    uint256 x = 1;
-    uint256 public maxSupply = 1000000;
+    u256 x = 1;
+    u256 public maxSupply = 1000000;
 }
 `)
 	mod, diags := ParseFile("<test>", src)
@@ -2337,8 +2337,8 @@ func TestParseUDVTInContract(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-    type Price is uint256;
-    type Status is uint8;
+    type Price is u256;
+    type Status is u8;
     function foo(Price p) public returns (Price r) {
         return p;
     }
@@ -2398,12 +2398,12 @@ func TestParseInterfaceFullBody(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 interface IFull {
-    struct Point { uint256 x; uint256 y; }
-    type Price is uint256;
-    event Transfer(agent from, agent to, uint256 value);
+    struct Point { u256 x; u256 y; }
+    type Price is u256;
+    event Transfer(agent from, agent to, u256 value);
     error InsufficientBalance(agent account);
     enum Status { Active, Inactive }
-    function transfer(agent to, uint256 amount) external returns (bool ok);
+    function transfer(agent to, u256 amount) external returns (bool ok);
 }
 contract Demo {}
 `)
@@ -2440,13 +2440,13 @@ func TestParseLibraryFullBody(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 library MathLib {
-    struct Fraction { uint256 num; uint256 denom; }
-    type Fixed is uint256;
-    event Computed(uint256 result);
+    struct Fraction { u256 num; u256 denom; }
+    type Fixed is u256;
+    event Computed(u256 result);
     error Overflow();
     enum Rounding { Down, Up }
-    uint256 constant MAX = 1000000;
-    function add(uint256 a, uint256 b) internal pure returns (uint256 c) {
+    u256 constant MAX = 1000000;
+    function add(u256 a, u256 b) internal pure returns (u256 c) {
         return a + b;
     }
 }
@@ -2522,7 +2522,7 @@ contract Demo {}
 func TestParseTopLevelConstant(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
-uint256 constant MAX_SUPPLY = 1000000;
+u256 constant MAX_SUPPLY = 1000000;
 contract Demo {}
 `)
 	mod, diags := ParseFile("<test>", src)
@@ -2636,7 +2636,7 @@ contract Demo {}
 func TestParseTopLevelUDVT(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
-type Price is uint256;
+type Price is u256;
 contract Demo {}
 `)
 	mod, diags := ParseFile("<test>", src)
@@ -2685,7 +2685,7 @@ contract Demo {}
 func TestParseTopLevelMixedDecls(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
-uint256 constant FEE = 100;
+u256 constant FEE = 100;
 enum Direction { Up, Down }
 error BadInput();
 event Log(u256 value)
@@ -2718,7 +2718,7 @@ contract Demo {}
 func TestParseTopLevelOnlyNoContract(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
-uint256 constant MAX = 9999;
+u256 constant MAX = 9999;
 error NotAllowed();
 function pure_fn(u256 a) internal pure returns (u256 b) { return a; }
 `)
@@ -2747,8 +2747,8 @@ func TestNamedMappingKeyValue(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract C {
-    mapping(agent key => uint256 value) balances;
-    function run(mapping(agent key => uint256 value) storage m) external {}
+    mapping(agent key => u256 value) balances;
+    function run(mapping(agent key => u256 value) storage m) external {}
 }
 `)
 	mod, diags := ParseFile("<test>", src)
@@ -2789,7 +2789,7 @@ func TestDeleteKeyword(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract C {
-    uint256 count;
+    u256 count;
     function run() external {
         delete count;
     }
@@ -2813,7 +2813,7 @@ func TestInlineArrayExpression(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract C {
-    function exec() external returns (uint256 val) {
+    function exec() external returns (u256 val) {
         val = [10, 20, 30][1];
     }
 }
@@ -2853,7 +2853,7 @@ func TestTupleExpression(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract C {
-    function pair() external returns (uint256 a, uint256 b) {
+    function pair() external returns (u256 a, u256 b) {
         return (1, 2);
     }
 }
@@ -2957,9 +2957,9 @@ func TestTypeMinMax(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract C {
-    function limits() external returns (uint256 lo, uint256 hi) {
-        lo = type(uint256).min;
-        hi = type(uint256).max;
+    function limits() external returns (u256 lo, u256 hi) {
+        lo = type(u256).min;
+        hi = type(u256).max;
     }
 }
 `)
@@ -2974,7 +2974,7 @@ func TestFunctionTypeInParam(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract C {
-    function invoke(function(agent, uint256) external returns (bool) fn) external {}
+    function invoke(function(agent, u256) external returns (bool) fn) external {}
 }
 `)
 	mod, diags := ParseFile("<test>", src)

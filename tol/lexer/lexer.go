@@ -8,11 +8,10 @@ import (
 )
 
 type Lexer struct {
-	src    []byte
-	idx    int
-	line   int
-	col    int
-	Strict bool // when true, reject Solidity type aliases (uint256 etc.)
+	src  []byte
+	idx  int
+	line int
+	col  int
 }
 
 func New(src []byte) *Lexer {
@@ -20,16 +19,6 @@ func New(src []byte) *Lexer {
 		src:  src,
 		line: 1,
 		col:  1,
-	}
-}
-
-// NewStrict creates a lexer in strict mode that rejects Solidity type aliases.
-func NewStrict(src []byte) *Lexer {
-	return &Lexer{
-		src:    src,
-		line:   1,
-		col:    1,
-		Strict: true,
 	}
 }
 
@@ -319,13 +308,11 @@ func (l *Lexer) Next() Token {
 
 	if isIdentStart(ch) {
 		lit := l.readIdent()
-		if l.Strict {
-			if canonical := normalizeTypeAlias(lit); canonical != lit {
-				end := l.lastPos()
-				return Token{Type: TokenIllegal, Literal: fmt.Sprintf("Solidity type alias '%s' is not allowed in strict mode; use '%s'", lit, canonical), Start: start, End: end}
-			}
+		// Reject Solidity type aliases — TOL requires canonical types (u256, i128, etc.).
+		if canonical := normalizeTypeAlias(lit); canonical != lit {
+			end := l.lastPos()
+			return Token{Type: TokenIllegal, Literal: fmt.Sprintf("Solidity type alias '%s' is not allowed; use '%s'", lit, canonical), Start: start, End: end}
 		}
-		lit = normalizeTypeAlias(lit)
 		// Check for hex string literal: hex"..." or hex'...'
 		if lit == "hex" && !l.eof() && (l.peek() == '"' || l.peek() == '\'') {
 			hexLit, err := l.readHexString(l.peek())

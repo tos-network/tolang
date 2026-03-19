@@ -453,7 +453,6 @@ go build -o bin/tol ./cmd/tolang
 tol compile Contract.tol             # compile to .toc artifact
 tol compile --emit abi Contract.tol  # compile to .abi interface
 tol compile --emit tor ./pkg/        # compile to .tor package
-tol compile --strict Contract.tol    # reject Solidity aliases (uint256 etc.)
 tol fmt Contract.tol                 # format source to stdout
 tol fmt -w Contract.tol              # format in place
 tol fmt -l ./contracts/              # list files that need formatting
@@ -498,13 +497,13 @@ Features:
 - **Hover** — type information for keywords and built-in types
 - Works with any LSP-compatible editor (VS Code, Neovim, Helix, etc.)
 
-### Strict Mode — `--strict`
+### Canonical Types Only
 
-Reject Solidity type aliases and enforce canonical TOL types:
+TOL requires canonical type names — Solidity aliases are rejected:
 
 ```bash
-tol compile --strict Contract.tol
-# Error: Solidity type alias 'uint256' is not allowed in strict mode; use 'u256'
+# uint256 → error: "Solidity type alias 'uint256' is not allowed; use 'u256'"
+# Use: u256, i128, u8, bool, agent, bytes32, etc.
 ```
 
 ### Coverage — `tol test --cover`

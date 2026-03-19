@@ -339,7 +339,7 @@ Execute populates the `tos` global table before running the module:
 | Field | Type | Value |
 |-------|------|-------|
 | `tos.caller` | string | `ctx.From.Hex()` — immediate msg.sender |
-| `tos.value` | uint256 | `ctx.Value` in wei |
+| `tos.value` | uint256 | `ctx.Value` in tomi |
 | `tos.calldata` | string | `"0x" + hex(ctx.Data)` — full calldata for this frame |
 | `tos.msg.sender` | string | same as `tos.caller` |
 | `tos.msg.value` | uint256 | same as `tos.value` |

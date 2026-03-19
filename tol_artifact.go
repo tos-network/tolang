@@ -14,9 +14,7 @@ import (
 )
 
 // gtomiPerGas is the assumed gas price for total_cost_tomi computation: 10 gtomi per gas unit.
-// Alias: gweiPerGas (backward compatibility).
 const gtomiPerGas = uint64(10_000_000_000)
-const gweiPerGas = gtomiPerGas
 
 var tocMagic = [4]byte{'T', 'O', 'C', 0}
 
@@ -105,10 +103,8 @@ type tocABIFunction struct {
 	// Agent-native ABI extensions
 	RequiresCapability string     `json:"requires_capability,omitempty"`
 	PayAmountTomi      string     `json:"pay_amount_tomi,omitempty"`
-	PayAmountWei       string     `json:"pay_amount_wei,omitempty"` // deprecated alias for PayAmountTomi
 	PayRecipient       string     `json:"pay_recipient,omitempty"`
 	TotalCostTomi      string     `json:"total_cost_tomi,omitempty"`
-	TotalCostWei       string     `json:"total_cost_wei,omitempty"` // deprecated alias for TotalCostTomi
 	Verifiable         bool       `json:"verifiable,omitempty"`
 	Delegated          bool       `json:"delegated,omitempty"`
 	VerifiableStub     bool       `json:"verifiable_stub,omitempty"`
@@ -566,7 +562,6 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 			}
 			if fn.Doc.PayAmount != "" {
 				abiFn.PayAmountTomi = fn.Doc.PayAmount
-				abiFn.PayAmountWei = fn.Doc.PayAmount // backward compat
 			}
 			if fn.Doc.PayRecipient != "" {
 				abiFn.PayRecipient = fn.Doc.PayRecipient
@@ -578,7 +573,6 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 					total := payInt + gasCost
 					if total >= payInt { // overflow guard
 						abiFn.TotalCostTomi = strconv.FormatUint(total, 10)
-						abiFn.TotalCostWei = abiFn.TotalCostTomi // backward compat
 					}
 				}
 			}

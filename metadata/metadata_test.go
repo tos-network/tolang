@@ -35,7 +35,7 @@ const sampleABI = `{
         "non_composable": false
       },
       "requires_capability": "token_send",
-      "pay_amount_wei": "1000000",
+      "pay_amount_tomi": "1000000",
       "verifiable": true,
       "delegated": false
     },
@@ -109,7 +109,7 @@ const sampleABILegacy = `{
         },
         "gas_upper": 65000
       },
-      "pay_amount_wei": "1000000",
+      "pay_amount_tomi": "1000000",
       "verifiable": false,
       "delegated": false
     },
@@ -255,7 +255,7 @@ func TestExtractFromABI_LegacyABI(t *testing.T) {
 	// Mutability should be derived from heuristic fallback.
 	xfer := meta.Functions[0]
 	if xfer.Mutability != "payable" {
-		t.Errorf("legacy transfer mutability = %q, want %q (heuristic from pay_amount_wei)", xfer.Mutability, "payable")
+		t.Errorf("legacy transfer mutability = %q, want %q (heuristic from pay_amount_tomi)", xfer.Mutability, "payable")
 	}
 	bal := meta.Functions[1]
 	if bal.Mutability != "view" {

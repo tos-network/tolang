@@ -95,7 +95,7 @@ const (
 	TokenKwConstant
 	TokenQuestion
 	TokenDocComment // /// ... or /** ... */
-	TokenSubDenom   // wei | gwei | ether | seconds | minutes | hours | days | weeks | years (deprecated)
+	TokenSubDenom   // tomi | gtomi | seconds | minutes | hours | days | weeks | years (tos handled as ident + SubDenomMultiplier)
 	TokenShr        // >>> logical shift right (always zero-fills high bits)
 	TokenShrAssign  // >>>= logical shift right assign
 	// Category 8/9/10/11/12: promoted keywords
@@ -383,11 +383,11 @@ type Token struct {
 // suffixes on numeric literals. Returns "" if the string is not a denomination.
 func SubDenomMultiplier(lit string) string {
 	switch lit {
-	case "wei":
+	case "tomi":
 		return "1"
-	case "gwei":
+	case "gtomi":
 		return "1000000000"
-	case "ether":
+	case "tos":
 		return "1000000000000000000"
 	case "seconds":
 		return "1"
@@ -480,7 +480,7 @@ func keywordType(lit string) Type {
 		return TokenKwRevert
 	case "emit":
 		return TokenKwEmit
-	case "wei", "gwei", "ether", "seconds", "minutes", "hours", "days", "weeks", "years":
+	case "tomi", "gtomi", "seconds", "minutes", "hours", "days", "weeks", "years":
 		return TokenSubDenom
 	// Category 12: promoted keywords
 	case "try":

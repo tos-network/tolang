@@ -41,7 +41,7 @@ type internalFunction struct {
 	NamedReturns       []internalNamedParam `json:"named_returns,omitempty"`
 	Doc                *internalDoc         `json:"doc,omitempty"`
 	RequiresCapability string               `json:"requires_capability,omitempty"`
-	PayAmountWei       string               `json:"pay_amount_wei,omitempty"`
+	PayAmountTomi      string               `json:"pay_amount_tomi,omitempty"`
 	Verifiable         bool                 `json:"verifiable,omitempty"`
 	Delegated          bool                 `json:"delegated,omitempty"`
 	VerifiableStub     bool                 `json:"verifiable_stub,omitempty"`
@@ -341,7 +341,7 @@ func convertEffects(eff *internalEffects) *EffectsMeta {
 // not emit a "mutability" field (i.e., ABI JSON from older compiler versions).
 // Current compilers emit mutability directly; see ExtractFromABI.
 func deriveMutability(fn internalFunction) string {
-	if fn.PayAmountWei != "" {
+	if fn.PayAmountTomi != "" {
 		return "payable"
 	}
 	if fn.Doc == nil || fn.Doc.Effects == nil {

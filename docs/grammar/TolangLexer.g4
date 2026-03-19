@@ -383,13 +383,13 @@ Gt      : '>'  ;
 //
 // These identifiers are emitted as TokenSubDenom by the production lexer
 // when they immediately follow a numeric literal.
-//   Value: wei (×1), gwei (×1e9), ether (×1e18)
+//   Value: tomi (×1), gtomi (×1e9), tos (×1e18)
 //   Time:  seconds (×1), minutes (×60), hours (×3600),
 //          days (×86400), weeks (×604800)
 // ============================================================
 
 SubDenomination
-    : 'wei' | 'gwei' | 'ether'
+    : 'tomi' | 'gtomi' | 'tos'
     | 'seconds' | 'minutes' | 'hours' | 'days' | 'weeks'
     | 'years'   // DEPRECATED: use 365 days instead
     ;

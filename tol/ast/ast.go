@@ -393,7 +393,7 @@ type DocMeta struct {
 	QuotaCalls string // @quota(calls: N) — calls per purchased bundle
 	QuotaPrice string // @quota(price: M) — price per bundle in micro-TOS
 	// @total_cost annotation
-	TotalCostMax string // @total_cost(max: N) — declared maximum total cost in wei
+	TotalCostMax string // @total_cost(max: N) — declared maximum total cost in tomi
 }
 
 // EffectDecl is the structured representation of @effects annotations.
@@ -469,7 +469,7 @@ type StructFieldInit struct {
 }
 
 // CallOption is a single key-value option in a call options block: {gas: X, value: Y}.
-// Used by the call expression syntax: token.transfer{value: 1 ether}(recipient).
+// Used by the call expression syntax: token.transfer{value: 1 tos}(recipient).
 type CallOption struct {
 	Key   string // "gas" or "value"
 	Value *Expr

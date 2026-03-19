@@ -15,7 +15,7 @@
 | 9 | 9 annotation types with inconsistent syntax | MODERATE | 5, 8 | **DEFER** | — |
 | 10 | Type aliases normalized at lex time | MINOR | 4 | **KEEP** | — |
 | 11 | block.timestamp field naming inconsistency | MINOR | 2 | **FIX** | TODO |
-| 12 | ++/--, do-while, sub-denominations (wei/gwei/ether) | MINOR | 1 | **KEEP** | — |
+| 12 | ++/--, do-while, sub-denominations (tomi/gtomi/tos) | MINOR | 1 | **KEEP** | — |
 | 13 | Solidity reserved keywords (23 unused) | MINOR | 8 | **KEEP** | — |
 | 14 | No formatter, no LSP, no source maps | MODERATE | 11 | **DEFER** | — |
 | 15 | using-for syntax enables implicit operator overloading | MODERATE | 4, 6 | **FIX** | TODO |
@@ -345,7 +345,7 @@ Standardize on `block.timestamp_ms` everywhere. The TOS chain uses millisecond-r
 
 - `++`/`--` operators are syntactic sugar for `x = x + 1`.
 - `do-while` is equivalent to `{ body } while (cond)`.
-- Sub-denomination suffixes (`wei`, `gwei`, `ether`, `seconds`, `days`) are Solidity conventions.
+- Sub-denomination suffixes (`tomi`, `gtomi`, `tos`, `seconds`, `days`) are native TOS denominations.
 
 **Decision: KEEP**
 
@@ -356,7 +356,7 @@ Standardize on `block.timestamp_ms` everywhere. The TOS chain uses millisecond-r
 3. **Sub-denominations** — `days` and `hours` are useful for deadline expressions (`block.timestamp_ms + 7 days`). The unit suffixes are computed at compile time with zero runtime overhead.
 4. **do-while** — rare but occasionally clearer than while for "execute at least once" patterns.
 
-**Optional improvement:** Deprecate `wei`/`gwei`/`ether` since TOS is a single unit, but keep time suffixes.
+Sub-denominations now use native TOS naming: `tomi` (base unit), `gtomi` (1e9), `tos` (1e18).
 
 ---
 

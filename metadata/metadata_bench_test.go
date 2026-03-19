@@ -29,7 +29,7 @@ const benchABI = `{
         "gas_upper": 65000
       },
       "requires_capability": "token_send",
-      "pay_amount_wei": "1000000",
+      "pay_amount_tomi": "1000000",
       "verifiable": true,
       "delegated": false
     },

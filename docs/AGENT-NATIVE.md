@@ -255,13 +255,13 @@ transactions originating from `account contract` addresses.
 **Transaction phases:**
 
 On gtos, validators operate under DPoS and are compensated via block rewards plus the
-standard 10 gwei/gas fee on every executed transaction. There is no separate bundler
+standard 10 gtomi/gas fee on every executed transaction. There is no separate bundler
 deposit or validation fee ledger (unlike ERC-4337). Gas for `validate()` is charged
 from the account's main `balance`, just like any other call.
 
 ```
 Phase 1 — Validation (before inclusion in block):
-  1. Check account.balance >= VALIDATION_GAS_CAP * GAS_PRICE_GWEI + estimated_execution_gas_cost.
+  1. Check account.balance >= VALIDATION_GAS_CAP * GAS_PRICE_GTOMI + estimated_execution_gas_cost.
      Reject if insufficient funds (protects the validator from unpaid work).
   2. Call account.validate(tx_hash, sig) with hard gas cap = VALIDATION_GAS_CAP (50,000).
      - If validate() returns false → reject transaction (no gas charge to account).
@@ -273,13 +273,13 @@ Phase 1 — Validation (before inclusion in block):
 Phase 2 — Execution (normal transaction execution):
   1. Call account.beforeTransfer(to, amount) before any value transfer from this account.
   2. Execute the transaction payload.
-  3. Charge execution gas to account's main balance at 10 gwei/gas.
+  3. Charge execution gas to account's main balance at 10 gtomi/gas.
 ```
 
 **Consensus constants required:**
 ```
 tol.lang.VALIDATION_GAS_CAP    = 50_000    (gas units)
-tol.lang.GAS_PRICE_GWEI        = 10        (gwei per gas unit; fixed)
+tol.lang.GAS_PRICE_GTOMI        = 10        (gtomi per gas unit; fixed)
 tol.lang.MIN_AGENT_STAKE       = TBD       (minimum u256 stake for agent registration)
 ```
 
@@ -320,9 +320,9 @@ agent-native metadata that off-chain AI orchestrators consume.
 {
   "name": "getPrice",
   "requires_capability": "Arbitrator",
-  "pay_amount_wei": 1000000,
+  "pay_amount_tomi": 1000000,
   "gas_bound": 450000,
-  "total_cost_wei": 4501000000,
+  "total_cost_tomi": 4501000000,
   "effects": ["writes:balances[recipient]", "emits:Transfer(agent,agent,u256)"],
   "verifiable": false
 }
@@ -456,7 +456,7 @@ contract PriceOracle {
 **Design constraints:**
 
 - **`price_per_call` is a compile-time constant and is valid here** because gtos fixes the gas
-  price at 10 gwei at the consensus layer. This makes all execution costs fully deterministic at
+  price at 10 gtomi at the consensus layer. This makes all execution costs fully deterministic at
   compile time. The compiler cross-checks that `manifest.price_per_call` equals the literal in
   every `@pay(amount)` annotation on functions exposed by this contract; a mismatch is a compile
   error (`TOL2208: manifest.price_per_call does not match @pay annotation`). There is no risk of
@@ -528,10 +528,10 @@ function getPrice(bytes32 pair) public returns (u256 price) { ... }
 ```
 
 Compiler generates at function entry:
-`require(msg.value >= 1_000_000, "InsufficientPayment")`, transfers exactly `1_000_000` wei to
+`require(msg.value >= 1_000_000, "InsufficientPayment")`, transfers exactly `1_000_000` tomi to
 `fee_account`, and refunds any `msg.value` surplus to `msg.sender`.
 
-**Why compile-time constants are correct here:** gtos fixes the gas price at **10 gwei** at the
+**Why compile-time constants are correct here:** gtos fixes the gas price at **10 gtomi** at the
 consensus layer. This eliminates gas price volatility as a reason for runtime fee adjustment.
 The unit cost of each gas unit is fixed; the total gas *consumed* still varies by execution path,
 but the **worst-case cost** of any call is statically boundable (see `@total_cost` in Section 13).
@@ -543,11 +543,11 @@ redeploy with a new literal; dynamic pricing is out of scope for `@pay`.
 to `msg.sender` using the **checks-effects-interactions** pattern: the surplus transfer happens
 as the *last* operation after all state changes, and uses a fixed gas stipend (2300 gas) to
 prevent reentrancy. If the refund transfer fails (e.g., caller is a contract that rejects
-ether), the entire call reverts — the compiler does not silently swallow failed refunds.
+TOS), the entire call reverts — the compiler does not silently swallow failed refunds.
 
 **Design constraints:**
 
-- **`@pay` is incompatible with `view`.** A `view` function cannot be `payable`: receiving ether
+- **`@pay` is incompatible with `view`.** A `view` function cannot be `payable`: receiving TOS
   modifies the contract balance, which is state mutation. The compiler rejects `@pay` + `view`
   with error `TOL2206: @pay cannot be applied to view functions`. For read APIs that need access
   control, use subscription pre-payment or signed access tokens; off-chain payment channels are
@@ -618,7 +618,7 @@ in `TaskEscrow`, `DisputeResolver`, and any staking contract.
 **Agent-Native:** collateral operations are built-in statements with explicit, auditable semantics.
 
 ```tol
-escrow(worker, reward, purpose: TaskReward);   // lock `reward` wei associated with `worker`
+escrow(worker, reward, purpose: TaskReward);   // lock `reward` tomi associated with `worker`
                                                // under the label TaskReward
 slash(loser, amount, recipient: treasury);     // penalize `loser` by `amount`; send to `treasury`
 release(worker, amount, purpose: TaskReward);  // unlock `amount` from worker's TaskReward balance
@@ -972,26 +972,26 @@ function verify_totalScoreOf(bytes proof, agent who, i256 expected_score) public
 
 ### 13. Fixed Gas Price — Unique Language Features Unlocked — ✅ Done (`@quota`, `@total_cost` compiler support)
 
-gtos fixes the gas price at **10 gwei** at the consensus layer. This is not just an economic
+gtos fixes the gas price at **10 gtomi** at the consensus layer. This is not just an economic
 detail — it enables a class of language features that are impossible or unsound on variable-price
 chains. These features have no equivalent in Solidity/EVM today.
 
 #### `@total_cost(max: N)` — Compile-Time Cost Certification
 
 ```tol
-/// @total_cost(max: 500_000)   // worst-case: 500k gas × 10 gwei + @pay = 0.005 TOS + fee
+/// @total_cost(max: 500_000)   // worst-case: 500k gas × 10 gtomi + @pay = 0.005 TOS + fee
 /// @gas <= 450_000
 /// @pay(50_000, recipient: fee_account)
 function getPrice(bytes32 pair) public returns (u256 price) { ... }
 ```
 
-The compiler computes the declared worst-case cost in wei: `gas_bound × 10 gwei + pay_amount`.
+The compiler computes the declared worst-case cost in tomi: `gas_bound × 10 gtomi + pay_amount`.
 This value is written into the `.toc` ABI as a machine-readable field. AI agent orchestrators
 can read it before submitting a transaction and know the **maximum they will ever pay** —
 without simulation, without gas estimation, without oracle lookups.
 
 The `@total_cost` annotation is checked against `@gas` + `@pay`: if the declared max is below
-the sum of the gas bound and pay amount at 10 gwei, the compiler emits
+the sum of the gas bound and pay amount at 10 gtomi, the compiler emits
 `TOL2209: @total_cost inconsistent with @gas and @pay`.
 
 #### Native Prepaid Quota Contracts (`@quota`)
@@ -1017,8 +1017,8 @@ Every function in a `.toc` file compiled for gtos includes:
   "name": "getPrice",
   "gas_bound": 450000,
   "pay_amount": 50000,
-  "total_cost_wei": 4550000000000,
-  "total_cost_gwei": "4550"
+  "total_cost_tomi": 4550000000000,
+  "total_cost_gtomi": "4550"
 }
 ```
 

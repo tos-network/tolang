@@ -1578,7 +1578,7 @@ func resolveGasIdent(name string, bounds *ast.BoundsDecl, calls []ast.CallRef) (
 }
 
 // checkTotalCostBound validates @total_cost(max: N) against @gas upper and @pay amount.
-// Emits TOL2209 (warning) if gas_upper * 10gwei + pay_amount > declared max.
+// Emits TOL2209 (warning) if gas_upper * 10gtomi + pay_amount > declared max.
 func checkTotalCostBound(filename string, fn ast.FunctionDecl, diags *diag.Diagnostics) {
 	if fn.Doc == nil || fn.Doc.TotalCostMax == "" {
 		return
@@ -1601,12 +1601,12 @@ func checkTotalCostBound(filename string, fn ast.FunctionDecl, diags *diag.Diagn
 		}
 	}
 
-	// gweiPerGas = 10_000_000_000 (10 gwei per gas unit)
-	const checkGweiPerGas = uint64(10_000_000_000)
-	gasCost := gasUpper * checkGweiPerGas
+	// gtomiPerGas = 10_000_000_000 (10 gtomi per gas unit)
+	const checkGtomiPerGas = uint64(10_000_000_000)
+	gasCost := gasUpper * checkGtomiPerGas
 	total := gasCost + payAmount
 	// Overflow guard: if overflow occurred, values are too large to compare.
-	if gasCost/checkGweiPerGas != gasUpper {
+	if gasCost/checkGtomiPerGas != gasUpper {
 		return
 	}
 	if total < gasCost {
@@ -1616,7 +1616,7 @@ func checkTotalCostBound(filename string, fn ast.FunctionDecl, diags *diag.Diagn
 		*diags = append(*diags, diag.Diagnostic{
 			Code: diag.CodeEffectTotalCostExceeded,
 			Message: fmt.Sprintf(
-				"@total_cost(max: %d) in function '%s' is exceeded: gas_upper(%d) * 10gwei + pay(%d) = %d wei > %d",
+				"@total_cost(max: %d) in function '%s' is exceeded: gas_upper(%d) * 10gtomi + pay(%d) = %d tomi > %d",
 				maxWei, fn.Name, gasUpper, payAmount, total, maxWei),
 			Span:     span,
 			Severity: diag.SeverityWarning,

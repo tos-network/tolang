@@ -228,7 +228,7 @@ Multiple `@requires` lines accumulate: all named capabilities must be held.
 function claimReward(uint256 tid) external payable returns (uint256) { ... }
 ```
 
-Documents the payment semantics. Emitted in `.toc` ABI JSON as `"pay_amount_wei": "100"`.
+Documents the payment semantics. Emitted in `.toc` ABI JSON as `"pay_amount_tomi": "100"`.
 Sema validates: amount must be a uint256 expression (TOL2308), recipient must be an agent expression (TOL2309).
 
 ### `@delegated`
@@ -285,8 +285,8 @@ All agent-native slot hashes use the same `keccak256`-based scheme as regular st
   "params": ["u256", "u256"],
   "returns": ["u256"],
   "requires_capability": "Registrar",
-  "pay_amount_wei": "",
-  "total_cost_wei": "",
+  "pay_amount_tomi": "",
+  "total_cost_tomi": "",
   "verifiable": false,
   "delegated": false
 }
@@ -295,8 +295,8 @@ All agent-native slot hashes use the same `keccak256`-based scheme as regular st
 | Field                | Type     | Source                             |
 |----------------------|----------|------------------------------------|
 | `requires_capability`| `string` | `@requires(caller: X)` annotation  |
-| `pay_amount_wei`     | `string` | `@pay(amount=expr)` annotation     |
-| `total_cost_wei`     | `string` | `pay_amount_wei + gas_bound×10gwei`|
+| `pay_amount_tomi`    | `string` | `@pay(amount=expr)` annotation      |
+| `total_cost_tomi`    | `string` | `pay_amount_tomi + gas_bound×10gtomi`|
 | `verifiable`         | `bool`   | `@verifiable` annotation           |
 | `delegated`          | `bool`   | `@delegated` annotation            |
 

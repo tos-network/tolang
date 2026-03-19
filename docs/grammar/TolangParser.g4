@@ -37,22 +37,28 @@ options { tokenVocab = TolangLexer; }
 //   @param     name description — documents one parameter.
 //   @return    name description — documents one return value.
 //
-//   @effects   reads:  storage.x, storage.m[caller]
-//   @effects   writes: storage.x
-//   @effects   emits:  Transfer, Approval
-//   @effects   calls:  Cap[IFace.method; max_gas=N; max_calls=M]
+//   @effects(reads: [storage.x, storage.m[caller]], writes: [storage.x])
+//   @effects(emits: [Transfer, Approval])
+//   @effects(calls: [Cap[IFace.method; max_gas=N; max_calls=M]])
 //              (TOL verification system; see docs/TOL_EFFECTS.md)
+//              Legacy space-separated form also accepted: @effects reads: storage.x
 //
-//   @bounds    param <= N              — upper bound on a parameter or loop var
-//   @bounds    param == N             — exact bound
+//   @bounds(param <= N)               — upper bound on a parameter or loop var
+//   @bounds(param == N)               — exact bound
+//              Legacy space-separated form also accepted: @bounds param <= N
 //
-//   @gas       upper = N              — maximum gas cost assertion
+//   @gas(upper: 50000)                — maximum gas cost assertion
+//              Legacy space-separated form also accepted: @gas upper: 50000
 //
-//   @requires  (caller: CapabilityName)  — access control via capability bit
-//                                          equivalent to: require(tos.hascap(msg.sender, CapabilityName))
-//   @pay       (amount=expr)           — expected payment amount
-//   @pay       (amount=expr, recipient=expr) — payment with explicit recipient
-//   @pay       (expr)                  — bare form: expr is the amount
+//   @requires(caller: CapabilityName) — access control via capability bit
+//                                       equivalent to: require(tos.hascap(msg.sender, CapabilityName))
+//   @pay(amount: expr)                — expected payment amount (unified ':' separator)
+//   @pay(amount: expr, recipient: expr) — payment with explicit recipient
+//   @pay(expr)                        — bare form: expr is the amount
+//              Legacy '=' separator also accepted: @pay(amount=expr)
+//
+//   @quota(calls: N, price: M)        — rate-limiting / pricing
+//   @total_cost(max: N)               — max total cost assertion
 //
 //   @verifiable    — marks function result as verifiable off-chain (ZK-ready)
 //   @delegated     — marks function as delegation-capable (accepts delegated calls)
@@ -578,12 +584,12 @@ functionAttribute
     //   Test / fuzz:   @skip, @tag("name"), @fuzz, @fuzz(count=N), @timeout(ms), @cases
     //   ABI:           @selector("0xAABBCCDD")
     //   Agent-native:  @requires(caller: CapabilityName)
-    //                  @pay(amount=expr, recipient=expr) or @pay(expr)
+    //                  @pay(amount: expr, recipient: expr) or @pay(expr)
     //                  @verifiable    — marks function as verifiably deterministic
     //                  @delegated     — marks function as delegation-capable
     //   Effects:       @effects(reads: [...], writes: [...], emits: [...])
-    //                  @gas(upper=N)
-    //                  @bounds(param: min..max)
+    //                  @gas(upper: N)
+    //                  @bounds(param <= N)
     //
     // attributeArgument handles both positional (expr) and named (key=expr) forms.
     // Agent-native annotations may appear as standalone attributes BEFORE the

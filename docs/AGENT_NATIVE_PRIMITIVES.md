@@ -221,10 +221,10 @@ Emitted in `.toc` ABI JSON as `"requires_capability": "Registrar"`.
 
 Multiple `@requires` lines accumulate: all named capabilities must be held.
 
-### `@pay(amount=expr, recipient=expr)`
+### `@pay(amount: expr, recipient: expr)`
 
 ```tol
-/// @pay(amount=100, recipient=msg.sender)
+/// @pay(amount: 100, recipient: msg.sender)
 function claimReward(uint256 tid) external payable returns (uint256) { ... }
 ```
 
@@ -295,7 +295,7 @@ All agent-native slot hashes use the same `keccak256`-based scheme as regular st
 | Field                | Type     | Source                             |
 |----------------------|----------|------------------------------------|
 | `requires_capability`| `string` | `@requires(caller: X)` annotation  |
-| `pay_amount_tomi`    | `string` | `@pay(amount=expr)` annotation      |
+| `pay_amount_tomi`    | `string` | `@pay(amount: expr)` annotation      |
 | `total_cost_tomi`    | `string` | `pay_amount_tomi + gas_bound×10gtomi`|
 | `verifiable`         | `bool`   | `@verifiable` annotation           |
 | `delegated`          | `bool`   | `@delegated` annotation            |

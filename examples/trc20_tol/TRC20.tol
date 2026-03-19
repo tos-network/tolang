@@ -15,10 +15,10 @@ contract TRC20 {
 
   /// @notice Mints `initialSupply` tokens and assigns them to the deployer.
   /// @param  initialSupply Total token supply created at deployment.
-  /// @effects reads:  []
-  /// @effects writes: storage.total_supply, storage.balances[caller]
-  /// @effects emits:  Transfer
-  /// @effects calls:  []
+  /// @effects(reads:  [])
+  /// @effects(writes: storage.total_supply, storage.balances[caller])
+  /// @effects(emits:  Transfer)
+  /// @effects(calls:  [])
   constructor(u256 initialSupply) {
     set total_supply = initialSupply;
     set balances[msg.sender] = initialSupply;
@@ -28,11 +28,11 @@ contract TRC20 {
 
   /// @notice Returns the total token supply.
   /// @return s Total number of tokens in existence.
-  /// @effects reads:  storage.total_supply
-  /// @effects writes: []
-  /// @effects emits:  []
-  /// @effects calls:  []
-  /// @gas     upper:  3000
+  /// @effects(reads:  storage.total_supply)
+  /// @effects(writes: [])
+  /// @effects(emits:  [])
+  /// @effects(calls:  [])
+  /// @gas(upper:  3000)
   function totalSupply() public view returns (u256 s) {
     return total_supply;
   }
@@ -40,11 +40,11 @@ contract TRC20 {
   /// @notice Returns the token balance of `account`.
   /// @param  account Agent to query.
   /// @return balance Token balance held by `account`.
-  /// @effects reads:  storage.balances[account]
-  /// @effects writes: []
-  /// @effects emits:  []
-  /// @effects calls:  []
-  /// @gas     upper:  3000
+  /// @effects(reads:  storage.balances[account])
+  /// @effects(writes: [])
+  /// @effects(emits:  [])
+  /// @effects(calls:  [])
+  /// @gas(upper:  3000)
   function balanceOf(agent account) public view returns (u256 balance) {
     return balances[account];
   }
@@ -53,11 +53,11 @@ contract TRC20 {
   /// @param  owner   Agent that granted the allowance.
   /// @param  spender Agent permitted to spend.
   /// @return remaining Current allowance (0 if none set).
-  /// @effects reads:  storage.allowances[owner,spender]
-  /// @effects writes: []
-  /// @effects emits:  []
-  /// @effects calls:  []
-  /// @gas     upper:  3000
+  /// @effects(reads:  storage.allowances[owner,spender])
+  /// @effects(writes: [])
+  /// @effects(emits:  [])
+  /// @effects(calls:  [])
+  /// @gas(upper:  3000)
   function allowance(agent owner, agent spender) public view returns (u256 remaining) {
     return allowances[owner][spender];
   }
@@ -66,11 +66,11 @@ contract TRC20 {
   /// @param  to    Recipient agent (must not be nobody).
   /// @param  value Number of tokens to transfer.
   /// @return ok    Always true on success; reverts on failure.
-  /// @effects reads:  storage.balances[caller], storage.balances[to]
-  /// @effects writes: storage.balances[caller], storage.balances[to]
-  /// @effects emits:  Transfer
-  /// @effects calls:  []
-  /// @gas     upper:  50000
+  /// @effects(reads:  storage.balances[caller], storage.balances[to])
+  /// @effects(writes: storage.balances[caller], storage.balances[to])
+  /// @effects(emits:  Transfer)
+  /// @effects(calls:  [])
+  /// @gas(upper:  50000)
   function transfer(agent to, u256 value) external returns (bool ok) {
     require(to != NOBODY, "NOBODY");
     require(balances[msg.sender] >= value, "INSUFFICIENT_BALANCE");
@@ -84,11 +84,11 @@ contract TRC20 {
   /// @param  spender Agent authorized to spend (must not be the nobody).
   /// @param  value   Maximum number of tokens `spender` may transfer.
   /// @return ok      Always true on success; reverts on failure.
-  /// @effects reads:  []
-  /// @effects writes: storage.allowances[caller,spender]
-  /// @effects emits:  Approval
-  /// @effects calls:  []
-  /// @gas     upper:  25000
+  /// @effects(reads:  [])
+  /// @effects(writes: storage.allowances[caller,spender])
+  /// @effects(emits:  Approval)
+  /// @effects(calls:  [])
+  /// @gas(upper:  25000)
   function approve(agent spender, u256 value) external returns (bool ok) {
     require(spender != NOBODY, "NOBODY");
     set allowances[msg.sender][spender] = value;
@@ -101,11 +101,11 @@ contract TRC20 {
   /// @param  to    Destination agent (must not be nobody).
   /// @param  value Number of tokens to transfer.
   /// @return ok    Always true on success; reverts on failure.
-  /// @effects reads:  storage.allowances[from,caller], storage.balances[from], storage.balances[to]
-  /// @effects writes: storage.allowances[from,caller], storage.balances[from], storage.balances[to]
-  /// @effects emits:  Transfer
-  /// @effects calls:  []
-  /// @gas     upper:  75000
+  /// @effects(reads:  storage.allowances[from,caller], storage.balances[from], storage.balances[to])
+  /// @effects(writes: storage.allowances[from,caller], storage.balances[from], storage.balances[to])
+  /// @effects(emits:  Transfer)
+  /// @effects(calls:  [])
+  /// @gas(upper:  75000)
   function transferFrom(agent from, agent to, u256 value) external returns (bool ok) {
     require(from != NOBODY, "NOBODY");
     require(to != NOBODY, "NOBODY");

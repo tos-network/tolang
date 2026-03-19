@@ -42,8 +42,8 @@ re-reading the source.
 5. **Capability-first for external calls** — `@effects calls` expresses not only *what* is called
    but *how it is authorized* and *what resource limits apply*, so an Agent can reason about safety
    and budget without simulating execution.
-6. **Bounds-conditional gas** — `@gas upper` is only verified when all inputs affecting cost are
-   bounded; missing bounds cause `@gas upper` to be rejected, not silently accepted.
+6. **Bounds-conditional gas** — `@gas(upper: N)` is only verified when all inputs affecting cost are
+   bounded; missing bounds cause `@gas(upper: N)` to be rejected, not silently accepted.
 
 ---
 
@@ -55,11 +55,11 @@ re-reading the source.
 /// @notice Transfers `amount` tokens from caller to `to`.
 /// @param  to     Recipient agent.
 /// @param  amount Number of tokens (u256).
-/// @effects reads:  storage.balances[caller], storage.allowances[caller, to]
-/// @effects writes: storage.balances[caller], storage.balances[to]
-/// @effects emits:  Transfer(caller, to, amount)
-/// @effects calls:  []
-/// @gas     upper:  50000
+/// @effects(reads:  storage.balances[caller], storage.allowances[caller, to])
+/// @effects(writes: storage.balances[caller], storage.balances[to])
+/// @effects(emits:  Transfer(caller, to, amount))
+/// @effects(calls:  [])
+/// @gas(upper:  50000)
 fn transfer(to: agent, amount: u256) -> (ok: bool) external {
     ...
 }
@@ -72,11 +72,11 @@ fn transfer(to: agent, amount: u256) -> (ok: bool) external {
  * @notice Transfers `amount` tokens from caller to `to`.
  * @param  to     Recipient agent.
  * @param  amount Number of tokens (u256).
- * @effects reads:  storage.balances[caller], storage.allowances[caller, to]
- * @effects writes: storage.balances[caller], storage.balances[to]
- * @effects emits:  Transfer(caller, to, amount)
- * @effects calls:  []
- * @gas     upper:  50000
+ * @effects(reads:  storage.balances[caller], storage.allowances[caller, to])
+ * @effects(writes: storage.balances[caller], storage.balances[to])
+ * @effects(emits:  Transfer(caller, to, amount))
+ * @effects(calls:  [])
+ * @gas(upper:  50000)
  */
 fn transfer(to: agent, amount: u256) -> (ok: bool) external {
     ...
@@ -148,26 +148,26 @@ verifiable anchor.
 
 **Examples:**
 ```
-/// @effects calls: cap:OracleCap iface:IOracle selector:0x12345678 max_gas:3000 max_calls:1 max_depth:1
-/// @effects calls: cap:TokenCap  iface:IERC20  selector:0xa9059cbb max_gas:5000 max_calls:1 max_depth:1
-/// @effects calls: *                            // wildcard — any call; discouraged; marks function non_composable
+/// @effects(calls: cap:OracleCap iface:IOracle selector:0x12345678 max_gas:3000 max_calls:1 max_depth:1)
+/// @effects(calls: cap:TokenCap  iface:IERC20  selector:0xa9059cbb max_gas:5000 max_calls:1 max_depth:1)
+/// @effects(calls: *                            // wildcard — any call; discouraged; marks function non_composable)
 ```
 
-Multiple calls are expressed as multiple `@effects calls:` lines (one per call site):
+Multiple calls are expressed as multiple `@effects(calls: ...)` lines (one per call site):
 
 ```tol
-/// @effects calls: cap:OracleCap iface:IOracle selector:0x12345678 max_gas:3000 max_calls:1 max_depth:1
-/// @effects calls: cap:VaultCap  iface:IVault  selector:0x2e1a7d4d max_gas:8000 max_calls:1 max_depth:1
+/// @effects(calls: cap:OracleCap iface:IOracle selector:0x12345678 max_gas:3000 max_calls:1 max_depth:1)
+/// @effects(calls: cap:VaultCap  iface:IVault  selector:0x2e1a7d4d max_gas:8000 max_calls:1 max_depth:1)
 ```
 
 ### 3.7 `@bounds` tag
 
-`@bounds` declares the constraints on inputs or loop counts that must hold for `@gas upper` to be
-valid. Without the relevant bounds, `@gas upper` cannot be statically verified and is rejected.
+`@bounds()` declares the constraints on inputs or loop counts that must hold for `@gas(upper: N)` to be
+valid. Without the relevant bounds, `@gas(upper: N)` cannot be statically verified and is rejected.
 
 ```tol
-/// @bounds positions_len <= 64, data_len <= 256
-/// @gas     upper: 8200 + positions_len * 420 + OracleCap.max_gas
+/// @bounds(positions_len <= 64, data_len <= 256)
+/// @gas(upper: 8200 + positions_len * 420 + OracleCap.max_gas)
 ```
 
 Bound constraint syntax:
@@ -176,7 +176,7 @@ Bound constraint syntax:
 <ident> == <N>       variable is a known constant
 ```
 
-`@gas upper` may be a parametric expression using bound variables and `<CapName>.max_gas`:
+`@gas(upper: ...)` may be a parametric expression using bound variables and `<CapName>.max_gas`:
 ```
 upper: 8200 + positions_len * 420 + OracleCap.max_gas
 ```
@@ -211,7 +211,7 @@ type DocMeta struct {
     Params  []DocParam  // @param entries, one per parameter
     Returns []DocParam  // @return entries, one per return value
     Effects *EffectDecl // @effects entries; nil = no effects declared
-    Bounds  *BoundsDecl // @bounds entries; nil = no bounds declared
+    Bounds  *BoundsDecl // @bounds() entries; nil = no bounds declared
     Gas     *GasDecl    // @gas entries; nil = no gas bound declared
 }
 
@@ -241,7 +241,7 @@ type CallRef struct {
     Wildcard bool   // true when declared as "*"
 }
 
-// BoundsDecl holds the @bounds constraints.
+// BoundsDecl holds the @bounds() constraints.
 type BoundsDecl struct {
     Constraints []BoundConstraint
 }
@@ -341,7 +341,7 @@ the consecutive sequence and ends the token.
 Input:                          TokenDocComment.Literal:
   /// @notice hello              "/// @notice hello\n"
   ///                            "/// @notice hello\n///\n"  (empty /// continues block)
-  /// @effects reads: s.x        "/// @notice hello\n///\n/// @effects reads: s.x\n"
+  /// @effects(reads: s.x)       "/// @notice hello\n///\n/// @effects(reads: s.x)\n"
   <blank line>                   ← sequence ends here
   fn f() {}
 ```
@@ -395,12 +395,12 @@ Algorithm:
        - @notice <text>            → DocMeta.Notice
        - @param <name> <text>      → DocMeta.Params
        - @return <name> <text>     → DocMeta.Returns
-       - @effects reads:  <refs>   → EffectDecl.Reads  (parse comma-separated refs, canonicalize)
-       - @effects writes: <refs>   → EffectDecl.Writes
-       - @effects emits:  <refs>   → EffectDecl.Emits
-       - @effects calls:  <refs>   → EffectDecl.Calls  (parse CallRef list; "[]" → empty []CallRef{})
-       - @bounds <constraints>     → BoundsDecl.Constraints
-       - @gas upper: <expr>        → GasDecl.Expr (or GasDecl.Upper if purely numeric)
+       - @effects(reads:  <refs>)  → EffectDecl.Reads  (parse comma-separated refs, canonicalize)
+       - @effects(writes: <refs>)  → EffectDecl.Writes
+       - @effects(emits:  <refs>)  → EffectDecl.Emits
+       - @effects(calls:  <refs>)  → EffectDecl.Calls  (parse CallRef list; "[]" → empty []CallRef{})
+       - @bounds(<constraints>)    → BoundsDecl.Constraints
+       - @gas(upper: <expr>)       → GasDecl.Expr (or GasDecl.Upper if purely numeric)
   5. Unknown tags are stored in a raw []DocTag slice for forward compatibility.
 ```
 
@@ -415,10 +415,10 @@ Example: `storage.allowances[caller , to]` → `storage.allowances[caller,to]`
 
 ### 6.4 CallRef parsing
 
-A `@effects calls: []` line produces `EffectDecl.Calls = []CallRef{}` (empty, non-nil).
-A missing `@effects calls:` line leaves `EffectDecl.Calls = nil` (not declared).
+A `@effects(calls: [])` line produces `EffectDecl.Calls = []CallRef{}` (empty, non-nil).
+A missing `@effects(calls: ...)` line leaves `EffectDecl.Calls = nil` (not declared).
 
-Each `@effects calls: <item>` line is parsed as **key:value pairs**:
+Each `@effects(calls: <item>)` line is parsed as **key:value pairs**:
 
 ```
 cap:<Name>        → CallRef.Cap
@@ -594,7 +594,7 @@ TOL2200: undeclared effect in function 'transfer'
          actual writes: storage.total_supply
          declared writes: storage.balances[caller], storage.balances[to]
          storage.total_supply is written but not covered by any declared writes ref
-         hint: add 'storage.total_supply' to @effects writes
+         hint: add 'storage.total_supply' to @effects(writes: ...)
 ```
 
 Declared refs **not** in the inferred set are permitted (safe over-approximation).
@@ -609,66 +609,66 @@ count.  The compiler recognises the following bounded-loop forms:
 
 - `for let i = 0; i < N; ...` where `N` is a numeric literal in the condition — the literal
   value is used as the iteration count directly.
-- `for let i = 0; i < v; ...` where `v` is an identifier declared in `@bounds` — the declared
+- `for let i = 0; i < v; ...` where `v` is an identifier declared in `@bounds()` — the declared
   bound value is used as the iteration count.
-- `while v <= N` (or `while v < N`, `while v != N`) where `v` is declared in `@bounds` — the
+- `while v <= N` (or `while v < N`, `while v != N`) where `v` is declared in `@bounds()` — the
   bound value is used as the iteration count.
 - `do { ... } while (v <= N)` — same rule as `while`.
 
-If any loop cannot be bounded using one of the above forms and no corresponding `@bounds`
+If any loop cannot be bounded using one of the above forms and no corresponding `@bounds()`
 constraint exists, the function is **UNBOUNDED**.
 
-**Step 2 — Evaluate concrete `@gas upper`:**
+**Step 2 — Evaluate concrete `@gas(upper: N)`:**
 
-When `@gas upper: N` (a plain integer) is declared:
+When `@gas(upper: N)` (a plain integer) is declared:
 
 If the function is UNBOUNDED → **TOL2201** error:
 ```
-TOL2201: cannot verify @gas upper: function 'settle' contains an unbounded loop
-         or dynamic iteration not covered by @bounds
-         declare loop bounds with @bounds or remove @gas upper
+TOL2201: cannot verify @gas(upper: ...): function 'settle' contains an unbounded loop
+         or dynamic iteration not covered by @bounds()
+         declare loop bounds with @bounds() or remove @gas(upper: ...)
 ```
 
 If the function is bounded:
 - Compute `gas_inferred` using the conservative static cost model (see §7.4), threading the
-  `@bounds` declaration through loop unrolling.
+  `@bounds()` declaration through loop unrolling.
 - If `gas_declared < gas_inferred` → **TOL2202** error:
 ```
-TOL2202: @gas upper too low in function 'settle'
+TOL2202: @gas(upper: N) too low in function 'settle'
          declared:  50000
          inferred conservative upper bound: 61200
-         raise @gas upper to at least 61200 or reduce the function's cost
+         raise @gas(upper: N) to at least 61200 or reduce the function's cost
 ```
 
-**Step 3 — Evaluate parametric `@gas upper`:**
+**Step 3 — Evaluate parametric `@gas(upper: expr)`:**
 
-When `@gas upper` is a parametric expression (e.g. `8200 + positions_len * 420 + OracleCap.max_gas`),
+When `@gas(upper: expr)` is a parametric expression (e.g. `8200 + positions_len * 420 + OracleCap.max_gas`),
 the compiler validates that the expression can be fully evaluated:
 
-- Each plain identifier in the expression must be declared in `@bounds`.  Its value is taken from
+- Each plain identifier in the expression must be declared in `@bounds()`.  Its value is taken from
   the bound constraint (`<` and `<=` use the bound value; `==` uses the exact value).
-- Each `<Cap>.max_gas` term must match a `CallRef.Cap` name in the declared `@effects calls`.
+- Each `<Cap>.max_gas` term must match a `CallRef.Cap` name in the declared `@effects(calls: ...)`.
   The `CallRef.MaxGas` value is substituted.
 - The expression is evaluated using `+`, `*`, and parentheses with standard operator precedence
   (`*` before `+`).
 
 If any identifier cannot be resolved → **TOL2201** error:
 ```
-TOL2201: cannot verify @gas upper: parametric expression contains an unresolved identifier
+TOL2201: cannot verify @gas(upper: ...): parametric expression contains an unresolved identifier
 ```
 
 When all identifiers resolve, the parametric expression is accepted as the declared upper bound
 without further comparison against the body gas estimate. The developer takes responsibility for
 the correctness of the bound.
 
-**Conservative sum rule:** When multiple `CallRef` entries are declared, `@gas upper` evaluation
+**Conservative sum rule:** When multiple `CallRef` entries are declared, `@gas(upper: expr)` evaluation
 sums *all* their `MaxGas` values — regardless of whether the underlying call sites are on mutually
 exclusive branches. This is **intentionally conservative**: an Agent can safely budget by the
 declared upper bound without needing to understand internal control flow.
 
-A future annotation `@gas path: worstpath` (not yet implemented) may allow the compiler to use
+A future annotation `@gas(path: worstpath)` (not yet implemented) may allow the compiler to use
 path-sensitive analysis to produce a tighter bound on branching call sites. The current model keeps
-this interface open: `@gas upper` is the conservative single-path budget; `@gas path:` is a
+this interface open: `@gas(upper: N)` is the conservative single-path budget; `@gas(path: ...)` is a
 reserved key for the per-path refinement.
 
 ### 7.4 Conservative gas cost model
@@ -730,7 +730,7 @@ This prevents spurious mismatches from formatting differences.
 - Storage refs are resolved against the **current contract's storage slots only** — first-level
   names declared in `storage { slot <name>: ... }`.
 - **Cross-contract storage references are not supported.** It is not possible to declare
-  `@effects reads: OtherContract.storage.balances[...]` in v0.2; such refs are rejected with a
+  `@effects(reads: OtherContract.storage.balances[...])` in v0.2; such refs are rejected with a
   parse error. This avoids ambiguity when two imported contracts define slots with the same name.
 - **Struct-path storage refs** (e.g., `storage.user[caller].balance` for a struct-valued slot)
   are a **future extension**. In v0.2 all refs stop at the slot name level. When struct-path refs
@@ -815,13 +815,13 @@ The `.toc` ABI JSON (§4 of `docs/toc-format.md`) is extended per function.
 | `doc` | Any doc annotation is present on the function |
 | `doc.notice` | `@notice` is non-empty |
 | `doc.effects` | At least one `@effects` tag is present |
-| `doc.effects.reads` | `@effects reads:` is present (even if empty) |
-| `doc.effects.writes` | `@effects writes:` is present |
-| `doc.effects.emits` | `@effects emits:` is present |
-| `doc.effects.calls` | `@effects calls:` is present (`[]` when declared empty) |
-| `doc.bounds` | `@bounds` is present |
-| `doc.gas_upper` | `@gas upper` is present and successfully verified |
-| `doc.non_composable` | `@effects calls: *` wildcard is present; always `true` when emitted |
+| `doc.effects.reads` | `@effects(reads: ...)` is present (even if empty) |
+| `doc.effects.writes` | `@effects(writes: ...)` is present |
+| `doc.effects.emits` | `@effects(emits: ...)` is present |
+| `doc.effects.calls` | `@effects(calls: ...)` is present (`[]` when declared empty) |
+| `doc.bounds` | `@bounds()` is present |
+| `doc.gas_upper` | `@gas(upper: N)` is present and successfully verified |
+| `doc.non_composable` | `@effects(calls: *)` wildcard is present; always `true` when emitted |
 
 **`non_composable: true`** is a fast-path signal for tooling and Agents: a function tagged
 `non_composable` may make arbitrary external calls and should not be treated as safe for
@@ -848,10 +848,10 @@ An Agent may additionally verify:
 | Code | Condition |
 |------|-----------|
 | TOL2200 | Inferred effect not covered by declared effect set |
-| TOL2201 | `@gas upper` declared but function is UNBOUNDED (missing bounds for loops or dynamic inputs) |
-| TOL2202 | Declared `@gas upper` is less than the inferred conservative upper bound |
-| TOL2204 | `@effects calls: []` declared but an external call was found in the implementation |
-| TOL2205 | `@effects calls:` declared with a `selector` but no matching call site found in the IR |
+| TOL2201 | `@gas(upper: N)` declared but function is UNBOUNDED (missing bounds for loops or dynamic inputs) |
+| TOL2202 | Declared `@gas(upper: N)` is less than the inferred conservative upper bound |
+| TOL2204 | `@effects(calls: [])` declared but an external call was found in the implementation |
+| TOL2205 | `@effects(calls: ...)` declared with a `selector` but no matching call site found in the IR |
 
 ---
 
@@ -874,11 +874,11 @@ contract TRC20 {
      * @notice Returns the token balance of `owner`.
      * @param  owner   The agent to query.
      * @return balance The token balance.
-     * @effects reads:  storage.balances[owner]
-     * @effects writes: []
-     * @effects emits:  []
-     * @effects calls:  []
-     * @gas     upper:  2500
+     * @effects(reads:  storage.balances[owner])
+     * @effects(writes: [])
+     * @effects(emits:  [])
+     * @effects(calls:  [])
+     * @gas(upper:  2500)
      */
     fn balanceOf(owner: agent) -> (balance: u256) public view {
         return balances[owner];
@@ -886,11 +886,11 @@ contract TRC20 {
 
     /**
      * @notice Transfers `amount` tokens from caller to `to`.
-     * @effects reads:  storage.balances[caller], storage.allowances[caller,to]
-     * @effects writes: storage.balances[caller], storage.balances[to]
-     * @effects emits:  Transfer
-     * @effects calls:  []
-     * @gas     upper:  50000
+     * @effects(reads:  storage.balances[caller], storage.allowances[caller,to])
+     * @effects(writes: storage.balances[caller], storage.balances[to])
+     * @effects(emits:  Transfer)
+     * @effects(calls:  [])
+     * @gas(upper:  50000)
      */
     fn transfer(to: agent, amount: u256) -> (ok: bool) external {
         require(balances[msg.sender] >= amount, "INSUFFICIENT_BALANCE");

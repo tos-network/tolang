@@ -4228,12 +4228,6 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 			}
 			return hostExpr, nil
 		}
-		if superCallExpr, ok, err := lowerSuperCallExpr(ctx, e); ok || err != nil {
-			if err != nil {
-				return nil, err
-			}
-			return superCallExpr, nil
-		}
 		if udvtExpr, ok, err := lowerUDVTWrapUnwrapCallExpr(ctx, e); ok || err != nil {
 			if err != nil {
 				return nil, err
@@ -5169,44 +5163,6 @@ func lowerEnvMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, err
 			withLineExpr(&luast.StringExpr{Value: scope}),
 			withLineExpr(&luast.StringExpr{Value: key}),
 		},
-		AdjustRet: true,
-	}), true, nil
-}
-
-// lowerSuperCallExpr lowers super.fn(args) → fn(args).
-// In the current single-file model a super call dispatches to the function by name,
-// allowing the child's implementation (which calls super) to delegate upward.
-// This is a best-effort lowering; full MRO-based dispatch would require cross-file IR.
-func lowerSuperCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
-	if e == nil || e.Kind != "call" {
-		return nil, false, nil
-	}
-	callee := stripTolParens(e.Callee)
-	if callee == nil || callee.Kind != "member" {
-		return nil, false, nil
-	}
-	scopeExpr := stripTolParens(callee.Object)
-	if scopeExpr == nil || scopeExpr.Kind != "ident" || strings.TrimSpace(scopeExpr.Value) != "super" {
-		return nil, false, nil
-	}
-	fnName := strings.TrimSpace(callee.Member)
-	if fnName == "" {
-		return nil, true, fmt.Errorf("[%s] super call target function name cannot be empty", diag.CodeLowerUnsupportedFeature)
-	}
-	args := make([]luast.Expr, 0, len(e.Args))
-	for _, a := range e.Args {
-		if a == nil {
-			return nil, true, fmt.Errorf("[%s] super call argument cannot be nil", diag.CodeLowerUnsupportedFeature)
-		}
-		ex, err := tolExprToLua(ctx, a)
-		if err != nil {
-			return nil, true, err
-		}
-		args = append(args, ex)
-	}
-	return withLineExpr(&luast.FuncCallExpr{
-		Func:      withLineExpr(&luast.IdentExpr{Value: fnName}),
-		Args:      args,
 		AdjustRet: true,
 	}), true, nil
 }

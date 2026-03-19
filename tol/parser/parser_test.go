@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -489,7 +490,6 @@ test Suite {
 		t.Fatalf("unexpected assert_revert body: %#v", body[0].Body)
 	}
 }
-
 
 // M3: Inheritance tests.
 
@@ -1468,10 +1468,10 @@ func TestParseDocMetaTripleSlash(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
     /// @notice Say hello.
-    /// @effects reads: storage.x
-    /// @effects writes: storage.y
-    /// @effects calls: []
-    /// @gas upper: 5000
+    /// @effects(reads: storage.x)
+    /// @effects(writes: storage.y)
+    /// @effects(calls: [])
+    /// @gas(upper: 5000)
     function foo() public view {}
 }
 `)
@@ -1512,8 +1512,8 @@ pragma tolang 0.2.0;
 contract Demo {
     /**
      * @notice Block style.
-     * @effects reads: storage.balances[caller]
-     * @effects calls: cap:OracleCap selector:0x12345678 max_gas:3000 max_calls:1
+     * @effects(reads: storage.balances[caller])
+     * @effects(calls: cap:OracleCap selector:0x12345678 max_gas:3000 max_calls:1)
      */
     function bar() public {}
 }
@@ -1549,7 +1549,7 @@ func TestParseDocMetaWildcardCalls(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-    /// @effects calls: *
+    /// @effects(calls: *)
     function drain() public {}
 }
 `)
@@ -1570,8 +1570,8 @@ func TestParseDocMetaBoundsAndParametricGas(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract Demo {
-    /// @bounds n <= 100
-    /// @gas upper: 5000
+    /// @bounds(n <= 100)
+    /// @gas(upper: 5000)
     function batch(u256 n) public {}
 }
 `)
@@ -2264,7 +2264,6 @@ contract Demo {}
 	}
 }
 
-
 // =============================================================================
 // Task #12 — Contract body, state var modifiers, UDVT tests
 // =============================================================================
@@ -2361,7 +2360,8 @@ contract Demo {
 	}
 }
 
-// TestParseInheritanceWithArgs verifies is Base(arg1, arg2) constructor args.
+// TestParseInheritanceWithArgsRejected verifies constructor-style base arguments are
+// rejected now that `is` is reserved for interface implementation only.
 func TestParseInheritanceWithArgs(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
@@ -2369,8 +2369,14 @@ contract Demo is Base(1, 2) {
 }
 `)
 	mod, diags := ParseFile("<test>", src)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics: %v", diags)
+	if !diags.HasErrors() {
+		t.Fatalf("expected parse error for inheritance args")
+	}
+	if !strings.Contains(diags.Error(), "TOL1002") {
+		t.Fatalf("expected TOL1002, got: %v", diags)
+	}
+	if mod == nil || mod.Contract == nil {
+		t.Fatalf("expected parser recovery to keep contract node")
 	}
 	if len(mod.Contract.Bases) != 1 || mod.Contract.Bases[0] != "Base" {
 		t.Fatalf("expected Bases=[Base], got %v", mod.Contract.Bases)
@@ -2479,7 +2485,6 @@ contract Demo {}
 		t.Fatalf("expected 1 function add, got %#v", lib.Functions)
 	}
 }
-
 
 // ── Task #11: Top-level declarations and all import forms ─────────────────────
 
@@ -2735,7 +2740,6 @@ function pure_fn(u256 a) internal pure returns (u256 b) { return a; }
 	}
 }
 
-
 // ─── Task #13 tests ───────────────────────────────────────────────────────────
 
 // 6.2 — named mapping key/value identifiers are stripped from the canonical type string.
@@ -2986,7 +2990,6 @@ contract C {
 		t.Fatalf("param type: want %q, got %q", wantType, param.Type)
 	}
 }
-
 
 // --- Task #14 tests ---
 
@@ -3359,7 +3362,7 @@ contract Demo {
         require(msg.sender == owner);
         _;
     }
-    /// @effects guards: [onlyOwner], writes: [storage.balance]
+    /// @effects(guards: [onlyOwner], writes: [storage.balance])
     function withdraw() public onlyOwner {}
 }
 `)
@@ -3391,8 +3394,8 @@ pragma tolang 0.2.0;
 contract Demo {
     modifier onlyOwner() { require(msg.sender == owner); _; }
     modifier whenActive() { require(active); _; }
-    /// @effects guards: [onlyOwner, whenActive]
-    /// @effects writes: [storage.x]
+    /// @effects(guards: [onlyOwner, whenActive])
+    /// @effects(writes: [storage.x])
     function doStuff() public onlyOwner whenActive {}
 }
 `)

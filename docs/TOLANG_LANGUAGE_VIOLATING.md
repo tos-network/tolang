@@ -9,7 +9,7 @@
 | 3 | Three error modes (require/assert/revert) with no semantic distinction | CRITICAL | 9 | **FIX** | ✅ DONE |
 | 4 | ABI spec is Draft 0.1, critical fields undefined | CRITICAL | 10 | **FIX** | ✅ DONE |
 | 5 | oracle\<T\>/vote\<T\>/task\<T\> baked into compiler as DSL | MAJOR | 1, 8 | **FIX** | ✅ DONE |
-| 6 | Polymorphic inheritance system with zero agent use case | MAJOR | 1, 8 | **FIX** | ✅ DONE (Phase 1) |
+| 6 | Polymorphic inheritance system with zero agent use case | MAJOR | 1, 8 | **FIX** | ✅ DONE (Phase 2) |
 | 7 | Modifier guards invisible to @effects | MAJOR | 6, 13 | **FIX** | ✅ DONE |
 | 8 | Two variable declaration syntaxes coexist | MODERATE | 5 | **FIX** | ✅ DONE |
 | 9 | 9 annotation types with inconsistent syntax | MODERATE | 5, 8 | **DEFER** | — |
@@ -194,43 +194,45 @@ Interface conformance is still useful. Polymorphic inheritance is not.
 
 **Decision: FIX (phased retirement)**
 
-**Status: ✅ DONE (Phase 1)** — The polymorphism surface is now deprecated (2026-03-19). Phase 1 adds warnings only; it does **not** yet remove base clauses or C3 logic. Interface implementation remains supported.
+**Status: ✅ DONE (Phase 2)** — `is` is now restricted to known interfaces only. Base-contract inheritance, abstract-contract inheritance, constructor-style base arguments, C3 linearization, and `super` are no longer part of the supported model. Interface implementation remains supported.
 
 **Current policy:**
 
-- **Supported and intended:** interface implementation, e.g. `contract Foo is IBar { ... }`
-- **Deprecated:** `virtual`, `override`, and `super`
-- **On the removal path:** multi-level contract inheritance, C3 linearization, and abstract base-contract hierarchies used for shared behavior
+- **Supported and intended:** interface implementation, including multiple interfaces, e.g. `contract Foo is IBar, IBaz { ... }`
+- **Rejected:** base contracts, abstract contracts, and constructor-style base arguments in the `is` clause
+- **Rejected:** `super` calls and C3 linearization-based dispatch
+- **Deprecated but still parsed:** `virtual` and `override` (warning-only legacy syntax)
 - **Replacement direction:** composition, libraries, and explicit capability references
 
 **Plan:**
 
 Phase 1 (short-term): **Deprecate** `virtual`, `override`, and `super` keywords with compiler warnings. Document that inheritance is supported only for **interface implementation** (contract implements interface), not for polymorphic hierarchies.
 
-Phase 2 (medium-term): **Restrict** inheritance to single-level interface implementation only: `contract Foo is IBar { }` where IBar must be an interface. Remove multi-level inheritance, C3 linearization, virtual, override, and super.
+Phase 2 (medium-term): **Restrict** inheritance to interface implementation only: `contract Foo is IBar, IBaz { }` where each base must be an interface. Remove contract/abstract-contract bases, constructor-style base arguments, C3 linearization, and `super`.
 
 Phase 3 (long-term): Replace inheritance with **composition + capability references**. A contract that needs "base" behavior imports a library.
 
-**What was done (Phase 1):**
+**What was done (Phase 2):**
 
-1. **Added deprecation warning codes** — TOL2317 (`virtual`), TOL2318 (`override`), TOL2319 (`super`) in `tol/diag/diag.go`.
-2. **Emit warnings in sema** — `tol/sema/sema.go` emits `SeverityWarning` diagnostics when `virtual` or `override` modifiers are used on function declarations, modifier declarations, or storage slots.
-3. **Emit warnings for super calls** — `tol/sema/inherit.go` emits TOL2319 warning whenever `super.method()` is detected.
-4. **Interface implementation unaffected** — `contract Foo is IBar` where IBar is an interface does NOT emit warnings (this is the intended usage pattern).
-5. **Warnings propagated to callers** — `Check()` and `CheckWithResolver()` now return warning-only diagnostics instead of discarding them. Callers already use `HasErrors()` for error detection, so warnings are non-breaking.
-6. **Tests added** — `TestDeprecationWarningsVirtualOverrideSuper` (all three warnings emitted, no errors) and `TestDeprecationWarningInterfaceImplementationNoWarning` (no warnings for clean interface implementation).
+1. **Rewrote `tol/sema/inherit.go`** around interface conformance only. Every name in a contract's `is` clause must now resolve to a known interface; otherwise sema emits TOL2043.
+2. **Removed C3-based inheritance semantics** from the active sema path. Multiple interfaces are treated as a flat required surface, not an inheritance hierarchy.
+3. **Rejected `super` at sema level** — `super.method()` now emits TOL2046 with guidance to use explicit library/helper calls or composition.
+4. **Rejected constructor-style base arguments in parser** — `contract Foo is Base(1, 2)` now emits a parse error and suggests interfaces + composition/library.
+5. **Stopped lowering `super`** — the lowering path that rewrote `super.fn(args)` to a direct call was removed.
+6. **Interface implementation remains supported** — single and multiple interface implementation continue to compile cleanly.
+7. **Tests updated** — sema/API/parser coverage now expects interface-only `is` clauses and rejects abstract/contract bases plus `super`.
 
 **Author guidance:**
 
 - Use interfaces to express ABI conformance and callable surface area.
 - Move reusable behavior into libraries or helper contracts called explicitly.
-- Treat `super` chains and `virtual`/`override` hierarchies as legacy patterns to migrate away from.
+- Treat `virtual`/`override` syntax as legacy and avoid introducing new uses.
 
 **Files changed:**
-- `tol/diag/diag.go` — added TOL2317, TOL2318, TOL2319 warning codes
-- `tol/sema/sema.go` — deprecation warnings for virtual/override on functions, modifiers, storage slots; fixed `Check()`/`CheckWithResolver()` to return warnings
-- `tol/sema/inherit.go` — deprecation warning for super calls
-- `tol/sema/sema_test.go` — two new tests, one existing test updated
+- `tol/parser/parser.go` — rejects constructor-style base arguments in the `is` clause
+- `tol/sema/inherit.go` — interface-only conformance checks; `super` now rejected
+- `tol_ir_direct_lowering.go` — removed legacy `super` lowering path
+- `tol/sema/sema_test.go`, `tol/parser/parser_test.go`, `tol_api_test.go` — updated for interface-only `is` semantics
 
 ---
 
@@ -240,7 +242,7 @@ Phase 3 (long-term): Replace inheritance with **composition + capability referen
 
 **Problem:**
 
-A modifier like `onlyOwner` contains a `require(msg.sender == owner)` guard, but this guard is invisible to the `@effects` annotation system. An auditor reading `@effects writes: storage.balance` does not see the permission check. The effects system reports state mutations but not authority gates.
+A modifier like `onlyOwner` contains a `require(msg.sender == owner)` guard, but this guard is invisible to the `@effects` annotation system. An auditor reading `@effects(writes: storage.balance)` does not see the permission check. The effects system reports state mutations but not authority gates.
 
 **Decision: FIX**
 
@@ -248,7 +250,7 @@ A modifier like `onlyOwner` contains a `require(msg.sender == owner)` guard, but
 
 **What was done:**
 
-1. **Extended `@effects` syntax** with a `guards:` clause: `@effects guards: [onlyOwner], writes: [storage.balance]`. The parser supports bracket-enclosed lists and multi-clause single-line format.
+1. **Extended `@effects` syntax** with a `guards:` clause: `@effects(guards: [onlyOwner], writes: [storage.balance])`. The parser supports bracket-enclosed lists and multi-clause single-line format.
 2. **Added `Guards []string` field** to `EffectDecl` in `tol/ast/ast.go`.
 3. **Extended `parseEffectsTag`** in `tol/parser/parser.go` to parse the `guards:` key, strip brackets from all clause values, and handle multiple clauses on a single `@effects` line via recursive tail parsing.
 4. **Added `checkEffectsGuards` validation** in `tol/sema/effects.go`: emits TOL2206 WARNING (not error) when a function uses a user-defined modifier but the `@effects` annotation does not declare it in a `guards:` clause. The warning only fires when `@effects` is present — functions without `@effects` are unaffected.
@@ -312,21 +314,37 @@ Removed `let` entirely. `let` remains a reserved keyword (cannot be used as iden
 **Problem:**
 
 Nine independent annotations exist with different syntax forms:
-- `@effects reads: [...] writes: [...]` (multi-key, colon-separated)
-- `@gas upper: 50000` (single key-value)
+- `@effects(reads: [...], writes: [...])` (multi-key, colon-separated)
+- `@gas(upper: 50000)` (single key-value)
 - `@requires(caller: Arbitrator)` (parenthesized named key)
 - `@delegated` (bare, no payload)
-- `@pay(expr)` (positional) or `@pay(amount=expr, recipient=expr)` (named keys)
+- `@pay(expr)` (positional) or `@pay(amount: expr, recipient: expr)` (named keys)
 - `@verifiable` (bare)
 - `@quota(calls: N, price: M)` (parenthesized)
 - `@bounds(...)` (parenthesized expressions)
 - `@total_cost(max: N)` (parenthesized)
 
-**Decision: DEFER**
+**Decision: FIX**
 
-**Rationale:** Unifying annotation syntax is desirable but low-urgency. The current annotations are compile-time metadata that do not affect runtime behavior. Standardizing syntax is a cosmetic improvement that can wait until the ABI spec stabilizes (Issue 4). Once the ABI schema is fixed, annotations can be unified to match.
+**Status: ✅ DONE**
 
-**Future direction:** Consider a single `@metadata { ... }` block with structured JSON-like syntax, replacing all individual annotations.
+Unified all parameterized annotations on parenthesized colon-separated syntax. Bare annotations (`@delegated`, `@verifiable`) remain bare. Old forms are still accepted for backward compatibility.
+
+**Unified syntax:**
+- `@effects(reads: [...], writes: [...])` — was space-separated
+- `@gas(upper: 50000)` — was space-separated
+- `@bounds(ident <= N)` — was space-separated
+- `@pay(amount: X, recipient: Y)` — was `=`-separated
+- `@requires(caller: X)` — already correct
+- `@quota(calls: N, price: M)` — already correct
+- `@total_cost(max: N)` — already correct
+- `@delegated` / `@verifiable` — bare, no change
+
+**What was done:**
+1. Added `stripOuterParens()` helper in `tol/parser/parser.go`
+2. `parseEffectsTag`, `parseGasTag`, `parseBoundsTag` call `stripOuterParens(rest)` at entry — accepts both old space-separated and new parenthesized forms
+3. `parsePayTag` accepts `:` as key-value separator in addition to `=`
+4. Grammar doc (`docs/grammar/TolangParser.g4`) updated to show unified syntax
 
 ---
 

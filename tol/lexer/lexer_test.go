@@ -78,7 +78,7 @@ func TestTripleSlashMultiLine(t *testing.T) {
 
 func TestTripleSlashEmptyLinesMerged(t *testing.T) {
 	// An empty /// line must be merged into the same TokenDocComment as adjacent /// lines.
-	src := "/// @notice hi\n///\n/// @effects reads: storage.x\nfunction f() {}"
+	src := "/// @notice hi\n///\n/// @effects(reads: storage.x)\nfunction f() {}"
 	toks := tokenize(src)
 	if toks[0].Type != TokenDocComment {
 		t.Fatalf("expected TokenDocComment, got %v", toks[0].Type)
@@ -88,8 +88,8 @@ func TestTripleSlashEmptyLinesMerged(t *testing.T) {
 	if !strings.Contains(lit, "@notice hi") {
 		t.Fatalf("missing @notice hi in %q", lit)
 	}
-	if !strings.Contains(lit, "@effects reads") {
-		t.Fatalf("missing @effects reads in %q", lit)
+	if !strings.Contains(lit, "@effects(reads:") {
+		t.Fatalf("missing @effects(reads: in %q", lit)
 	}
 	// The empty /// line must appear in the literal.
 	lines := strings.Split(strings.TrimRight(lit, "\n"), "\n")
@@ -205,7 +205,7 @@ func TestDocCommentLiteralPreservesNewlines(t *testing.T) {
 
 func TestDocCommentFollowedByDeclaration(t *testing.T) {
 	// Verify that after a doc comment token, the parser (via lexer) sees the fn keyword.
-	src := "/// @effects calls: []\nfunction transfer() {}"
+	src := "/// @effects(calls: [])\nfunction transfer() {}"
 	toks := tokenize(src)
 	if toks[0].Type != TokenDocComment {
 		t.Fatalf("expected TokenDocComment first, got %v", toks[0].Type)

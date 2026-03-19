@@ -707,10 +707,10 @@ TOL already implements the `@effects`, `@gas`, and `@bounds` annotation system (
 `docs/TOL_EFFECTS.md`). This is directly Agent-Native infrastructure:
 
 ```tol
-/// @effects writes: balances[recipient]
-/// @effects emits: Transfer
-/// @gas <= 50000
-/// @bounds amount > 0
+/// @effects(writes: balances[recipient])
+/// @effects(emits: Transfer)
+/// @gas(upper: 50000)
+/// @bounds(amount > 0)
 function transfer(agent recipient, u256 amount) public returns (bool ok) { ... }
 ```
 
@@ -980,7 +980,7 @@ chains. These features have no equivalent in Solidity/EVM today.
 
 ```tol
 /// @total_cost(max: 500_000)   // worst-case: 500k gas × 10 gtomi + @pay = 0.005 TOS + fee
-/// @gas <= 450_000
+/// @gas(upper: 450_000)
 /// @pay(50_000, recipient: fee_account)
 function getPrice(bytes32 pair) public returns (u256 price) { ... }
 ```
@@ -1029,7 +1029,7 @@ a fully **machine-negotiable service market**.
 #### Deterministic SLA Escrows
 
 ```tol
-/// @gas <= 100_000
+/// @gas(upper: 100_000)
 /// @total_cost(max: 1_050_000)
 function processOrder(bytes32 order_id) public returns (bool ok) { ... }
 
@@ -1038,7 +1038,7 @@ function processOrder(bytes32 order_id) public returns (bool ok) { ... }
 sla_escrow: 10_000_000;   // manifest field: compensation pool in micro-TOS
 ```
 
-When a function declares `@gas <= N` and the VM observes actual gas exceeding N (which should
+When a function declares `@gas(upper: N)` and the VM observes actual gas exceeding N (which should
 never happen if the bound is correct — the VM can verify this), it triggers an automatic
 compensation from the contract's SLA escrow pool. This is only safe because gas price is fixed;
 on a variable-price chain, the compensation formula would require a price oracle.

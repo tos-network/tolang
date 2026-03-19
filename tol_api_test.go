@@ -5123,8 +5123,9 @@ contract Token is IToken {
 	}
 }
 
-// TestM3SuperCallLoweringEndToEnd: super.fn() compiles and lowers to direct call.
-func TestM3SuperCallLoweringEndToEnd(t *testing.T) {
+// TestM3SuperCallRejectedEndToEnd: interface-only `is` clauses do not provide a
+// super dispatch target.
+func TestM3SuperCallRejectedEndToEnd(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 interface IBase {
@@ -5137,13 +5138,16 @@ contract Child is IBase {
 }
 `)
 	_, err := BuildIR(src, "<tol>")
-	if err != nil {
-		t.Fatalf("unexpected compile error for super call: %v", err)
+	if err == nil {
+		t.Fatalf("expected compile error for super call")
+	}
+	if !strings.Contains(err.Error(), "TOL2046") {
+		t.Fatalf("expected TOL2046, got: %v", err)
 	}
 }
 
-// TestM3MultipleInheritanceC3EndToEnd: multiple interfaces, diamond-like.
-func TestM3MultipleInheritanceC3EndToEnd(t *testing.T) {
+// TestM3MultipleInterfacesEndToEnd: multiple interface implementation remains supported.
+func TestM3MultipleInterfacesEndToEnd(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 interface IOwnable {
@@ -5165,8 +5169,8 @@ contract Token is IERC20, IOwnable {
 	}
 }
 
-// TestM3CycleDetectionEndToEnd: self-inheritance is rejected.
-func TestM3CycleDetectionEndToEnd(t *testing.T) {
+// TestM3UnknownBaseRejectedEndToEnd: only known interfaces may appear in the `is` clause.
+func TestM3UnknownBaseRejectedEndToEnd(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 contract SelfInherit is SelfInherit {
@@ -5175,26 +5179,10 @@ contract SelfInherit is SelfInherit {
 `)
 	_, err := BuildIR(src, "<tol>")
 	if err == nil {
-		t.Fatalf("expected compile error for self-inheritance")
+		t.Fatalf("expected compile error for non-interface base")
 	}
-	if !strings.Contains(err.Error(), "TOL2042") {
-		t.Fatalf("expected TOL2042, got: %v", err)
-	}
-}
-
-// TestM3UnknownBaseAllowedEndToEnd: cross-file base is allowed without error.
-func TestM3UnknownBaseAllowedEndToEnd(t *testing.T) {
-	src := []byte(`
-pragma tolang 0.2.0;
-contract Child is ExternalContract {
-  function foo() public returns (u256 v) {
-    return 42;
-  }
-}
-`)
-	_, err := BuildIR(src, "<tol>")
-	if err != nil {
-		t.Fatalf("unexpected compile error for unknown base: %v", err)
+	if !strings.Contains(err.Error(), "TOL2043") {
+		t.Fatalf("expected TOL2043, got: %v", err)
 	}
 }
 
@@ -7197,20 +7185,16 @@ contract Demo {
 	}
 }
 
-// TestAbstractContractInheritedImplementation verifies end-to-end that an abstract
-// contract with a virtual stub can be declared in the same source file as the concrete
-// contract that implements it, and that the concrete contract's implementation is
-// callable at runtime.
-func TestAbstractContractInheritedImplementation(t *testing.T) {
-	// The concrete "Token" contract inherits from abstract "Base". Token implements the
-	// abstract stub "compute" (takes a u256, returns a u256) and also provides "run".
+// TestAbstractContractBaseRejected verifies that abstract contracts can no longer be
+// used as implementation parents in the `is` clause.
+func TestAbstractContractBaseRejected(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
 abstract contract Base {
     function compute(u256 x) public virtual returns (u256 result) ;
 }
 contract Token is Base {
-    function compute(u256 x) public override returns (u256 result) {
+    function compute(u256 x) public returns (u256 result) {
         return x + 1;
     }
     function run(u256 v) public {
@@ -7220,33 +7204,12 @@ contract Token is Base {
     }
 }
 `)
-	bc, err := CompileBytecode(src, "<tol>")
-	if err != nil {
-		t.Fatalf("unexpected compile error: %v", err)
+	_, err := CompileBytecode(src, "<tol>")
+	if err == nil {
+		t.Fatalf("expected compile error for abstract contract base")
 	}
-	L := NewState()
-	defer L.Close()
-	if err := L.DoBytecode(bc); err != nil {
-		t.Fatalf("DoBytecode failed: %v", err)
-	}
-
-	tos := L.GetGlobal("tos")
-	oninvoke := L.GetField(tos, "oninvoke")
-	if oninvoke == LNil {
-		t.Fatalf("expected tos.oninvoke wrapper")
-	}
-
-	// Call run(10): pass selector as first arg, then each u256 argument separately.
-	// The selector uses TOL-native type names (not ABI canonical "uint256").
-	L.Push(oninvoke)
-	L.Push(LString(selectorHexFromSignature("run(u256)")))
-	L.Push(lu256FromInt(10))
-	if err := L.PCall(2, 0, nil); err != nil {
-		t.Fatalf("oninvoke(run) failed: %v", err)
-	}
-	// "got" should be 10+1 = 11 from the compute implementation.
-	if got := LVAsString(L.GetGlobal("got")); got != "11" {
-		t.Fatalf("unexpected 'got' value: got=%s want=11", got)
+	if !strings.Contains(err.Error(), "TOL2043") {
+		t.Fatalf("expected TOL2043, got: %v", err)
 	}
 }
 
@@ -9453,10 +9416,10 @@ func TestEffectsNestedMappingCommaFormat(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract ERC20 {
   mapping(agent => mapping(agent => u256)) allowances;
-  /// @effects reads: []
-  /// @effects writes: storage.allowances[*]
-  /// @effects emits: []
-  /// @effects calls: []
+  /// @effects(reads: [])
+  /// @effects(writes: storage.allowances[*])
+  /// @effects(emits: [])
+  /// @effects(calls: [])
   function approve(agent from, agent spender, u256 amount) public {
     set allowances[from][spender] = amount;
     return;
@@ -9488,10 +9451,10 @@ func TestEffectsNestedMappingChainedBracketsRejected(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract ERC20 {
   mapping(agent => mapping(agent => u256)) allowances;
-  /// @effects reads: []
-  /// @effects writes: storage.allowances[from][spender]
-  /// @effects emits: []
-  /// @effects calls: []
+  /// @effects(reads: [])
+  /// @effects(writes: storage.allowances[from][spender])
+  /// @effects(emits: [])
+  /// @effects(calls: [])
   function approve(agent from, agent spender, u256 amount) public {
     set allowances[from][spender] = amount;
     return;
@@ -9514,10 +9477,10 @@ func TestEffectsNestedMappingWildcardCoversCommaKey(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract ERC20 {
   mapping(agent => mapping(agent => u256)) allowances;
-  /// @effects reads: []
-  /// @effects writes: storage.allowances[*]
-  /// @effects emits: []
-  /// @effects calls: []
+  /// @effects(reads: [])
+  /// @effects(writes: storage.allowances[*])
+  /// @effects(emits: [])
+  /// @effects(calls: [])
   function approve(agent from, agent spender, u256 amount) public {
     set allowances[from][spender] = amount;
     return;
@@ -9534,12 +9497,12 @@ contract ERC20 {
 }
 
 // TestBoundsGasEstimationBounded verifies that a for loop annotated with
-// @bounds i <= 9 (10 effective iterations) produces a finite gas estimate
-// equal to 10 × body_gas, allowing a matching @gas upper to compile without
+// @bounds(i <= 9) (10 effective iterations) produces a finite gas estimate
+// equal to 10 x body_gas, allowing a matching @gas(upper: N) to compile without
 // TOL2201 (unbounded) or TOL2202 (gas too low).
 //
-// Note: the @bounds parser supports "<=" and "==" but not the bare "<" operator.
-// @bounds i <= 9 is equivalent to "i iterates at most 10 times" (Value+1 = 10).
+// Note: the @bounds() parser supports "<=" and "==" but not the bare "<" operator.
+// @bounds(i <= 9) is equivalent to "i iterates at most 10 times" (Value+1 = 10).
 //
 // Gas budget for this function body:
 //
@@ -9549,11 +9512,11 @@ contract ERC20 {
 //	return;                → gasCostInstr(1) + exprGas(nil: 0)              = 1
 //	Total                                                                    = 43
 func TestBoundsGasEstimationBounded(t *testing.T) {
-	// This should compile: @gas upper 43 covers the exact bounded estimate.
+	// This should compile: @gas(upper: 43) covers the exact bounded estimate.
 	srcOK := []byte(`pragma tolang 0.2.0;
 contract Demo {
-  /// @bounds i <= 9
-  /// @gas upper: 43
+  /// @bounds(i <= 9)
+  /// @gas(upper: 43)
   function sumLoop() public {
     u256 total = 0;
     for (u256 i = 0; i <= 9; i++) {
@@ -9569,23 +9532,23 @@ contract Demo {
 			t.Fatalf("bounded loop should not produce TOL2201 (unbounded): %v", err)
 		}
 		if strings.Contains(err.Error(), "TOL2202") {
-			t.Fatalf("@gas upper 43 should be sufficient for @bounds i <= 9 (10-iter) loop, got TOL2202: %v", err)
+			t.Fatalf("@gas(upper: 43) should be sufficient for @bounds(i <= 9) (10-iter) loop, got TOL2202: %v", err)
 		}
 		t.Fatalf("unexpected compile error: %v", err)
 	}
 }
 
 // TestBoundsGasEstimationNoBoundsUnbounded verifies that a for loop without
-// @bounds but with a literal numeric bound in the condition (e.g. `i <= 9`)
+// @bounds() but with a literal numeric bound in the condition (e.g. `i <= 9`)
 // is treated as bounded by Gap B.  The loop bound is inferred directly from
-// the literal RHS, so no @bounds declaration is required.  The declared
-// @gas upper of 43 is above the inferred cost, so no diagnostic is expected.
+// the literal RHS, so no @bounds() declaration is required.  The declared
+// @gas(upper: 43) is above the inferred cost, so no diagnostic is expected.
 // (A for loop whose condition RHS is a runtime variable rather than a literal
 // would still produce TOL2201 — that behaviour is tested separately.)
 func TestBoundsGasEstimationNoBoundsUnbounded(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract Demo {
-  /// @gas upper: 43
+  /// @gas(upper: 43)
   function sumLoop() public {
     u256 total = 0;
     for (u256 i = 0; i <= 9; i++) {
@@ -9601,23 +9564,23 @@ contract Demo {
 		if strings.Contains(err.Error(), "TOL2201") {
 			t.Fatalf("unexpected TOL2201: for-loop with literal bound should be bounded: %v", err)
 		}
-		// TOL2202 would mean the declared @gas upper is too low.
+		// TOL2202 would mean the declared @gas(upper: N) is too low.
 		if strings.Contains(err.Error(), "TOL2202") {
-			t.Fatalf("unexpected TOL2202: declared @gas upper should be sufficient: %v", err)
+			t.Fatalf("unexpected TOL2202: declared @gas(upper: N) should be sufficient: %v", err)
 		}
 		// Other unrelated errors are tolerated.
 	}
 }
 
-// TestGasUpperParametricExprAccepted verifies that a parametric @gas upper expression
-// is accepted when all bound identifiers can be resolved via @bounds.  No numerical
+// TestGasUpperParametricExprAccepted verifies that a parametric @gas(upper: expr) expression
+// is accepted when all bound identifiers can be resolved via @bounds().  No numerical
 // comparison against the body estimate is performed for parametric expressions.
 func TestGasUpperParametricExprAccepted(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract MyContract {
     u256 counter;
-    /// @bounds n <= 10
-    /// @gas upper: 1000 + n * 50
+    /// @bounds(n <= 10)
+    /// @gas(upper: 1000 + n * 50)
     function doWork(u256 n) public {
         for (u256 i = 0; i < n; i = i + 1) {
             u256 x = counter;
@@ -9634,15 +9597,15 @@ contract MyContract {
 	}
 }
 
-// TestGasUpperConcreteTooLowWithBounds verifies that a concrete @gas upper that is
+// TestGasUpperConcreteTooLowWithBounds verifies that a concrete @gas(upper: N) that is
 // too low triggers TOL2202 when the for-loop iteration count can be inferred from
-// @bounds (Gap A: concrete path now threads @bounds into the estimator).
+// @bounds() (Gap A: concrete path now threads @bounds() into the estimator).
 func TestGasUpperConcreteTooLowWithBounds(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract MyContract {
     u256 counter;
-    /// @bounds n <= 10
-    /// @gas upper: 5
+    /// @bounds(n <= 10)
+    /// @gas(upper: 5)
     function doWork(u256 n) public {
         for (u256 i = 0; i < n; i = i + 1) {
             u256 x = counter;
@@ -9652,15 +9615,15 @@ contract MyContract {
 `)
 	_, err := BuildIR(src, "<tol>")
 	if err == nil {
-		t.Fatal("expected TOL2202 for concrete @gas upper too low, got no error")
+		t.Fatal("expected TOL2202 for concrete @gas(upper: N) too low, got no error")
 	}
 	if !strings.Contains(err.Error(), "TOL2202") {
 		t.Fatalf("expected TOL2202 in error, got: %v", err)
 	}
 }
 
-// TestGasUpperWhileLoopWithBoundsAccepted verifies that a while-loop with an @bounds
-// annotation produces a finite gas estimate and accepts a sufficiently large @gas upper.
+// TestGasUpperWhileLoopWithBoundsAccepted verifies that a while-loop with an @bounds()
+// annotation produces a finite gas estimate and accepts a sufficiently large @gas(upper: N).
 // The bound `i <= 99` yields 100 iterations (0..99 inclusive).
 // Body cost: let x (sload=2100 + 1) + set i=i+1 (1 + binary(1+1+1)=3) → 2101+4=2105.
 // Total: 100 * 2105 = 210500.
@@ -9668,8 +9631,8 @@ func TestGasUpperWhileLoopWithBoundsAccepted(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract MyContract {
     mapping(u256 => u256) balances;
-    /// @bounds i <= 99
-    /// @gas upper: 210500
+    /// @bounds(i <= 99)
+    /// @gas(upper: 210500)
     function scanBalances(u256 i) public {
         while (i <= 99) {
             u256 x = balances[i];
@@ -9681,22 +9644,22 @@ contract MyContract {
 	_, err := BuildIR(src, "<tol>")
 	if err != nil {
 		if strings.Contains(err.Error(), "TOL2201") {
-			t.Fatalf("unexpected TOL2201 for while-loop with @bounds: %v", err)
+			t.Fatalf("unexpected TOL2201 for while-loop with @bounds(): %v", err)
 		}
 		if strings.Contains(err.Error(), "TOL2202") {
-			t.Fatalf("unexpected TOL2202 for while-loop with sufficient @gas upper: %v", err)
+			t.Fatalf("unexpected TOL2202 for while-loop with sufficient @gas(upper: ...): %v", err)
 		}
 		// Other unrelated errors are tolerated — gas check passed.
 	}
 }
 
 // TestGasUpperWhileLoopWithoutBoundsUnbounded verifies that a while-loop without any
-// @bounds annotation is treated as unbounded and triggers TOL2201.
+// @bounds() annotation is treated as unbounded and triggers TOL2201.
 func TestGasUpperWhileLoopWithoutBoundsUnbounded(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract MyContract {
     mapping(u256 => u256) balances;
-    /// @gas upper: 208400
+    /// @gas(upper: 208400)
     function scanBalances(u256 i) public {
         while (i <= 99) {
             u256 x = balances[i];
@@ -9707,7 +9670,7 @@ contract MyContract {
 `)
 	_, err := BuildIR(src, "<tol>")
 	if err == nil {
-		t.Fatal("expected TOL2201 for while-loop without @bounds, got no error")
+		t.Fatal("expected TOL2201 for while-loop without @bounds(), got no error")
 	}
 	if !strings.Contains(err.Error(), "TOL2201") {
 		t.Fatalf("expected TOL2201 in error, got: %v", err)
@@ -9720,10 +9683,10 @@ func TestEffectsMsgSenderMapsToCallerKey(t *testing.T) {
 	src := []byte(`pragma tolang 0.2.0;
 contract ERC20 {
   mapping(agent => u256) balances;
-  /// @effects reads:  storage.balances[caller]
-  /// @effects writes: storage.balances[caller]
-  /// @effects emits:  []
-  /// @effects calls:  []
+  /// @effects(reads:  storage.balances[caller])
+  /// @effects(writes: storage.balances[caller])
+  /// @effects(emits:  [])
+  /// @effects(calls:  [])
   function selfTransfer(u256 amount) public {
     u256 bal = balances[msg.sender];
     set balances[msg.sender] = bal;

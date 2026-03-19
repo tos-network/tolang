@@ -4342,9 +4342,8 @@ func TestCheckModifierNameCollisionWithSkippedDecl(t *testing.T) {
 	}
 }
 
-
 // =============================================================================
-// M3: Inheritance, C3 linearization, interface conformance, super call tests.
+// M3: Interface implementation and legacy inheritance rejection tests.
 // =============================================================================
 
 // TestCheckInterfaceConformanceOK: contract properly implements interface.
@@ -4464,85 +4463,26 @@ func TestCheckOverrideSignatureMismatch(t *testing.T) {
 	}
 }
 
-// TestCheckC3LinearizationSimple: single inheritance, C3 returns base name.
-func TestCheckC3LinearizationSimple(t *testing.T) {
+// TestCheckUnknownBaseRejected: only known interfaces may appear in the `is` clause.
+func TestCheckUnknownBaseRejected(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
-		Interfaces: []ast.InterfaceDecl{
-			{
-				Name:      "IBase",
-				Functions: []ast.FuncSigDecl{{Name: "foo", Params: nil, Returns: nil, Modifiers: []string{"public"}}},
-			},
-		},
 		Contract: &ast.ContractDecl{
 			Name:  "Child",
-			Bases: []string{"IBase"},
-			Functions: []ast.FunctionDecl{
-				{
-					Name:      "foo",
-					Params:    nil,
-					Returns:   nil,
-					Modifiers: []string{"public"},
-					Body:      []ast.Statement{{Kind: "return"}},
-				},
-			},
-		},
-	}
-	_, diags := Check("<test>", m)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics: %v", diags)
-	}
-}
-
-// TestCheckC3DiamondInheritance: diamond pattern with two interfaces.
-// A <- B <- Diamond
-// A <- C <- Diamond
-// Diamond is B, C
-// L(Diamond) = Diamond + merge([B, A], [C, A], [B, C])
-//            = [Diamond, B, C, A]
-// All interfaces are leaves so no C3 conflict.
-func TestCheckC3DiamondInheritance(t *testing.T) {
-	m := &ast.Module{
-		Version: "0.2.0",
-		Interfaces: []ast.InterfaceDecl{
-			{Name: "IA", Functions: []ast.FuncSigDecl{{Name: "foo", Modifiers: []string{"public"}}}},
-			{Name: "IB", Functions: []ast.FuncSigDecl{{Name: "bar", Modifiers: []string{"public"}}}},
-		},
-		Contract: &ast.ContractDecl{
-			Name:  "Diamond",
-			Bases: []string{"IA", "IB"},
-			Functions: []ast.FunctionDecl{
-				{Name: "foo", Modifiers: []string{"public"}, Body: []ast.Statement{{Kind: "return"}}},
-				{Name: "bar", Modifiers: []string{"public"}, Body: []ast.Statement{{Kind: "return"}}},
-			},
-		},
-	}
-	_, diags := Check("<test>", m)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics: %v", diags)
-	}
-}
-
-// TestCheckInheritanceCycleDetection: base cannot include self.
-func TestCheckInheritanceCycleDetection(t *testing.T) {
-	m := &ast.Module{
-		Version: "0.2.0",
-		Contract: &ast.ContractDecl{
-			Name:  "Cyclic",
-			Bases: []string{"Cyclic"}, // self-reference
+			Bases: []string{"ExternalBase"},
 		},
 	}
 	_, diags := Check("<test>", m)
 	if !diags.HasErrors() {
-		t.Fatalf("expected cycle detection error")
+		t.Fatalf("expected unknown-base error")
 	}
-	if !strings.Contains(diags.Error(), "TOL2042") {
-		t.Fatalf("expected TOL2042, got: %v", diags)
+	if !strings.Contains(diags.Error(), "TOL2043") {
+		t.Fatalf("expected TOL2043, got: %v", diags)
 	}
 }
 
-// TestCheckSuperCallValid: super.fn() in a contract with bases should be allowed.
-func TestCheckSuperCallValid(t *testing.T) {
+// TestCheckSuperCallRejectedWithInterfaceBases: interfaces do not provide a super target.
+func TestCheckSuperCallRejectedWithInterfaceBases(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
 		Interfaces: []ast.InterfaceDecl{
@@ -4579,8 +4519,17 @@ func TestCheckSuperCallValid(t *testing.T) {
 		},
 	}
 	_, diags := Check("<test>", m)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics for valid super call: %v", diags)
+	if !diags.HasErrors() {
+		t.Fatalf("expected error for super call with interface bases")
+	}
+	found2046 := false
+	for _, d := range diags {
+		if d.Code == "TOL2046" {
+			found2046 = true
+		}
+	}
+	if !found2046 {
+		t.Fatalf("expected TOL2046, got: %v", diags)
 	}
 }
 
@@ -4628,9 +4577,9 @@ func TestCheckSuperCallWithoutBases(t *testing.T) {
 	}
 }
 
-// TestDeprecationWarningsVirtualOverrideSuper verifies that virtual, override, and super
-// emit deprecation warnings (not errors) and still compile successfully.
-func TestDeprecationWarningsVirtualOverrideSuper(t *testing.T) {
+// TestDeprecationWarningsVirtualOverride verifies that virtual and override still
+// emit deprecation warnings while plain interface implementation remains allowed.
+func TestDeprecationWarningsVirtualOverride(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
 		Interfaces: []ast.InterfaceDecl{
@@ -4650,34 +4599,18 @@ func TestDeprecationWarningsVirtualOverrideSuper(t *testing.T) {
 					Modifiers: []string{"internal"},
 					Virtual:   true,
 					Override:  true,
-					Body: []ast.Statement{
-						{
-							Kind: "expr",
-							Expr: &ast.Expr{
-								Kind: "call",
-								Callee: &ast.Expr{
-									Kind:   "member",
-									Object: &ast.Expr{Kind: "ident", Value: "super"},
-									Member: "setup",
-								},
-								Args: []*ast.Expr{},
-							},
-						},
-					},
+					Body:      []ast.Statement{{Kind: "return"}},
 				},
 			},
 		},
 	}
 	_, diags := Check("<test>", m)
-	// Must not have errors — deprecation warnings are not errors.
 	if diags.HasErrors() {
 		t.Fatalf("unexpected errors: %v", diags)
 	}
-	// Must have all three deprecation warnings.
 	wantCodes := map[string]bool{
 		"TOL2317": false, // virtual
 		"TOL2318": false, // override
-		"TOL2319": false, // super
 	}
 	for _, d := range diags {
 		if _, ok := wantCodes[d.Code]; ok {
@@ -4731,28 +4664,6 @@ func TestDeprecationWarningInterfaceImplementationNoWarning(t *testing.T) {
 		if d.Code == "TOL2317" || d.Code == "TOL2318" || d.Code == "TOL2319" {
 			t.Errorf("unexpected deprecation warning %s for interface implementation: %s", d.Code, d.Message)
 		}
-	}
-}
-
-// TestCheckUnknownBaseAllowed: bases that are not in the module (cross-file) are allowed.
-func TestCheckUnknownBaseAllowed(t *testing.T) {
-	m := &ast.Module{
-		Version: "0.2.0",
-		Contract: &ast.ContractDecl{
-			Name:  "Child",
-			Bases: []string{"ExternalBase"}, // not in this module
-			Functions: []ast.FunctionDecl{
-				{
-					Name:      "foo",
-					Modifiers: []string{"public"},
-					Body:      []ast.Statement{{Kind: "return"}},
-				},
-			},
-		},
-	}
-	_, diags := Check("<test>", m)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics for cross-file base: %v", diags)
 	}
 }
 
@@ -5383,9 +5294,9 @@ func TestCheckUncheckedBlock(t *testing.T) {
 									Kind:   "set",
 									Target: &ast.Expr{Kind: "ident", Value: "x"},
 									Expr: &ast.Expr{
-										Kind: "binary",
-										Op:   "+",
-										Left: &ast.Expr{Kind: "ident", Value: "x"},
+										Kind:  "binary",
+										Op:    "+",
+										Left:  &ast.Expr{Kind: "ident", Value: "x"},
 										Right: &ast.Expr{Kind: "number", Value: "1"},
 									},
 								},
@@ -6495,10 +6406,9 @@ func TestCheckAbstractFunctionInConcreteContractRejected(t *testing.T) {
 	}
 }
 
-// TestCheckConcreteContractMustImplementAbstractFunctions: a concrete contract that
-// inherits from an abstract contract but does not implement all abstract stubs must
-// be rejected with TOL2070.
-func TestCheckConcreteContractMustImplementAbstractFunctions(t *testing.T) {
+// TestCheckAbstractContractBaseRejected: `is` may only list interfaces, not abstract
+// contracts used as implementation parents.
+func TestCheckAbstractContractBaseRejected(t *testing.T) {
 	m := &ast.Module{
 		Version: "0.2.0",
 		AbstractContracts: []ast.ContractDecl{
@@ -6521,63 +6431,15 @@ func TestCheckConcreteContractMustImplementAbstractFunctions(t *testing.T) {
 			Name:      "Token",
 			Abstract:  false,
 			Bases:     []string{"Base"},
-			Functions: []ast.FunctionDecl{}, // missing transfer implementation
+			Functions: []ast.FunctionDecl{},
 		},
 	}
 	_, diags := Check("<test>", m)
 	if !diags.HasErrors() {
-		t.Fatalf("expected error for missing abstract function implementation")
+		t.Fatalf("expected error for abstract base in is clause")
 	}
-	if !strings.Contains(diags.Error(), "TOL2070") {
-		t.Fatalf("expected TOL2070, got: %v", diags)
-	}
-	if !strings.Contains(diags.Error(), "transfer") {
-		t.Fatalf("expected 'transfer' in error message, got: %v", diags)
-	}
-}
-
-// TestCheckConcreteContractImplementsAllAbstractFunctions: a concrete contract that
-// properly implements all abstract stubs should produce no errors.
-func TestCheckConcreteContractImplementsAllAbstractFunctions(t *testing.T) {
-	m := &ast.Module{
-		Version: "0.2.0",
-		AbstractContracts: []ast.ContractDecl{
-			{
-				Name:     "Base",
-				Abstract: true,
-				Functions: []ast.FunctionDecl{
-					{
-						Name:      "transfer",
-						Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
-						Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
-						Modifiers: []string{"public"},
-						Virtual:   true,
-						Body:      nil,
-					},
-				},
-			},
-		},
-		Contract: &ast.ContractDecl{
-			Name:     "Token",
-			Abstract: false,
-			Bases:    []string{"Base"},
-			Functions: []ast.FunctionDecl{
-				{
-					Name:      "transfer",
-					Params:    []ast.FieldDecl{{Name: "to", Type: "agent"}, {Name: "amount", Type: "u256"}},
-					Returns:   []ast.FieldDecl{{Name: "ok", Type: "bool"}},
-					Modifiers: []string{"public"},
-					Override:  true,
-					Body: []ast.Statement{
-						{Kind: "return", Expr: &ast.Expr{Kind: "ident", Value: "true"}},
-					},
-				},
-			},
-		},
-	}
-	_, diags := Check("<test>", m)
-	if diags.HasErrors() {
-		t.Fatalf("unexpected diagnostics for contract implementing all abstract functions: %v", diags)
+	if !strings.Contains(diags.Error(), "TOL2043") {
+		t.Fatalf("expected TOL2043, got: %v", diags)
 	}
 }
 
@@ -6733,9 +6595,9 @@ func TestCheckOverloadDistinctParamTypes(t *testing.T) {
 					Body:      []ast.Statement{{Kind: "return", Expr: &ast.Expr{Kind: "ident", Value: "x"}}},
 				},
 				{
-					Name:   "compute",
-					Params: []ast.FieldDecl{{Name: "x", Type: "u256"}, {Name: "y", Type: "u256"}},
-					Returns: []ast.FieldDecl{{Name: "r", Type: "u256"}},
+					Name:      "compute",
+					Params:    []ast.FieldDecl{{Name: "x", Type: "u256"}, {Name: "y", Type: "u256"}},
+					Returns:   []ast.FieldDecl{{Name: "r", Type: "u256"}},
 					Modifiers: []string{"public"},
 					Body: []ast.Statement{{Kind: "return", Expr: &ast.Expr{
 						Kind:  "binary",
@@ -6808,9 +6670,9 @@ func TestCheckOverloadCallResolution(t *testing.T) {
 					Body:      []ast.Statement{{Kind: "return", Expr: &ast.Expr{Kind: "ident", Value: "x"}}},
 				},
 				{
-					Name:   "compute",
-					Params: []ast.FieldDecl{{Name: "x", Type: "u256"}, {Name: "y", Type: "u256"}},
-					Returns: []ast.FieldDecl{{Name: "r", Type: "u256"}},
+					Name:      "compute",
+					Params:    []ast.FieldDecl{{Name: "x", Type: "u256"}, {Name: "y", Type: "u256"}},
+					Returns:   []ast.FieldDecl{{Name: "r", Type: "u256"}},
 					Modifiers: []string{"public"},
 					Body:      []ast.Statement{{Kind: "return", Expr: &ast.Expr{Kind: "ident", Value: "x"}}},
 				},
@@ -7188,9 +7050,9 @@ func TestCheckPayableCastAllowsTransfer(t *testing.T) {
 								Callee: &ast.Expr{
 									Kind: "member",
 									Object: &ast.Expr{
-										Kind:  "call",
+										Kind:   "call",
 										Callee: &ast.Expr{Kind: "ident", Value: "payable"},
-										Args:  []*ast.Expr{{Kind: "ident", Value: "recipient"}},
+										Args:   []*ast.Expr{{Kind: "ident", Value: "recipient"}},
 									},
 									Member: "transfer",
 								},
@@ -7749,7 +7611,6 @@ func TestCheckStateVarVisibilityOK(t *testing.T) {
 	}
 }
 
-
 // ── Task #11: Top-level declarations and all import forms ─────────────────────
 
 // TestCheckTopLevelDeclarationsNoContract verifies that a file with only top-level
@@ -7942,8 +7803,8 @@ func TestUnoTypeValid(t *testing.T) {
 			},
 			Functions: []ast.FunctionDecl{
 				{
-					Name:   "transfer",
-					Params: []ast.FieldDecl{{Name: "amount", Type: "uno"}},
+					Name:    "transfer",
+					Params:  []ast.FieldDecl{{Name: "amount", Type: "uno"}},
 					Returns: []ast.FieldDecl{{Name: "result", Type: "uno"}},
 					Body: []ast.Statement{
 						{Kind: "return", Expr: identExpr("amount")},
@@ -8008,9 +7869,9 @@ func TestUnoMethods(t *testing.T) {
 							},
 							Body: []ast.Statement{
 								{
-									Kind:   "let",
-									Name:   "result",
-									Type:   "uno",
+									Kind: "let",
+									Name: "result",
+									Type: "uno",
 									Expr: &ast.Expr{
 										Kind:   "call",
 										Callee: &ast.Expr{Kind: "member", Object: identExpr("a"), Member: method},

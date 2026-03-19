@@ -33,11 +33,11 @@ TOL functions carry compiler-verified `@effects` annotations directly in the `.t
 
 ```tol
 /**
- * @effects reads:  storage.balances[caller], storage.allowances[caller,to]
- * @effects writes: storage.balances[caller], storage.balances[to]
- * @effects emits:  Transfer
- * @effects calls:  []
- * @gas     upper:  50000
+ * @effects(reads:  storage.balances[caller], storage.allowances[caller,to])
+ * @effects(writes: storage.balances[caller], storage.balances[to])
+ * @effects(emits:  Transfer)
+ * @effects(calls:  [])
+ * @gas(upper:  50000)
  */
 function transfer(agent to, u256 amount) external returns (bool ok) {
     require(balances[msg.sender] >= amount, "INSUFFICIENT_BALANCE");
@@ -61,8 +61,8 @@ An agent reading this ABI knows, before sending a single transaction:
 Every bounded TOL function can carry a static gas upper bound:
 
 ```tol
-/// @bounds positions_len <= 64
-/// @gas     upper: 8200 + positions_len * 420 + OracleCap.max_gas
+/// @bounds(positions_len <= 64)
+/// @gas(upper: 8200 + positions_len * 420 + OracleCap.max_gas)
 function settle(u256 n) external { ... }
 ```
 
@@ -78,7 +78,7 @@ For agents operating in task markets, oracle networks, or prediction markets, th
 External calls in TOL are expressed as capability references:
 
 ```tol
-/// @effects calls: cap:OracleCap iface:IOracle selector:0x12345678 max_gas:3000 max_calls:1 max_depth:1
+/// @effects(calls: cap:OracleCap iface:IOracle selector:0x12345678 max_gas:3000 max_calls:1 max_depth:1)
 ```
 
 This is not documentation — it is a machine-checkable authorization boundary. A module is only allowed to call `oracle.getPrice`, not any other method. It may call it at most once, with a bounded gas budget, at a call depth of at most 1.
@@ -302,10 +302,10 @@ contract TRC20 {
     }
 
     /**
-     * @effects reads:  storage.balances[caller]
-     * @effects writes: storage.balances[caller], storage.balances[to]
-     * @effects emits:  Transfer
-     * @gas     upper:  50000
+     * @effects(reads:  storage.balances[caller])
+     * @effects(writes: storage.balances[caller], storage.balances[to])
+     * @effects(emits:  Transfer)
+     * @gas(upper:  50000)
      */
     function transfer(agent to, u256 amount) external returns (bool ok) {
         require(balances[msg.sender] >= amount, "INSUFFICIENT_BALANCE");
@@ -529,7 +529,7 @@ TOL enforces several safety properties at the language level:
 | **`msg.value` unambiguous** | `msg.value` in `payable(uno)` → error; must write `msg.uno_value` |
 | **Error model typed** | `require` → `Error(string)`, `assert` → `Panic(uint256)`, `revert` → custom selector |
 | **No implicit operator overloading** | `using SafeMath for u256` allows `x.add(y)` but NOT `x + y` dispatch |
-| **Effects verified** | `@effects writes: [storage.x]` checked against actual code — undeclared writes fail compilation |
+| **Effects verified** | `@effects(writes: [storage.x])` checked against actual code — undeclared writes fail compilation |
 
 ---
 

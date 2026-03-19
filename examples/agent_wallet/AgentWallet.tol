@@ -78,9 +78,9 @@ account contract AgentWallet {
     /// @param  sig      Raw transaction calldata (available for custom sig schemes).
     /// @return ok       true → proceed; false → reject without charging gas.
     ///
-    /// @effects reads:  storage.owner, storage.sk_active[caller], storage.sk_expiry[caller]
-    /// @effects writes: []
-    /// @effects emits:  []
+    /// @effects(reads:  storage.owner, storage.sk_active[caller], storage.sk_expiry[caller])
+    /// @effects(writes: [])
+    /// @effects(emits:  [])
     function validate(bytes32 tx_hash, bytes sig) external returns (bool ok) {
         // Owner always passes — no restrictions.
         if (msg.sender == owner) {
@@ -115,9 +115,9 @@ account contract AgentWallet {
     /// @param  value_cap  Maximum tomi the key may attach to a single execute() call.
     ///                    Pass 0 for no cap (owner-equivalent spending power).
     ///
-    /// @effects reads:  storage.owner
-    /// @effects writes: storage.sk_active[key], storage.sk_expiry[key], storage.sk_value_cap[key]
-    /// @effects emits:  SessionKeyAdded
+    /// @effects(reads:  storage.owner)
+    /// @effects(writes: storage.sk_active[key], storage.sk_expiry[key], storage.sk_value_cap[key])
+    /// @effects(emits:  SessionKeyAdded)
     function addSessionKey(agent key, u256 expiry_ms, u256 value_cap) external {
         require(msg.sender == owner, "OnlyOwner");
         require(key != owner, "CannotAddOwnerAsSessionKey");
@@ -136,9 +136,9 @@ account contract AgentWallet {
     ///
     /// @param  key  Session key agent to deactivate.
     ///
-    /// @effects reads:  storage.owner
-    /// @effects writes: storage.sk_active[key]
-    /// @effects emits:  SessionKeyRevoked
+    /// @effects(reads:  storage.owner)
+    /// @effects(writes: storage.sk_active[key])
+    /// @effects(emits:  SessionKeyRevoked)
     function revokeSessionKey(agent key) external {
         require(msg.sender == owner, "OnlyOwner");
 
@@ -162,10 +162,10 @@ account contract AgentWallet {
     /// @param  data    ABI-encoded calldata (4-byte selector + encoded arguments).
     /// @param  value   tomi to attach to the forwarded call.
     ///
-    /// @effects reads:  storage.owner, storage.sk_value_cap[caller]
-    /// @effects writes: []
-    /// @effects emits:  Executed
-    /// @effects calls:  *
+    /// @effects(reads:  storage.owner, storage.sk_value_cap[caller])
+    /// @effects(writes: [])
+    /// @effects(emits:  Executed)
+    /// @effects(calls:  *)
     function execute(agent target, bytes data, u256 value) external payable {
         // Enforce the session key value cap.  The owner is exempt.
         if (msg.sender != owner) {
@@ -190,9 +190,9 @@ account contract AgentWallet {
     ///
     /// @param  new_owner  Agent that will become the new owner.
     ///
-    /// @effects reads:  storage.owner
-    /// @effects writes: storage.owner
-    /// @effects emits:  OwnerTransferred
+    /// @effects(reads:  storage.owner)
+    /// @effects(writes: storage.owner)
+    /// @effects(emits:  OwnerTransferred)
     function transferOwner(agent new_owner) external {
         require(msg.sender == owner, "OnlyOwner");
         require(new_owner != "0x0000000000000000000000000000000000000000000000000000000000000000", "ZeroAddress");

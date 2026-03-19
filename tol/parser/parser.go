@@ -16,8 +16,8 @@ type Parser struct {
 	cur                lexer.Token
 	diags              diag.Diagnostics
 	structNames        map[string]struct{} // known struct names for struct literal disambiguation
-	inAbstractContract bool               // true when parsing the body of an abstract contract
-	pendingDoc         *ast.DocMeta       // accumulated from TokenDocComment; cleared after binding
+	inAbstractContract bool                // true when parsing the body of an abstract contract
+	pendingDoc         *ast.DocMeta        // accumulated from TokenDocComment; cleared after binding
 }
 
 func ParseFile(filename string, src []byte) (*ast.Module, diag.Diagnostics) {
@@ -390,14 +390,14 @@ func (p *Parser) parseContractDecl(isAbstract bool) *ast.ContractDecl {
 	}
 	c := &ast.ContractDecl{Name: contractName.Literal, Abstract: isAbstract}
 
-	// Parse optional inheritance specification: is Base1, Base2(arg1, arg2), ...
+	// Parse optional interface implementation specification: is IFoo, IBar, ...
 	if p.cur.Type == lexer.TokenKwIs || (p.cur.Type == lexer.TokenIdent && p.cur.Literal == "is") {
 		p.next() // consume "is"
 		for {
 			if p.cur.Type != lexer.TokenIdent {
 				p.addDiag(diag.Diagnostic{
 					Code:    diag.CodeParseUnexpected,
-					Message: "expected base contract name after 'is'",
+					Message: "expected interface name after 'is'",
 					Span:    p.span(p.cur),
 				})
 				break
@@ -405,8 +405,14 @@ func (p *Parser) parseContractDecl(isAbstract bool) *ast.ContractDecl {
 			baseName := p.cur.Literal
 			p.next()
 			spec := ast.BaseSpecifier{Name: baseName}
-			// Optional constructor arguments: Base(arg1, arg2)
+			// Base constructor arguments are intentionally unsupported: `is` is now
+			// reserved for interface implementation only. Consume the list for recovery.
 			if p.cur.Type == lexer.TokenLParen {
+				p.addDiag(diag.Diagnostic{
+					Code:    diag.CodeParseUnsupported,
+					Message: "constructor-style base arguments in the 'is' clause are removed; use interfaces plus composition/library instead",
+					Span:    p.span(p.cur),
+				})
 				p.next() // consume '('
 				var args []*ast.Expr
 				for p.cur.Type != lexer.TokenRParen && p.cur.Type != lexer.TokenEOF {
@@ -1055,6 +1061,7 @@ func (p *Parser) parseWithStatement() (ast.Statement, bool) {
 //
 //	interface IName {
 //	  fn method(params...) [-> (returns...)] modifiers... ;
+//
 // parseImportDecl parses all supported import forms:
 //
 //	import "path";                    — bare import (side-effect only)
@@ -1062,6 +1069,7 @@ func (p *Parser) parseWithStatement() (ast.Statement, bool) {
 //	import { A, B } from "path";     — named imports
 //	import * as X from "path";       — namespace import (star)
 //	import Identifier from "path";   — old TOL-style (still accepted)
+//
 // parseDottedName reads a dot-separated identifier sequence and returns the concatenated string.
 // Example: "tos" "." "registry" "." "AgentRegistry" → "tolang.registry.AgentRegistry"
 // Requires at least one identifier. Stops when next token is not a dot followed by an ident.
@@ -2124,7 +2132,7 @@ func (p *Parser) parseFunctionAttributes() (string, bool) {
 			}
 			continue
 		case "pay":
-			// @pay(amount_expr) or @pay(amount=expr, recipient=expr)
+			// @pay(amount_expr) or @pay(amount: expr, recipient: expr)
 			if hasParen {
 				rawPay := p.collectAttrArgs()
 				if p.pendingDoc == nil {
@@ -2192,7 +2200,8 @@ func (p *Parser) parseFunctionAttributes() (string, bool) {
 }
 
 // parseErrorDecl parses a custom error declaration:
-//   error ErrorName(param1: Type1, param2: Type2);
+//
+//	error ErrorName(param1: Type1, param2: Type2);
 func (p *Parser) parseErrorDecl() *ast.ErrorDecl {
 	if !p.expect(lexer.TokenKwError, diag.CodeParseUnexpected, "expected 'error'") {
 		return nil
@@ -2221,7 +2230,8 @@ func (p *Parser) parseErrorDecl() *ast.ErrorDecl {
 }
 
 // parseEnumDecl parses an enum declaration:
-//   enum State { Active, Inactive, Paused }
+//
+//	enum State { Active, Inactive, Paused }
 func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 	if !p.expect(lexer.TokenKwEnum, diag.CodeParseUnexpected, "expected 'enum'") {
 		return nil
@@ -3116,7 +3126,7 @@ func (p *Parser) parseField(allowIndexed, allowDataLoc bool) (ast.FieldDecl, boo
 				p.cur.Type != lexer.TokenLParen &&
 				p.cur.Type != lexer.TokenRParen &&
 				p.cur.Type != lexer.TokenLT && // generic type param open
-				p.cur.Type != lexer.TokenGT {  // generic type param close
+				p.cur.Type != lexer.TokenGT { // generic type param close
 				break
 			}
 		}
@@ -3944,7 +3954,7 @@ func (p *Parser) parseSetStatement(terminator lexer.Type) (ast.Statement, bool) 
 	// Check for ++ / -- (inc/dec after target).
 	if p.cur.Type == lexer.TokenPlusPlus || p.cur.Type == lexer.TokenMinusMinus {
 		op := p.cur.Literal // "++" or "--"
-		p.next()           // consume ++ or --
+		p.next()            // consume ++ or --
 		if !p.expect(terminator, diag.CodeParseUnexpected, "expected statement terminator after "+op) {
 			return ast.Statement{}, false
 		}
@@ -4414,7 +4424,7 @@ func (p *Parser) parseTryCatchStatement() (ast.Statement, bool) {
 
 	// Parse the expression being tried. We stop at '{' and 'returns'.
 	tryExpr, ok := p.parseExpression(map[lexer.Type]bool{
-		lexer.TokenLBrace:  true,
+		lexer.TokenLBrace:    true,
 		lexer.TokenKwReturns: true,
 	})
 	if !ok {
@@ -5753,9 +5763,9 @@ func (p *Parser) clearPendingDocOnNonDecl() {
 	switch p.cur.Type {
 	case lexer.TokenKwFunction, lexer.TokenKwConstructor, lexer.TokenKwFallback,
 		lexer.TokenKwEvent, lexer.TokenKwInterface, lexer.TokenKwContract,
-		lexer.TokenAt,              // @selector or other attributes before function
-		lexer.TokenKwReceive,       // receive() payable { ... } — now a keyword
-		lexer.TokenKwAbstract:      // abstract contract — now a keyword
+		lexer.TokenAt,         // @selector or other attributes before function
+		lexer.TokenKwReceive,  // receive() payable { ... } — now a keyword
+		lexer.TokenKwAbstract: // abstract contract — now a keyword
 		// do NOT clear — binding survives attribute tokens too
 	default:
 		p.pendingDoc = nil
@@ -5808,11 +5818,11 @@ func parseDocMeta(raw string) *ast.DocMeta {
 			name, text, _ := strings.Cut(rest, " ")
 			meta.Returns = append(meta.Returns, ast.DocParam{Name: strings.TrimSpace(name), Text: strings.TrimSpace(text)})
 		case "effects":
-			parseEffectsTag(meta, rest)
+			parseEffectsTag(meta, stripOuterParens(rest))
 		case "bounds":
-			parseBoundsTag(meta, rest)
+			parseBoundsTag(meta, stripOuterParens(rest))
 		case "gas":
-			parseGasTag(meta, rest)
+			parseGasTag(meta, stripOuterParens(rest))
 		case "requires":
 			parseRequiresTag(meta, rest)
 		case "pay":
@@ -5838,10 +5848,23 @@ func parseDocMeta(raw string) *ast.DocMeta {
 	return meta
 }
 
-// parseEffectsTag parses one or more "@effects key: values" clauses from a single line.
+// stripOuterParens removes surrounding parentheses if present.
+// "@effects(reads: [x])" → "reads: [x]"
+func stripOuterParens(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "(") && strings.HasSuffix(s, ")") {
+		return strings.TrimSpace(s[1 : len(s)-1])
+	}
+	return s
+}
+
+// parseEffectsTag parses one or more "@effects(key: values)" clauses from a single line.
 // Multiple clauses may appear on one line separated by commas outside brackets:
-//   @effects guards: [onlyOwner], writes: [storage.balance]
+//
+//	@effects(guards: [onlyOwner], writes: [storage.balance])
+//	@effects(reads: [x], writes: [y])
 func parseEffectsTag(meta *ast.DocMeta, rest string) {
+	rest = stripOuterParens(rest)
 	// rest is like "reads:  storage.balances[caller], storage.x" or "calls: []"
 	colonIdx := strings.Index(rest, ":")
 	if colonIdx < 0 {
@@ -5976,7 +5999,7 @@ func canonicalizeRef(ref string) string {
 	return strings.ToLower(b.String())
 }
 
-// parseCallRef parses a single @effects calls: item.
+// parseCallRef parses a single @effects(calls: ...) item.
 // Format: "cap:OracleCap iface:IOracle selector:0x12345678 max_gas:3000 max_calls:1 max_depth:1"
 // or just "*" for wildcard.
 func parseCallRef(s string) ast.CallRef {
@@ -6013,8 +6036,9 @@ func parseCallRef(s string) ast.CallRef {
 	return cr
 }
 
-// parseBoundsTag parses "@bounds ident <= N, ident2 == M".
+// parseBoundsTag parses "@bounds(ident <= N, ident2 == M)".
 func parseBoundsTag(meta *ast.DocMeta, rest string) {
+	rest = stripOuterParens(rest)
 	if meta.Bounds == nil {
 		meta.Bounds = &ast.BoundsDecl{}
 	}
@@ -6039,12 +6063,13 @@ func parseBoundsTag(meta *ast.DocMeta, rest string) {
 	}
 }
 
-// parseGasTag parses "@gas upper: N" or "@gas upper: expr".
+// parseGasTag parses "@gas(upper: N)" or "@gas(upper: expr)".
 // The value after "upper:" is treated as a concrete integer only when the
 // entire value string (after trimming whitespace) is a pure decimal integer.
 // Any value that contains non-digit characters is stored as a parametric
 // expression string in GasDecl.Expr.
 func parseGasTag(meta *ast.DocMeta, rest string) {
+	rest = stripOuterParens(rest)
 	colonIdx := strings.Index(rest, ":")
 	if colonIdx < 0 {
 		return
@@ -6093,7 +6118,8 @@ func parseRequiresTag(meta *ast.DocMeta, rest string) {
 // parsePayTag parses "@pay(...)" into meta.PayAmount / PayRecipient.
 // Supported forms:
 //
-//	@pay(amount=X, recipient=Y)     — named keys with '='
+//	@pay(amount=X, recipient=Y)     — named keys with '=' (legacy)
+//	@pay(amount: X, recipient: Y)   — named keys with ':' (unified)
 //	@pay(X)                         — bare amount (PayIsBare=true, PayRecipient left empty)
 //	@pay(X, recipient: Y)           — positional amount + named recipient with ':'
 func parsePayTag(meta *ast.DocMeta, rest string) {
@@ -6102,11 +6128,16 @@ func parsePayTag(meta *ast.DocMeta, rest string) {
 	s = strings.TrimPrefix(s, "(")
 	s = strings.TrimSuffix(s, ")")
 	s = strings.TrimSpace(s)
-	// Named-key form: contains '=' separator.
-	if strings.Contains(s, "=") {
+	// Named-key form: contains '=' or "amount:" separator.
+	if strings.Contains(s, "=") || strings.HasPrefix(s, "amount:") || strings.Contains(s, ", amount:") {
 		for _, part := range strings.Split(s, ",") {
 			part = strings.TrimSpace(part)
-			k, v, ok := strings.Cut(part, "=")
+			var k, v string
+			var ok bool
+			k, v, ok = strings.Cut(part, "=")
+			if !ok {
+				k, v, ok = strings.Cut(part, ":")
+			}
 			if !ok {
 				continue
 			}
@@ -6242,9 +6273,11 @@ func (p *Parser) parsePurposeDecl() *ast.PurposeDecl {
 
 // parseManifestDecl parses a manifest block at contract body level.
 // Supported value forms:
-//   key: "string"    — string literal
-//   key: 1234        — number literal
-//   key: [A, B]      — array of idents/strings
+//
+//	key: "string"    — string literal
+//	key: 1234        — number literal
+//	key: [A, B]      — array of idents/strings
+//
 // Separators: ',' or ';' (both accepted, both optional before '}'.
 func (p *Parser) parseManifestDecl() *ast.ManifestDecl {
 	line := p.cur.Start.Line

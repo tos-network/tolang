@@ -589,7 +589,7 @@ func Check(filename string, m *ast.Module) (*TypedModule, diag.Diagnostics) {
 		checkOneContract(filename, m, &m.Contracts[i], topSeen, libFuncs, &diags)
 	}
 
-	// Validate inheritance, C3 linearization, interface conformance, and super calls.
+	// Validate interface-only `is` clauses and reject legacy super usage.
 	// Run once per contract (using m.Contract pointer swap for compatibility with inherit.go).
 	for i := range m.Contracts {
 		saved := m.Contract

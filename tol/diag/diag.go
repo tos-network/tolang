@@ -133,10 +133,10 @@ const (
 
 	// Effect annotation diagnostics (TOL2200–TOL2209)
 	CodeEffectUndeclared     = "TOL2200" // inferred effect not covered by declared effect set
-	CodeEffectGasUnbounded   = "TOL2201" // @gas upper declared but function is UNBOUNDED
-	CodeEffectGasTooLow      = "TOL2202" // declared @gas upper < inferred conservative upper bound
-	CodeEffectEmptyCalls        = "TOL2204" // @effects calls:[] declared but external call found in IR
-	CodeEffectSelectorNoSite    = "TOL2205" // @effects calls: declared selector has no matching IR call site
+	CodeEffectGasUnbounded   = "TOL2201" // @gas(upper: ...) declared but function is UNBOUNDED
+	CodeEffectGasTooLow      = "TOL2202" // declared @gas(upper: N) < inferred conservative upper bound
+	CodeEffectEmptyCalls        = "TOL2204" // @effects(calls: []) declared but external call found in IR
+	CodeEffectSelectorNoSite    = "TOL2205" // @effects(calls: ...) declared selector has no matching IR call site
 	CodeEffectGuardMissing      = "TOL2206" // function uses modifier but @effects does not declare it in guards:
 	CodeEffectTotalCostExceeded = "TOL2209" // @total_cost(max) inconsistent with @gas and @pay
 

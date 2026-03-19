@@ -796,19 +796,19 @@ func (f *formatter) writeDocComment(doc *ast.DocMeta) {
 	if doc.Effects != nil {
 		eff := doc.Effects
 		if len(eff.Reads) > 0 {
-			f.writeLine(fmt.Sprintf("/// @effects reads:  %s", strings.Join(eff.Reads, ", ")))
+			f.writeLine(fmt.Sprintf("/// @effects(reads:  %s)", strings.Join(eff.Reads, ", ")))
 		} else if eff.Reads != nil {
-			f.writeLine("/// @effects reads:  []")
+			f.writeLine("/// @effects(reads:  [])")
 		}
 		if len(eff.Writes) > 0 {
-			f.writeLine(fmt.Sprintf("/// @effects writes: %s", strings.Join(eff.Writes, ", ")))
+			f.writeLine(fmt.Sprintf("/// @effects(writes: %s)", strings.Join(eff.Writes, ", ")))
 		} else if eff.Writes != nil {
-			f.writeLine("/// @effects writes: []")
+			f.writeLine("/// @effects(writes: [])")
 		}
 		if len(eff.Emits) > 0 {
-			f.writeLine(fmt.Sprintf("/// @effects emits:  %s", strings.Join(eff.Emits, ", ")))
+			f.writeLine(fmt.Sprintf("/// @effects(emits:  %s)", strings.Join(eff.Emits, ", ")))
 		} else if eff.Emits != nil {
-			f.writeLine("/// @effects emits:  []")
+			f.writeLine("/// @effects(emits:  [])")
 		}
 		if len(eff.Calls) > 0 {
 			parts := make([]string, len(eff.Calls))
@@ -819,16 +819,16 @@ func (f *formatter) writeDocComment(doc *ast.DocMeta) {
 					parts[i] = fmt.Sprintf("%s.%s.%s", c.Cap, c.Iface, c.Selector)
 				}
 			}
-			f.writeLine(fmt.Sprintf("/// @effects calls:  %s", strings.Join(parts, ", ")))
+			f.writeLine(fmt.Sprintf("/// @effects(calls:  %s)", strings.Join(parts, ", ")))
 		} else if eff.Calls != nil {
-			f.writeLine("/// @effects calls:  []")
+			f.writeLine("/// @effects(calls:  [])")
 		}
 	}
 	if doc.Gas != nil {
 		if doc.Gas.Expr != "" {
-			f.writeLine(fmt.Sprintf("/// @gas     upper:  %s", doc.Gas.Expr))
+			f.writeLine(fmt.Sprintf("/// @gas(upper: %s)", doc.Gas.Expr))
 		} else {
-			f.writeLine(fmt.Sprintf("/// @gas     upper:  %d", doc.Gas.Upper))
+			f.writeLine(fmt.Sprintf("/// @gas(upper: %d)", doc.Gas.Upper))
 		}
 	}
 }

@@ -951,7 +951,7 @@ func checkDeclaredEffects(filename string, fn ast.FunctionDecl, storageSlots map
 				*diags = append(*diags, diag.Diagnostic{
 					Code: diag.CodeEffectEmptyCalls,
 					Message: fmt.Sprintf(
-						"function '%s' declares '@effects calls: []' but an external call was found in the implementation",
+						"function '%s' declares '@effects(calls: [])' but an external call was found in the implementation",
 						fn.Name),
 					Span: span,
 				})
@@ -1091,14 +1091,14 @@ const (
 // Emits TOL2201 or TOL2202 diagnostics.
 // This is a conservative, best-effort check.
 //
-// Two forms of @gas upper are handled:
+// Two forms of @gas(upper: ...) are handled:
 //
-//  1. Concrete: `@gas upper: 12345` — gas.Upper > 0, gas.Expr == "".
+//  1. Concrete: `@gas(upper: 12345)` — gas.Upper > 0, gas.Expr == "".
 //     The body is estimated with bounds-aware loop unrolling. TOL2201 if the
 //     body cannot be bounded; TOL2202 if declared < estimated.
 //
-//  2. Parametric: `@gas upper: 8200 + positions_len * 420` — gas.Expr != "".
-//     The expression is evaluated by substituting @bounds variable values and
+//  2. Parametric: `@gas(upper: 8200 + positions_len * 420)` — gas.Expr != "".
+//     The expression is evaluated by substituting @bounds() variable values and
 //     CallRef.max_gas fields. TOL2201 is emitted if any identifier in the
 //     expression cannot be resolved. No numerical comparison against the body
 //     estimate is performed: the parametric expression IS the declared bound.
@@ -1111,7 +1111,7 @@ func checkGasUpperBound(filename string, fn ast.FunctionDecl, storageSlots map[s
 
 	if gas.Expr != "" {
 		// Parametric expression path: evaluate the expression by substituting
-		// @bounds variable values and CallRef.max_gas fields. Emit TOL2201 if
+		// @bounds() variable values and CallRef.max_gas fields. Emit TOL2201 if
 		// any identifier cannot be resolved (function is effectively unbounded).
 		// No comparison against the body gas estimate is performed — the
 		// parametric expression is the developer-declared upper bound.
@@ -1124,7 +1124,7 @@ func checkGasUpperBound(filename string, fn ast.FunctionDecl, storageSlots map[s
 			*diags = append(*diags, diag.Diagnostic{
 				Code: diag.CodeEffectGasUnbounded,
 				Message: fmt.Sprintf(
-					"cannot verify @gas upper in function '%s': parametric expression contains an unresolved identifier; declare all bound variables with @bounds or provide CallRef.max_gas values",
+					"cannot verify @gas(upper: ...) in function '%s': parametric expression contains an unresolved identifier; declare all bound variables with @bounds() or provide CallRef.max_gas values",
 					fn.Name),
 				Span: span,
 			})
@@ -1135,7 +1135,7 @@ func checkGasUpperBound(filename string, fn ast.FunctionDecl, storageSlots map[s
 	// Concrete path: declared is a plain integer upper bound.
 	declared := gas.Upper
 
-	// Estimate gas from body, threading @bounds through for loop unrolling.
+	// Estimate gas from body, threading @bounds() through for loop unrolling.
 	estimated := estimateGas(fn.Body, storageSlots, fn.Doc.Bounds)
 
 	if estimated == ^uint64(0) {
@@ -1143,7 +1143,7 @@ func checkGasUpperBound(filename string, fn ast.FunctionDecl, storageSlots map[s
 		*diags = append(*diags, diag.Diagnostic{
 			Code: diag.CodeEffectGasUnbounded,
 			Message: fmt.Sprintf(
-				"cannot verify @gas upper in function '%s': function contains an unbounded loop or dynamic iteration; declare loop bounds with @bounds or remove @gas upper",
+				"cannot verify @gas(upper: ...) in function '%s': function contains an unbounded loop or dynamic iteration; declare loop bounds with @bounds() or remove @gas(upper: ...)",
 				fn.Name),
 			Span: span,
 		})
@@ -1190,7 +1190,7 @@ func loopVarFromStmt(init *ast.Statement) string {
 }
 
 // boundsMaxIter returns the maximum number of iterations for a loop variable
-// given the @bounds constraints.  It returns 0, false when no matching
+// given the @bounds() constraints.  It returns 0, false when no matching
 // constraint is found, and N, true when a matching constraint is found.
 // For Op "<"  : effective max iterations = Value
 // For Op "<=" : effective max iterations = Value + 1
@@ -1245,7 +1245,7 @@ func estimateStmtGas(s ast.Statement, slots map[string]bool, bounds *ast.BoundsD
 		}
 		return elseCost
 	case "while", "dowhile":
-		// Attempt to infer the iteration count from @bounds via the loop
+		// Attempt to infer the iteration count from @bounds() via the loop
 		// condition's left-hand-side variable (e.g. `while i <= 99`).
 		// If a bound is found, the loop cost is maxIter × bodyCost.
 		// If no bound is found, treat the loop as unbounded.
@@ -1266,8 +1266,8 @@ func estimateStmtGas(s ast.Statement, slots map[string]bool, bounds *ast.BoundsD
 		return ^uint64(0)
 	case "for":
 		// Attempt to infer the iteration count from the condition's RHS
-		// (e.g. `for let i = 0; i < n; ...` with `@bounds n <= 10`).
-		// Supports both identifier bounds (looked up in @bounds) and numeric
+		// (e.g. `for let i = 0; i < n; ...` with `@bounds(n <= 10)`).
+		// Supports both identifier bounds (looked up in @bounds()) and numeric
 		// literal upper bounds in the condition directly.
 		maxIter, ok := maxIterFromForCond(s.Cond, bounds)
 		if ok {
@@ -1397,10 +1397,10 @@ func maxIterFromForCond(cond *ast.Expr, bounds *ast.BoundsDecl) (uint64, bool) {
 
 // ─── Parametric @gas expression evaluator ───────────────────────────────────
 
-// evalGasExpr evaluates a parametric @gas upper expression such as
+// evalGasExpr evaluates a parametric @gas(upper: ...) expression such as
 // "8200 + positions_len * 420 + OracleCap.max_gas" by:
 //
-//  1. Substituting identifiers from the @bounds declaration.
+//  1. Substituting identifiers from the @bounds() declaration.
 //  2. Substituting "<Cap>.max_gas" references from the declared CallRefs.
 //  3. Evaluating the resulting arithmetic expression (+, *, parentheses).
 //
@@ -1586,10 +1586,10 @@ func (p *gasExprParser) parsePrimary(bounds *ast.BoundsDecl, calls []ast.CallRef
 	return 0, false
 }
 
-// resolveGasIdent resolves an identifier token from a @gas expression.
+// resolveGasIdent resolves an identifier token from a @gas(upper: ...) expression.
 //
 // Resolution order:
-//  1. Plain identifier (e.g. "n") — looked up in @bounds constraints.
+//  1. Plain identifier (e.g. "n") — looked up in @bounds() constraints.
 //  2. Cap.max_gas pattern (e.g. "OracleCap.max_gas") — looked up in CallRefs
 //     by matching the Cap field.
 //

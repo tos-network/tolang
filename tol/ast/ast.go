@@ -383,8 +383,8 @@ type DocMeta struct {
 	// Agent-native annotations
 	RequiresCap  []string // @requires(caller: X) — list of capability names
 	HasPay       bool     // true when @pay(...) annotation is present
-	PayAmount    string   // @pay(amount=expr) — amount expression text (literal if known)
-	PayRecipient string   // @pay(recipient=expr) — recipient expression text
+	PayAmount    string   // @pay(amount: expr) — amount expression text (literal if known)
+	PayRecipient string   // @pay(recipient: expr) — recipient expression text
 	PayIsBare    bool     // true when @pay(expr) bare form used (no named keys)
 	Delegated      bool     // @delegated — function accepts delegated calls
 	Verifiable     bool     // @verifiable — function result is verifiable off-chain
@@ -396,7 +396,7 @@ type DocMeta struct {
 	TotalCostMax string // @total_cost(max: N) — declared maximum total cost in tomi
 }
 
-// EffectDecl is the structured representation of @effects annotations.
+// EffectDecl is the structured representation of @effects() annotations.
 type EffectDecl struct {
 	Reads  []string
 	Writes []string
@@ -416,7 +416,7 @@ type CallRef struct {
 	Wildcard bool
 }
 
-// BoundsDecl holds @bounds constraints.
+// BoundsDecl holds @bounds() constraints.
 type BoundsDecl struct {
 	Constraints []BoundConstraint
 }
@@ -428,7 +428,7 @@ type BoundConstraint struct {
 	Value uint64
 }
 
-// GasDecl holds the @gas upper bound declaration.
+// GasDecl holds the @gas(upper: ...) bound declaration.
 type GasDecl struct {
 	Upper     uint64
 	Expr      string

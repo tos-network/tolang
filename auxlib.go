@@ -467,12 +467,15 @@ func (ls *LState) ToStringMeta(lv LValue) LValue {
 		return result
 	}
 	// Lua 5.4: if the metatable has __name, use it as the type description.
+	// SECURITY: Do NOT use %p (Go heap pointer). Different nodes have
+	// different addresses → nondeterministic → consensus fork if the string
+	// is used in storage, events, or hashing. Use a deterministic
+	// monotonic counter instead.
 	if name, ok := ls.metaOp1(lv, "__name").(LString); ok {
-		switch pt := lv.(type) {
-		case *LTable:
-			return LString(fmt.Sprintf("%s: %p", string(name), pt))
-		case *LUserData:
-			return LString(fmt.Sprintf("%s: %p", string(name), pt))
+		switch lv.(type) {
+		case *LTable, *LUserData:
+			ls.objectIDCounter++
+			return LString(fmt.Sprintf("%s: 0x%08x", string(name), ls.objectIDCounter))
 		default:
 			return LString(string(name))
 		}

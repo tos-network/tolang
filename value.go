@@ -224,6 +224,10 @@ type LState struct {
 	gasLimit uint64
 	gasUsed  uint64
 
+	// objectIDCounter provides deterministic IDs for ToStringMeta() instead
+	// of Go heap pointers (%p), which differ across nodes and break consensus.
+	objectIDCounter uint64
+
 	// Line hook: called once per executed instruction when non-nil.
 	// The source string comes from FunctionProto.SourceName of the active frame.
 	lineHook func(source string, line int)

@@ -203,6 +203,41 @@ func TestToString(t *testing.T) {
 	errorIfNotEqual(t, "", L.ToString(3))
 }
 
+func TestToStringMetaNameFallbackThroughScriptApis(t *testing.T) {
+	L := NewState()
+	defer L.Close()
+
+	if err := L.DoString(`
+local t = {}
+setmetatable(t, { __name = "Foo" })
+_a = tostring(t)
+_b = tostring(t)
+_c = string.format("%s", t)
+`); err != nil {
+		t.Fatal(err)
+	}
+	if got := LVAsString(L.GetGlobal("_a")); got != "Foo" {
+		t.Fatalf("unexpected tostring result: got=%q want=%q", got, "Foo")
+	}
+	if got := LVAsString(L.GetGlobal("_b")); got != "Foo" {
+		t.Fatalf("expected repeated tostring to stay stable: got=%q want=%q", got, "Foo")
+	}
+	if got := LVAsString(L.GetGlobal("_c")); got != "Foo" {
+		t.Fatalf("unexpected string.format result: got=%q want=%q", got, "Foo")
+	}
+
+	if err := L.DoString(`
+local t = {}
+setmetatable(t, { __name = "Foo" })
+_d = tostring(t)
+`); err != nil {
+		t.Fatal(err)
+	}
+	if got := LVAsString(L.GetGlobal("_d")); got != "Foo" {
+		t.Fatalf("expected repeated execution on same state to stay stable: got=%q want=%q", got, "Foo")
+	}
+}
+
 func TestToTable(t *testing.T) {
 	L := NewState()
 	defer L.Close()

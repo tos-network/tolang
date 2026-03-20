@@ -4,6 +4,32 @@ import (
 	"testing"
 )
 
+func TestToStringMetaNameFallbackStable(t *testing.T) {
+	L := NewState()
+	defer L.Close()
+
+	mt := L.NewTable()
+	L.SetField(mt, "__name", LString("Foo"))
+
+	tbl := L.NewTable()
+	L.SetMetatable(tbl, mt)
+	if got := L.ToStringMeta(tbl); got != LString("Foo") {
+		t.Fatalf("unexpected table tostring meta fallback: got=%v want=Foo", got)
+	}
+	if got := L.ToStringMeta(tbl); got != LString("Foo") {
+		t.Fatalf("expected repeated table tostring meta fallback to stay stable, got=%v want=Foo", got)
+	}
+
+	ud := L.NewUserData()
+	L.SetMetatable(ud, mt)
+	if got := L.ToStringMeta(ud); got != LString("Foo") {
+		t.Fatalf("unexpected userdata tostring meta fallback: got=%v want=Foo", got)
+	}
+	if got := L.ToStringMeta(ud); got != LString("Foo") {
+		t.Fatalf("expected repeated userdata tostring meta fallback to stay stable, got=%v want=Foo", got)
+	}
+}
+
 func TestCheckInt(t *testing.T) {
 	L := NewState()
 	defer L.Close()

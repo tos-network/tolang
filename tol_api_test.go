@@ -4,6 +4,8 @@ import (
 	gosha256 "crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8892,6 +8894,47 @@ contract C { function f() public { return; } }
 	}
 	if !strings.Contains(err.Error(), "@rev") && !strings.Contains(err.Error(), "missing") {
 		t.Errorf("expected error about missing @rev, got: %v", err)
+	}
+}
+
+func TestResolveGitHubRejectsMutableRef(t *testing.T) {
+	_, _, err := resolveGitHubImport("github.com/user/repo/IERC20.tol@main", "IERC20")
+	if err == nil {
+		t.Fatal("expected error for mutable github.com ref, got nil")
+	}
+	if !strings.Contains(err.Error(), "full 40-hex commit SHA") {
+		t.Fatalf("expected full commit SHA error, got: %v", err)
+	}
+}
+
+func TestResolveGitHubRejectsShortCommitSHA(t *testing.T) {
+	_, _, err := resolveGitHubImport("github.com/user/repo/IERC20.tol@abc1234", "IERC20")
+	if err == nil {
+		t.Fatal("expected error for short github.com commit SHA, got nil")
+	}
+	if !strings.Contains(err.Error(), "full 40-hex commit SHA") {
+		t.Fatalf("expected full commit SHA error, got: %v", err)
+	}
+}
+
+func TestResolveGitHubRejectsOversizeResponse(t *testing.T) {
+	oldGet := githubImportHTTPGet
+	githubImportHTTPGet = func(string) (*http.Response, error) {
+		body := strings.NewReader(strings.Repeat("x", maxGitHubImportBytes+1))
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(body),
+		}, nil
+	}
+	defer func() { githubImportHTTPGet = oldGet }()
+
+	fullSHA := strings.Repeat("a", 40)
+	_, _, err := resolveGitHubImport("github.com/user/repo/IERC20.tol@"+fullSHA, "IERC20")
+	if err == nil {
+		t.Fatal("expected oversize github.com import error, got nil")
+	}
+	if !strings.Contains(err.Error(), "size limit") {
+		t.Fatalf("expected size limit error, got: %v", err)
 	}
 }
 

@@ -2160,6 +2160,10 @@ func closeToBeClosedVars(L *LState, cf *callFrame, minReg int) {
 		if li.Reg < minReg {
 			continue
 		}
+		idx := cf.LocalBase + li.Reg
+		if idx < 0 || idx >= L.reg.Top() {
+			continue
+		}
 		if li.StartPc <= pc && pc <= li.EndPc {
 			candidates = append(candidates, closeCandidate{name: li.Name, reg: li.Reg})
 		}

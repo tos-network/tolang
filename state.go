@@ -899,7 +899,13 @@ func (ls *LState) rkString(idx int) string {
 	if (idx & opBitRk) != 0 {
 		return ls.currentFrame.Fn.Proto.stringConstants[idx & ^opBitRk]
 	}
-	return string(ls.reg.array[ls.currentFrame.LocalBase+idx].(LString))
+	value := ls.reg.array[ls.currentFrame.LocalBase+idx]
+	str, ok := value.(LString)
+	if !ok {
+		ls.RaiseError("bytecode: expected string key in register %d", idx)
+		return ""
+	}
+	return string(str)
 }
 
 func (ls *LState) closeUpvalues(idx int) { // +inline-start

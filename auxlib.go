@@ -453,8 +453,9 @@ func (ls *LState) DoBytecode(data []byte) error {
 
 // ToStringMeta returns string representation of given LValue.
 // This method calls the `__tostring` meta method if defined.
-// If __tostring is absent but __name is in the metatable, falls back to
-// "<name>: <address>" (matching Lua 5.4's luaL_tolstring behaviour).
+// If __tostring is absent but __name is in the metatable, falls back to the
+// stable type label in __name. Unlike stock Lua, TOL must never expose host
+// pointer addresses in contract-visible strings.
 func (ls *LState) ToStringMeta(lv LValue) LValue {
 	if fn, ok := ls.metaOp1(lv, "__tostring").(*LFunction); ok {
 		ls.Push(fn)
@@ -466,19 +467,9 @@ func (ls *LState) ToStringMeta(lv LValue) LValue {
 		}
 		return result
 	}
-	// Lua 5.4: if the metatable has __name, use it as the type description.
-	// SECURITY: Do NOT use %p (Go heap pointer). Different nodes have
-	// different addresses → nondeterministic → consensus fork if the string
-	// is used in storage, events, or hashing. Use a deterministic
-	// monotonic counter instead.
+	// If the metatable has __name, use it as the type description.
 	if name, ok := ls.metaOp1(lv, "__name").(LString); ok {
-		switch lv.(type) {
-		case *LTable, *LUserData:
-			ls.objectIDCounter++
-			return LString(fmt.Sprintf("%s: 0x%08x", string(name), ls.objectIDCounter))
-		default:
-			return LString(string(name))
-		}
+		return LString(string(name))
 	}
 	return LString(lv.String())
 }

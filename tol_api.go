@@ -1,6 +1,7 @@
 package lua
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,6 +21,10 @@ import (
 type OSFileResolver struct {
 	BaseDir string
 }
+
+const maxGitHubImportBytes = 4 << 20 // 4 MiB
+
+var githubImportHTTPGet = http.Get
 
 // NewOSFileResolver returns a FileResolver that resolves paths relative to baseDir.
 func NewOSFileResolver(baseDir string) sema.FileResolver {
@@ -166,8 +171,9 @@ func (r *OSFileResolver) ListPackage(pkgPath string) ([]string, error) {
 }
 
 // resolveGitHubImport fetches a file from GitHub using the raw content API.
-// The path must have the form: github.com/{user}/{repo}/{file-path}@{ref}
-// where {ref} is a commit SHA, tag, or branch name. The @ref is required.
+// The path must have the form: github.com/{user}/{repo}/{file-path}@{commit}
+// where {commit} is a full 40-hex commit SHA. Mutable refs (branches/tags)
+// are rejected to preserve reproducible builds.
 func resolveGitHubImport(importPath string, importName string) ([]byte, string, error) {
 	// Strip "github.com/" prefix.
 	rest := importPath[len("github.com/"):]
@@ -184,6 +190,9 @@ func resolveGitHubImport(importPath string, importName string) ([]byte, string, 
 	if ref == "" {
 		return nil, "", fmt.Errorf("github.com import %q: @rev is empty", importPath)
 	}
+	if !isFullGitCommitSHA(ref) {
+		return nil, "", fmt.Errorf("github.com import %q: @rev must be a full 40-hex commit SHA", importPath)
+	}
 	// Split into {user}/{repo}/{file-path}.
 	parts := strings.SplitN(pathPart, "/", 3)
 	if len(parts) < 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
@@ -194,7 +203,7 @@ func resolveGitHubImport(importPath string, importName string) ([]byte, string, 
 	}
 	user, repo, filePath := parts[0], parts[1], parts[2]
 	rawURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", user, repo, ref, filePath)
-	resp, err := http.Get(rawURL) //nolint:noctx
+	resp, err := githubImportHTTPGet(rawURL) //nolint:noctx
 	if err != nil {
 		return nil, "", fmt.Errorf("github.com import %q: HTTP request failed: %w", importPath, err)
 	}
@@ -202,9 +211,12 @@ func resolveGitHubImport(importPath string, importName string) ([]byte, string, 
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", fmt.Errorf("github.com import %q: HTTP %d from %s", importPath, resp.StatusCode, rawURL)
 	}
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxGitHubImportBytes+1))
 	if err != nil {
 		return nil, "", fmt.Errorf("github.com import %q: reading response: %w", importPath, err)
+	}
+	if len(data) > maxGitHubImportBytes {
+		return nil, "", fmt.Errorf("github.com import %q: response exceeds size limit (%d bytes)", importPath, maxGitHubImportBytes)
 	}
 	// GitHub imports may also be .toc or .tor archives delivered over HTTP.
 	if IsArtifact(data) {
@@ -222,6 +234,14 @@ func resolveGitHubImport(importPath string, importName string) ([]byte, string, 
 		return src, rawURL, nil
 	}
 	return data, rawURL, nil
+}
+
+func isFullGitCommitSHA(ref string) bool {
+	if len(ref) != 40 {
+		return false
+	}
+	_, err := hex.DecodeString(ref)
+	return err == nil
 }
 
 // artifactToTOLSource decodes a .toc artifact and generates a synthetic TOL source
@@ -311,7 +331,7 @@ func artifactToInterfaceSource(data []byte, importName string) ([]byte, error) {
 	}
 	var manifest struct {
 		Contracts []struct {
-			Name string `json:"name"`
+			Name      string `json:"name"`
 			Interface string `json:"abi"`
 		} `json:"contracts"`
 	}
@@ -357,7 +377,6 @@ func abiDeclaresName(src []byte, name string) bool {
 		strings.Contains(s, "library "+name+" {") ||
 		strings.Contains(s, "library "+name+"{")
 }
-
 
 // CompileOptions controls bytecode debug metadata emission.
 type CompileOptions struct {

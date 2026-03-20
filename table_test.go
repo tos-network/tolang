@@ -234,3 +234,30 @@ func TestTableForEach(t *testing.T) {
 		}
 	})
 }
+
+func TestTableValidNextKeyAllowsStaleKeys(t *testing.T) {
+	tbl := newLTable(0, 0)
+	tbl.RawSetInt(1, lu256FromInt(10))
+	tbl.RawSetInt(2, lu256FromInt(20))
+	tbl.RawSetH(LString("a"), LTrue)
+	tbl.RawSetH(LString("b"), LFalse)
+
+	tbl.RawSetInt(1, LNil)
+	tbl.RawSetH(LString("a"), LNil)
+
+	errorIfFalse(t, tbl.isValidNextKey(lu256FromInt(1)), "expected stale array key to remain valid for next()")
+	errorIfFalse(t, tbl.isValidNextKey(LString("a")), "expected stale hash key to remain valid for next()")
+	errorIfFalse(t, !tbl.isValidNextKey(lu256FromInt(3)), "unexpectedly accepted missing array key")
+	errorIfFalse(t, !tbl.isValidNextKey(LString("missing")), "unexpectedly accepted missing hash key")
+}
+
+func TestTableNextFromStaleHashKey(t *testing.T) {
+	tbl := newLTable(0, 0)
+	tbl.RawSetH(LString("a"), lu256FromInt(1))
+	tbl.RawSetH(LString("b"), lu256FromInt(2))
+	tbl.RawSetH(LString("a"), LNil)
+
+	key, value := tbl.Next(LString("a"))
+	errorIfNotEqual(t, LString("b"), key)
+	errorIfNotEqual(t, lu256FromInt(2), value)
+}

@@ -238,6 +238,46 @@ _d = tostring(t)
 	}
 }
 
+func TestNextAllowsStaleKeyAfterDeletion(t *testing.T) {
+	L := NewState()
+	defer L.Close()
+
+	errorIfScriptFail(t, L, `
+local t = {a = 1, b = 2}
+local k, v = next(t)
+assert(k ~= nil and v ~= nil)
+t[k] = nil
+local nk, nv = next(t, k)
+assert(nk ~= nil)
+assert(t[nk] == nv)
+`)
+}
+
+func TestPairsIteratorMatchesNextStaleKeySemantics(t *testing.T) {
+	L := NewState()
+	defer L.Close()
+
+	errorIfScriptFail(t, L, `
+local iter, t, seed = pairs({a = 1, b = 2})
+local k, v = iter(t, seed)
+assert(k ~= nil and v ~= nil)
+t[k] = nil
+local nk, nv = iter(t, k)
+assert(nk ~= nil)
+assert(t[nk] == nv)
+`)
+}
+
+func TestPairsIteratorRejectsInvalidKey(t *testing.T) {
+	L := NewState()
+	defer L.Close()
+
+	errorIfScriptNotFail(t, L, `
+local iter, t, seed = pairs({x = 1})
+iter(t, 3)
+`, "invalid key")
+}
+
 func TestToTable(t *testing.T) {
 	L := NewState()
 	defer L.Close()

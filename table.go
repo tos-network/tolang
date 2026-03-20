@@ -349,6 +349,25 @@ func (tb *LTable) ForEach(cb func(LValue, LValue)) {
 	}
 }
 
+// isValidNextKey reports whether key is a valid traversal cursor for next/pairs.
+// It intentionally accepts stale keys that were previously returned by iteration
+// and later deleted, matching Lua's behavior for continuing traversal after
+// erasing the current element.
+func (tb *LTable) isValidNextKey(key LValue) bool {
+	if key == LNil {
+		return true
+	}
+	if kv, ok := key.(LUint256); ok && isArrayKey(kv) {
+		index, ok := lu256ToInt(kv)
+		return ok && index >= 1 && index <= len(tb.array)
+	}
+	if tb.k2i == nil {
+		return false
+	}
+	_, ok := tb.k2i[key]
+	return ok
+}
+
 // This function is equivalent to lua_next ( http://www.lua.org/manual/5.1/manual.html#lua_next ).
 func (tb *LTable) Next(key LValue) (LValue, LValue) {
 	init := false

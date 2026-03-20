@@ -21,8 +21,8 @@ func OpenBase(L *LState) int {
 }
 
 var baseFuncs = map[string]LGFunction{
-	"agent": baseAgent,
-	"assert":  baseAssert,
+	"agent":  baseAgent,
+	"assert": baseAssert,
 	// collectgarbage REMOVED: runtime GC behavior is not consensus-critical
 	// and can leak host runtime nondeterminism into contracts.
 	"error": baseError,
@@ -109,8 +109,9 @@ func baseNext(L *LState) int {
 	if L.GetTop() >= 2 {
 		index = L.Get(2)
 	}
-	// Lua 5.4: non-nil key that is not in the table → "invalid key to 'next'"
-	if index != LNil && tb.RawGet(index) == LNil {
+	// Lua 5.4 accepts stale iteration keys (deleted after being returned by
+	// next) but still rejects keys that never belonged to the traversal order.
+	if !tb.isValidNextKey(index) {
 		L.RaiseError("invalid key to 'next'")
 		return 0
 	}
@@ -126,7 +127,12 @@ func baseNext(L *LState) int {
 
 func pairsaux(L *LState) int {
 	tb := L.CheckTable(1)
-	key, value := tb.Next(L.Get(2))
+	index := L.Get(2)
+	if !tb.isValidNextKey(index) {
+		L.RaiseError("invalid key to 'next'")
+		return 0
+	}
+	key, value := tb.Next(index)
 	if key == LNil {
 		return 0
 	} else {

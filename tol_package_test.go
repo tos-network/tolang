@@ -335,7 +335,7 @@ contract Demo {
 		Name      string `json:"name"`
 		Version   string `json:"version"`
 		Contracts []struct {
-			Name string `json:"name"`
+			Name      string `json:"name"`
 			Artifact  string `json:"toc"`
 			Interface string `json:"abi"`
 		} `json:"contracts"`
@@ -386,6 +386,43 @@ contract Demo {
 	}
 }
 
+func TestCompilePackageMultiContractDefaultIsPathIndependent(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract Alpha {
+  function ping() public { return; }
+}
+contract Beta {
+  function pong() public { return; }
+}
+`)
+	a, err := CompilePackage(src, "alpha.tol", nil)
+	if err != nil {
+		t.Fatalf("compile package a: %v", err)
+	}
+	b, err := CompilePackage(src, "beta.tol", nil)
+	if err != nil {
+		t.Fatalf("compile package b: %v", err)
+	}
+	if !bytes.Equal(a, b) {
+		t.Fatalf("expected multi-contract default package output to be path-independent")
+	}
+
+	decoded, err := DecodePackage(a)
+	if err != nil {
+		t.Fatalf("decode package: %v", err)
+	}
+	var manifest struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(decoded.ManifestJSON, &manifest); err != nil {
+		t.Fatalf("manifest decode: %v", err)
+	}
+	if manifest.Name != "alpha" {
+		t.Fatalf("expected stable default package name alpha, got %q", manifest.Name)
+	}
+}
+
 func TestCompilePackageCustomPaths(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
@@ -394,13 +431,13 @@ contract Demo {
 }
 `)
 	pkg, err := CompilePackage(src, "demo.tol", &PackageOptions{
-		PackageName:      "demo",
-		PackageVersion:   "1.2.3",
-		ArtifactPath:          "artifacts/Demo.toc",
-		InterfacePath:          "abi/IDemo.abi",
-		InterfaceName: "DemoIface",
-		IncludeSource:    true,
-		SourcePath:       "src/demo.tol",
+		PackageName:    "demo",
+		PackageVersion: "1.2.3",
+		ArtifactPath:   "artifacts/Demo.toc",
+		InterfacePath:  "abi/IDemo.abi",
+		InterfaceName:  "DemoIface",
+		IncludeSource:  true,
+		SourcePath:     "src/demo.tol",
 	})
 	if err != nil {
 		t.Fatalf("compile package: %v", err)

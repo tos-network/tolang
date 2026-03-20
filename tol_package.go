@@ -85,14 +85,6 @@ func CompilePackage(source []byte, name string, opts *PackageOptions) ([]byte, e
 	includeSource := false
 	sourcePath := ""
 	pkgName := strings.ToLower(mod.Contracts[0].Name)
-	if len(mod.Contracts) > 1 {
-		// For multi-contract: derive package name from file basename.
-		base := filepath.Base(name)
-		base = strings.TrimSuffix(base, filepath.Ext(base))
-		if base != "" && base != "." {
-			pkgName = base
-		}
-	}
 
 	var artifactPathOverride, interfacePathOverride, interfaceNameOverride string
 	if opts != nil {

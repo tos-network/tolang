@@ -479,7 +479,7 @@ func (r *Runner) runTestDecl(testFile, sourceDir string, mod *ast.Module, td ast
 
 	// Run teardown_suite once after all tests; errors are suppressed.
 	if td.TeardownSuite != nil && len(td.TeardownSuite.Body) > 0 {
-		ls := lua.NewState()
+		ls := newRunnerState()
 		defer ls.Close()
 		injectAssertBuiltins(ls)
 		if chunk, err := buildLuaChunk(td.TeardownSuite.Body); err == nil {
@@ -492,7 +492,7 @@ func (r *Runner) runTestDecl(testFile, sourceDir string, mod *ast.Module, td ast
 
 // runTestFn executes a single test function with the full P2 lifecycle.
 func (r *Runner) runTestFn(testFile, sourceDir string, mod *ast.Module, td ast.TestDecl, fn ast.TestFn, suiteSetupStmts []ast.Statement) error {
-	ls := lua.NewState()
+	ls := newRunnerState()
 	defer ls.Close()
 
 	// Enable instruction counting so assert_instructions_le can measure gas delta.
@@ -576,7 +576,7 @@ func (r *Runner) runTestFn(testFile, sourceDir string, mod *ast.Module, td ast.T
 // runTestFnWithRow is like runTestFn but injects a row of case values as Lua
 // globals before executing the test body.
 func (r *Runner) runTestFnWithRow(testFile, sourceDir string, mod *ast.Module, td ast.TestDecl, fn ast.TestFn, suiteSetupStmts []ast.Statement, columns []string, row []*ast.Expr) error {
-	ls := lua.NewState()
+	ls := newRunnerState()
 	defer ls.Close()
 
 	ls.SetGasLimit(1 << 48)
@@ -678,7 +678,7 @@ func (r *Runner) runFuzzFn(testFile, sourceDir string, mod *ast.Module, td ast.T
 	setupNames := collectSetupBindingNames(td)
 
 	for i := 0; i < count; i++ {
-		ls := lua.NewState()
+		ls := newRunnerState()
 		ls.SetGasLimit(1 << 48)
 		fuzzCancelCh := installCancellableHook(ls, nil)
 		injectAssertBuiltins(ls)
@@ -1056,6 +1056,10 @@ func installCancellableHook(ls *lua.LState, hits map[string]map[int]bool) chan s
 		}
 	})
 	return cancelCh
+}
+
+func newRunnerState() *lua.LState {
+	return lua.NewState(lua.Options{AllowHostHooks: true})
 }
 
 // injectAssertBuiltins registers assert_eq, assert_ne, assert_gt, assert_lt,

@@ -93,6 +93,9 @@ type Options struct {
 	// If `MinimizeStackMemory` is set, the call stack will be automatically grown or shrank up to a limit of
 	// `CallStackSize` in order to minimize memory usage. This does incur a slight performance penalty.
 	MinimizeStackMemory bool
+	// AllowHostHooks enables host-installed debug hooks such as SetLineHook.
+	// It is disabled by default so consensus execution remains gas-driven only.
+	AllowHostHooks bool
 }
 
 /* }}} */

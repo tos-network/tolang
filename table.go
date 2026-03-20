@@ -9,15 +9,27 @@ type lValueArraySorter struct {
 	Values []LValue
 }
 
+const (
+	// Meter host-side sort work so large table.sort calls cannot bypass gas.
+	tableSortCompareGas uint64 = 1
+	tableSortSwapGas    uint64 = 1
+)
+
 func (lv lValueArraySorter) Len() int {
 	return len(lv.Values)
 }
 
 func (lv lValueArraySorter) Swap(i, j int) {
+	if lv.L != nil {
+		lv.L.chargeGas(tableSortSwapGas)
+	}
 	lv.Values[i], lv.Values[j] = lv.Values[j], lv.Values[i]
 }
 
 func (lv lValueArraySorter) Less(i, j int) bool {
+	if lv.L != nil {
+		lv.L.chargeGas(tableSortCompareGas)
+	}
 	if lv.Fn != nil {
 		lv.L.Push(lv.Fn)
 		lv.L.Push(lv.Values[i])

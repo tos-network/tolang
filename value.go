@@ -240,10 +240,28 @@ func (ls *LState) SetGasLimit(limit uint64) {
 // GasUsed returns the number of VM instructions executed so far.
 func (ls *LState) GasUsed() uint64 { return ls.gasUsed }
 
+func (ls *LState) chargeGas(cost uint64) {
+	if cost == 0 || ls.gasLimit == 0 {
+		return
+	}
+	if ls.gasUsed > ^uint64(0)-cost {
+		ls.gasUsed = ^uint64(0)
+	} else {
+		ls.gasUsed += cost
+	}
+	if ls.gasUsed > ls.gasLimit {
+		ls.RaiseError("lua: gas limit exceeded")
+	}
+}
+
 // SetLineHook installs a hook function that is called after each VM instruction
 // with the FunctionProto.SourceName and the source line from DbgSourcePositions.
-// Pass nil to disable.
+// Pass nil to disable. Host hooks are disabled by default and must be enabled
+// with Options.AllowHostHooks for off-chain testing/debugging only.
 func (ls *LState) SetLineHook(fn func(string, int)) {
+	if fn != nil && !ls.Options.AllowHostHooks {
+		panic("tolang: SetLineHook requires Options.AllowHostHooks")
+	}
 	ls.lineHook = fn
 }
 

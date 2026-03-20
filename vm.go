@@ -1917,6 +1917,7 @@ func init() {
 				nelem = reg.Top() - RA - 1
 			}
 			for i := 1; i <= nelem; i++ {
+				L.chargeGas(1)
 				table.RawSetInt(offset+i, reg.Get(RA+i))
 			}
 			return 0
@@ -2027,6 +2028,7 @@ func init() {
 				if limit == -1 || limit > rg.top {
 					limit = rg.top
 				}
+				L.chargeGas(uint64(n))
 				for i := 0; i < n; i++ {
 					srcIdx := start + i
 					if srcIdx >= limit || srcIdx < 0 {

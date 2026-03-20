@@ -118,6 +118,7 @@ func strChar(L *LState) int {
 	top := L.GetTop()
 	bytes := make([]byte, top)
 	for i := 1; i <= top; i++ {
+		L.chargeGas(1)
 		v := L.CheckInt(i)
 		if v < 0 || v > 255 {
 			L.ArgError(i, "value out of range")
@@ -685,6 +686,7 @@ func strLen(L *LState) int {
 
 func strLower(L *LState) int {
 	str := L.CheckString(1)
+	chargeChunkedWorkGas(L, len(str), cryptoLinearWorkGasChunkBytes)
 	L.Push(LString(strings.ToLower(str)))
 	return 1
 }
@@ -762,6 +764,7 @@ func strRep(L *LState) int {
 func strReverse(L *LState) int {
 	str := L.CheckString(1)
 	bts := []byte(str)
+	chargeChunkedWorkGas(L, len(bts), cryptoLinearWorkGasChunkBytes)
 	out := make([]byte, len(bts))
 	for i, j := 0, len(bts)-1; j >= 0; i, j = i+1, j-1 {
 		out[i] = bts[j]
@@ -792,6 +795,7 @@ func strSub(L *LState) int {
 
 func strUpper(L *LState) int {
 	str := L.CheckString(1)
+	chargeChunkedWorkGas(L, len(str), cryptoLinearWorkGasChunkBytes)
 	L.Push(LString(strings.ToUpper(str)))
 	return 1
 }

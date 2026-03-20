@@ -699,6 +699,7 @@ func init() {
 				nelem = reg.Top() - RA - 1
 			}
 			for i := 1; i <= nelem; i++ {
+				L.chargeGas(1)
 				table.RawSetInt(offset+i, reg.Get(RA+i))
 			}
 			return 0
@@ -750,6 +751,7 @@ func init() {
 			if B == 0 {
 				nwant = nvarargs
 			}
+			L.chargeGas(uint64(nwant))
 			// +inline-call reg.CopyRange RA cf.Base+nparams+1 cf.LocalBase nwant
 			return 0
 		},

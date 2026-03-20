@@ -576,6 +576,9 @@ redo:
 		}
 		count := 1
 		for sp = sp + 1; sp < len(src); sp++ {
+			if step != nil {
+				step()
+			}
 			if int(src[sp]) == inst.Operand2 {
 				count--
 			}

@@ -60,11 +60,12 @@ var lua54Tests = []string{
 	"constructs.lua",
 	"errors.lua",
 	"events.lua",
+	"goto.lua",
 	"literals.lua",
 	"locals.lua",
 	"math.lua",
 	"nextvar.lua",
-	// pm.lua skipped: tests Lua 5.3.3+ empty-match gsub semantics and utf8 lib
+	"pm.lua",
 	"sort.lua",
 	"strings.lua",
 	"tpack.lua",

@@ -903,12 +903,14 @@ func init() {
 						}
 					}
 				} else if lv.Type() == LTTable {
+					n, cost := lv.(*LTable).LenWithCost()
+					chargeLinearWorkGas(L, cost)
 					// this section is inlined by go-inline
 					// source function is 'func (rg *registry) SetNumber(regi int, vali LUint256) ' in '_state.go'
 					{
 						rg := reg
 						regi := RA
-						vali := lu256FromInt(lv.(*LTable).Len())
+						vali := lu256FromInt(n)
 						newSize := regi + 1
 						// this section is inlined by go-inline
 						// source function is 'func (rg *registry) checkSize(requiredSize int) ' in '_state.go'

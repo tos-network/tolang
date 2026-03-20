@@ -58,20 +58,90 @@ func newLTable(acap int, hcap int) *LTable {
 	return tb
 }
 
+func (tb *LTable) numericKeyValue(index int) LUint256 {
+	return lu256FromInt(index)
+}
+
+func (tb *LTable) removeNumericHashKey(index int) {
+	tb.RawSetH(tb.numericKeyValue(index), LNil)
+}
+
+func (tb *LTable) shouldStoreArrayIndex(index int) bool {
+	if index < 1 || index >= MaxArrayIndex {
+		return false
+	}
+	alen := len(tb.array)
+	if index <= alen {
+		return true
+	}
+	return index <= alen+1+MaxArrayHoleGrowth
+}
+
+func (tb *LTable) migrateNumericHashRangeToArray(start, end int) {
+	if tb.array == nil || start > end {
+		return
+	}
+	for index := start; index <= end; index++ {
+		if index <= 0 || index > len(tb.array) {
+			continue
+		}
+		key := tb.numericKeyValue(index)
+		if v := tb.RawGetH(key); v != LNil {
+			tb.array[index-1] = v
+			tb.RawSetH(key, LNil)
+		}
+	}
+}
+
+func (tb *LTable) setArrayValueAt(index int, value LValue) {
+	if index < 1 || index >= MaxArrayIndex {
+		tb.RawSetH(tb.numericKeyValue(index), value)
+		return
+	}
+	if tb.array == nil {
+		tb.array = make([]LValue, 0, defaultArrayCap)
+	}
+	alen := len(tb.array)
+	if value == LNil && index > alen {
+		tb.RawSetH(tb.numericKeyValue(index), LNil)
+		return
+	}
+	if index > alen {
+		grow := index - alen
+		for i := 0; i < grow; i++ {
+			tb.array = append(tb.array, LNil)
+		}
+		tb.migrateNumericHashRangeToArray(alen+1, index)
+	}
+	tb.array[index-1] = value
+	tb.removeNumericHashKey(index)
+}
+
+func isEmptyArrayValue(v LValue) bool {
+	return v == nil || v == LNil
+}
+
 // Len returns length of this LTable without using __len.
 func (tb *LTable) Len() int {
+	n, _ := tb.LenWithCost()
+	return n
+}
+
+func (tb *LTable) LenWithCost() (int, int) {
 	if tb.array == nil {
-		return 0
+		return 0, 0
 	}
 	var prev LValue = LNil
+	cost := 0
 	for i := len(tb.array) - 1; i >= 0; i-- {
+		cost++
 		v := tb.array[i]
-		if prev == LNil && v != LNil {
-			return i + 1
+		if isEmptyArrayValue(prev) && !isEmptyArrayValue(v) {
+			return i + 1, cost
 		}
 		prev = v
 	}
-	return 0
+	return 0, cost
 }
 
 // Append appends a given LValue to this LTable.
@@ -82,75 +152,98 @@ func (tb *LTable) Append(value LValue) {
 	if tb.array == nil {
 		tb.array = make([]LValue, 0, defaultArrayCap)
 	}
-	if len(tb.array) == 0 || tb.array[len(tb.array)-1] != LNil {
-		tb.array = append(tb.array, value)
+	if len(tb.array) == 0 || !isEmptyArrayValue(tb.array[len(tb.array)-1]) {
+		tb.setArrayValueAt(len(tb.array)+1, value)
 	} else {
 		i := len(tb.array) - 2
 		for ; i >= 0; i-- {
-			if tb.array[i] != LNil {
+			if !isEmptyArrayValue(tb.array[i]) {
 				break
 			}
 		}
 		tb.array[i+1] = value
+		tb.removeNumericHashKey(i + 2)
 	}
 }
 
 // Insert inserts a given LValue at position `i` in this table.
 func (tb *LTable) Insert(i int, value LValue) {
+	tb.InsertWithCost(i, value)
+}
+
+func (tb *LTable) InsertWithCost(i int, value LValue) int {
 	if tb.array == nil {
 		tb.array = make([]LValue, 0, defaultArrayCap)
 	}
 	if i > len(tb.array) {
 		tb.RawSetInt(i, value)
-		return
+		return 0
 	}
 	if i <= 0 {
 		tb.RawSet(lu256FromInt(i), value)
-		return
+		return 0
 	}
 	i -= 1
+	oldLen := len(tb.array)
 	tb.array = append(tb.array, LNil)
 	copy(tb.array[i+1:], tb.array[i:])
 	tb.array[i] = value
+	tb.removeNumericHashKey(i + 1)
+	return oldLen - i
 }
 
 // MaxN returns a maximum number key that nil value does not exist before it.
 func (tb *LTable) MaxN() int {
+	n, _ := tb.MaxNWithCost()
+	return n
+}
+
+func (tb *LTable) MaxNWithCost() (int, int) {
 	if tb.array == nil {
-		return 0
+		return 0, 0
 	}
+	cost := 0
 	for i := len(tb.array) - 1; i >= 0; i-- {
-		if tb.array[i] != LNil {
-			return i + 1
+		cost++
+		if !isEmptyArrayValue(tb.array[i]) {
+			return i + 1, cost
 		}
 	}
-	return 0
+	return 0, cost
 }
 
 // Remove removes from this table the element at a given position.
 func (tb *LTable) Remove(pos int) LValue {
+	value, _ := tb.RemoveWithCost(pos)
+	return value
+}
+
+func (tb *LTable) RemoveWithCost(pos int) (LValue, int) {
 	if tb.array == nil {
-		return LNil
+		return LNil, 0
 	}
 	larray := len(tb.array)
 	if larray == 0 {
-		return LNil
+		return LNil, 0
 	}
 	i := pos - 1
 	oldval := LNil
 	switch {
 	case i >= larray:
 		// nothing to do
+		return LNil, 0
 	case i == larray-1 || i < 0:
 		oldval = tb.array[larray-1]
+		tb.array[larray-1] = nil
 		tb.array = tb.array[:larray-1]
 	default:
 		oldval = tb.array[i]
 		copy(tb.array[i:], tb.array[i+1:])
 		tb.array[larray-1] = nil
 		tb.array = tb.array[:larray-1]
+		return oldval, larray - i - 1
 	}
-	return oldval
+	return oldval, 0
 }
 
 // RawSet sets a given LValue to a given index without the __newindex metamethod.
@@ -160,26 +253,15 @@ func (tb *LTable) RawSet(key LValue, value LValue) {
 	switch v := key.(type) {
 	case LUint256:
 		if isArrayKey(v) {
-			if tb.array == nil {
-				tb.array = make([]LValue, 0, defaultArrayCap)
-			}
 			intv, ok := lu256ToInt(v)
 			if !ok {
 				tb.RawSetH(key, value)
 				return
 			}
-			index := intv - 1
-			alen := len(tb.array)
-			switch {
-			case index == alen:
-				tb.array = append(tb.array, value)
-			case index > alen:
-				for i := 0; i < (index - alen); i++ {
-					tb.array = append(tb.array, LNil)
-				}
-				tb.array = append(tb.array, value)
-			case index < alen:
-				tb.array[index] = value
+			if tb.shouldStoreArrayIndex(intv) {
+				tb.setArrayValueAt(intv, value)
+			} else {
+				tb.RawSetH(key, value)
 			}
 			return
 		}
@@ -193,26 +275,11 @@ func (tb *LTable) RawSet(key LValue, value LValue) {
 
 // RawSetInt sets a given LValue at a position `key` without the __newindex metamethod.
 func (tb *LTable) RawSetInt(key int, value LValue) {
-	if key < 1 || key >= MaxArrayIndex {
+	if !tb.shouldStoreArrayIndex(key) {
 		tb.RawSetH(lu256FromInt(key), value)
 		return
 	}
-	if tb.array == nil {
-		tb.array = make([]LValue, 0, 32)
-	}
-	index := key - 1
-	alen := len(tb.array)
-	switch {
-	case index == alen:
-		tb.array = append(tb.array, value)
-	case index > alen:
-		for i := 0; i < (index - alen); i++ {
-			tb.array = append(tb.array, LNil)
-		}
-		tb.array = append(tb.array, value)
-	case index < alen:
-		tb.array[index] = value
-	}
+	tb.setArrayValueAt(key, value)
 }
 
 // RawSetString sets a given LValue to a given string index without the __newindex metamethod.
@@ -350,18 +417,17 @@ func (tb *LTable) RawGet(key LValue) LValue {
 	switch v := key.(type) {
 	case LUint256:
 		if isArrayKey(v) {
-			if tb.array == nil {
-				return LNil
-			}
 			intv, ok := lu256ToInt(v)
 			if !ok {
 				return LNil
 			}
 			index := intv - 1
-			if index >= len(tb.array) {
-				return LNil
+			if tb.array != nil && index >= 0 && index < len(tb.array) {
+				if ret := tb.array[index]; !isEmptyArrayValue(ret) {
+					return ret
+				}
 			}
-			return tb.array[index]
+			return tb.RawGetH(key)
 		}
 	case LString:
 		if tb.strdict == nil {
@@ -383,14 +449,13 @@ func (tb *LTable) RawGet(key LValue) LValue {
 
 // RawGetInt returns an LValue at position `key` without __index metamethod.
 func (tb *LTable) RawGetInt(key int) LValue {
-	if tb.array == nil {
-		return LNil
-	}
 	index := int(key) - 1
-	if index >= len(tb.array) || index < 0 {
-		return LNil
+	if tb.array != nil && index >= 0 && index < len(tb.array) {
+		if ret := tb.array[index]; !isEmptyArrayValue(ret) {
+			return ret
+		}
 	}
-	return tb.array[index]
+	return tb.RawGetH(lu256FromInt(key))
 }
 
 // RawGet returns an LValue associated with a given key without __index metamethod.
@@ -428,7 +493,7 @@ func (tb *LTable) RawGetString(key string) LValue {
 func (tb *LTable) ForEach(cb func(LValue, LValue)) {
 	if tb.array != nil {
 		for i, v := range tb.array {
-			if v != LNil {
+			if !isEmptyArrayValue(v) {
 				cb(lu256FromInt(i+1), v)
 			}
 		}
@@ -452,7 +517,9 @@ func (tb *LTable) isValidNextKey(key LValue) bool {
 	}
 	if kv, ok := key.(LUint256); ok && isArrayKey(kv) {
 		index, ok := lu256ToInt(kv)
-		return ok && index >= 1 && index <= len(tb.array)
+		if ok && index >= 1 && index <= len(tb.array) {
+			return true
+		}
 	}
 	if tb.k2i == nil {
 		return false
@@ -461,48 +528,80 @@ func (tb *LTable) isValidNextKey(key LValue) bool {
 	return ok
 }
 
-// This function is equivalent to lua_next ( http://www.lua.org/manual/5.1/manual.html#lua_next ).
-func (tb *LTable) Next(key LValue) (LValue, LValue) {
-	returnNil := func() (LValue, LValue) {
-		tb.compactNextIterationState()
-		return LNil, LNil
+func (tb *LTable) firstHashNext() (LValue, LValue, int) {
+	cost := 0
+	for _, key := range tb.keys {
+		cost++
+		if v := tb.RawGetH(key); v != LNil {
+			tb.markNextHashKey(key)
+			return key, v, cost
+		}
 	}
-	init := false
-	if key == LNil {
-		key = LUint256Zero
-		init = true
-	}
+	return LNil, LNil, cost
+}
 
-	if init || key != LUint256Zero {
-		if kv, ok := key.(LUint256); ok {
-			if index, ok := lu256ToInt(kv); ok && index >= 0 && index < MaxArrayIndex {
-				if tb.array != nil {
-					for ; index < len(tb.array); index++ {
-						if v := tb.array[index]; v != LNil {
-							return lu256FromInt(index + 1), v
-						}
-					}
-				}
-				if tb.array == nil || index == len(tb.array) {
-					if (tb.dict == nil || len(tb.dict) == 0) && (tb.strdict == nil || len(tb.strdict) == 0) {
-						return returnNil()
-					}
-					key = tb.keys[0]
-					if v := tb.RawGetH(key); v != LNil {
-						tb.markNextHashKey(key)
-						return key, v
-					}
-				}
+func (tb *LTable) nextHashAfter(key LValue) (LValue, LValue, int) {
+	if tb.k2i == nil {
+		return LNil, LNil, 0
+	}
+	cost := 0
+	for i := tb.k2i[key] + 1; i < len(tb.keys); i++ {
+		cost++
+		nextKey := tb.keys[i]
+		if v := tb.RawGetH(nextKey); v != LNil {
+			tb.markNextHashKey(nextKey)
+			return nextKey, v, cost
+		}
+	}
+	return LNil, LNil, cost
+}
+
+func (tb *LTable) nextAfterArrayIndex(index int) (LValue, LValue, int) {
+	cost := 0
+	if tb.array != nil {
+		for ; index < len(tb.array); index++ {
+			cost++
+			if v := tb.array[index]; !isEmptyArrayValue(v) {
+				return lu256FromInt(index + 1), v, cost
 			}
 		}
 	}
+	key, value, hashCost := tb.firstHashNext()
+	return key, value, cost + hashCost
+}
 
-	for i := tb.k2i[key] + 1; i < len(tb.keys); i++ {
-		key := tb.keys[i]
-		if v := tb.RawGetH(key); v != LNil {
-			tb.markNextHashKey(key)
-			return key, v
+// This function is equivalent to lua_next ( http://www.lua.org/manual/5.1/manual.html#lua_next ).
+func (tb *LTable) Next(key LValue) (LValue, LValue) {
+	nextKey, nextValue, _ := tb.NextWithCost(key)
+	return nextKey, nextValue
+}
+
+func (tb *LTable) NextWithCost(key LValue) (LValue, LValue, int) {
+	returnNil := func(cost int) (LValue, LValue, int) {
+		tb.compactNextIterationState()
+		return LNil, LNil, cost
+	}
+	if key == LNil {
+		nextKey, nextValue, cost := tb.nextAfterArrayIndex(0)
+		if nextKey == LNil {
+			return returnNil(cost)
+		}
+		return nextKey, nextValue, cost
+	}
+
+	if kv, ok := key.(LUint256); ok && isArrayKey(kv) {
+		if index, ok := lu256ToInt(kv); ok && index >= 1 && index <= len(tb.array) {
+			nextKey, nextValue, cost := tb.nextAfterArrayIndex(index)
+			if nextKey == LNil {
+				return returnNil(cost)
+			}
+			return nextKey, nextValue, cost
 		}
 	}
-	return returnNil()
+
+	nextKey, nextValue, cost := tb.nextHashAfter(key)
+	if nextKey == LNil {
+		return returnNil(cost)
+	}
+	return nextKey, nextValue, cost
 }

@@ -362,7 +362,9 @@ func init() {
 						// +inline-call reg.Set RA ret
 					}
 				} else if lv.Type() == LTTable {
-					// +inline-call reg.SetNumber RA lu256FromInt(lv.(*LTable).Len())
+					n, cost := lv.(*LTable).LenWithCost()
+					chargeLinearWorkGas(L, cost)
+					// +inline-call reg.SetNumber RA lu256FromInt(n)
 				} else {
 					L.RaiseError("__len undefined")
 				}

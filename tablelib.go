@@ -30,28 +30,37 @@ func tableSort(L *LState) int {
 }
 
 func tableGetN(L *LState) int {
-	L.Push(lu256FromInt(L.CheckTable(1).Len()))
+	n, cost := L.CheckTable(1).LenWithCost()
+	chargeLinearWorkGas(L, cost)
+	L.Push(lu256FromInt(n))
 	return 1
 }
 
 func tableMaxN(L *LState) int {
-	L.Push(lu256FromInt(L.CheckTable(1).MaxN()))
+	n, cost := L.CheckTable(1).MaxNWithCost()
+	chargeLinearWorkGas(L, cost)
+	L.Push(lu256FromInt(n))
 	return 1
 }
 
 func tableRemove(L *LState) int {
 	tbl := L.CheckTable(1)
 	if L.GetTop() == 1 {
-		L.Push(tbl.Remove(-1))
+		v, cost := tbl.RemoveWithCost(-1)
+		chargeLinearWorkGas(L, cost)
+		L.Push(v)
 	} else {
 		pos := L.CheckInt(2)
-		size := tbl.Len()
+		size, lenCost := tbl.LenWithCost()
+		chargeLinearWorkGas(L, lenCost)
 		// Lua 5.4: if pos == size (same as the default), skip bounds check.
 		// Otherwise pos must be in [1, size+1].
 		if pos != size && (pos < 1 || pos > size+1) {
 			L.ArgError(2, "position out of bounds")
 		}
-		L.Push(tbl.Remove(pos))
+		v, cost := tbl.RemoveWithCost(pos)
+		chargeLinearWorkGas(L, cost)
+		L.Push(v)
 	}
 	return 1
 }
@@ -59,16 +68,18 @@ func tableRemove(L *LState) int {
 func tableConcat(L *LState) int {
 	tbl := L.CheckTable(1)
 	sep := LString(L.OptString(2, ""))
+	lenVal, lenCost := tbl.LenWithCost()
+	chargeLinearWorkGas(L, lenCost)
 	i := L.OptInt(3, 1)
-	j := L.OptInt(4, tbl.Len())
+	j := L.OptInt(4, lenVal)
 	if L.GetTop() == 3 {
-		if i > tbl.Len() || i < 1 {
+		if i > lenVal || i < 1 {
 			L.Push(emptyLString)
 			return 1
 		}
 	}
-	i = intMax(intMin(i, tbl.Len()), 1)
-	j = intMin(intMin(j, tbl.Len()), tbl.Len())
+	i = intMax(intMin(i, lenVal), 1)
+	j = intMin(intMin(j, lenVal), lenVal)
 	if i > j {
 		L.Push(emptyLString)
 		return 1
@@ -76,6 +87,7 @@ func tableConcat(L *LState) int {
 	//TODO should flushing?
 	retbottom := L.GetTop()
 	for ; i <= j; i++ {
+		L.chargeGas(1)
 		v := tbl.RawGetInt(i)
 		if !LVCanConvToString(v) {
 			L.RaiseError("invalid value (%s) at index %d in table for concat", v.Type().String(), i)
@@ -103,11 +115,14 @@ func tableInsert(L *LState) int {
 	// 3-argument form: table.insert(t, pos, v)
 	// Lua 5.4: pos must be in [1, #t+1]
 	pos := L.CheckInt(2)
-	e := tbl.Len() + 1
+	size, lenCost := tbl.LenWithCost()
+	chargeLinearWorkGas(L, lenCost)
+	e := size + 1
 	if pos < 1 || pos > e {
 		L.ArgError(2, "position out of bounds")
 	}
-	tbl.Insert(pos, L.CheckAny(3))
+	cost := tbl.InsertWithCost(pos, L.CheckAny(3))
+	chargeLinearWorkGas(L, cost)
 	return 0
 }
 

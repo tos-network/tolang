@@ -102,9 +102,16 @@ func strByte(L *LState) int {
 	}
 
 	for i := posi - 1; i < pose; i++ {
+		L.chargeGas(1)
 		L.Push(lu256FromInt(int(str[i])))
 	}
 	return int(pose - posi + 1)
+}
+
+func findPatternMatches(L *LState, pattern string, src []byte, offset, limit int) ([]*pm.MatchData, error) {
+	return pm.FindWithStep(pattern, src, offset, limit, func() {
+		L.chargeGas(1)
+	})
 }
 
 func strChar(L *LState) int {
@@ -162,7 +169,7 @@ func strFind(L *LState) int {
 		return 2
 	}
 
-	mds, err := pm.Find(pattern, unsafeFastStringToReadOnlyBytes(str), init, 1)
+	mds, err := findPatternMatches(L, pattern, unsafeFastStringToReadOnlyBytes(str), init, 1)
 	if err != nil {
 		L.RaiseError(err.Error())
 	}
@@ -477,7 +484,7 @@ func strGsub(L *LState) int {
 	repl := L.CheckAny(3)
 	limit := L.OptInt(4, -1)
 
-	mds, err := pm.Find(pat, unsafeFastStringToReadOnlyBytes(str), 0, limit)
+	mds, err := findPatternMatches(L, pat, unsafeFastStringToReadOnlyBytes(str), 0, limit)
 	if err != nil {
 		L.RaiseError(err.Error())
 	}
@@ -659,7 +666,7 @@ func strGmatchIter(L *LState) int {
 func strGmatch(L *LState) int {
 	str := L.CheckString(1)
 	pattern := L.CheckString(2)
-	mds, err := pm.Find(pattern, []byte(str), 0, -1)
+	mds, err := findPatternMatches(L, pattern, []byte(str), 0, -1)
 	if err != nil {
 		L.RaiseError(err.Error())
 	}
@@ -695,7 +702,7 @@ func strMatch(L *LState) int {
 		offset = 0
 	}
 
-	mds, err := pm.Find(pattern, unsafeFastStringToReadOnlyBytes(str), offset, 1)
+	mds, err := findPatternMatches(L, pattern, unsafeFastStringToReadOnlyBytes(str), offset, 1)
 	if err != nil {
 		L.RaiseError(err.Error())
 	}

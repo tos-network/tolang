@@ -69,6 +69,7 @@ func cryptoKeccak256(L *LState) int {
 	if !strings.HasPrefix(s, "0x") && !strings.HasPrefix(s, "0X") {
 		L.RaiseError("keccak256: input must start with 0x, got: %q", s)
 	}
+	chargeChunkedWorkGas(L, len(s)-2, cryptoLinearWorkGasChunkBytes*2)
 	data, err := hex.DecodeString(s[2:])
 	if err != nil {
 		L.RaiseError("keccak256: invalid hex input: %s", err)
@@ -87,6 +88,7 @@ func cryptoSHA256(L *LState) int {
 	if !strings.HasPrefix(s, "0x") && !strings.HasPrefix(s, "0X") {
 		L.RaiseError("sha256: input must start with 0x, got: %q", s)
 	}
+	chargeChunkedWorkGas(L, len(s)-2, cryptoLinearWorkGasChunkBytes*2)
 	data, err := hex.DecodeString(s[2:])
 	if err != nil {
 		L.RaiseError("sha256: invalid hex input: %s", err)
@@ -104,6 +106,7 @@ func cryptoRIPEMD160(L *LState) int {
 	if !strings.HasPrefix(s, "0x") && !strings.HasPrefix(s, "0X") {
 		L.RaiseError("ripemd160: input must start with 0x, got: %q", s)
 	}
+	chargeChunkedWorkGas(L, len(s)-2, cryptoLinearWorkGasChunkBytes*2)
 	data, err := hex.DecodeString(s[2:])
 	if err != nil {
 		L.RaiseError("ripemd160: invalid hex input: %s", err)
@@ -163,6 +166,7 @@ func cryptoABIDecodeParams(L *LState) int {
 		L.RaiseError("__tol_abi_decode_params: calldata must be 0x-prefixed hex string, got: %q", calldataStr)
 	}
 	hexData := strings.ToLower(calldataStr[2:])
+	chargeChunkedWorkGas(L, len(hexData), cryptoLinearWorkGasChunkBytes*2)
 	if len(hexData)%2 != 0 {
 		L.RaiseError("__tol_abi_decode_params: calldata hex must have even length")
 	}
@@ -181,6 +185,7 @@ func cryptoABIDecodeParams(L *LState) int {
 
 	slotIdx := 0
 	for i := 0; i < numTypes; i++ {
+		L.chargeGas(1)
 		typ := strings.TrimSpace(L.CheckString(i + 2))
 		if typ == "uno" {
 			// UNO occupies 2 consecutive 32-byte slots (commitment + handle).

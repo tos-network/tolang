@@ -1701,7 +1701,9 @@ func (ls *LState) SetGlobal(name string, value LValue) {
 }
 
 func (ls *LState) Next(tb *LTable, key LValue) (LValue, LValue) {
-	return tb.Next(key)
+	nextKey, nextValue, cost := tb.NextWithCost(key)
+	chargeLinearWorkGas(ls, cost)
+	return nextKey, nextValue
 }
 
 /* }}} */
@@ -1725,7 +1727,10 @@ func (ls *LState) ObjLen(v1 LValue) int {
 			return 0
 		}
 	} else if v1.Type() == LTTable {
-		return v1.(*LTable).Len()
+		tb := v1.(*LTable)
+		n, cost := tb.LenWithCost()
+		chargeLinearWorkGas(ls, cost)
+		return n
 	}
 	return 0
 }

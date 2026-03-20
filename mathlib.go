@@ -108,7 +108,8 @@ func mathPow(L *LState) int {
 }
 
 func tableExtremum(L *LState, tb *LTable, wantMax bool) (LUint256, bool) {
-	n := tb.Len()
+	n, lenCost := tb.LenWithCost()
+	chargeLinearWorkGas(L, lenCost)
 	if n == 0 {
 		L.RaiseError("math table argument must not be empty")
 		return LUint256Zero, false
@@ -122,6 +123,7 @@ func tableExtremum(L *LState, tb *LTable, wantMax bool) (LUint256, bool) {
 	}
 
 	for i := 2; i <= n; i++ {
+		L.chargeGas(1)
 		v, ok := lvalueToNumber(tb.RawGetInt(i))
 		if !ok {
 			L.RaiseError("math table argument must contain only numbers")

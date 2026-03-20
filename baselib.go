@@ -115,7 +115,7 @@ func baseNext(L *LState) int {
 		L.RaiseError("invalid key to 'next'")
 		return 0
 	}
-	key, value := tb.Next(index)
+	key, value := L.Next(tb, index)
 	if key == LNil {
 		L.Push(LNil)
 		return 1
@@ -132,7 +132,7 @@ func pairsaux(L *LState) int {
 		L.RaiseError("invalid key to 'next'")
 		return 0
 	}
-	key, value := tb.Next(index)
+	key, value := L.Next(tb, index)
 	if key == LNil {
 		return 0
 	} else {
@@ -307,8 +307,11 @@ func baseType(L *LState) int {
 func baseUnpack(L *LState) int {
 	tb := L.CheckTable(1)
 	start := L.OptInt(2, 1)
-	end := L.OptInt(3, tb.Len())
+	endDefault, lenCost := tb.LenWithCost()
+	chargeLinearWorkGas(L, lenCost)
+	end := L.OptInt(3, endDefault)
 	for i := start; i <= end; i++ {
+		L.chargeGas(1)
 		L.Push(tb.RawGetInt(i))
 	}
 	ret := end - start + 1

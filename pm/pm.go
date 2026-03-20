@@ -526,7 +526,7 @@ func compilePattern(p pattern, ps ...*iptr) []inst {
 
 // Simple recursive virtual machine based on the
 // "Regular Expression Matching: the Virtual Machine Approach" (https://swtch.com/~rsc/regexp/regexp2.html)
-func recursiveVM(src []byte, insts []inst, pc, sp int, ms ...*MatchData) (bool, int, *MatchData) {
+func recursiveVM(src []byte, insts []inst, pc, sp int, step func(), ms ...*MatchData) (bool, int, *MatchData) {
 	var m *MatchData
 	if len(ms) == 0 {
 		m = newMatchState()
@@ -534,6 +534,9 @@ func recursiveVM(src []byte, insts []inst, pc, sp int, ms ...*MatchData) (bool, 
 		m = ms[0]
 	}
 redo:
+	if step != nil {
+		step()
+	}
 	inst := insts[pc]
 	switch inst.OpCode {
 	case opChar:
@@ -551,14 +554,14 @@ redo:
 		pc = inst.Operand1
 		goto redo
 	case opSplit:
-		if ok, nsp, _ := recursiveVM(src, insts, inst.Operand1, sp, m); ok {
+		if ok, nsp, _ := recursiveVM(src, insts, inst.Operand1, sp, step, m); ok {
 			return true, nsp, m
 		}
 		pc = inst.Operand2
 		goto redo
 	case opSave:
 		s := m.setCapture(inst.Operand1, sp)
-		if ok, nsp, _ := recursiveVM(src, insts, pc+1, sp, m); ok {
+		if ok, nsp, _ := recursiveVM(src, insts, pc+1, sp, step, m); ok {
 			return true, nsp, m
 		}
 		m.restoreCapture(inst.Operand1, s)
@@ -608,7 +611,7 @@ redo:
 
 /* API {{{ */
 
-func Find(p string, src []byte, offset, limit int) (matches []*MatchData, err error) {
+func FindWithStep(p string, src []byte, offset, limit int, step func()) (matches []*MatchData, err error) {
 	defer func() {
 		if v := recover(); v != nil {
 			if perr, ok := v.(*Error); ok {
@@ -622,7 +625,7 @@ func Find(p string, src []byte, offset, limit int) (matches []*MatchData, err er
 	insts := compilePattern(pat)
 	matches = []*MatchData{}
 	for sp := offset; sp <= len(src); {
-		ok, nsp, ms := recursiveVM(src, insts, 0, sp)
+		ok, nsp, ms := recursiveVM(src, insts, 0, sp, step)
 		sp++
 		if ok {
 			if sp < nsp {
@@ -635,6 +638,10 @@ func Find(p string, src []byte, offset, limit int) (matches []*MatchData, err er
 		}
 	}
 	return
+}
+
+func Find(p string, src []byte, offset, limit int) (matches []*MatchData, err error) {
+	return FindWithStep(p, src, offset, limit, nil)
 }
 
 /* }}} */

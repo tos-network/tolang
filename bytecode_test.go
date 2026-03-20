@@ -3,6 +3,7 @@ package lua
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -212,5 +213,209 @@ func TestIRPreservesSetListExtraWord(t *testing.T) {
 	}
 	if len(dec.Code) != 4 || dec.Code[2] != 777 {
 		t.Fatalf("expected decode to preserve extra word 777, got code=%v", dec.Code)
+	}
+}
+
+func TestDecodeRejectsOutOfRangeLoadKConstant(t *testing.T) {
+	p := newFunctionProto("<bad-loadk>")
+	p.NumUsedRegisters = 1
+	p.Code = []uint32{
+		opCreateABx(OP_LOADK, 0, 1),
+	}
+	bc, err := EncodeFunctionProto(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeFunctionProto(bc); err == nil {
+		t.Fatal("expected LOADK constant index rejection")
+	}
+}
+
+func TestDecodeRejectsInvalidGlobalStringConstant(t *testing.T) {
+	p := newFunctionProto("<bad-global>")
+	p.NumUsedRegisters = 1
+	p.Constants = []LValue{lu256FromInt(1)}
+	p.Code = []uint32{
+		opCreateABx(OP_GETGLOBAL, 0, 0),
+	}
+	bc, err := EncodeFunctionProto(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeFunctionProto(bc); err == nil {
+		t.Fatal("expected GETGLOBAL string constant rejection")
+	}
+}
+
+func TestDecodeRejectsInvalidJumpTarget(t *testing.T) {
+	p := newFunctionProto("<bad-jmp>")
+	p.NumUsedRegisters = 1
+	p.Code = []uint32{
+		opCreateASbx(OP_JMP, 0, 10),
+	}
+	bc, err := EncodeFunctionProto(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeFunctionProto(bc); err == nil {
+		t.Fatal("expected invalid jump target rejection")
+	}
+}
+
+func TestDecodeRejectsInvalidMovenTrailingWord(t *testing.T) {
+	p := newFunctionProto("<bad-moven>")
+	p.NumUsedRegisters = 2
+	p.Constants = []LValue{LString("x")}
+	p.Code = []uint32{
+		opCreateABC(OP_MOVEN, 0, 0, 1),
+		opCreateABx(OP_LOADK, 1, 0),
+	}
+	bc, err := EncodeFunctionProto(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeFunctionProto(bc); err == nil {
+		t.Fatal("expected MOVEN trailing MOVE rejection")
+	}
+}
+
+func TestDecodeRejectsInvalidClosureBinding(t *testing.T) {
+	child := newFunctionProto("<child>")
+	child.NumUsedRegisters = 1
+	child.NumUpvalues = 1
+	child.Code = []uint32{
+		opCreateABC(OP_RETURN, 0, 1, 0),
+	}
+
+	p := newFunctionProto("<bad-closure>")
+	p.NumUsedRegisters = 1
+	p.FunctionPrototypes = []*FunctionProto{child}
+	p.Code = []uint32{
+		opCreateABx(OP_CLOSURE, 0, 0),
+		opCreateABx(OP_LOADK, 0, 0),
+	}
+	bc, err := EncodeFunctionProto(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeFunctionProto(bc); err == nil {
+		t.Fatal("expected CLOSURE binding rejection")
+	}
+}
+
+func TestDecodeRejectsRegisterBackedSettableksKey(t *testing.T) {
+	p := newFunctionProto("<bad-ks>")
+	p.NumUsedRegisters = 2
+	p.Constants = []LValue{LString("_size"), lu256FromInt(1)}
+	p.Code = []uint32{
+		opCreateABC(OP_NEWTABLE, 0, 0, 0),
+		opCreateABx(OP_LOADK, 1, 0),
+		opCreateABC(OP_SETTABLEKS, 0, 1, opRkAsk(1)),
+		opCreateABC(OP_RETURN, 0, 1, 0),
+	}
+	bc, err := EncodeFunctionProto(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeFunctionProto(bc); err == nil {
+		t.Fatal("expected register-backed SETTABLEKS key rejection")
+	}
+}
+
+func TestDecodeRejectsOutOfRangeDebugLocalRegister(t *testing.T) {
+	p := newFunctionProto("<bad-dbg-local>")
+	p.NumUsedRegisters = 1
+	p.DbgLocals = []*DbgLocalInfo{
+		{Name: "tmp", Reg: 3, StartPc: 0, EndPc: 1},
+	}
+	p.Code = []uint32{
+		opCreateABC(OP_RETURN, 0, 1, 0),
+	}
+	bc, err := EncodeFunctionProto(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeFunctionProto(bc); err == nil {
+		t.Fatal("expected out-of-range debug-local rejection")
+	}
+}
+
+func TestCompileSourceFallsBackFromKsWhenStringConstantSpills(t *testing.T) {
+	var src strings.Builder
+	for i := 0; i < opMaxIndexRk+32; i++ {
+		fmt.Fprintf(&src, "_g%d = %q\n", i, fmt.Sprintf("const_%03d", i))
+	}
+	src.WriteString("local obj = {}\n")
+	src.WriteString("obj[\"target\"] = function(self) return 7 end\n")
+	src.WriteString("_result = obj:target()\n")
+
+	bc, err := CompileSourceToBytecode([]byte(src.String()), "<ks-fallback>")
+	if err != nil {
+		t.Fatal(err)
+	}
+	proto, err := DecodeFunctionProto(bc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sawSettable := false
+	sawGettable := false
+	sawKsSpecialized := false
+	for _, inst := range proto.Code {
+		switch opGetOpCode(inst) {
+		case OP_SETTABLE:
+			sawSettable = true
+		case OP_GETTABLE:
+			sawGettable = true
+		case OP_SELF, OP_SETTABLEKS:
+			sawKsSpecialized = true
+		}
+	}
+	if !sawSettable || !sawGettable {
+		t.Fatalf("expected generic table ops after constant spill, saw SETTABLE=%v GETTABLE=%v", sawSettable, sawGettable)
+	}
+	if sawKsSpecialized {
+		t.Fatal("expected no KS-specialized opcode after constant spill")
+	}
+
+	L := NewState()
+	defer L.Close()
+	if err := L.DoBytecode(bc); err != nil {
+		t.Fatal(err)
+	}
+	if got := LVAsString(L.GetGlobal("_result")); got != "7" {
+		t.Fatalf("unexpected result: got=%s want=7", got)
+	}
+}
+
+func TestCompileSourceCountsHighRegisterOperands(t *testing.T) {
+	src := []byte(`
+local function capture(...)
+  local a,b,c,d,e,f,g,h,i,j,k = ...
+  local function inner() return k end
+  return inner()
+end
+_result = capture(1,2,3,4,5,6,7,8,9,10,11)
+`)
+
+	bc, err := CompileSourceToBytecode(src, "<high-reg>")
+	if err != nil {
+		t.Fatal(err)
+	}
+	proto, err := DecodeFunctionProto(bc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proto.NumUsedRegisters < 12 {
+		t.Fatalf("expected widened register budget, got %d", proto.NumUsedRegisters)
+	}
+
+	L := NewState()
+	defer L.Close()
+	if err := L.DoBytecode(bc); err != nil {
+		t.Fatal(err)
+	}
+	if got := LVAsString(L.GetGlobal("_result")); got != "11" {
+		t.Fatalf("unexpected result: got=%s want=11", got)
 	}
 }

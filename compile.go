@@ -171,10 +171,10 @@ func (e *CompileError) Error() string {
 } // }}}
 
 type codeStore struct { // {{{
-	codes            []IRInstruction
-	lines            []int
-	pc               int
-	loadNilBarrier   bool // true after any JMP/branch; prevents unsafe LOADNIL merging (Bug #522)
+	codes          []IRInstruction
+	lines          []int
+	pc             int
+	loadNilBarrier bool // true after any JMP/branch; prevents unsafe LOADNIL merging (Bug #522)
 }
 
 func (cd *codeStore) Add(inst IRInstruction, line int) {
@@ -919,7 +919,7 @@ func compileAssignStmt(context *funcContext, stmt *ast.AssignStmt) { // {{{
 			reg -= 1
 		case ecTable:
 			opcode := OP_SETTABLE
-			if acs[i].keyks {
+			if acs[i].keyks && opIsK(acs[i].keyrk) {
 				opcode = OP_SETTABLEKS
 			}
 			code.AddABC(opcode, acs[i].ec.reg, acs[i].keyrk, acs[i].valuerk, sline(ex))
@@ -1319,7 +1319,7 @@ func compileExpr(context *funcContext, reg int, expr ast.Expr, ec *expcontext) i
 		c := reg
 		compileExprWithKMVPropagation(context, ex.Key, &reg, &c)
 		opcode := OP_GETTABLE
-		if _, ok := ex.Key.(*ast.StringExpr); ok {
+		if _, ok := ex.Key.(*ast.StringExpr); ok && opIsK(c) {
 			opcode = OP_GETTABLEKS
 		}
 		code.AddABC(opcode, a, b, c, sline(ex))
@@ -1518,7 +1518,7 @@ func compileTableExpr(context *funcContext, reg int, ex *ast.TableExpr, ec *expc
 			c := reg
 			compileExprWithKMVPropagation(context, field.Value, &reg, &c)
 			opcode := OP_SETTABLE
-			if _, ok := field.Key.(*ast.StringExpr); ok {
+			if _, ok := field.Key.(*ast.StringExpr); ok && opIsK(b) {
 				opcode = OP_SETTABLEKS
 			}
 			code.AddABC(opcode, tablereg, b, c, sline(ex))
@@ -1871,7 +1871,21 @@ func compileFuncCallExpr(context *funcContext, reg int, expr *ast.FuncCallExpr, 
 		b := reg
 		compileExprWithMVPropagation(context, expr.Receiver, &reg, &b)
 		c := loadRk(context, &reg, expr, LString(expr.Method))
-		context.Code.AddABC(OP_SELF, funcreg, b, c, sline(expr))
+		if opIsK(c) {
+			context.Code.AddABC(OP_SELF, funcreg, b, c, sline(expr))
+		} else {
+			selfreg := funcreg + 1
+			keyreg := c
+			if keyreg == selfreg {
+				keyreg = reg
+				reg++
+				context.Code.AddABC(OP_MOVE, keyreg, c, 0, sline(expr))
+			}
+			if selfreg != b {
+				context.Code.AddABC(OP_MOVE, selfreg, b, 0, sline(expr))
+			}
+			context.Code.AddABC(OP_GETTABLE, funcreg, selfreg, keyreg, sline(expr))
+		}
 		// increments a register for an implicit "self"
 		reg = b + 1
 		reg2 := funcreg + 2
@@ -1946,10 +1960,6 @@ func getExprName(context *funcContext, expr ast.Expr) string { // {{{
 } // }}}
 
 func patchCode(context *funcContext) { // {{{
-	maxreg := 1
-	if np := int(context.Func.NumParameters); np > 1 {
-		maxreg = np
-	}
 	moven := 0
 	code := context.Code.List()
 	for pc := 0; pc < len(code); pc++ {
@@ -1960,26 +1970,6 @@ func patchCode(context *funcContext) { // {{{
 			pc += int(context.Func.Functions[inst.Bx].NumUpvalues)
 			moven = 0
 			continue
-		case OP_SETGLOBAL, OP_SETUPVAL, OP_EQ, OP_LT, OP_LE, OP_TEST,
-			OP_TAILCALL, OP_RETURN, OP_FORPREP, OP_FORLOOP, OP_TFORLOOP,
-			OP_SETLIST, OP_CLOSE:
-			/* nothing to do */
-		case OP_CALL:
-			if reg := inst.A + inst.C - 2; reg > maxreg {
-				maxreg = reg
-			}
-		case OP_VARARG:
-			if reg := inst.A + inst.B - 1; reg > maxreg {
-				maxreg = reg
-			}
-		case OP_SELF:
-			if reg := inst.A + 1; reg > maxreg {
-				maxreg = reg
-			}
-		case OP_LOADNIL:
-			if reg := inst.B; reg > maxreg {
-				maxreg = reg
-			}
 		case OP_JMP: // jump to jump optimization
 			distance := 0
 			count := 0 // avoiding infinite loops
@@ -1999,10 +1989,6 @@ func patchCode(context *funcContext) { // {{{
 			} else {
 				context.Code.SetSbx(pc, distance)
 			}
-		default:
-			if reg := inst.A; reg > maxreg {
-				maxreg = reg
-			}
 		}
 
 		// bulk move optimization(reducing op dipatch costs)
@@ -2016,12 +2002,144 @@ func patchCode(context *funcContext) { // {{{
 			moven = 0
 		}
 	}
+	maxreg := maxRegisterUsed(context)
 	maxreg++
 	if maxreg > maxRegisters {
 		raiseCompileError(context, context.Func.LineDefined, "register overflow(too many local variables)")
 	}
 	context.Func.NumUsedRegs = uint8(maxreg)
 } // }}}
+
+func maxRegisterUsed(context *funcContext) int {
+	maxreg := 1
+	if np := int(context.Func.NumParameters); np > 1 {
+		maxreg = np
+	}
+	bump := func(reg int) {
+		if reg > maxreg {
+			maxreg = reg
+		}
+	}
+	bumpRange := func(start, end int) {
+		if end >= start {
+			bump(end)
+		}
+	}
+	bumpRK := func(arg int) {
+		if !opIsK(arg) {
+			bump(arg)
+		}
+	}
+
+	code := context.Code.List()
+	for pc := 0; pc < len(code); pc++ {
+		inst := code[pc]
+		switch inst.Op {
+		case OP_MOVE:
+			bump(inst.A)
+			bump(inst.B)
+		case OP_MOVEN:
+			bump(inst.A)
+			bump(inst.B)
+			for j := 0; j < inst.C && pc+1+j < len(code); j++ {
+				extra := code[pc+1+j]
+				bump(extra.A)
+				bump(extra.B)
+			}
+			pc += inst.C
+		case OP_LOADK, OP_LOADBOOL, OP_GETUPVAL, OP_GETGLOBAL, OP_SETUPVAL, OP_SETGLOBAL, OP_NEWTABLE, OP_TEST, OP_CLOSE, OP_NOP:
+			bump(inst.A)
+		case OP_LOADNIL:
+			bumpRange(inst.A, inst.B)
+		case OP_GETTABLE, OP_GETTABLEKS:
+			bump(inst.A)
+			bump(inst.B)
+			bumpRK(inst.C)
+		case OP_SETTABLE, OP_SETTABLEKS:
+			bump(inst.A)
+			bumpRK(inst.B)
+			bumpRK(inst.C)
+		case OP_SELF:
+			bumpRange(inst.A, inst.A+1)
+			bump(inst.B)
+			bumpRK(inst.C)
+		case OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD, OP_POW, OP_BAND, OP_BOR, OP_BXOR, OP_SHL, OP_SHR, OP_IDIV:
+			bump(inst.A)
+			bumpRK(inst.B)
+			bumpRK(inst.C)
+		case OP_UNM, OP_LEN, OP_BNOT:
+			bump(inst.A)
+			bumpRK(inst.B)
+		case OP_NOT:
+			bump(inst.A)
+			bump(inst.B)
+		case OP_CONCAT:
+			bump(inst.A)
+			bumpRange(inst.B, inst.C)
+		case OP_EQ, OP_LT, OP_LE:
+			bumpRK(inst.B)
+			bumpRK(inst.C)
+		case OP_TESTSET:
+			bump(inst.A)
+			bump(inst.B)
+		case OP_CALL:
+			bump(inst.A)
+			if inst.B > 0 {
+				bump(inst.A + inst.B - 1)
+			}
+			if inst.C > 1 {
+				bump(inst.A + inst.C - 2)
+			}
+		case OP_TAILCALL:
+			bump(inst.A)
+			if inst.B > 0 {
+				bump(inst.A + inst.B - 1)
+			}
+		case OP_RETURN:
+			bump(inst.A)
+			if inst.B > 1 {
+				bump(inst.A + inst.B - 2)
+			}
+		case OP_FORLOOP:
+			bumpRange(inst.A, inst.A+3)
+		case OP_FORPREP:
+			bumpRange(inst.A, inst.A+2)
+		case OP_TFORLOOP:
+			bumpRange(inst.A, inst.A+3+inst.C)
+			if pc+1 < len(code) {
+				pc++
+			}
+		case OP_SETLIST:
+			bump(inst.A)
+			if inst.B > 0 {
+				bump(inst.A + inst.B)
+			}
+			if inst.C == 0 && pc+1 < len(code) {
+				pc++
+			}
+		case OP_CLOSURE:
+			bump(inst.A)
+			nup := int(context.Func.Functions[inst.Bx].NumUpvalues)
+			for j := 0; j < nup && pc+1+j < len(code); j++ {
+				extra := code[pc+1+j]
+				if extra.Op == OP_MOVE {
+					bump(extra.B)
+				}
+			}
+			pc += nup
+		case OP_VARARG:
+			bump(inst.A)
+			if inst.B > 1 {
+				bump(inst.A + inst.B - 2)
+			}
+		case OP_JMP:
+			// no register operands
+		default:
+			bump(inst.A)
+		}
+	}
+	return maxreg
+}
 
 func compileASTToIRDirect(chunk []ast.Stmt, name string) (root *IRFunction, err error) { // {{{
 	defer func() {

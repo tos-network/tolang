@@ -443,31 +443,433 @@ func readProto(r *byteReader) (*FunctionProto, error) {
 }
 
 func validateDecodedProto(p *FunctionProto) error {
-	for i := 0; i < len(p.Code); i++ {
-		inst := p.Code[i]
-		op := opGetOpCode(inst)
-		if op < 0 || op > opCodeMax {
-			return fmt.Errorf("invalid opcode %d at pc %d", op, i)
+	if p == nil {
+		return fmt.Errorf("nil function proto")
+	}
+	if len(p.stringConstants) != len(p.Constants) {
+		return fmt.Errorf("invalid string constant cache")
+	}
+	if int(p.NumParameters) > int(p.NumUsedRegisters) {
+		return fmt.Errorf("invalid function proto: num parameters %d exceeds registers %d", p.NumParameters, p.NumUsedRegisters)
+	}
+	for i, li := range p.DbgLocals {
+		if li == nil {
+			continue
 		}
-		if op == OP_CLOSURE {
-			bx := opGetArgBx(inst)
-			if bx < 0 || bx >= len(p.FunctionPrototypes) {
-				return fmt.Errorf("invalid closure prototype index %d at pc %d", bx, i)
-			}
-		}
-		if op == OP_SETLIST && opGetArgC(inst) == 0 {
-			if i+1 >= len(p.Code) {
-				return fmt.Errorf("missing SETLIST extra word at pc %d", i)
-			}
-			i++
+		if li.Reg < 0 || li.Reg >= int(p.NumUsedRegisters) {
+			return fmt.Errorf("invalid debug local register %d at index %d", li.Reg, i)
 		}
 	}
-	for _, child := range p.FunctionPrototypes {
+	for i := 0; i < len(p.Code); i++ {
+		extraConsumed, err := validateDecodedInstruction(p, i)
+		if err != nil {
+			return err
+		}
+		i += extraConsumed
+	}
+	for i, child := range p.FunctionPrototypes {
+		if child == nil {
+			return fmt.Errorf("nil child function proto at index %d", i)
+		}
 		if err := validateDecodedProto(child); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func validateDecodedInstruction(p *FunctionProto, pc int) (int, error) {
+	inst := p.Code[pc]
+	op := opGetOpCode(inst)
+	if op < 0 || op > opCodeMax {
+		return 0, fmt.Errorf("invalid opcode %d at pc %d", op, pc)
+	}
+
+	numRegs := int(p.NumUsedRegisters)
+	numConsts := len(p.Constants)
+	numUpvalues := int(p.NumUpvalues)
+	codeLen := len(p.Code)
+
+	validateReg := func(reg int, what string) error {
+		if reg < 0 || reg >= numRegs {
+			return fmt.Errorf("invalid %s register %d at pc %d", what, reg, pc)
+		}
+		return nil
+	}
+	validateRegRange := func(start, end int, what string) error {
+		if start < 0 || end < start || end >= numRegs {
+			return fmt.Errorf("invalid %s register range %d..%d at pc %d", what, start, end, pc)
+		}
+		return nil
+	}
+	validateConst := func(idx int, what string) error {
+		if idx < 0 || idx >= numConsts {
+			return fmt.Errorf("invalid %s constant index %d at pc %d", what, idx, pc)
+		}
+		return nil
+	}
+	validateStringConst := func(idx int, what string) error {
+		if err := validateConst(idx, what); err != nil {
+			return err
+		}
+		if _, ok := p.Constants[idx].(LString); !ok {
+			return fmt.Errorf("invalid %s string constant index %d at pc %d", what, idx, pc)
+		}
+		return nil
+	}
+	validateUpvalue := func(idx int, what string) error {
+		if idx < 0 || idx >= numUpvalues {
+			return fmt.Errorf("invalid %s upvalue index %d at pc %d", what, idx, pc)
+		}
+		return nil
+	}
+	validateRK := func(arg int, what string) error {
+		if opIsK(arg) {
+			return validateConst(opIndexK(arg), what)
+		}
+		return validateReg(arg, what)
+	}
+	validateRKString := func(arg int, what string) error {
+		if !opIsK(arg) {
+			return fmt.Errorf("%s must use a constant string at pc %d", what, pc)
+		}
+		return validateStringConst(opIndexK(arg), what)
+	}
+	validateHasNext := func(what string) error {
+		if pc+1 >= codeLen {
+			return fmt.Errorf("%s at pc %d requires a following instruction", what, pc)
+		}
+		return nil
+	}
+	validateJumpTarget := func(fromPC, sbx int, what string) error {
+		target := fromPC + 1 + sbx
+		if target < 0 || target >= codeLen {
+			return fmt.Errorf("invalid %s jump target %d at pc %d", what, target, fromPC)
+		}
+		return nil
+	}
+
+	A := opGetArgA(inst)
+	B := opGetArgB(inst)
+	C := opGetArgC(inst)
+	Bx := opGetArgBx(inst)
+	Sbx := opGetArgSbx(inst)
+
+	switch op {
+	case OP_MOVE:
+		if err := validateReg(A, "MOVE destination"); err != nil {
+			return 0, err
+		}
+		if err := validateReg(B, "MOVE source"); err != nil {
+			return 0, err
+		}
+	case OP_MOVEN:
+		if err := validateReg(A, "MOVEN destination"); err != nil {
+			return 0, err
+		}
+		if err := validateReg(B, "MOVEN source"); err != nil {
+			return 0, err
+		}
+		if pc+C >= codeLen {
+			return 0, fmt.Errorf("MOVEN at pc %d missing %d trailing MOVE instruction(s)", pc, C)
+		}
+		for j := 0; j < C; j++ {
+			extra := p.Code[pc+1+j]
+			if opGetOpCode(extra) != OP_MOVE {
+				return 0, fmt.Errorf("MOVEN at pc %d expects MOVE at pc %d", pc, pc+1+j)
+			}
+			if err := validateReg(opGetArgA(extra), "MOVEN trailing destination"); err != nil {
+				return 0, err
+			}
+			if err := validateReg(opGetArgB(extra), "MOVEN trailing source"); err != nil {
+				return 0, err
+			}
+		}
+		return C, nil
+	case OP_LOADK:
+		if err := validateReg(A, "LOADK destination"); err != nil {
+			return 0, err
+		}
+		if err := validateConst(Bx, "LOADK"); err != nil {
+			return 0, err
+		}
+	case OP_LOADBOOL:
+		if err := validateReg(A, "LOADBOOL destination"); err != nil {
+			return 0, err
+		}
+		if C != 0 {
+			if err := validateHasNext("LOADBOOL"); err != nil {
+				return 0, err
+			}
+		}
+	case OP_LOADNIL:
+		if err := validateRegRange(A, B, "LOADNIL"); err != nil {
+			return 0, err
+		}
+	case OP_GETUPVAL:
+		if err := validateReg(A, "GETUPVAL destination"); err != nil {
+			return 0, err
+		}
+		if err := validateUpvalue(B, "GETUPVAL"); err != nil {
+			return 0, err
+		}
+	case OP_GETGLOBAL:
+		if err := validateReg(A, "GETGLOBAL destination"); err != nil {
+			return 0, err
+		}
+		if err := validateStringConst(Bx, "GETGLOBAL"); err != nil {
+			return 0, err
+		}
+	case OP_GETTABLE:
+		if err := validateReg(A, "GETTABLE destination"); err != nil {
+			return 0, err
+		}
+		if err := validateReg(B, "GETTABLE base"); err != nil {
+			return 0, err
+		}
+		if err := validateRK(C, "GETTABLE key"); err != nil {
+			return 0, err
+		}
+	case OP_GETTABLEKS:
+		if err := validateReg(A, "GETTABLEKS destination"); err != nil {
+			return 0, err
+		}
+		if err := validateReg(B, "GETTABLEKS base"); err != nil {
+			return 0, err
+		}
+		if err := validateRKString(C, "GETTABLEKS key"); err != nil {
+			return 0, err
+		}
+	case OP_SETGLOBAL:
+		if err := validateReg(A, "SETGLOBAL source"); err != nil {
+			return 0, err
+		}
+		if err := validateStringConst(Bx, "SETGLOBAL"); err != nil {
+			return 0, err
+		}
+	case OP_SETUPVAL:
+		if err := validateReg(A, "SETUPVAL source"); err != nil {
+			return 0, err
+		}
+		if err := validateUpvalue(B, "SETUPVAL"); err != nil {
+			return 0, err
+		}
+	case OP_SETTABLE:
+		if err := validateReg(A, "SETTABLE base"); err != nil {
+			return 0, err
+		}
+		if err := validateRK(B, "SETTABLE key"); err != nil {
+			return 0, err
+		}
+		if err := validateRK(C, "SETTABLE value"); err != nil {
+			return 0, err
+		}
+	case OP_SETTABLEKS:
+		if err := validateReg(A, "SETTABLEKS base"); err != nil {
+			return 0, err
+		}
+		if err := validateRKString(B, "SETTABLEKS key"); err != nil {
+			return 0, err
+		}
+		if err := validateRK(C, "SETTABLEKS value"); err != nil {
+			return 0, err
+		}
+	case OP_NEWTABLE:
+		if err := validateReg(A, "NEWTABLE destination"); err != nil {
+			return 0, err
+		}
+	case OP_SELF:
+		if err := validateRegRange(A, A+1, "SELF destination"); err != nil {
+			return 0, err
+		}
+		if err := validateReg(B, "SELF receiver"); err != nil {
+			return 0, err
+		}
+		if err := validateRKString(C, "SELF method"); err != nil {
+			return 0, err
+		}
+	case OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD, OP_POW, OP_BAND, OP_BOR, OP_BXOR, OP_SHL, OP_SHR, OP_IDIV:
+		if err := validateReg(A, "arithmetic destination"); err != nil {
+			return 0, err
+		}
+		if err := validateRK(B, "arithmetic lhs"); err != nil {
+			return 0, err
+		}
+		if err := validateRK(C, "arithmetic rhs"); err != nil {
+			return 0, err
+		}
+	case OP_UNM, OP_LEN, OP_BNOT:
+		if err := validateReg(A, "unary destination"); err != nil {
+			return 0, err
+		}
+		if err := validateRK(B, "unary operand"); err != nil {
+			return 0, err
+		}
+	case OP_NOT:
+		if err := validateReg(A, "NOT destination"); err != nil {
+			return 0, err
+		}
+		if err := validateReg(B, "NOT source"); err != nil {
+			return 0, err
+		}
+	case OP_CONCAT:
+		if err := validateReg(A, "CONCAT destination"); err != nil {
+			return 0, err
+		}
+		if err := validateRegRange(B, C, "CONCAT operand"); err != nil {
+			return 0, err
+		}
+	case OP_JMP:
+		if err := validateJumpTarget(pc, Sbx, "JMP"); err != nil {
+			return 0, err
+		}
+	case OP_EQ, OP_LT, OP_LE:
+		if err := validateRK(B, "comparison lhs"); err != nil {
+			return 0, err
+		}
+		if err := validateRK(C, "comparison rhs"); err != nil {
+			return 0, err
+		}
+		if err := validateHasNext(opProps[op].Name); err != nil {
+			return 0, err
+		}
+	case OP_TEST:
+		if err := validateReg(A, "TEST source"); err != nil {
+			return 0, err
+		}
+		if err := validateHasNext("TEST"); err != nil {
+			return 0, err
+		}
+	case OP_TESTSET:
+		if err := validateReg(A, "TESTSET destination"); err != nil {
+			return 0, err
+		}
+		if err := validateReg(B, "TESTSET source"); err != nil {
+			return 0, err
+		}
+		if err := validateHasNext("TESTSET"); err != nil {
+			return 0, err
+		}
+	case OP_CALL:
+		if err := validateReg(A, "CALL base"); err != nil {
+			return 0, err
+		}
+		if B > 0 {
+			if err := validateRegRange(A, A+B-1, "CALL argument"); err != nil {
+				return 0, err
+			}
+		}
+		if C > 1 {
+			if err := validateRegRange(A, A+C-2, "CALL destination"); err != nil {
+				return 0, err
+			}
+		}
+	case OP_TAILCALL:
+		if err := validateReg(A, "TAILCALL base"); err != nil {
+			return 0, err
+		}
+		if B > 0 {
+			if err := validateRegRange(A, A+B-1, "TAILCALL argument"); err != nil {
+				return 0, err
+			}
+		}
+	case OP_RETURN:
+		if err := validateReg(A, "RETURN base"); err != nil {
+			return 0, err
+		}
+		if B > 1 {
+			if err := validateRegRange(A, A+B-2, "RETURN value"); err != nil {
+				return 0, err
+			}
+		}
+	case OP_FORLOOP:
+		if err := validateRegRange(A, A+3, "FORLOOP"); err != nil {
+			return 0, err
+		}
+		if err := validateJumpTarget(pc, Sbx, "FORLOOP"); err != nil {
+			return 0, err
+		}
+	case OP_FORPREP:
+		if err := validateRegRange(A, A+2, "FORPREP"); err != nil {
+			return 0, err
+		}
+		if err := validateJumpTarget(pc, Sbx, "FORPREP"); err != nil {
+			return 0, err
+		}
+	case OP_TFORLOOP:
+		if err := validateRegRange(A, A+3+C, "TFORLOOP"); err != nil {
+			return 0, err
+		}
+		if err := validateHasNext("TFORLOOP"); err != nil {
+			return 0, err
+		}
+		helper := p.Code[pc+1]
+		if opGetOpCode(helper) != OP_JMP {
+			return 0, fmt.Errorf("TFORLOOP at pc %d expects JMP helper at pc %d", pc, pc+1)
+		}
+		if err := validateJumpTarget(pc+1, opGetArgSbx(helper), "TFORLOOP helper"); err != nil {
+			return 0, err
+		}
+		return 1, nil
+	case OP_SETLIST:
+		if err := validateReg(A, "SETLIST table"); err != nil {
+			return 0, err
+		}
+		if B > 0 {
+			if err := validateRegRange(A+1, A+B, "SETLIST source"); err != nil {
+				return 0, err
+			}
+		}
+		if C == 0 {
+			if err := validateHasNext("SETLIST"); err != nil {
+				return 0, err
+			}
+			return 1, nil
+		}
+	case OP_CLOSURE:
+		if err := validateReg(A, "CLOSURE destination"); err != nil {
+			return 0, err
+		}
+		if Bx < 0 || Bx >= len(p.FunctionPrototypes) {
+			return 0, fmt.Errorf("invalid closure prototype index %d at pc %d", Bx, pc)
+		}
+		child := p.FunctionPrototypes[Bx]
+		if child == nil {
+			return 0, fmt.Errorf("nil closure prototype at index %d for pc %d", Bx, pc)
+		}
+		nup := int(child.NumUpvalues)
+		if nup > 0 && pc+nup >= codeLen {
+			return 0, fmt.Errorf("CLOSURE at pc %d missing %d upvalue binding instruction(s)", pc, nup)
+		}
+		for j := 0; j < nup; j++ {
+			extra := p.Code[pc+1+j]
+			switch opGetOpCode(extra) {
+			case OP_MOVE:
+				if err := validateReg(opGetArgB(extra), "CLOSURE upvalue source"); err != nil {
+					return 0, err
+				}
+			case OP_GETUPVAL:
+				if err := validateUpvalue(opGetArgB(extra), "CLOSURE captured upvalue"); err != nil {
+					return 0, err
+				}
+			default:
+				return 0, fmt.Errorf("invalid CLOSURE upvalue binding opcode %d at pc %d", opGetOpCode(extra), pc+1+j)
+			}
+		}
+		return nup, nil
+	case OP_VARARG:
+		if err := validateReg(A, "VARARG destination"); err != nil {
+			return 0, err
+		}
+		if B > 1 {
+			if err := validateRegRange(A, A+B-2, "VARARG destination"); err != nil {
+				return 0, err
+			}
+		}
+	case OP_CLOSE, OP_NOP:
+		return 0, nil
+	}
+	return 0, nil
 }
 
 func writeConst(w io.Writer, v LValue) error {

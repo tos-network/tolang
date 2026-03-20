@@ -150,6 +150,7 @@ func CompileSourceToBytecode(source []byte, name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	stripFunctionProtoDebug(proto)
 	return EncodeFunctionProto(proto)
 }
 

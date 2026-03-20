@@ -382,9 +382,11 @@ func abiDeclaresName(src []byte, name string) bool {
 type CompileOptions struct {
 	// IncludeSourceMap controls whether debug metadata (source map / line table /
 	// local/call/upvalue debug sections) is embedded in output bytecode.
-	// Default is true for backward compatibility.
+	// Default is false for reproducible builds.
 	IncludeSourceMap bool
 }
+
+const defaultIncludeSourceMap = false
 
 // ParseModule parses TOL source into a syntax tree.
 func ParseModule(source []byte, name string) (*ast.Module, error) {
@@ -447,7 +449,7 @@ func CompileBytecodeWithOptions(source []byte, name string, opts *CompileOptions
 	if err != nil {
 		return nil, err
 	}
-	includeSourceMap := true
+	includeSourceMap := defaultIncludeSourceMap
 	if opts != nil {
 		includeSourceMap = opts.IncludeSourceMap
 	}
@@ -494,6 +496,7 @@ func CompileInitBytecode(source []byte, name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	stripFunctionProtoDebug(proto)
 	return EncodeFunctionProto(proto)
 }
 
@@ -507,6 +510,7 @@ func CompileBytecodeFromLowered(prog *lower.Program, name string) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
+	stripFunctionProtoDebug(proto)
 	return EncodeFunctionProto(proto)
 }
 
@@ -555,7 +559,7 @@ func CompileAllArtifacts(source []byte, name string, opts *CompileOptions) ([]*A
 		return nil, err
 	}
 
-	includeSourceMap := true
+	includeSourceMap := defaultIncludeSourceMap
 	if opts != nil {
 		includeSourceMap = opts.IncludeSourceMap
 	}

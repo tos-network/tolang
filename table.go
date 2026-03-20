@@ -205,6 +205,19 @@ func (tb *LTable) RawSetInt(key int, value LValue) {
 
 // RawSetString sets a given LValue to a given string index without the __newindex metamethod.
 func (tb *LTable) RawSetString(key string, value LValue) {
+	lkey := LString(key)
+	if value == LNil {
+		if tb.strdict != nil {
+			delete(tb.strdict, key)
+			if len(tb.strdict) == 0 {
+				tb.strdict = nil
+			}
+		}
+		if !tb.shouldKeepStaleNextKey(lkey) {
+			tb.removeHashKeyMetadata(lkey)
+		}
+		return
+	}
 	if tb.strdict == nil {
 		tb.strdict = make(map[string]LValue, defaultHashCap)
 	}
@@ -212,24 +225,97 @@ func (tb *LTable) RawSetString(key string, value LValue) {
 		tb.keys = []LValue{}
 		tb.k2i = map[LValue]int{}
 	}
-
-	if value == LNil {
-		// TODO tb.keys and tb.k2i should also be removed
-		delete(tb.strdict, key)
-	} else {
-		tb.strdict[key] = value
-		lkey := LString(key)
-		if _, ok := tb.k2i[lkey]; !ok {
-			tb.k2i[lkey] = len(tb.keys)
-			tb.keys = append(tb.keys, lkey)
-		}
+	tb.strdict[key] = value
+	if _, ok := tb.k2i[lkey]; !ok {
+		tb.k2i[lkey] = len(tb.keys)
+		tb.keys = append(tb.keys, lkey)
 	}
+}
+
+func (tb *LTable) shouldKeepStaleNextKey(key LValue) bool {
+	if tb.nextIterated == nil {
+		return false
+	}
+	_, ok := tb.nextIterated[key]
+	return ok
+}
+
+func (tb *LTable) removeHashKeyMetadata(key LValue) {
+	if tb.k2i == nil {
+		return
+	}
+	idx, ok := tb.k2i[key]
+	if !ok {
+		return
+	}
+	delete(tb.k2i, key)
+	if tb.nextIterated != nil {
+		delete(tb.nextIterated, key)
+	}
+	copy(tb.keys[idx:], tb.keys[idx+1:])
+	tb.keys[len(tb.keys)-1] = nil
+	tb.keys = tb.keys[:len(tb.keys)-1]
+	for i := idx; i < len(tb.keys); i++ {
+		tb.k2i[tb.keys[i]] = i
+	}
+	if len(tb.keys) == 0 {
+		tb.keys = nil
+		tb.k2i = nil
+	}
+}
+
+func (tb *LTable) markNextHashKey(key LValue) {
+	if tb.nextIterated == nil {
+		tb.nextIterated = make(map[LValue]struct{}, 4)
+	}
+	tb.nextIterated[key] = struct{}{}
+}
+
+func (tb *LTable) compactNextIterationState() {
+	if len(tb.nextIterated) == 0 {
+		return
+	}
+	if len(tb.keys) == 0 {
+		tb.keys = nil
+		tb.k2i = nil
+		tb.nextIterated = nil
+		return
+	}
+	newKeys := make([]LValue, 0, len(tb.keys))
+	newK2I := make(map[LValue]int, len(tb.keys))
+	for _, key := range tb.keys {
+		if tb.RawGetH(key) == LNil {
+			continue
+		}
+		newK2I[key] = len(newKeys)
+		newKeys = append(newKeys, key)
+	}
+	if len(newKeys) == 0 {
+		tb.keys = nil
+		tb.k2i = nil
+	} else {
+		tb.keys = newKeys
+		tb.k2i = newK2I
+	}
+	tb.nextIterated = nil
 }
 
 // RawSetH sets a given LValue to a given index without the __newindex metamethod.
 func (tb *LTable) RawSetH(key LValue, value LValue) {
 	if s, ok := key.(LString); ok {
 		tb.RawSetString(string(s), value)
+		return
+	}
+	if value == LNil {
+		if tb.dict != nil {
+			delete(tb.dict, key)
+			if len(tb.dict) == 0 {
+				tb.dict = nil
+			}
+		}
+		if !tb.shouldKeepStaleNextKey(key) {
+			tb.removeHashKeyMetadata(key)
+		}
 		return
 	}
 	if tb.dict == nil {
@@ -240,15 +326,10 @@ func (tb *LTable) RawSetH(key LValue, value LValue) {
 		tb.k2i = map[LValue]int{}
 	}
 
-	if value == LNil {
-		// TODO tb.keys and tb.k2i should also be removed
-		delete(tb.dict, key)
-	} else {
-		tb.dict[key] = value
-		if _, ok := tb.k2i[key]; !ok {
-			tb.k2i[key] = len(tb.keys)
-			tb.keys = append(tb.keys, key)
-		}
+	tb.dict[key] = value
+	if _, ok := tb.k2i[key]; !ok {
+		tb.k2i[key] = len(tb.keys)
+		tb.keys = append(tb.keys, key)
 	}
 }
 
@@ -370,6 +451,10 @@ func (tb *LTable) isValidNextKey(key LValue) bool {
 
 // This function is equivalent to lua_next ( http://www.lua.org/manual/5.1/manual.html#lua_next ).
 func (tb *LTable) Next(key LValue) (LValue, LValue) {
+	returnNil := func() (LValue, LValue) {
+		tb.compactNextIterationState()
+		return LNil, LNil
+	}
 	init := false
 	if key == LNil {
 		key = LUint256Zero
@@ -388,10 +473,11 @@ func (tb *LTable) Next(key LValue) (LValue, LValue) {
 				}
 				if tb.array == nil || index == len(tb.array) {
 					if (tb.dict == nil || len(tb.dict) == 0) && (tb.strdict == nil || len(tb.strdict) == 0) {
-						return LNil, LNil
+						return returnNil()
 					}
 					key = tb.keys[0]
 					if v := tb.RawGetH(key); v != LNil {
+						tb.markNextHashKey(key)
 						return key, v
 					}
 				}
@@ -402,8 +488,9 @@ func (tb *LTable) Next(key LValue) (LValue, LValue) {
 	for i := tb.k2i[key] + 1; i < len(tb.keys); i++ {
 		key := tb.keys[i]
 		if v := tb.RawGetH(key); v != LNil {
+			tb.markNextHashKey(key)
 			return key, v
 		}
 	}
-	return LNil, LNil
+	return returnNil()
 }

@@ -34,13 +34,13 @@ type Package struct {
 
 // PackageOptions configures one-shot .tol -> .tor compilation.
 type PackageOptions struct {
-	PackageName      string
-	PackageVersion   string
-	ArtifactPath     string
-	InterfacePath    string
-	InterfaceName    string
+	PackageName    string
+	PackageVersion string
+	ArtifactPath   string
+	InterfacePath  string
+	InterfaceName  string
 	// IncludeSourceMap controls whether embedded .toc bytecode contains source map/debug metadata.
-	// nil means default-on (backward compatible).
+	// nil means default-off for reproducible builds.
 	IncludeSourceMap *bool
 	IncludeSource    bool
 	SourcePath       string
@@ -129,7 +129,7 @@ func CompilePackage(source []byte, name string, opts *PackageOptions) ([]byte, e
 	}
 
 	type manifestContract struct {
-		Name string `json:"name"`
+		Name      string `json:"name"`
 		Artifact  string `json:"toc"`
 		Interface string `json:"abi"`
 	}
@@ -354,7 +354,7 @@ func optsOrDefault(opts *PackageOptions) PackageOptions {
 
 func torIncludeSourceMap(opts *PackageOptions) bool {
 	if opts == nil || opts.IncludeSourceMap == nil {
-		return true
+		return defaultIncludeSourceMap
 	}
 	return *opts.IncludeSourceMap
 }
@@ -639,7 +639,7 @@ func validatePackageManifest(manifestJSON []byte, files map[string][]byte, verif
 		Name      string `json:"name"`
 		Version   string `json:"version"`
 		Contracts []struct {
-			Name string `json:"name"`
+			Name      string `json:"name"`
 			Artifact  string `json:"toc"`
 			Interface string `json:"abi"`
 		} `json:"contracts"`

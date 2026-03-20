@@ -40,7 +40,7 @@ type Artifact struct {
 // ArtifactOptions controls .artifact compilation behavior.
 type ArtifactOptions struct {
 	// IncludeSourceMap controls whether embedded bytecode contains source map/debug metadata.
-	// Default is true for backward compatibility.
+	// Default is false for reproducible builds.
 	IncludeSourceMap bool
 }
 
@@ -80,6 +80,7 @@ type tocABIManifest struct {
 //   - ABIVersion string field (must emit "1.0")
 //   - Errors []tocABIError field for the Error Model (spec section 12)
 //   - Top-level "kind" field ("contract" or "interface")
+//
 // TODO(ABI-1.0): add ABIVersion, Errors, Kind fields and validate on encode.
 type tocABI struct {
 	GasModel        tocABIGasModel   `json:"gas_model"`
@@ -97,15 +98,15 @@ type tocABIParam struct {
 }
 
 type tocABIFunction struct {
-	Name               string        `json:"name"`
-	Visibility         string        `json:"visibility"`
-	Mutability         string        `json:"mutability,omitempty"` // "pure", "view", "payable", "nonpayable"
-	Selector           string        `json:"selector"`
-	Params             []string      `json:"params,omitempty"`
-	Returns            []string      `json:"returns,omitempty"`
-	NamedParams        []tocABIParam `json:"named_params,omitempty"`
-	NamedReturns       []tocABIParam `json:"named_returns,omitempty"`
-	Doc                *tocABIDoc    `json:"doc,omitempty"`
+	Name         string        `json:"name"`
+	Visibility   string        `json:"visibility"`
+	Mutability   string        `json:"mutability,omitempty"` // "pure", "view", "payable", "nonpayable"
+	Selector     string        `json:"selector"`
+	Params       []string      `json:"params,omitempty"`
+	Returns      []string      `json:"returns,omitempty"`
+	NamedParams  []tocABIParam `json:"named_params,omitempty"`
+	NamedReturns []tocABIParam `json:"named_returns,omitempty"`
+	Doc          *tocABIDoc    `json:"doc,omitempty"`
 	// Agent-native ABI extensions
 	// TODO(ABI-1.0): add DelegationScope field per spec section 7.2:
 	//   { "action": string, "contract": "agent", "expiry_ms": u64, "nonce": u64 }
@@ -115,13 +116,13 @@ type tocABIFunction struct {
 	//   Required when Verifiable is true.
 	// TODO(ABI-1.0): add CallerKind field per spec section 7.2:
 	//   enum: "user" | "agent" | "contract" | "any" (default "any")
-	RequiresCapability string     `json:"requires_capability,omitempty"`
-	PayAmountTomi      string     `json:"pay_amount_tomi,omitempty"`
-	PayRecipient       string     `json:"pay_recipient,omitempty"`
-	TotalCostTomi      string     `json:"total_cost_tomi,omitempty"`
-	Verifiable         bool       `json:"verifiable,omitempty"`
-	Delegated          bool       `json:"delegated,omitempty"`
-	VerifiableStub     bool       `json:"verifiable_stub,omitempty"`
+	RequiresCapability string `json:"requires_capability,omitempty"`
+	PayAmountTomi      string `json:"pay_amount_tomi,omitempty"`
+	PayRecipient       string `json:"pay_recipient,omitempty"`
+	TotalCostTomi      string `json:"total_cost_tomi,omitempty"`
+	Verifiable         bool   `json:"verifiable,omitempty"`
+	Delegated          bool   `json:"delegated,omitempty"`
+	VerifiableStub     bool   `json:"verifiable_stub,omitempty"`
 	// @quota annotation
 	QuotaCalls string `json:"quota_calls,omitempty"`
 	QuotaPrice string `json:"quota_price,omitempty"`
@@ -196,7 +197,7 @@ func CompileArtifact(source []byte, name string) ([]byte, error) {
 // CompileArtifactWithOptions compiles TOL source into a .toc artifact with
 // configurable bytecode debug metadata emission.
 func CompileArtifactWithOptions(source []byte, name string, opts *ArtifactOptions) ([]byte, error) {
-	includeSourceMap := true
+	includeSourceMap := defaultIncludeSourceMap
 	if opts != nil {
 		includeSourceMap = opts.IncludeSourceMap
 	}

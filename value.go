@@ -173,11 +173,12 @@ func (nm LUint256) Format(f fmt.State, c rune) {
 type LTable struct {
 	Metatable LValue
 
-	array   []LValue
-	dict    map[LValue]LValue
-	strdict map[string]LValue
-	keys    []LValue
-	k2i     map[LValue]int
+	array        []LValue
+	dict         map[LValue]LValue
+	strdict      map[string]LValue
+	keys         []LValue
+	k2i          map[LValue]int
+	nextIterated map[LValue]struct{}
 }
 
 func (tb *LTable) String() string   { return "table" }
@@ -227,11 +228,6 @@ type LState struct {
 	// Line hook: called once per executed instruction when non-nil.
 	// The source string comes from FunctionProto.SourceName of the active frame.
 	lineHook func(source string, line int)
-
-	// interruptCh, when set to a closed or readable channel, causes the VM to
-	// abort execution on the next instruction.  Analogous to EVM.Cancel().
-	// Use SetInterrupt to install; nil means no interrupt is installed.
-	interruptCh <-chan struct{}
 }
 
 // SetGasLimit configures the maximum number of VM instructions this LState
@@ -249,14 +245,6 @@ func (ls *LState) GasUsed() uint64 { return ls.gasUsed }
 // Pass nil to disable.
 func (ls *LState) SetLineHook(fn func(string, int)) {
 	ls.lineHook = fn
-}
-
-// SetInterrupt installs a channel that, when closed, causes the VM to abort
-// execution with an error on the next instruction.  Pass nil to clear.
-// Analogous to EVM.Cancel() — use ctx.Done() from a context.WithTimeout to
-// implement RPC call timeouts.
-func (ls *LState) SetInterrupt(ch <-chan struct{}) {
-	ls.interruptCh = ch
 }
 
 type LUserData struct {

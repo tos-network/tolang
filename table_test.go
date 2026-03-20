@@ -242,11 +242,14 @@ func TestTableValidNextKeyAllowsStaleKeys(t *testing.T) {
 	tbl.RawSetH(LString("a"), LTrue)
 	tbl.RawSetH(LString("b"), LFalse)
 
+	hashKey, _ := tbl.Next(lu256FromInt(2))
+	errorIfNotEqual(t, LString("a"), hashKey)
+
 	tbl.RawSetInt(1, LNil)
-	tbl.RawSetH(LString("a"), LNil)
+	tbl.RawSetH(hashKey, LNil)
 
 	errorIfFalse(t, tbl.isValidNextKey(lu256FromInt(1)), "expected stale array key to remain valid for next()")
-	errorIfFalse(t, tbl.isValidNextKey(LString("a")), "expected stale hash key to remain valid for next()")
+	errorIfFalse(t, tbl.isValidNextKey(hashKey), "expected iterated stale hash key to remain valid for next()")
 	errorIfFalse(t, !tbl.isValidNextKey(lu256FromInt(3)), "unexpectedly accepted missing array key")
 	errorIfFalse(t, !tbl.isValidNextKey(LString("missing")), "unexpectedly accepted missing hash key")
 }
@@ -255,9 +258,40 @@ func TestTableNextFromStaleHashKey(t *testing.T) {
 	tbl := newLTable(0, 0)
 	tbl.RawSetH(LString("a"), lu256FromInt(1))
 	tbl.RawSetH(LString("b"), lu256FromInt(2))
-	tbl.RawSetH(LString("a"), LNil)
+	staleKey, _ := tbl.Next(LNil)
+	errorIfNotEqual(t, LString("a"), staleKey)
+	tbl.RawSetH(staleKey, LNil)
 
-	key, value := tbl.Next(LString("a"))
+	key, value := tbl.Next(staleKey)
 	errorIfNotEqual(t, LString("b"), key)
 	errorIfNotEqual(t, lu256FromInt(2), value)
+}
+
+func TestTableDeleteWithoutIterationDoesNotRetainTombstones(t *testing.T) {
+	tbl := newLTable(0, 0)
+	for i := 0; i < 1000; i++ {
+		key := LString("k" + lu256FromInt(i).String())
+		tbl.RawSetH(key, LTrue)
+		tbl.RawSetH(key, LNil)
+	}
+	errorIfNotEqual(t, 0, len(tbl.keys))
+	errorIfNotEqual(t, 0, len(tbl.k2i))
+}
+
+func TestTableTraversalCompactsStaleHashTombstonesAtEnd(t *testing.T) {
+	tbl := newLTable(0, 0)
+	tbl.RawSetH(LString("a"), lu256FromInt(1))
+	tbl.RawSetH(LString("b"), lu256FromInt(2))
+
+	k1, _ := tbl.Next(LNil)
+	tbl.RawSetH(k1, LNil)
+	k2, _ := tbl.Next(k1)
+	tbl.RawSetH(k2, LNil)
+	k3, v3 := tbl.Next(k2)
+
+	errorIfNotEqual(t, LNil, k3)
+	errorIfNotEqual(t, LNil, v3)
+	errorIfNotEqual(t, 0, len(tbl.keys))
+	errorIfNotEqual(t, 0, len(tbl.k2i))
+	errorIfNotEqual(t, 0, len(tbl.nextIterated))
 }

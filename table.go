@@ -350,15 +350,16 @@ func (tb *LTable) markNextHashKey(key LValue) {
 	tb.nextIterated[key] = struct{}{}
 }
 
-func (tb *LTable) compactNextIterationState() {
+func (tb *LTable) compactNextIterationState() int {
 	if len(tb.nextIterated) == 0 {
-		return
+		return 0
 	}
+	cost := len(tb.keys)
 	if len(tb.keys) == 0 {
 		tb.keys = nil
 		tb.k2i = nil
 		tb.nextIterated = nil
-		return
+		return 0
 	}
 	newKeys := make([]LValue, 0, len(tb.keys))
 	newK2I := make(map[LValue]int, len(tb.keys))
@@ -377,6 +378,7 @@ func (tb *LTable) compactNextIterationState() {
 		tb.k2i = newK2I
 	}
 	tb.nextIterated = nil
+	return cost
 }
 
 // RawSetH sets a given LValue to a given index without the __newindex metamethod.
@@ -578,7 +580,7 @@ func (tb *LTable) Next(key LValue) (LValue, LValue) {
 
 func (tb *LTable) NextWithCost(key LValue) (LValue, LValue, int) {
 	returnNil := func(cost int) (LValue, LValue, int) {
-		tb.compactNextIterationState()
+		cost += tb.compactNextIterationState()
 		return LNil, LNil, cost
 	}
 	if key == LNil {

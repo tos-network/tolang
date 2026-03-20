@@ -424,6 +424,9 @@ func init() {
 			A := int(inst>>18) & 0xff //GETA
 			RA := lbase + A
 			B := int(inst & 0x1ff) //GETB
+			if n := lbase + B - RA + 1; n > 1 {
+				L.chargeGas(uint64(n))
+			}
 			for i := RA; i <= lbase+B; i++ {
 				// this section is inlined by go-inline
 				// source function is 'func (rg *registry) Set(regi int, vali LValue) ' in '_state.go'
@@ -2380,6 +2383,7 @@ func stringConcat(L *LState, total, last int) LValue {
 			outLen := int64(len(rightStr))
 			buf[total] = rightStr
 			for total > 0 {
+				L.chargeGas(1)
 				lhs = L.reg.Get(i)
 				if !LVCanConvToString(lhs) {
 					break

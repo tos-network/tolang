@@ -381,11 +381,14 @@ func encodeDecimalTo32(s string) (string, error) {
 func cryptoBytesConcat(L *LState) int {
 	n := L.GetTop()
 	var sb strings.Builder
+	totalLen := int64(len("0x"))
 	for i := 1; i <= n; i++ {
 		s := L.CheckString(i)
 		if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+			addStringResultBytes(L, "__tol_bytes_concat", &totalLen, len(s)-2)
 			sb.WriteString(s[2:])
 		} else {
+			addStringResultBytes(L, "__tol_bytes_concat", &totalLen, len(s))
 			sb.WriteString(s)
 		}
 	}
@@ -398,8 +401,11 @@ func cryptoBytesConcat(L *LState) int {
 func cryptoStrConcat(L *LState) int {
 	n := L.GetTop()
 	var sb strings.Builder
+	var totalLen int64
 	for i := 1; i <= n; i++ {
-		sb.WriteString(L.CheckString(i))
+		s := L.CheckString(i)
+		addStringResultBytes(L, "__tol_str_concat", &totalLen, len(s))
+		sb.WriteString(s)
 	}
 	L.Push(LString(sb.String()))
 	return 1

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/tos-network/tolang/tol/ast"
@@ -356,16 +357,31 @@ func artifactToInterfaceSource(data []byte, importName string) ([]byte, error) {
 			return abiSrc, nil
 		}
 	}
-	// Fallback: scan all .abi files not referenced in the manifest.
-	for path, content := range tor.Files {
+	// Fallback: deterministically scan all .abi files in the archive.
+	// Reject ambiguous matches instead of depending on Go map iteration order.
+	var abiPaths []string
+	for path := range tor.Files {
 		if !strings.HasSuffix(path, ".abi") {
 			continue
 		}
+		abiPaths = append(abiPaths, path)
+	}
+	sort.Strings(abiPaths)
+	var matchedPaths []string
+	for _, path := range abiPaths {
+		content := tor.Files[path]
 		if abiDeclaresName(content, importName) {
-			return content, nil
+			matchedPaths = append(matchedPaths, path)
 		}
 	}
-	return nil, fmt.Errorf("no interface or library named %q found in .tor archive", importName)
+	switch len(matchedPaths) {
+	case 0:
+		return nil, fmt.Errorf("no interface or library named %q found in .tor archive", importName)
+	case 1:
+		return tor.Files[matchedPaths[0]], nil
+	default:
+		return nil, fmt.Errorf("ambiguous interface or library %q in .tor archive: %s", importName, strings.Join(matchedPaths, ", "))
+	}
 }
 
 // abiDeclaresName reports whether a .abi source declares an interface or library

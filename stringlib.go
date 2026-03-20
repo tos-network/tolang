@@ -2,6 +2,7 @@ package lua
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/tos-network/tolang/pm"
@@ -28,7 +29,7 @@ var strFuncs = map[string]LGFunction{
 	"byte": strByte,
 	"char": strChar,
 	// dump REMOVED: serializes function bytecode, security risk
-	"find": strFind,
+	"find":    strFind,
 	"format":  strFormat,
 	"gsub":    strGsub,
 	"len":     strLen,
@@ -257,10 +258,12 @@ func strFormat(L *LState) int {
 	}
 
 	var buf strings.Builder
+	var outLen int64
 	argIdx := 2 // next argument position (1-based in Lua stack)
 	i := 0
 	for i < len(str) {
 		if str[i] != '%' {
+			addStringResultBytes(L, "string.format", &outLen, 1)
 			buf.WriteByte(str[i])
 			i++
 			continue
@@ -270,6 +273,7 @@ func strFormat(L *LState) int {
 			break
 		}
 		if str[i] == '%' {
+			addStringResultBytes(L, "string.format", &outLen, 1)
 			buf.WriteByte('%')
 			i++
 			continue
@@ -297,6 +301,9 @@ func strFormat(L *LState) int {
 		verb := str[i]
 		i++
 		verbFmt := str[verbStart:i] // e.g. "%5d" or "%-10s"
+		if width := formatVerbWidth(verbFmt); width > maxStringResultBytes {
+			L.RaiseError("string.format: output too large (%d bytes, limit %d)", width, maxStringResultBytes)
+		}
 
 		switch verb {
 		case 's':
@@ -312,8 +319,9 @@ func strFormat(L *LState) int {
 			if hasSizeSpec && strings.ContainsRune(s, 0) {
 				L.ArgError(argIdx-1, "string contains zeros")
 			}
-			// Apply the format (for width/precision).
-			buf.WriteString(fmt.Sprintf(verbFmt, s))
+			formatted := fmt.Sprintf(verbFmt, s)
+			addStringResultBytes(L, "string.format", &outLen, len(formatted))
+			buf.WriteString(formatted)
 		case 'c':
 			// FMT-%c: use raw byte, not rune (avoids UTF-8 multi-byte for n>127).
 			arg := L.Get(argIdx)
@@ -332,11 +340,14 @@ func strFormat(L *LState) int {
 			// the terminal 'c' with 's' in the format verb.
 			charStr := string([]byte{byte(n)})
 			if verbFmt == "%c" {
+				addStringResultBytes(L, "string.format", &outLen, len(charStr))
 				buf.WriteString(charStr)
 			} else {
 				// Replace trailing 'c' with 's' to apply padding via fmt.Sprintf.
 				sFmt := verbFmt[:len(verbFmt)-1] + "s"
-				buf.WriteString(fmt.Sprintf(sFmt, charStr))
+				formatted := fmt.Sprintf(sFmt, charStr)
+				addStringResultBytes(L, "string.format", &outLen, len(formatted))
+				buf.WriteString(formatted)
 			}
 		case 'd', 'i':
 			// Signed decimal: use int64 of the low 64 bits (matches Lua 5.4 lua_Integer semantics).
@@ -344,14 +355,18 @@ func strFormat(L *LState) int {
 			argIdx++
 			v := fmtGetUint256(L, arg, argIdx-1)
 			goFmt := verbFmt[:len(verbFmt)-1] + "d"
-			buf.WriteString(fmt.Sprintf(goFmt, int64(v.lo)))
+			formatted := fmt.Sprintf(goFmt, int64(v.lo))
+			addStringResultBytes(L, "string.format", &outLen, len(formatted))
+			buf.WriteString(formatted)
 		case 'u':
 			// Unsigned decimal: Go has no %u; use %d with uint64 (same output for non-negative).
 			arg := L.Get(argIdx)
 			argIdx++
 			v := fmtGetUint256(L, arg, argIdx-1)
 			goFmt := verbFmt[:len(verbFmt)-1] + "d"
-			buf.WriteString(fmt.Sprintf(goFmt, v.lo))
+			formatted := fmt.Sprintf(goFmt, v.lo)
+			addStringResultBytes(L, "string.format", &outLen, len(formatted))
+			buf.WriteString(formatted)
 		case 'o', 'x', 'X':
 			// Octal/hex: use uint64 of low 64 bits.
 			arg := L.Get(argIdx)
@@ -359,29 +374,40 @@ func strFormat(L *LState) int {
 			v := fmtGetUint256(L, arg, argIdx-1)
 			// Replace the verb in verbFmt (verb is last char, keep flags/width/prec).
 			goFmt := verbFmt[:len(verbFmt)-1] + string(verb)
-			buf.WriteString(fmt.Sprintf(goFmt, v.lo))
+			formatted := fmt.Sprintf(goFmt, v.lo)
+			addStringResultBytes(L, "string.format", &outLen, len(formatted))
+			buf.WriteString(formatted)
 		case 'q':
 			// Lua-style quoting: strings get addquoted, integers get decimal literal.
 			arg := L.Get(argIdx)
 			argIdx++
 			switch sv := arg.(type) {
 			case LString:
+				quotedLen := luaQuotedLen(string(sv))
+				addStringResultBytes(L, "string.format", &outLen, int(quotedLen))
 				buf.WriteString(luaQuoteString(string(sv)))
 			case LUint256:
 				// Lua 5.4 formats integers as signed decimal (or hex for INT64_MIN).
 				n := int64(sv.lo)
 				const int64Min int64 = -1 << 63
 				if n == int64Min {
-					buf.WriteString(fmt.Sprintf("0x%016x", uint64(n)))
+					formatted := fmt.Sprintf("0x%016x", uint64(n))
+					addStringResultBytes(L, "string.format", &outLen, len(formatted))
+					buf.WriteString(formatted)
 				} else {
-					buf.WriteString(fmt.Sprintf("%d", n))
+					formatted := fmt.Sprintf("%d", n)
+					addStringResultBytes(L, "string.format", &outLen, len(formatted))
+					buf.WriteString(formatted)
 				}
 			case *LNilType:
+				addStringResultBytes(L, "string.format", &outLen, len("nil"))
 				buf.WriteString("nil")
 			case LBool:
 				if bool(sv) {
+					addStringResultBytes(L, "string.format", &outLen, len("true"))
 					buf.WriteString("true")
 				} else {
+					addStringResultBytes(L, "string.format", &outLen, len("false"))
 					buf.WriteString("false")
 				}
 			default:
@@ -391,12 +417,57 @@ func strFormat(L *LState) int {
 			// Unknown verb — propagate as-is (will produce Go's %!verb(...) error).
 			arg := L.Get(argIdx)
 			argIdx++
-			buf.WriteString(fmt.Sprintf(verbFmt, arg))
+			formatted := fmt.Sprintf(verbFmt, arg)
+			addStringResultBytes(L, "string.format", &outLen, len(formatted))
+			buf.WriteString(formatted)
 		}
 	}
 
 	L.Push(LString(buf.String()))
 	return 1
+}
+
+func formatVerbWidth(verbFmt string) int {
+	i := 1
+	for i < len(verbFmt)-1 && strings.ContainsRune("-+ #0", rune(verbFmt[i])) {
+		i++
+	}
+	widthStart := i
+	for i < len(verbFmt)-1 && verbFmt[i] >= '0' && verbFmt[i] <= '9' {
+		i++
+	}
+	if widthStart == i {
+		return 0
+	}
+	width, err := strconv.Atoi(verbFmt[widthStart:i])
+	if err != nil {
+		return maxStringResultBytes + 1
+	}
+	return width
+}
+
+func luaQuotedLen(s string) int64 {
+	total := int64(2) // opening and closing quote
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '"' || c == '\\' || c == '\n':
+			total += 2
+		case c < 0x20 || c == 0x7f:
+			if i+1 < len(s) && s[i+1] >= '0' && s[i+1] <= '9' {
+				total += 4
+			} else if c >= 100 {
+				total += 4
+			} else if c >= 10 {
+				total += 3
+			} else {
+				total += 2
+			}
+		default:
+			total++
+		}
+	}
+	return total
 }
 
 func strGsub(L *LState) int {
@@ -425,8 +496,8 @@ func strGsub(L *LState) int {
 		out = strGsubFunc(L, str, lv, mds)
 	}
 	// SEC-2: cap gsub output to prevent OOM via large replacement expansions.
-	if int64(len(out)) > maxStringRepBytes {
-		L.RaiseError("string.gsub: output too large (%d bytes, limit %d)", len(out), maxStringRepBytes)
+	if int64(len(out)) > maxStringResultBytes {
+		L.RaiseError("string.gsub: output too large (%d bytes, limit %d)", len(out), maxStringResultBytes)
 		return 0
 	}
 	L.Push(LString(out))
@@ -650,10 +721,6 @@ func strMatch(L *LState) int {
 	}
 }
 
-// maxStringRepBytes is the maximum byte length of the output produced by
-// string.rep.  Prevents OOM/CPU DoS via string.rep("x", 1e9) in LVM contracts.
-const maxStringRepBytes = 1 << 20 // 1 MiB
-
 func strRep(L *LState) int {
 	str := L.CheckString(1)
 	n := L.CheckInt(2)
@@ -664,8 +731,8 @@ func strRep(L *LState) int {
 		// SEC-2: guard against OOM/CPU DoS via huge repetition counts.
 		// Use int64 arithmetic to avoid overflow before the comparison.
 		outputLen := int64(len(str))*int64(n) + int64(len(sep))*int64(intMax(0, n-1))
-		if outputLen > maxStringRepBytes {
-			L.RaiseError("string.rep: output too large (%d bytes, limit %d)", outputLen, maxStringRepBytes)
+		if outputLen > maxStringResultBytes {
+			L.RaiseError("string.rep: output too large (%d bytes, limit %d)", outputLen, maxStringResultBytes)
 			return 0
 		}
 		if sep == "" {

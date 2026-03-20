@@ -876,13 +876,17 @@ func stringConcat(L *LState, total, last int) LValue {
 			}
 		} else {
 			buf := make([]string, total+1)
-			buf[total] = LVAsString(rhs)
+			rightStr := LVAsString(rhs)
+			outLen := int64(len(rightStr))
+			buf[total] = rightStr
 			for total > 0 {
 				lhs = L.reg.Get(i)
 				if !LVCanConvToString(lhs) {
 					break
 				}
-				buf[total-1] = LVAsString(lhs)
+				leftStr := LVAsString(lhs)
+				addStringResultBytes(L, "concat", &outLen, len(leftStr))
+				buf[total-1] = leftStr
 				i--
 				total--
 			}

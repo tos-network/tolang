@@ -9020,6 +9020,37 @@ contract Caller {
 	}
 }
 
+func TestArtifactToInterfaceSourceFallbackRejectsAmbiguousMatches(t *testing.T) {
+	manifest := []byte(`{"name":"demo","version":"1.0.0","contracts":[]}`)
+	ifaceA := []byte(`pragma tolang 0.2.0;
+interface IFoo {
+  function a() public;
+}
+`)
+	ifaceB := []byte(`pragma tolang 0.2.0;
+interface IFoo {
+  function b() public;
+}
+`)
+	pkg, err := EncodePackage(manifest, map[string][]byte{
+		"z.abi": ifaceB,
+		"a.abi": ifaceA,
+	})
+	if err != nil {
+		t.Fatalf("encode package: %v", err)
+	}
+	_, err = artifactToInterfaceSource(pkg, "IFoo")
+	if err == nil {
+		t.Fatal("expected ambiguous fallback error")
+	}
+	if !strings.Contains(err.Error(), "ambiguous") {
+		t.Fatalf("expected ambiguous error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "a.abi") || !strings.Contains(err.Error(), "z.abi") {
+		t.Fatalf("expected deterministic path list in error, got: %v", err)
+	}
+}
+
 // TestLetBytesNoInitializer verifies that `let data: bytes;` compiles without
 // an explicit initializer (zero-value default is "0x").
 func TestLetBytesNoInitializer(t *testing.T) {

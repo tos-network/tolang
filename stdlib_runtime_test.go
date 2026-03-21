@@ -48,7 +48,12 @@ type stdlibRuntimeHost struct {
 	unoTransferCount      int
 	lastUnoTransferAddr   string
 	lastUnoTransferAmount string
+
+	capturedResult string
+	hasResult      bool
 }
+
+var stdlibResultSentinel = &struct{}{}
 
 type stdlibRuntimeHostSnapshot struct {
 	agentProps        map[string]map[string]LValue
@@ -77,6 +82,9 @@ type stdlibRuntimeHostSnapshot struct {
 	unoTransferCount      int
 	lastUnoTransferAddr   string
 	lastUnoTransferAmount string
+
+	capturedResult string
+	hasResult      bool
 
 	msgSender   LValue
 	msgValue    LValue
@@ -147,6 +155,8 @@ func snapshotRuntimeHost(host *stdlibRuntimeHost) stdlibRuntimeHostSnapshot {
 		unoTransferCount:        host.unoTransferCount,
 		lastUnoTransferAddr:     host.lastUnoTransferAddr,
 		lastUnoTransferAmount:   host.lastUnoTransferAmount,
+		capturedResult:          host.capturedResult,
+		hasResult:               host.hasResult,
 	}
 	if host.msgTable != nil {
 		snap.msgSender = host.msgTable.RawGetString("sender")
@@ -184,6 +194,8 @@ func restoreRuntimeHost(host *stdlibRuntimeHost, snap stdlibRuntimeHostSnapshot)
 	host.unoTransferCount = snap.unoTransferCount
 	host.lastUnoTransferAddr = snap.lastUnoTransferAddr
 	host.lastUnoTransferAmount = snap.lastUnoTransferAmount
+	host.capturedResult = snap.capturedResult
+	host.hasResult = snap.hasResult
 	restoreRuntimeHostCallContext(host, snap)
 }
 
@@ -253,6 +265,21 @@ func TestRuntimeHostSnapshotRestoresPersistentStateAndCallContext(t *testing.T) 
 	}
 	if host.lastUnoTransferAddr != alice {
 		t.Fatalf("lastUnoTransferAddr after restore: got=%q want=%q", host.lastUnoTransferAddr, alice)
+	}
+}
+
+func TestStdlibSetValueStringRejectsInvalidInput(t *testing.T) {
+	L := NewState()
+	defer L.Close()
+
+	host := installStdlibRuntimeHost(L)
+	host.msgTable.RawSetString("value", lu256FromInt(9))
+
+	if err := stdlibSetValueString(host, "not-a-number"); err == nil {
+		t.Fatal("expected invalid value string to return error")
+	}
+	if got := LVAsString(host.msgTable.RawGetString("value")); got != LVAsString(lu256FromInt(9)) {
+		t.Fatalf("msg.value changed on invalid input: got=%q want=%q", got, LVAsString(lu256FromInt(9)))
 	}
 }
 
@@ -706,13 +733,66 @@ func stdlibSetValue(host *stdlibRuntimeHost, value int) {
 	host.msgTable.RawSetString("value", lu256FromInt(value))
 }
 
-func stdlibSetValueString(host *stdlibRuntimeHost, value string) {
+func stdlibSetValueString(host *stdlibRuntimeHost, value string) error {
 	parsed, err := parseUint256(strings.TrimSpace(value))
 	if err != nil {
-		host.msgTable.RawSetString("value", lu256FromInt(0))
-		return
+		return err
 	}
 	host.msgTable.RawSetString("value", parsed)
+	return nil
+}
+
+func isStdlibResultSignal(err error) bool {
+	apiErr, ok := err.(*ApiError)
+	if !ok {
+		return false
+	}
+	ud, ok := apiErr.Object.(*LUserData)
+	if !ok {
+		return false
+	}
+	return ud.Value == stdlibResultSentinel
+}
+
+func installStdlibResultCapture(L *LState, host *stdlibRuntimeHost) func() {
+	prevResult := host.tosTable.RawGetString("result")
+	host.hasResult = false
+	host.capturedResult = ""
+	host.tosTable.RawSetString("result", L.NewFunction(func(L *LState) int {
+		encFn := L.GetGlobal("__tol_abi_encode_v2")
+		if encFn == LNil {
+			L.RaiseError("tos.result: __tol_abi_encode_v2 not available")
+			return 0
+		}
+		nargs := L.GetTop()
+		if nargs == 0 || nargs%2 != 0 {
+			L.RaiseError("tos.result: expected pairs of type and value")
+			return 0
+		}
+		base := L.GetTop()
+		args := make([]LValue, 0, nargs)
+		for i := 1; i <= nargs; i += 2 {
+			typ := L.CheckAny(i)
+			val := L.CheckAny(i + 1)
+			args = append(args, val, typ)
+		}
+		if err := L.CallByParam(P{Fn: encFn, NRet: 1, Protect: true}, args...); err != nil {
+			L.SetTop(base)
+			L.RaiseError("tos.result: %v", err)
+			return 0
+		}
+		ret := L.Get(-1)
+		L.SetTop(base)
+		host.capturedResult = LVAsString(ret)
+		host.hasResult = true
+		ud := L.NewUserData()
+		ud.Value = stdlibResultSentinel
+		L.Error(ud, 0)
+		return 0
+	}))
+	return func() {
+		host.tosTable.RawSetString("result", prevResult)
+	}
 }
 
 func stdlibSetUnoValue(host *stdlibRuntimeHost, value LValue) {

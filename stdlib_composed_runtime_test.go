@@ -139,14 +139,24 @@ func invokeCallContractCalldata(t *testing.T, dep *stdlibDeployedPackageContract
 	// tos.call before child execution.  Reverted on callee failure.
 	storageSnap, transientSnap := snapshotLuaStorage(dep.L)
 	hostSnap := snapshotRuntimeHost(dep.host)
+	restoreResultCapture := installStdlibResultCapture(dep.L, dep.host)
+	defer restoreResultCapture()
 
 	base := dep.L.GetTop()
 	stdlibSetSender(dep.host, caller)
-	stdlibSetValueString(dep.host, value)
+	if err := stdlibSetValueString(dep.host, value); err != nil {
+		restoreRuntimeHost(dep.host, hostSnap)
+		t.Fatalf("invalid call value %q for %s: %v", value, dep.name, err)
+	}
 	dep.host.tosTable.RawSetString("calldata", LString(calldata))
 	dep.L.Push(oninvoke)
 	dep.L.Push(LString(stdlibSelectorFromCalldata(calldata)))
 	if err := dep.L.PCall(1, MultRet, nil); err != nil {
+		if dep.host.hasResult && isStdlibResultSignal(err) {
+			dep.L.SetTop(base)
+			restoreRuntimeHostCallContext(dep.host, hostSnap)
+			return true, dep.host.capturedResult
+		}
 		// Revert callee storage on failure — matches tos.call snapshot revert.
 		revertLuaStorage(dep.L, storageSnap, transientSnap)
 		restoreRuntimeHost(dep.host, hostSnap)
@@ -2159,6 +2169,9 @@ func TestMulticallReceiptEscrowAtomicity(t *testing.T) {
 	}
 	if len(results) != 2 {
 		t.Fatalf("expected 2 results on success, got %d", len(results))
+	}
+	if results[0] == "0x" || results[1] == "0x" {
+		t.Fatalf("expected encoded child returndata for both calls, got %#v", results)
 	}
 
 	countA = LVAsString(invokeStdlib(t, targetAL, targetATOS, "callCount()"))

@@ -1,10 +1,10 @@
 {
-  "package_name": "tolang.stdlib.session_book",
+  "package_name": "tolang.stdlib.session",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x11f60d3c96c1dfe0de3e09cea0f9e6c0e7ca2b681031b09289bed2eb8409e8de",
+    "package_hash": "0x1eb0fcf51f534328d666c0c4b1f1d3e3d04eecd0db381461abb88bcdee0fc36f",
     "bytecode_hash": "0x97f4ba22ca4591f729774bb6f6657176cb7ae90fbbb75e70c89699acbbccb64b",
-    "source_hash": "0xca6acc6429634cda76c72096009769a26efe34a51004d81b505776399ed316cf",
+    "source_hash": "0x5eae71a64be7a882cb820b5a605b35bcadc591409497801a202250fcfe27860f",
     "abi_hash": "0xa4a0f6622ba33a4a9c00106e328ef2623409230a29fce159d972c593cf9ce44b",
     "version": "1.0.0"
   },
@@ -54,12 +54,12 @@
   },
   "discovery": {
     "schema_version": "0.1.0",
-    "package_name": "tolang.stdlib.session_book",
+    "package_name": "tolang.stdlib.session",
     "package_version": "1.0.0",
     "artifact_ref": {
-      "package_hash": "0x11f60d3c96c1dfe0de3e09cea0f9e6c0e7ca2b681031b09289bed2eb8409e8de",
+      "package_hash": "0x1eb0fcf51f534328d666c0c4b1f1d3e3d04eecd0db381461abb88bcdee0fc36f",
       "bytecode_hash": "0x97f4ba22ca4591f729774bb6f6657176cb7ae90fbbb75e70c89699acbbccb64b",
-      "source_hash": "0xca6acc6429634cda76c72096009769a26efe34a51004d81b505776399ed316cf",
+      "source_hash": "0x5eae71a64be7a882cb820b5a605b35bcadc591409497801a202250fcfe27860f",
       "abi_hash": "0xa4a0f6622ba33a4a9c00106e328ef2623409230a29fce159d972c593cf9ce44b",
       "version": "1.0.0"
     },

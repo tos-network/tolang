@@ -551,7 +551,7 @@ func keywordType(lit string) Type {
 		"match", "null", "sizeof", "static", "switch", "typedef", "typeof", "var",
 		// Agent-Native reserved: concurrency primitives + verification keywords.
 		"async", "await", "spawn",
-		"intent", "session",
+		"intent",
 		"attest", "stream":
 		return TokenReserved
 	default:

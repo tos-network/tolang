@@ -735,7 +735,7 @@ func TestPolicySponsoredCheckoutRuntimeStatefulPackageFlow(t *testing.T) {
 	defer authorityL.Close()
 	bindingL, bindingTOS, bindingHost := deployStdlibContract(t, "stdlib/execution_binding/ExecutionBindingBook.tol", LString(coordinatorAddr))
 	defer bindingL.Close()
-	sessionL, sessionTOS, sessionHost := deployStdlibContract(t, "stdlib/session_book/SessionBook.tol", LString(coordinatorAddr))
+	sessionL, sessionTOS, sessionHost := deployStdlibContract(t, "stdlib/session/SessionBook.tol", LString(coordinatorAddr))
 	defer sessionL.Close()
 	sponsorL, sponsorTOS, sponsorHost := deployStdlibContract(t, "stdlib/sponsor/SponsorPolicyRelay.tol", LString(alice))
 	defer sponsorL.Close()

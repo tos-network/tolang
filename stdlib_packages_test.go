@@ -70,8 +70,8 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			functions:     []string{"approve", "cancel", "consume", "isConsumable", "executorOf", "policyHashOf", "proofRefOf"},
 		},
 		{
-			relPath:       "stdlib/session_book/SessionBook.tol",
-			pkgName:       "tolang.stdlib.session_book",
+			relPath:       "stdlib/session/SessionBook.tol",
+			pkgName:       "tolang.stdlib.session",
 			contractName:  "SessionBook",
 			interfaceName: "ISessionBook",
 			functions:     []string{"grantSession", "revokeSession", "consume", "isActive", "requiresStepUp", "remainingOf", "requireTerminal", "terminalTypeOf", "trustTierOf", "enforceStepUp"},
@@ -346,7 +346,7 @@ contract Consumer {
 			name: "session",
 			src: `
 pragma tolang 0.4.0;
-import tolang.stdlib.session_book.SessionBook;
+import tolang.stdlib.session.SessionBook;
 contract Consumer {
   function needsStepUp(agent book, bytes32 session_id, u256 amount) external returns (bool ok) {
     SessionBook sessions = SessionBook(book);

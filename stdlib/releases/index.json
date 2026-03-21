@@ -141,18 +141,18 @@
       "package_hash": "0xc4e60856737f6054ae3f166ac32197da02db6a3ed5886a82eea09e450196f22f"
     },
     {
-      "family": "session_book",
+      "family": "session",
       "contract": "SessionBook",
-      "source_path": "stdlib/session_book/SessionBook.tol",
-      "release_package_name": "tolang.stdlib.session_book",
-      "toc_path": "stdlib/releases/session_book/SessionBook.toc",
-      "abi_path": "stdlib/releases/session_book/ISessionBook.abi",
-      "init_path": "stdlib/releases/session_book/SessionBook_init.toc",
-      "tor_path": "stdlib/releases/session_book/SessionBook.tor",
-      "discovery_path": "stdlib/releases/session_book/SessionBook.discovery.json",
-      "agent_package_path": "stdlib/releases/session_book/SessionBook.agentpkg.json",
+      "source_path": "stdlib/session/SessionBook.tol",
+      "release_package_name": "tolang.stdlib.session",
+      "toc_path": "stdlib/releases/session/SessionBook.toc",
+      "abi_path": "stdlib/releases/session/ISessionBook.abi",
+      "init_path": "stdlib/releases/session/SessionBook_init.toc",
+      "tor_path": "stdlib/releases/session/SessionBook.tor",
+      "discovery_path": "stdlib/releases/session/SessionBook.discovery.json",
+      "agent_package_path": "stdlib/releases/session/SessionBook.agentpkg.json",
       "bytecode_hash": "0x97f4ba22ca4591f729774bb6f6657176cb7ae90fbbb75e70c89699acbbccb64b",
-      "package_hash": "0x11f60d3c96c1dfe0de3e09cea0f9e6c0e7ca2b681031b09289bed2eb8409e8de"
+      "package_hash": "0x1eb0fcf51f534328d666c0c4b1f1d3e3d04eecd0db381461abb88bcdee0fc36f"
     },
     {
       "family": "settlement",

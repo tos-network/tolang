@@ -57,7 +57,7 @@ Read first:
 - /home/tomi/tolang/docs/CLAUDE_CODE_REMAINING_TASKS.md
 - /home/tomi/tolang/stdlib/settlement/TaskSettlement.tol
 - /home/tomi/tolang/stdlib/receipt/ReceiptBook.tol
-- /home/tomi/tolang/stdlib/session_book/SessionBook.tol
+- /home/tomi/tolang/stdlib/session/SessionBook.tol
 - /home/tomi/tolang/stdlib/discovery/ServiceDirectory.tol
 - /home/tomi/tolang/stdlib/privacy/
 - /home/tomi/tolang/stdlib_runtime_test.go
@@ -84,7 +84,7 @@ Task:
 
 Agent 2: Control-plane ergonomics
 Ownership:
-- /home/tomi/tolang/stdlib/session_book/SessionBook.tol
+- /home/tomi/tolang/stdlib/session/SessionBook.tol
 - related runtime/composed tests only
 Task:
 - implement named terminal/trust taxonomy on top of the current raw `u256` model

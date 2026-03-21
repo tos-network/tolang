@@ -237,15 +237,11 @@ Diagnosis:
 - Tolang package identity and package resolution still feel too source-tree
   dependent
 
-### 5. Namespace hygiene is not clean enough
+### 5. Namespace hygiene — resolved
 
-One concrete example already leaked into the stdlib itself:
-
-- `stdlib/session` had to become `stdlib/session_book`
-
-Evidence:
-
-- `docs/AGENT_NATIVE_STDLIB_2046.md`
+Previously `stdlib/session` had to become `stdlib/session_book` because `session`
+was a parser reserved word. Fixed: `session` unreserved and package renamed back
+to `stdlib/session` (package `tolang.stdlib.session`).
 
 Why this matters:
 

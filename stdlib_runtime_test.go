@@ -1214,7 +1214,7 @@ func TestSessionBookRuntimeStepUpAndRevoke(t *testing.T) {
 	sessionID := stdlibBytes32("a")
 	terminalID := stdlibBytes32("b")
 
-	L, tos, host := deployStdlibContract(t, "stdlib/session_book/SessionBook.tol", LString(alice))
+	L, tos, host := deployStdlibContract(t, "stdlib/session/SessionBook.tol", LString(alice))
 	defer L.Close()
 
 	stdlibSetSender(host, alice)
@@ -2971,7 +2971,7 @@ func TestSessionBookTerminalTrustTaxonomy(t *testing.T) {
 	invalidSessionID := stdlibBytes32("c")
 	terminalID := stdlibBytes32("b")
 
-	L, tos, host := deployStdlibContract(t, "stdlib/session_book/SessionBook.tol", LString(alice))
+	L, tos, host := deployStdlibContract(t, "stdlib/session/SessionBook.tol", LString(alice))
 	defer L.Close()
 
 	// Grant session with terminal_type=TERMINAL_NFC (2), trust_tier=TRUST_MEDIUM (2).
@@ -3045,7 +3045,7 @@ func TestSessionBookEnforcedStepUp(t *testing.T) {
 	sessionID := stdlibBytes32("a")
 	terminalID := stdlibBytes32("b")
 
-	L, tos, host := deployStdlibContract(t, "stdlib/session_book/SessionBook.tol", LString(alice))
+	L, tos, host := deployStdlibContract(t, "stdlib/session/SessionBook.tol", LString(alice))
 	defer L.Close()
 
 	// Grant session with step_up_limit=100.

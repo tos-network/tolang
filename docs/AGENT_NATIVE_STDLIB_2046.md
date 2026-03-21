@@ -457,10 +457,7 @@ systems safely anchor approval and settlement to chain execution.
 
 ### `stdlib/session`
 
-Status: ✅ implemented seed in `stdlib/session_book/SessionBook.tol`
-
-Note: the concrete import namespace uses `session_book` instead of `session`
-because `session` currently collides with a parser keyword.
+Status: ✅ implemented seed in `stdlib/session/SessionBook.tol`
 
 Derived from:
 
@@ -1171,6 +1168,38 @@ future expansion, not unresolved correctness gaps in the present codebase.
 | Broader privacy helper family beyond `PrivateDisputeEscrow` | `stdlib/privacy` + composed examples | `docs/PRIVACY_COMPOSITION_HELPERS.md` |
 | Typed discovery integration beyond stdlib release/export into GTOS/OpenFox consumers | `stdlib/discovery` + exporter + metadata + GTOS/OpenFox consumers | `docs/DISCOVERY_TYPED_SCHEMA.md` plus `docs/AGENT_ABI_SCHEMA.md` |
 | Ongoing release/discovery/threat-model tightening as new flows are added | docs + exporter + release manifests | `docs/STDLIB_THREAT_MODEL_MATRIX.md` plus `docs/AGENT_NATIVE_STDLIB_2046.md` |
+
+### GTOS protocol design homes for the next stage
+
+Some of the next-stage work is no longer primarily a Tolang stdlib problem.
+It requires GTOS-side protocol, runtime, or publishing changes.
+
+Those GTOS-owned design homes are:
+
+| GTOS protocol workstream | Why GTOS must change | Detailed design home |
+| --- | --- | --- |
+| Protocol registries for capability / delegation / verification / settlement-policy / agent identity | Tolang can express these semantics, but GTOS must provide canonical registry-backed truth, revocation, and query surfaces | `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md` |
+| LVM-native economic primitives | `package_call`, capability routing, `agentload`, `escrow/release`, and UNO rails need stable VM/runtime-native semantics rather than host-shaped conventions | `/home/tomi/gtos/docs/LVM_NATIVE_ECONOMIC_PRIMITIVES.md` |
+| Package identity and publishing registry | local package resolution is not enough for agent-network trust; publisher identity, version/channel, and revocation need a protocol-grade model if GTOS adopts network publishing | `/home/tomi/gtos/docs/PACKAGE_PUBLISHING_REGISTRY.md` |
+
+Practical split:
+
+- Tolang should continue to own expression, stdlib composition, metadata, and
+  exporter shape.
+- GTOS should own protocol registries, VM-native economic primitives, and any
+  network-grade package publishing identity model.
+
+Execution prompt for this GTOS-owned wave:
+
+- Claude Code parallel implementation prompt:
+  `docs/CLAUDE_CODE_GTOS_PROTOCOL_IMPLEMENTATION.md`
+
+That prompt is designed to execute directly against the three GTOS design
+homes above:
+
+- `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md`
+- `/home/tomi/gtos/docs/LVM_NATIVE_ECONOMIC_PRIMITIVES.md`
+- `/home/tomi/gtos/docs/PACKAGE_PUBLISHING_REGISTRY.md`
 
 ## A hard rule
 

@@ -92,7 +92,7 @@ Read first:
 - /home/tomi/tolang/docs/STDLIB_CAPABILITY_ANALYSIS.md
 - /home/tomi/tolang/docs/STDLIB_THREAT_MODEL_MATRIX.md
 - /home/tomi/tolang/stdlib/account/PolicyAccount.tol
-- /home/tomi/tolang/stdlib/session_book/SessionBook.tol
+- /home/tomi/tolang/stdlib/session/SessionBook.tol
 - /home/tomi/tolang/stdlib_runtime_test.go
 - /home/tomi/tolang/stdlib_composed_runtime_test.go
 
@@ -106,7 +106,7 @@ Instructions:
 - Add runtime coverage, not only compile coverage.
 
 Deliverables:
-- Code changes in stdlib/account and stdlib/session_book
+- Code changes in stdlib/account and stdlib/session
 - New or extended runtime/composed tests
 - Doc status updates in AGENT_NATIVE_STDLIB_2046.md and STDLIB_CAPABILITY_ANALYSIS.md
 

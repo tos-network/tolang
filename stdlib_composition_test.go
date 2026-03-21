@@ -32,7 +32,7 @@ pragma tolang 0.4.0;
 import tolang.stdlib.account.PolicyAccount;
 import tolang.stdlib.authority.AuthorityBook;
 import tolang.stdlib.execution_binding.ExecutionBindingBook;
-import tolang.stdlib.session_book.SessionBook;
+import tolang.stdlib.session.SessionBook;
 import tolang.stdlib.receipt.ReceiptBook;
 import tolang.stdlib.recovery.RecoveryController;
 

@@ -104,11 +104,11 @@ func StdlibReleaseCatalog() []StdlibReleaseEntry {
 			ReleasePackageName: "tolang.stdlib.recovery",
 		},
 		{
-			Family:             "session_book",
+			Family:             "session",
 			Contract:           "SessionBook",
-			SourcePath:         "stdlib/session_book/SessionBook.tol",
-			SourcePackagePath:  "tolang.stdlib.session_book",
-			ReleasePackageName: "tolang.stdlib.session_book",
+			SourcePath:         "stdlib/session/SessionBook.tol",
+			SourcePackagePath:  "tolang.stdlib.session",
+			ReleasePackageName: "tolang.stdlib.session",
 		},
 		{
 			Family:             "settlement",

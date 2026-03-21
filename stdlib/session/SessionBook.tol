@@ -1,6 +1,6 @@
 pragma tolang 0.4.0;
 
-package tolang.stdlib.session_book;
+package tolang.stdlib.session;
 
 // SessionBook — bounded terminal/session grants for one controller.
 //

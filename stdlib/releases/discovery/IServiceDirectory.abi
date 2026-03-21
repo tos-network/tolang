@@ -16,14 +16,12 @@ interface IServiceDirectory {
   function slaOf(u256 service_id) public view returns (u256 sla_duration_ms);
   function setCapabilityType(u256 service_id, u256 capability_type) public;
   function setServiceKind(u256 service_id, u256 service_kind_value) public;
-  function setCapabilityKind(u256 service_id, u256 capability_kind) public;
   function setPricingKind(u256 service_id, u256 pricing_kind) public;
   function setPrivacyMode(u256 service_id, u256 privacy_mode) public;
   function setReceiptMode(u256 service_id, u256 receipt_mode) public;
   function setTrustFloorRef(u256 service_id, bytes32 trust_floor_ref) public;
   function capabilityTypeOf(u256 service_id) public view returns (u256 capability_type);
   function serviceKindOf(u256 service_id) public view returns (u256 service_kind_value);
-  function capabilityKindOf(u256 service_id) public view returns (u256 capability_kind);
   function pricingKindOf(u256 service_id) public view returns (u256 pricing_kind);
   function privacyModeOf(u256 service_id) public view returns (u256 privacy_mode);
   function receiptModeOf(u256 service_id) public view returns (u256 receipt_mode);

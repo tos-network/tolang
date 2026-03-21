@@ -2,10 +2,10 @@
   "package_name": "tolang.stdlib.discovery",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x4d47ab5635842a799f312fde1e68161b0d97e04df2babc7c1a5ff38999e5522c",
-    "bytecode_hash": "0x7611a06642edf9ff6967febf68c81cd2e8657f7fa97fd908f00f96ff45175635",
-    "source_hash": "0x1a694db83f98ad4430af3a59501bd78b0ff0c26434b9aca502271626d80fbce8",
-    "abi_hash": "0x547f3459060f442473f8be3b652589ab6df4b1505b5b6f7567256c5cbeba65b1",
+    "package_hash": "0x983b9d548641f8baabdc30baf9e058937ff0720053224cf6d423750311fd7d0f",
+    "bytecode_hash": "0x0a2864fb941e707d933c775c086e54f7f19222dced02ef9b48fc09952da97816",
+    "source_hash": "0xd2be8962119a9a46ac5988dadeed00ddd69dcfaabfff81c4aac23594e9018f91",
+    "abi_hash": "0x7ca775a8900fa79e6731a7993ac71443fadf61feed3236e24e40f60f13b0b50c",
     "version": "1.0.0"
   },
   "capabilities": {
@@ -68,18 +68,6 @@
         "description": "Pure computation with no state access"
       },
       {
-        "function_name": "capabilityKindOf",
-        "selector": "0x8cd70a21",
-        "proof_type": "state_proof",
-        "description": "Pure computation with no state access"
-      },
-      {
-        "function_name": "pricingKindOf",
-        "selector": "0xf6035ddc",
-        "proof_type": "state_proof",
-        "description": "Pure computation with no state access"
-      },
-      {
         "function_name": "privacyModeOf",
         "selector": "0xba9de28f",
         "proof_type": "state_proof",
@@ -123,10 +111,10 @@
     "package_name": "tolang.stdlib.discovery",
     "package_version": "1.0.0",
     "artifact_ref": {
-      "package_hash": "0x4d47ab5635842a799f312fde1e68161b0d97e04df2babc7c1a5ff38999e5522c",
-      "bytecode_hash": "0x7611a06642edf9ff6967febf68c81cd2e8657f7fa97fd908f00f96ff45175635",
-      "source_hash": "0x1a694db83f98ad4430af3a59501bd78b0ff0c26434b9aca502271626d80fbce8",
-      "abi_hash": "0x547f3459060f442473f8be3b652589ab6df4b1505b5b6f7567256c5cbeba65b1",
+      "package_hash": "0x983b9d548641f8baabdc30baf9e058937ff0720053224cf6d423750311fd7d0f",
+      "bytecode_hash": "0x0a2864fb941e707d933c775c086e54f7f19222dced02ef9b48fc09952da97816",
+      "source_hash": "0xd2be8962119a9a46ac5988dadeed00ddd69dcfaabfff81c4aac23594e9018f91",
+      "abi_hash": "0x7ca775a8900fa79e6731a7993ac71443fadf61feed3236e24e40f60f13b0b50c",
       "version": "1.0.0"
     },
     "contract_type": "discovery",
@@ -330,15 +318,6 @@
         "summary": "Pure computation with no state access"
       },
       {
-        "name": "setCapabilityKind",
-        "selector": "0x383eda46",
-        "risk_level": "low",
-        "payable": false,
-        "delegated": false,
-        "verifiable": false,
-        "summary": "Pure computation with no state access"
-      },
-      {
         "name": "setPricingKind",
         "selector": "0xd10b5373",
         "risk_level": "low",
@@ -421,21 +400,12 @@
         "summary": "Pure computation with no state access"
       },
       {
-        "name": "capabilityKindOf",
-        "selector": "0x8cd70a21",
-        "risk_level": "low",
-        "payable": false,
-        "delegated": false,
-        "verifiable": true,
-        "summary": "Pure computation with no state access"
-      },
-      {
         "name": "pricingKindOf",
         "selector": "0xf6035ddc",
         "risk_level": "low",
         "payable": false,
         "delegated": false,
-        "verifiable": true,
+        "verifiable": false,
         "summary": "Pure computation with no state access"
       },
       {

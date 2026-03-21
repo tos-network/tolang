@@ -3,7 +3,7 @@
   "family": "privacy",
   "source_package_path": "tolang.stdlib.privacy",
   "tor_path": "stdlib/releases/privacy/privacy.tor",
-  "package_hash": "0x897514cca8b24348c35bf6bfe5ee95b925aa59342aaf2e363c3eed1620fef787",
+  "package_hash": "0x0fd8572433fb3aab528e1d24c5a27f5cd6a803140b85b298e1bb207f785dbc1c",
   "contracts": [
     {
       "contract": "ConfidentialEscrow",
@@ -14,8 +14,8 @@
       "tor_path": "stdlib/releases/privacy/ConfidentialEscrow.tor",
       "discovery_path": "stdlib/releases/privacy/ConfidentialEscrow.discovery.json",
       "agent_package_path": "stdlib/releases/privacy/ConfidentialEscrow.agentpkg.json",
-      "bytecode_hash": "0xb96ce65d69f949c43106e74ca6a9678a213499ef6d98fa532c4a0d47fcf69a63",
-      "package_hash": "0x18b6e96841ed50ab911c457e8407fab5ac19c16e2b18bc6ad39291df1d610eca"
+      "bytecode_hash": "0xf25a06ee7e50b72ebcd416eab4ed777842ea7c2cfc76a056e00bb2a694f7dc8f",
+      "package_hash": "0xf5ccd2f45e37d04668ee46809a93fa6850260518106892e6c2d62413a25bec41"
     },
     {
       "contract": "ConfidentialVault",

@@ -137,14 +137,14 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			pkgName:       "tolang.stdlib.privacy",
 			contractName:  "ConfidentialEscrow",
 			interfaceName: "IConfidentialEscrow",
-			functions:     []string{"openEscrow", "releaseEscrow", "refundEscrow", "reclaimExpired", "statusOf", "amountOf", "payerOf", "payeeOf", "receiptRefOf", "nativeBalance"},
+			functions:     []string{"openEscrow", "releaseEscrow", "refundEscrow", "refundEscrowTo", "reclaimExpired", "statusOf", "amountOf", "payerOf", "payeeOf", "receiptRefOf", "nativeBalance"},
 		},
 		{
 			relPath:       "stdlib/discovery/ServiceDirectory.tol",
 			pkgName:       "tolang.stdlib.discovery",
 			contractName:  "ServiceDirectory",
 			interfaceName: "IServiceDirectory",
-			functions:     []string{"registerService", "updateManifest", "updateQuote", "deactivate", "providerOf", "manifestRefOf", "capabilityRefOf", "quoteRefOf", "isActive", "setServiceFee", "setServiceSLA", "feeOf", "slaOf", "setCapabilityType", "setServiceKind", "setCapabilityKind", "setPricingKind", "setPrivacyMode", "setReceiptMode", "setTrustFloorRef", "capabilityTypeOf", "serviceKindOf", "capabilityKindOf", "pricingKindOf", "privacyModeOf", "receiptModeOf", "trustFloorRefOf", "serviceCount"},
+			functions:     []string{"registerService", "updateManifest", "updateQuote", "deactivate", "providerOf", "manifestRefOf", "capabilityRefOf", "quoteRefOf", "isActive", "setServiceFee", "setServiceSLA", "feeOf", "slaOf", "setCapabilityType", "setServiceKind", "setPricingKind", "setPrivacyMode", "setReceiptMode", "setTrustFloorRef", "capabilityTypeOf", "serviceKindOf", "pricingKindOf", "privacyModeOf", "receiptModeOf", "trustFloorRefOf", "serviceCount"},
 		},
 		{
 			relPath:       "stdlib/privacy/ConfidentialPayment.tol",

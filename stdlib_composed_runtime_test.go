@@ -48,6 +48,51 @@ contract CallTargetRecorder {
 }
 `
 
+const stdlibFailingReceiptBookSource = `
+pragma tolang 0.4.0;
+
+contract ReceiptBook {
+    mapping(bytes32 => u256) receipt_status;
+    bool fail_finalize;
+
+    function setFailFinalize(bool fail) public {
+        set fail_finalize = fail;
+    }
+
+    function openReceipt(
+        bytes32 receipt_ref,
+        agent payer,
+        agent actor,
+        agent sponsor,
+        agent counterparty,
+        u256 amount,
+        bytes32 policy_ref,
+        bytes32 binding_ref,
+        bytes32 proof_ref,
+        bytes32 external_ref
+    ) public {
+        require(receipt_status[receipt_ref] == 0, "RECEIPT_EXISTS");
+        set receipt_status[receipt_ref] = 1;
+    }
+
+    function finalizeSuccess(bytes32 receipt_ref, bytes32 result_ref, bytes32 settlement_ref) public {
+        require(receipt_status[receipt_ref] == 1, "NOT_OPEN");
+        require(fail_finalize != true, "FINALIZE_FAILED");
+        set receipt_status[receipt_ref] = 2;
+    }
+
+    function finalizeFailure(bytes32 receipt_ref, bytes32 result_ref) public {
+        require(receipt_status[receipt_ref] == 1, "NOT_OPEN");
+        require(fail_finalize != true, "FINALIZE_FAILED");
+        set receipt_status[receipt_ref] = 3;
+    }
+
+    function statusOf(bytes32 receipt_ref) public view returns (u256 status) {
+        return receipt_status[receipt_ref];
+    }
+}
+`
+
 func deployStdlibExampleContract(t *testing.T, relPath string, ctorArgs ...LValue) (*LState, LValue, *stdlibRuntimeHost) {
 	t.Helper()
 
@@ -57,6 +102,43 @@ func deployStdlibExampleContract(t *testing.T, relPath string, ctorArgs ...LValu
 	}
 	compileName := filepath.Join(filepath.Dir(repoRoot), filepath.Base(relPath))
 	return deployStdlibContractWithCompileName(t, relPath, compileName, ctorArgs...)
+}
+
+func deployTestContractFromSource(t *testing.T, source, compileName string, ctorArgs ...LValue) (*LState, LValue, *stdlibRuntimeHost) {
+	t.Helper()
+
+	L := NewState()
+	host := installStdlibRuntimeHost(L)
+	runtimeBC, err := CompileBytecode([]byte(source), compileName)
+	if err != nil {
+		t.Fatalf("compile runtime %s: %v", compileName, err)
+	}
+	initBC, err := CompileInitBytecode([]byte(source), compileName)
+	if err != nil {
+		t.Fatalf("compile init %s: %v", compileName, err)
+	}
+	if err := L.DoBytecode(runtimeBC); err != nil {
+		t.Fatalf("load runtime %s: %v", compileName, err)
+	}
+	if err := L.DoBytecode(initBC); err != nil {
+		t.Fatalf("load init %s: %v", compileName, err)
+	}
+	tos := L.GetGlobal("tos")
+	oncreate := L.GetField(tos, "oncreate")
+	if oncreate != LNil {
+		L.Push(oncreate)
+		for _, arg := range ctorArgs {
+			L.Push(arg)
+		}
+		if err := L.PCall(len(ctorArgs), 0, nil); err != nil {
+			t.Fatalf("constructor %s: %v", compileName, err)
+		}
+		if err := L.DoBytecode(runtimeBC); err != nil {
+			t.Fatalf("reload runtime %s: %v", compileName, err)
+		}
+		tos = L.GetGlobal("tos")
+	}
+	return L, tos, host
 }
 
 func stdlibSelectorFromCalldata(calldata string) string {
@@ -106,6 +188,37 @@ func invokePackageContractCalldata(t *testing.T, dep *stdlibDeployedPackageContr
 	dep.L.SetTop(base)
 	restoreRuntimeHostCallContext(dep.host, hostSnap)
 	return rets
+}
+
+func invokePackageContractCalldataErr(dep *stdlibDeployedPackageContract, caller, calldata string) ([]LValue, string) {
+	oninvoke := dep.L.GetField(dep.tos, "oninvoke")
+	if oninvoke == LNil {
+		return nil, dep.name + " missing tos.oninvoke"
+	}
+
+	storageSnap, transientSnap := snapshotLuaStorage(dep.L)
+	hostSnap := snapshotRuntimeHost(dep.host)
+
+	base := dep.L.GetTop()
+	stdlibSetSender(dep.host, caller)
+	dep.host.tosTable.RawSetString("calldata", LString(calldata))
+	dep.L.Push(oninvoke)
+	dep.L.Push(LString(stdlibSelectorFromCalldata(calldata)))
+	if err := dep.L.PCall(1, MultRet, nil); err != nil {
+		revertLuaStorage(dep.L, storageSnap, transientSnap)
+		restoreRuntimeHost(dep.host, hostSnap)
+		dep.L.SetTop(base)
+		return nil, extractApiRevertMsg(err)
+	}
+
+	n := dep.L.GetTop() - base
+	rets := make([]LValue, 0, n)
+	for i := 0; i < n; i++ {
+		rets = append(rets, dep.L.Get(base+1+i))
+	}
+	dep.L.SetTop(base)
+	restoreRuntimeHostCallContext(dep.host, hostSnap)
+	return rets, ""
 }
 
 func invokePackageContractCalldataWithUno(t *testing.T, dep *stdlibDeployedPackageContract, caller string, callerUno LValue, calldata string) []LValue {
@@ -1048,7 +1161,12 @@ func TestPrivateDisputeEscrowRuntimeStatefulPackageFlow(t *testing.T) {
 		if contractName == "ConfidentialEscrow" && stdlibSelectorFromCalldata(calldata) == selectorHexFromSignature("openEscrow(bytes32,agent,u256,bytes32)") {
 			return invokePackageContractCalldataWithUno(t, dep, contractAddr, coordHost.msgTable.RawGetString("uno_value"), calldata)
 		}
-		return invokePackageContractCalldata(t, dep, contractAddr, calldata)
+		rets, errMsg := invokePackageContractCalldataErr(dep, contractAddr, calldata)
+		if errMsg != "" {
+			coordL.RaiseError(errMsg)
+			return nil
+		}
+		return rets
 	}
 
 	stdlibSetSender(coordHost, bob)
@@ -1100,11 +1218,120 @@ func TestPrivateDisputeEscrowRuntimeStatefulPackageFlow(t *testing.T) {
 	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "statusOf(bytes32)", LString(orderTwo))); got != "3" {
 		t.Fatalf("order two receipt status after refund: got=%s want=3", got)
 	}
-	if got := stdlibNativeUnoBalance(coordHost, payerTwo); got.Cmp(stdlibParseUnoString(LVAsString(stdlibUnoFromInt(25)))) != 0 {
+	if got := stdlibNativeUnoBalance(escrowHost, payerTwo); got.Cmp(stdlibParseUnoString(LVAsString(stdlibUnoFromInt(25)))) != 0 {
 		t.Fatalf("payerTwo confidential balance after refund: got=%s want=%s", got.String(), stdlibParseUnoString(LVAsString(stdlibUnoFromInt(25))).String())
 	}
 	if got := LVAsString(invokeStdlib(t, coordL, coordTOS, "receiptStatus(bytes32)", LString(orderTwo))); got != "3" {
 		t.Fatalf("coordinator receiptStatus order two: got=%s want=3", got)
+	}
+}
+
+func TestPrivateDisputeEscrowRefundTransferFailureKeepsStateConsistent(t *testing.T) {
+	contractAddr := stdlibBytes32("d")
+	escrowAddr := stdlibBytes32("e")
+	disclosureAddr := stdlibBytes32("f")
+	receiptAddr := stdlibBytes32("1")
+	orderID := stdlibBytes32("2")
+	scopeRef := stdlibBytes32("3")
+	settlementRef := stdlibBytes32("4")
+	arbitrator := stdlibBytes32("5")
+	payer := stdlibBytes32("6")
+
+	escrowL, escrowTOS, escrowHost := deployStdlibContract(t, "stdlib/privacy/ConfidentialEscrow.tol", LString(contractAddr))
+	defer escrowL.Close()
+	disclosureL, disclosureTOS, disclosureHost := deployStdlibContract(t, "stdlib/privacy/AuditorDisclosureBook.tol", LString(contractAddr))
+	defer disclosureL.Close()
+	receiptL, receiptTOS, receiptHost := deployStdlibContract(t, "stdlib/receipt/ReceiptBook.tol", LString(contractAddr))
+	defer receiptL.Close()
+	coordL, coordTOS, coordHost := deployStdlibExampleContract(
+		t,
+		"examples/stdlib_composed/PrivateDisputeEscrow.tol",
+		LString(alice),
+		LString(escrowAddr),
+		LString(disclosureAddr),
+		LString(receiptAddr),
+	)
+	defer coordL.Close()
+
+	failRefundTransfer := false
+	ctTable := escrowL.GetField(escrowHost.tosTable, "ciphertext").(*LTable)
+	escrowL.SetField(ctTable, "transfer", escrowL.NewFunction(func(L *LState) int {
+		if failRefundTransfer {
+			L.RaiseError("UNO_TRANSFER_FAILED")
+			return 0
+		}
+		addr := LVAsString(L.CheckAny(1))
+		amount := stdlibParseUnoString(LVAsString(L.CheckAny(2)))
+		stdlibRememberAgentString(escrowHost, addr)
+		escrowHost.unoTransferCount++
+		escrowHost.lastUnoTransferAddr = addr
+		escrowHost.lastUnoTransferAmount = stdlibUnoStringFromBigInt(amount)
+		next := stdlibNativeUnoBalance(escrowHost, addr)
+		next.Add(next, amount)
+		escrowHost.nativeUnoBalances[addr] = next
+		return 0
+	}))
+
+	deps := map[string]*stdlibDeployedPackageContract{
+		escrowAddr:     {name: "ConfidentialEscrow", addr: escrowAddr, L: escrowL, tos: escrowTOS, host: escrowHost},
+		disclosureAddr: {name: "AuditorDisclosureBook", addr: disclosureAddr, L: disclosureL, tos: disclosureTOS, host: disclosureHost},
+		receiptAddr:    {name: "ReceiptBook", addr: receiptAddr, L: receiptL, tos: receiptTOS, host: receiptHost},
+	}
+	coordHost.packageCallHook = func(addr, contractName, calldata string) []LValue {
+		dep := deps[addr]
+		if dep == nil {
+			t.Fatalf("package_call to unknown addr=%s contract=%s calldata=%s", addr, contractName, calldata)
+		}
+		if dep.name != contractName {
+			t.Fatalf("package_call contract mismatch: addr=%s got=%s want=%s", addr, contractName, dep.name)
+		}
+		if contractName == "ConfidentialEscrow" && stdlibSelectorFromCalldata(calldata) == selectorHexFromSignature("openEscrow(bytes32,agent,u256,bytes32)") {
+			return invokePackageContractCalldataWithUno(t, dep, contractAddr, coordHost.msgTable.RawGetString("uno_value"), calldata)
+		}
+		rets, errMsg := invokePackageContractCalldataErr(dep, contractAddr, calldata)
+		if errMsg != "" {
+			coordL.RaiseError(errMsg)
+			return nil
+		}
+		return rets
+	}
+
+	stdlibSetSender(coordHost, payer)
+	stdlibSetTimestamp(coordHost, 100)
+	stdlibSetUnoValue(coordHost, stdlibUnoFromInt(25))
+	invokeStdlib(t, coordL, coordTOS, "openOrder(bytes32,agent,u256)", LString(orderID), LString(charlie), lu256FromInt(500))
+	stdlibSetUnoValue(coordHost, stdlibUnoFromInt(0))
+
+	stdlibSetSender(coordHost, alice)
+	stdlibSetTimestamp(coordHost, 120)
+	invokeStdlib(t, coordL, coordTOS, "disputeOrder(bytes32,agent,bytes32,u256)",
+		LString(orderID), LString(arbitrator), LString(scopeRef), lu256FromInt(600))
+
+	failRefundTransfer = true
+	errMsg := invokeStdlibErr(t, coordL, coordTOS, "resolveDispute(bytes32,bool,bytes32)", LString(orderID), LFalse, LString(settlementRef))
+	if !strings.Contains(errMsg, "UNO_TRANSFER_FAILED") {
+		t.Fatalf("expected UNO_TRANSFER_FAILED, got %q", errMsg)
+	}
+	if got := LVAsString(invokeStdlib(t, escrowL, escrowTOS, "statusOf(bytes32)", LString(orderID))); got != "1" {
+		t.Fatalf("escrow status after failed refund: got=%s want=1", got)
+	}
+	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "statusOf(bytes32)", LString(orderID))); got != "1" {
+		t.Fatalf("receipt status after failed refund: got=%s want=1", got)
+	}
+	if got := stdlibNativeUnoBalance(escrowHost, payer); got.Sign() != 0 {
+		t.Fatalf("payer balance after failed refund: got=%s want=0", got.String())
+	}
+
+	failRefundTransfer = false
+	invokeStdlib(t, coordL, coordTOS, "resolveDispute(bytes32,bool,bytes32)", LString(orderID), LFalse, LString(settlementRef))
+	if got := LVAsString(invokeStdlib(t, escrowL, escrowTOS, "statusOf(bytes32)", LString(orderID))); got != "3" {
+		t.Fatalf("escrow status after retry refund: got=%s want=3", got)
+	}
+	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "statusOf(bytes32)", LString(orderID))); got != "3" {
+		t.Fatalf("receipt status after retry refund: got=%s want=3", got)
+	}
+	if got := stdlibNativeUnoBalance(escrowHost, payer); got.Cmp(stdlibParseUnoString(LVAsString(stdlibUnoFromInt(25)))) != 0 {
+		t.Fatalf("payer balance after retry refund: got=%s want=%s", got.String(), stdlibParseUnoString(LVAsString(stdlibUnoFromInt(25))).String())
 	}
 }
 
@@ -1718,6 +1945,65 @@ func TestTaskSettlementAtomicApproveRelease(t *testing.T) {
 	statusAfter := LVAsString(invokeStdlib(t, settlementL2, tos2, "statusOf(u256)", lu256FromInt(1)))
 	if statusAfter != "3" {
 		t.Fatalf("ROLLBACK FAILURE: task 1 status is %s (want SUBMITTED=3) after failed approveTask", statusAfter)
+	}
+}
+
+func TestTaskSettlementRollbackOnFailedReceiptFinalization(t *testing.T) {
+	settlementAddr := stdlibBytes32("7")
+	receiptBookAddr := stdlibBytes32("8")
+	taskRef := stdlibBytes32("9")
+	receiptRef := stdlibBytes32("a")
+	resultRef := stdlibBytes32("b")
+	proofRef := stdlibBytes32("c")
+	settlementRef := stdlibBytes32("d")
+
+	settlementL, settlementTOS, settlementHost := deployStdlibContract(t, "stdlib/settlement/TaskSettlement.tol", LString(charlie))
+	defer settlementL.Close()
+	receiptL, receiptTOS, receiptHost := deployTestContractFromSource(t, stdlibFailingReceiptBookSource, "test/FailingReceiptBook.tol")
+	defer receiptL.Close()
+
+	receiptDep := &stdlibDeployedPackageContract{name: "ReceiptBook", addr: receiptBookAddr, L: receiptL, tos: receiptTOS, host: receiptHost}
+	settlementHost.packageCallHook = func(addr, contractName, calldata string) []LValue {
+		if addr != receiptBookAddr || contractName != "ReceiptBook" {
+			t.Fatalf("unexpected package_call addr=%s contract=%s calldata=%s", addr, contractName, calldata)
+		}
+		rets, errMsg := invokePackageContractCalldataErr(receiptDep, settlementAddr, calldata)
+		if errMsg != "" {
+			settlementL.RaiseError(errMsg)
+			return nil
+		}
+		return rets
+	}
+
+	stdlibSetSender(settlementHost, charlie)
+	invokeStdlib(t, settlementL, settlementTOS, "setReceiptBook(agent)", LString(receiptBookAddr))
+
+	stdlibSetSender(settlementHost, alice)
+	stdlibSetTimestamp(settlementHost, 100)
+	stdlibSetValue(settlementHost, 50)
+	invokeStdlib(t, settlementL, settlementTOS, "openTask(bytes32,u256,bytes32)", LString(taskRef), lu256FromInt(500), LString(receiptRef))
+	stdlibSetValue(settlementHost, 0)
+
+	stdlibSetSender(settlementHost, bob)
+	stdlibSetTimestamp(settlementHost, 150)
+	invokeStdlib(t, settlementL, settlementTOS, "acceptTask(u256)", lu256FromInt(1))
+	invokeStdlib(t, settlementL, settlementTOS, "submitTask(u256,bytes32,bytes32)", lu256FromInt(1), LString(resultRef), LString(proofRef))
+
+	invokeStdlib(t, receiptL, receiptTOS, "setFailFinalize(bool)", LTrue)
+
+	stdlibSetSender(settlementHost, alice)
+	errMsg := invokeStdlibErr(t, settlementL, settlementTOS, "approveTask(u256,bytes32)", lu256FromInt(1), LString(settlementRef))
+	if !strings.Contains(errMsg, "FINALIZE_FAILED") {
+		t.Fatalf("expected FINALIZE_FAILED, got %q", errMsg)
+	}
+	if got := LVAsString(invokeStdlib(t, settlementL, settlementTOS, "statusOf(u256)", lu256FromInt(1))); got != "3" {
+		t.Fatalf("task status after failed receipt finalize: got=%s want=3", got)
+	}
+	if settlementHost.releaseCount != 0 {
+		t.Fatalf("releaseCount after failed receipt finalize: got=%d want=0", settlementHost.releaseCount)
+	}
+	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "statusOf(bytes32)", LString(receiptRef))); got != "1" {
+		t.Fatalf("receipt status after failed finalize: got=%s want=1", got)
 	}
 }
 

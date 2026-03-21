@@ -122,9 +122,7 @@ contract PrivateDisputeEscrow {
             escrow.releaseEscrow(order_id, settlement_ref);
             receipt.finalizeSuccess(order_id, settlement_ref, settlement_ref);
         } else {
-            uno amount = escrow.amountOf(order_id);
-            escrow.refundEscrow(order_id, settlement_ref);
-            uno.transfer(order_payer[order_id], amount);
+            escrow.refundEscrowTo(order_id, order_payer[order_id], settlement_ref);
             receipt.finalizeFailure(order_id, settlement_ref);
         }
 

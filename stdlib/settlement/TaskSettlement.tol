@@ -201,6 +201,25 @@ contract TaskSettlement is ITaskSettlement {
     function rejectTask(u256 task_id, bytes32 reason_ref) public {
         require(task_status[task_id] == STATUS_SUBMITTED, "NOT_SUBMITTED");
         require(msg.sender == task_poster[task_id], "NOT_POSTER");
+        bytes32 receipt_ref = task_receipt_ref[task_id];
+        if (task_receipt_book != agent(0) && receipt_ref != bytes32(0)) {
+            ReceiptBook receipt = ReceiptBook(task_receipt_book);
+            if (receipt.statusOf(receipt_ref) == 0) {
+                receipt.openReceipt(
+                    receipt_ref,
+                    task_poster[task_id],
+                    task_worker[task_id],
+                    agent(0),
+                    task_worker[task_id],
+                    task_reward[task_id],
+                    bytes32(0),
+                    bytes32(0),
+                    task_proof_ref[task_id],
+                    task_ref[task_id]
+                );
+            }
+            emit SettlementReceipt(task_id, receipt_ref, task_worker[task_id], 0);
+        }
         set task_status[task_id] = STATUS_REJECTED;
         emit TaskRejected(task_id, msg.sender, reason_ref);
     }
@@ -284,7 +303,7 @@ contract TaskSettlement is ITaskSettlement {
                     if (receipt.statusOf(receipt_ref) == 1) {
                         receipt.finalizeFailure(receipt_ref, settlement_ref);
                     }
-                    emit SettlementReceipt(task_id, receipt_ref, worker, poster_share + bond);
+                    emit SettlementReceipt(task_id, receipt_ref, worker, worker_share);
                 }
                 emit TaskResolved(task_id, poster, poster_share + bond, settlement_ref);
             }
@@ -309,7 +328,7 @@ contract TaskSettlement is ITaskSettlement {
                     if (receipt.statusOf(receipt_ref) == 1) {
                         receipt.finalizeFailure(receipt_ref, settlement_ref);
                     }
-                    emit SettlementReceipt(task_id, receipt_ref, worker, reward + bond);
+                    emit SettlementReceipt(task_id, receipt_ref, worker, 0);
                 }
                 emit TaskResolved(task_id, poster, reward + bond, settlement_ref);
             }

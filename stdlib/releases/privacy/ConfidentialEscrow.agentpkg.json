@@ -2,10 +2,10 @@
   "package_name": "tolang.stdlib.privacy.confidential_escrow",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x18b6e96841ed50ab911c457e8407fab5ac19c16e2b18bc6ad39291df1d610eca",
-    "bytecode_hash": "0xb96ce65d69f949c43106e74ca6a9678a213499ef6d98fa532c4a0d47fcf69a63",
-    "source_hash": "0x55729962310a3de3ff3373d60d4a1f4cf2023a51f0db3d41593d146df8ca0af9",
-    "abi_hash": "0xb1873653aa27b4906156110d595974ab96d8fdb5d42cdf6fa3fc1d495264a8a2",
+    "package_hash": "0xf5ccd2f45e37d04668ee46809a93fa6850260518106892e6c2d62413a25bec41",
+    "bytecode_hash": "0xf25a06ee7e50b72ebcd416eab4ed777842ea7c2cfc76a056e00bb2a694f7dc8f",
+    "source_hash": "0xa2cf29f1e7feaaaa95047bf20c65f3b18e050fd8e13316d91a39f049db570320",
+    "abi_hash": "0xa909bbe80e48cbcd85c96347e1ee8d26a0994747ba736e2cacad414dc9d06fc4",
     "version": "1.0.0"
   },
   "capabilities": {
@@ -57,10 +57,10 @@
     "package_name": "tolang.stdlib.privacy.confidential_escrow",
     "package_version": "1.0.0",
     "artifact_ref": {
-      "package_hash": "0x18b6e96841ed50ab911c457e8407fab5ac19c16e2b18bc6ad39291df1d610eca",
-      "bytecode_hash": "0xb96ce65d69f949c43106e74ca6a9678a213499ef6d98fa532c4a0d47fcf69a63",
-      "source_hash": "0x55729962310a3de3ff3373d60d4a1f4cf2023a51f0db3d41593d146df8ca0af9",
-      "abi_hash": "0xb1873653aa27b4906156110d595974ab96d8fdb5d42cdf6fa3fc1d495264a8a2",
+      "package_hash": "0xf5ccd2f45e37d04668ee46809a93fa6850260518106892e6c2d62413a25bec41",
+      "bytecode_hash": "0xf25a06ee7e50b72ebcd416eab4ed777842ea7c2cfc76a056e00bb2a694f7dc8f",
+      "source_hash": "0xa2cf29f1e7feaaaa95047bf20c65f3b18e050fd8e13316d91a39f049db570320",
+      "abi_hash": "0xa909bbe80e48cbcd85c96347e1ee8d26a0994747ba736e2cacad414dc9d06fc4",
       "version": "1.0.0"
     },
     "contract_type": "custom",
@@ -105,6 +105,15 @@
       {
         "name": "refundEscrow",
         "selector": "0xfc3e8c70",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "refundEscrowTo",
+        "selector": "0x406671ab",
         "risk_level": "low",
         "payable": false,
         "delegated": false,

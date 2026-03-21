@@ -68,7 +68,6 @@ interface IServiceDirectory {
 
     function setCapabilityType(u256 service_id, u256 capability_type) public;
     function setServiceKind(u256 service_id, u256 service_kind) public;
-    function setCapabilityKind(u256 service_id, u256 capability_kind) public;
     function setPricingKind(u256 service_id, u256 pricing_kind) public;
     function setPrivacyMode(u256 service_id, u256 privacy_mode) public;
     function setReceiptMode(u256 service_id, u256 receipt_mode) public;
@@ -79,9 +78,6 @@ interface IServiceDirectory {
 
     @verifiable
     function serviceKindOf(u256 service_id) public view returns (u256 service_kind);
-
-    @verifiable
-    function capabilityKindOf(u256 service_id) public view returns (u256 capability_kind);
 
     @verifiable
     function pricingKindOf(u256 service_id) public view returns (u256 pricing_kind);
@@ -331,10 +327,6 @@ contract ServiceDirectory is IServiceDirectory {
         );
     }
 
-    function setCapabilityKind(u256 service_id, u256 capability_kind) public {
-        setCapabilityType(service_id, capability_kind);
-    }
-
     function setPricingKind(u256 service_id, u256 pricing_kind) public {
         require(service_active[service_id] == true, "NOT_ACTIVE");
         require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
@@ -408,12 +400,6 @@ contract ServiceDirectory is IServiceDirectory {
         return service_kind[service_id];
     }
 
-    @verifiable
-    function capabilityKindOf(u256 service_id) public view returns (u256 capability_kind) {
-        return service_capability_type[service_id];
-    }
-
-    @verifiable
     function pricingKindOf(u256 service_id) public view returns (u256 pricing_kind) {
         return service_pricing_kind[service_id];
     }

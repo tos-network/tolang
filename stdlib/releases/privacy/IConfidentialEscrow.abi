@@ -4,6 +4,7 @@ interface IConfidentialEscrow {
   function openEscrow(bytes32 escrow_id, agent payee, u256 expiry_ms, bytes32 receipt_ref) public payable;
   function releaseEscrow(bytes32 escrow_id, bytes32 settlement_ref) public;
   function refundEscrow(bytes32 escrow_id, bytes32 reason_ref) public;
+  function refundEscrowTo(bytes32 escrow_id, agent refundee, bytes32 reason_ref) public;
   function reclaimExpired(bytes32 escrow_id) public;
   function statusOf(bytes32 escrow_id) public view returns (u256 status);
   function amountOf(bytes32 escrow_id) public view returns (uno amount);

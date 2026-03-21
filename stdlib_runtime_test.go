@@ -933,6 +933,7 @@ func invokeStdlib(t *testing.T, L *LState, tos LValue, fnSig string, args ...LVa
 
 	// Snapshot storage before the call — if the call reverts, we restore.
 	storageSnap, transientSnap := snapshotLuaStorage(L)
+	hostSnap := snapshotRuntimeHost(hostFromTables(L))
 
 	base := L.GetTop()
 	prevCalldata := L.GetField(tos, "calldata")
@@ -946,6 +947,7 @@ func invokeStdlib(t *testing.T, L *LState, tos LValue, fnSig string, args ...LVa
 	}
 	if err := L.PCall(1+len(args), MultRet, nil); err != nil {
 		revertLuaStorage(L, storageSnap, transientSnap)
+		restoreRuntimeHost(hostFromTables(L), hostSnap)
 		t.Fatalf("invoke %s failed: %v", fnSig, err)
 	}
 
@@ -969,6 +971,7 @@ func invokeStdlibErr(t *testing.T, L *LState, tos LValue, fnSig string, args ...
 	// LVM.Call before execution.  On revert the snapshot is restored,
 	// rolling back any __tol_storage mutations made before the error.
 	storageSnap, transientSnap := snapshotLuaStorage(L)
+	hostSnap := snapshotRuntimeHost(hostFromTables(L))
 
 	base := L.GetTop()
 	prevCalldata := L.GetField(tos, "calldata")
@@ -988,6 +991,7 @@ func invokeStdlibErr(t *testing.T, L *LState, tos LValue, fnSig string, args ...
 	// Revert storage to pre-call state — matches on-chain behavior where
 	// a reverted transaction's StateDB snapshot is restored.
 	revertLuaStorage(L, storageSnap, transientSnap)
+	restoreRuntimeHost(hostFromTables(L), hostSnap)
 	return extractApiRevertMsg(err)
 }
 
@@ -2860,8 +2864,6 @@ func TestServiceDirectoryTypedSchemaFields(t *testing.T) {
 		lu256FromInt(1), lu256FromInt(8))
 	invokeStdlib(t, L, tos, "setCapabilityType(u256,u256)",
 		lu256FromInt(1), lu256FromInt(4))
-	invokeStdlib(t, L, tos, "setCapabilityKind(u256,u256)",
-		lu256FromInt(1), lu256FromInt(4))
 	invokeStdlib(t, L, tos, "setPricingKind(u256,u256)",
 		lu256FromInt(1), lu256FromInt(2))
 	invokeStdlib(t, L, tos, "setPrivacyMode(u256,u256)",
@@ -2878,10 +2880,6 @@ func TestServiceDirectoryTypedSchemaFields(t *testing.T) {
 	if got := LVAsString(invokeStdlib(t, L, tos, "capabilityTypeOf(u256)",
 		lu256FromInt(1))); got != "4" {
 		t.Fatalf("capabilityTypeOf(1): got=%s want=4", got)
-	}
-	if got := LVAsString(invokeStdlib(t, L, tos, "capabilityKindOf(u256)",
-		lu256FromInt(1))); got != "4" {
-		t.Fatalf("capabilityKindOf(1): got=%s want=4", got)
 	}
 	if got := LVAsString(invokeStdlib(t, L, tos, "pricingKindOf(u256)",
 		lu256FromInt(1))); got != "2" {
@@ -3246,6 +3244,9 @@ func TestTaskSettlementDisputeFinalizesFailureReceipt(t *testing.T) {
 
 	stdlibSetSender(host, alice)
 	invokeStdlib(t, L, tos, "rejectTask(u256,bytes32)", lu256FromInt(1), LString(stdlibBytes32("9")))
+	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "statusOf(bytes32)", LString(receiptRef))); got != "1" {
+		t.Fatalf("receipt status after reject: got=%s want=1", got)
+	}
 
 	stdlibSetSender(host, bob)
 	stdlibSetValue(host, 10)
@@ -3259,7 +3260,25 @@ func TestTaskSettlementDisputeFinalizesFailureReceipt(t *testing.T) {
 	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "statusOf(bytes32)", LString(receiptRef))); got != "3" {
 		t.Fatalf("receipt status after dispute loss: got=%s want=3", got)
 	}
-	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "proofRefOf(bytes32)", LString(receiptRef))); got != disputeProof {
-		t.Fatalf("receipt proof ref after dispute: got=%s want=%s", got, disputeProof)
+	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "proofRefOf(bytes32)", LString(receiptRef))); got != proofRef {
+		t.Fatalf("receipt proof ref after dispute: got=%s want=%s", got, proofRef)
+	}
+	foundReceiptEvent := false
+	for i := len(host.emittedEvents) - 1; i >= 0; i-- {
+		ev := host.emittedEvents[i]
+		if ev.Name != "SettlementReceipt" {
+			continue
+		}
+		foundReceiptEvent = true
+		if len(ev.Args) != 8 {
+			t.Fatalf("SettlementReceipt args len=%d want=8", len(ev.Args))
+		}
+		if ev.Args[1] != "1" || ev.Args[3] != receiptRef || ev.Args[5] != bob || ev.Args[7] != "22" {
+			t.Fatalf("SettlementReceipt args=%v want value slots [1 %s %s 22]", ev.Args, receiptRef, bob)
+		}
+		break
+	}
+	if !foundReceiptEvent {
+		t.Fatal("expected SettlementReceipt event on dispute resolution")
 	}
 }

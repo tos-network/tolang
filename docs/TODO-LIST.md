@@ -13,6 +13,17 @@ Last updated: 2026-03-21
 | S-5 | Privacy composition helpers | Done | `PrivateDisputeEscrow` now has real stateful runtime coverage for confidential open/settle/dispute/refund flows, not only compile coverage |
 | S-6 | Typed discovery schema normalization | Done | `ServiceDirectory` now exposes typed discovery fields, and `metadata.BuildDiscoveryManifest(...)` exports a normalized `typed_discovery` profile for agent-facing artifacts |
 
+## Review Follow-Ups
+
+| ID | Item | Status | Notes |
+|---|---|---|---|
+| R-1 | `TaskSettlement.rejectTask(...)` receipt interaction | Done | rejection now opens the canonical receipt when configured, so rejected submissions no longer leave receipt binding entirely absent |
+| R-2 | `TaskSettlement.resolveDispute(...)` worker-loss receipt amount | Done | `SettlementReceipt` now emits the worker-side payout on loss paths instead of the poster-side release amount |
+| R-3 | `ServiceDirectory` duplicate capability API | Done | removed the redundant `setCapabilityKind(...)` / `capabilityKindOf(...)` alias pair and kept `capabilityType` as the single source of truth |
+| R-4 | `PrivateDisputeEscrow` two-step refund inconsistency | Done | refund path now uses `ConfidentialEscrow.refundEscrowTo(...)`, so receipt finalization only happens after the escrow package successfully transfers to the original payer |
+| R-5 | Receipt-finalization rollback regression | Done | added runtime coverage proving failed receipt finalization rolls settlement state and host-side release effects back |
+| R-6 | UNO refund-transfer failure regression | Done | added composed runtime coverage proving failed confidential refund transfer leaves escrow/receipt/dispute state consistent |
+
 ## Audit Follow-Ups
 
 | ID | Item | Status | Notes |

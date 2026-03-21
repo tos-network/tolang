@@ -211,7 +211,7 @@ func TestBuildDiscoveryManifestTypedDiscoveryProfile(t *testing.T) {
 		Functions: []FunctionMeta{
 			{Name: "registerService", Visibility: "public"},
 			{Name: "serviceKindOf", Visibility: "public"},
-			{Name: "capabilityKindOf", Visibility: "public"},
+			{Name: "capabilityTypeOf", Visibility: "public"},
 			{Name: "pricingKindOf", Visibility: "public"},
 			{Name: "privacyModeOf", Visibility: "public"},
 			{Name: "receiptModeOf", Visibility: "public"},

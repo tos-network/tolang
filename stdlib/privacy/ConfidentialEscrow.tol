@@ -22,6 +22,7 @@ interface IConfidentialEscrow {
     function openEscrow(bytes32 escrow_id, agent payee, u256 expiry_ms, bytes32 receipt_ref) public payable(uno);
     function releaseEscrow(bytes32 escrow_id, bytes32 settlement_ref) public;
     function refundEscrow(bytes32 escrow_id, bytes32 reason_ref) public;
+    function refundEscrowTo(bytes32 escrow_id, agent refundee, bytes32 reason_ref) public;
     function reclaimExpired(bytes32 escrow_id) public;
 
     @verifiable
@@ -113,12 +114,17 @@ contract ConfidentialEscrow is IConfidentialEscrow {
     }
 
     function refundEscrow(bytes32 escrow_id, bytes32 reason_ref) public {
+        refundEscrowTo(escrow_id, escrow_payer[escrow_id], reason_ref);
+    }
+
+    function refundEscrowTo(bytes32 escrow_id, agent refundee, bytes32 reason_ref) public {
         require(escrow_status[escrow_id] == STATUS_OPEN, "NOT_OPEN");
         require(msg.sender == escrow_payer[escrow_id] || msg.sender == resolver, "NOT_AUTHORIZED");
+        require(refundee != agent(0), "ZERO_REFUNDEE");
 
         set escrow_status[escrow_id] = STATUS_REFUNDED;
         set escrow_reason_ref[escrow_id] = reason_ref;
-        uno.transfer(escrow_payer[escrow_id], escrow_amount[escrow_id]);
+        uno.transfer(refundee, escrow_amount[escrow_id]);
 
         emit EscrowRefunded(escrow_id, msg.sender, reason_ref);
     }

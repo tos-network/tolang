@@ -215,12 +215,26 @@ contract TaskSettlement is ITaskSettlement {
 
     function reclaimExpired(u256 task_id) public {
         u8 status = task_status[task_id];
-        require(status == STATUS_OPEN || status == STATUS_ACCEPTED, "WRONG_STATUS");
+        require(status == STATUS_OPEN || status == STATUS_ACCEPTED || status == STATUS_MILESTONE_PARTIAL, "WRONG_STATUS");
         require(block.timestamp_ms >= task_deadline_ms[task_id], "NOT_EXPIRED");
         require(msg.sender == task_poster[task_id], "NOT_POSTER");
 
+        // For milestone tasks with partial completion, reclaim only the
+        // unreleased portion.  For non-milestone tasks, reclaim the full reward.
+        u256 reward = task_reward[task_id];
+        u256 count = task_milestone_count[task_id];
+        u256 refund_amount = reward;
+        if (count > 0) {
+            u256 done = task_milestone_done[task_id];
+            u256 per_milestone = reward / count;
+            u256 already_released = per_milestone * done;
+            refund_amount = reward - already_released;
+        }
+
         set task_status[task_id] = STATUS_CANCELLED;
-        release(msg.sender, task_reward[task_id]);
+        if (refund_amount > 0) {
+            release(msg.sender, refund_amount);
+        }
         emit TaskCancelled(task_id, msg.sender);
     }
 
@@ -273,7 +287,11 @@ contract TaskSettlement is ITaskSettlement {
         require(task_milestone_status[task_id][milestone_index] == 0, "ALREADY_DONE");
 
         u8 status = task_status[task_id];
-        require(status == STATUS_OPEN || status == STATUS_ACCEPTED || status == STATUS_MILESTONE_PARTIAL, "WRONG_STATUS");
+        // Worker must have accepted the task before milestones can be completed.
+        require(status == STATUS_ACCEPTED || status == STATUS_MILESTONE_PARTIAL, "WRONG_STATUS");
+
+        agent worker = task_worker[task_id];
+        require(worker != agent(0), "NO_WORKER");
 
         set task_milestone_status[task_id][milestone_index] = 1;
         u256 done = task_milestone_done[task_id] + 1;
@@ -281,11 +299,12 @@ contract TaskSettlement is ITaskSettlement {
 
         u256 reward = task_reward[task_id];
         u256 per_milestone = reward / count;
-        agent worker = task_worker[task_id];
 
         if (done == count) {
+            // Final milestone: release per_milestone + any floor-division remainder.
+            u256 remainder = reward - (per_milestone * count);
             set task_status[task_id] = STATUS_APPROVED;
-            release(worker, per_milestone);
+            release(worker, per_milestone + remainder);
         }
         if (done != count) {
             set task_status[task_id] = STATUS_MILESTONE_PARTIAL;

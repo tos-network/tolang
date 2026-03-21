@@ -115,7 +115,7 @@ contract TrustRegistry is ITrustRegistry {
         if (subject.stake < min_required_stake) {
             return false;
         }
-        if (subject.reputation < min_required_reputation) {
+        if (reputation[subject] < min_required_reputation) {
             return false;
         }
         return true;
@@ -128,7 +128,7 @@ contract TrustRegistry is ITrustRegistry {
 
     @verifiable
     function snapshotReputationOf(agent subject) public view returns (i256 score) {
-        return subject.reputation;
+        return reputation[subject];
     }
 
     @verifiable

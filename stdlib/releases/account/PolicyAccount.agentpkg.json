@@ -2,9 +2,9 @@
   "package_name": "tolang.stdlib.account",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x17c5d0cc2838c036bee1181caa646622fee5a4fb481df73ec1451dd060ccaf0b",
-    "bytecode_hash": "0xbead2f5332545fa88e5135f4e089d32e9660ada1d7e6a8460747c6582695d0f5",
-    "source_hash": "0x78cd6bad21ebfeec9c3506a2a1632aea4319f9c55a3142ae6a013bf6d3b65dfa",
+    "package_hash": "0x7f29e268cf0c4231fc075f0181d67d2a993092af51f0fb19fee44ed033ef42cb",
+    "bytecode_hash": "0x6df85932aca169fe9bcddd61d046bc88618f955b5010cce1fe5ba7579c589586",
+    "source_hash": "0x06154286ad635c1ad94f07f204aeea13be13648fa01d43b621db082b54220624",
     "abi_hash": "0xce7afd8ba3deec6785d98c3e3966feb8289a0552d061fa55a9b7968173e71c85",
     "version": "1.0.0"
   },
@@ -45,9 +45,9 @@
     "package_name": "tolang.stdlib.account",
     "package_version": "1.0.0",
     "artifact_ref": {
-      "package_hash": "0x17c5d0cc2838c036bee1181caa646622fee5a4fb481df73ec1451dd060ccaf0b",
-      "bytecode_hash": "0xbead2f5332545fa88e5135f4e089d32e9660ada1d7e6a8460747c6582695d0f5",
-      "source_hash": "0x78cd6bad21ebfeec9c3506a2a1632aea4319f9c55a3142ae6a013bf6d3b65dfa",
+      "package_hash": "0x7f29e268cf0c4231fc075f0181d67d2a993092af51f0fb19fee44ed033ef42cb",
+      "bytecode_hash": "0x6df85932aca169fe9bcddd61d046bc88618f955b5010cce1fe5ba7579c589586",
+      "source_hash": "0x06154286ad635c1ad94f07f204aeea13be13648fa01d43b621db082b54220624",
       "abi_hash": "0xce7afd8ba3deec6785d98c3e3966feb8289a0552d061fa55a9b7968173e71c85",
       "version": "1.0.0"
     },

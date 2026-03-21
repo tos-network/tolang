@@ -1533,8 +1533,12 @@ func TestTrustRegistryRuntimeBondEligibilityAndOverride(t *testing.T) {
 	defer L.Close()
 
 	stdlibSetAgentProp(host, subject, "stake", lu256FromInt(150))
-	stdlibSetAgentProp(host, subject, "reputation", lu256FromInt(10))
 	stdlibSetAgentProp(host, subject, "suspended", lu256FromInt(0))
+
+	// Reputation is now stored in the contract mapping (not agent props).
+	// Owner must call updateReputation to set it.
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "updateReputation(agent,i256,bytes32)", LString(subject), lu256FromInt(10), LString(stdlibBytes32("0")))
 
 	if got := invokeStdlib(t, L, tos, "isEligible(agent)", LString(subject)); !LVAsBool(got) {
 		t.Fatal("subject should be eligible with sufficient stake/reputation")
@@ -2560,5 +2564,247 @@ contract GuardedContract {
 	errMsg = invokeStdlibErr(t, L, tos, "secret()")
 	if !strings.Contains(errMsg, "CapabilityDenied") {
 		t.Fatalf("secret() with deny hook: expected CapabilityDenied, got: %s", errMsg)
+	}
+}
+
+func TestPolicyAccountDelegateCapsEnforced(t *testing.T) {
+	L, tos, host := deployStdlibContract(
+		t,
+		"stdlib/account/PolicyAccount.tol",
+		LString(alice),
+		LString(bob),
+		lu256FromInt(1000),
+		lu256FromInt(400),
+	)
+	defer L.Close()
+
+	// Set up a callHook so that execute's target.call succeeds.
+	host.callHook = func(addr, value, data string) (bool, string, bool) {
+		return true, "0x", true
+	}
+
+	// Owner authorizes delegate charlie with allowance=500, expiry=5000.
+	stdlibSetSender(host, alice)
+	stdlibSetTimestamp(host, 100)
+	invokeStdlib(t, L, tos, "authorizeDelegate(agent,u256,u256)",
+		LString(charlie), lu256FromInt(500), lu256FromInt(5000))
+
+	// Owner sets delegate caps: daily=300, single=150.
+	invokeStdlib(t, L, tos, "setDelegateCaps(agent,u256,u256)",
+		LString(charlie), lu256FromInt(300), lu256FromInt(150))
+
+	// Charlie calls execute with value=200 → should FAIL (exceeds 150 single limit).
+	stdlibSetSender(host, charlie)
+	errMsg := invokeStdlibErr(t, L, tos, "execute(agent,bytes,u256)",
+		LString(stdlibMerchant), LString("0x"), lu256FromInt(200))
+	if !strings.Contains(errMsg, "OVER_DELEGATE_SINGLE") {
+		t.Fatalf("expected OVER_DELEGATE_SINGLE, got %q", errMsg)
+	}
+
+	// Charlie calls execute with value=100 → should succeed.
+	if got := invokeStdlib(t, L, tos, "execute(agent,bytes,u256)",
+		LString(stdlibMerchant), LString("0x"), lu256FromInt(100)); !LVAsBool(got) {
+		t.Fatalf("execute(100) should succeed, got %v", got)
+	}
+
+	// Check delegateDailyRemaining(charlie) == 200 (300 - 100).
+	if got := LVAsString(invokeStdlib(t, L, tos, "delegateDailyRemaining(agent)",
+		LString(charlie))); got != "200" {
+		t.Fatalf("delegateDailyRemaining after first spend: got=%s want=200", got)
+	}
+
+	// Charlie calls execute with value=100 again → should succeed.
+	if got := invokeStdlib(t, L, tos, "execute(agent,bytes,u256)",
+		LString(stdlibMerchant), LString("0x"), lu256FromInt(100)); !LVAsBool(got) {
+		t.Fatalf("execute(100) second time should succeed, got %v", got)
+	}
+
+	// Charlie calls execute with value=150 → should FAIL (would exceed 300 daily).
+	errMsg = invokeStdlibErr(t, L, tos, "execute(agent,bytes,u256)",
+		LString(stdlibMerchant), LString("0x"), lu256FromInt(150))
+	if !strings.Contains(errMsg, "OVER_DELEGATE_DAILY") {
+		t.Fatalf("expected OVER_DELEGATE_DAILY, got %q", errMsg)
+	}
+}
+
+func TestTrustRegistryReputationWritesAffectEligibility(t *testing.T) {
+	L, tos, host := deployStdlibContract(
+		t,
+		"stdlib/trust/TrustRegistry.tol",
+		LString(alice),
+		lu256FromInt(0),
+		lu256FromInt(0),
+	)
+	defer L.Close()
+
+	reasonRef := stdlibBytes32("f")
+
+	// Owner sets trust floor: min_stake=100, min_reputation=50.
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "setTrustFloor(u256,i256)",
+		lu256FromInt(100), lu256FromInt(50))
+
+	// Ensure bob is known to the agent registry with low stake initially.
+	stdlibSetAgentProp(host, bob, "stake", lu256FromInt(0))
+	stdlibSetAgentProp(host, bob, "suspended", lu256FromInt(0))
+
+	// Check isEligible(bob) → false (reputation=0, stake=0).
+	if got := invokeStdlib(t, L, tos, "isEligible(agent)", LString(bob)); LVAsBool(got) {
+		t.Fatal("bob should be ineligible initially")
+	}
+
+	// Owner updates reputation: delta=+60.
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "updateReputation(agent,i256,bytes32)",
+		LString(bob), lu256FromInt(60), LString(reasonRef))
+
+	// Check snapshotReputationOf(bob) → 60.
+	if got := LVAsString(invokeStdlib(t, L, tos, "snapshotReputationOf(agent)",
+		LString(bob))); got != "60" {
+		t.Fatalf("snapshotReputationOf: got=%s want=60", got)
+	}
+
+	// Check isEligible(bob) → still false (stake=0 < 100).
+	if got := invokeStdlib(t, L, tos, "isEligible(agent)", LString(bob)); LVAsBool(got) {
+		t.Fatal("bob should still be ineligible (stake=0 < 100)")
+	}
+
+	// Set bob's agent stake property to 200 and deposit bond.
+	stdlibSetAgentProp(host, bob, "stake", lu256FromInt(200))
+	stdlibSetSender(host, bob)
+	stdlibSetValue(host, 200)
+	invokeStdlib(t, L, tos, "depositBond()")
+	stdlibSetValue(host, 0)
+
+	// Check isEligible(bob) → true (rep=60 >= 50, stake=200 >= 100).
+	if got := invokeStdlib(t, L, tos, "isEligible(agent)", LString(bob)); !LVAsBool(got) {
+		t.Fatal("bob should be eligible (rep=60 >= 50, stake=200 >= 100)")
+	}
+}
+
+func TestTaskSettlementMilestoneLifecycle(t *testing.T) {
+	taskRef := stdlibBytes32("1")
+	receiptRef := stdlibBytes32("2")
+	proofRef0 := stdlibBytes32("3")
+	proofRef1 := stdlibBytes32("4")
+	proofRef2 := stdlibBytes32("5")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/settlement/TaskSettlement.tol", LString(alice))
+	defer L.Close()
+
+	// Poster (bob) opens milestone task with 3 milestones, value=100.
+	stdlibSetSender(host, bob)
+	stdlibSetTimestamp(host, 100)
+	stdlibSetValue(host, 100)
+	invokeStdlib(t, L, tos, "openMilestoneTask(bytes32,u256,u256,bytes32)",
+		LString(taskRef), lu256FromInt(3), lu256FromInt(500), LString(receiptRef))
+	stdlibSetValue(host, 0)
+
+	// Worker (charlie) accepts the task.
+	stdlibSetSender(host, charlie)
+	stdlibSetTimestamp(host, 150)
+	invokeStdlib(t, L, tos, "acceptTask(u256)", lu256FromInt(1))
+
+	// Poster completes milestone 0.
+	stdlibSetSender(host, bob)
+	invokeStdlib(t, L, tos, "completeMilestone(u256,u256,bytes32)",
+		lu256FromInt(1), lu256FromInt(0), LString(proofRef0))
+
+	// Check milestoneStatusOf(task_id=1, milestone_index=0) → 1.
+	if got := LVAsString(invokeStdlib(t, L, tos, "milestoneStatusOf(u256,u256)",
+		lu256FromInt(1), lu256FromInt(0))); got != "1" {
+		t.Fatalf("milestoneStatusOf(1,0): got=%s want=1", got)
+	}
+
+	// Check statusOf(task_id=1) → STATUS_MILESTONE_PARTIAL (9).
+	if got := LVAsString(invokeStdlib(t, L, tos, "statusOf(u256)",
+		lu256FromInt(1))); got != "9" {
+		t.Fatalf("statusOf after milestone 0: got=%s want=9", got)
+	}
+
+	// Release for milestone 0: per_milestone = 100/3 = 33.
+	if host.lastReleaseAmt != "33" {
+		t.Fatalf("milestone 0 release: got=%s want=33", host.lastReleaseAmt)
+	}
+
+	// Poster completes milestone 1.
+	invokeStdlib(t, L, tos, "completeMilestone(u256,u256,bytes32)",
+		lu256FromInt(1), lu256FromInt(1), LString(proofRef1))
+
+	if host.lastReleaseAmt != "33" {
+		t.Fatalf("milestone 1 release: got=%s want=33", host.lastReleaseAmt)
+	}
+
+	// Poster completes milestone 2 (final) → status should be STATUS_APPROVED (4).
+	invokeStdlib(t, L, tos, "completeMilestone(u256,u256,bytes32)",
+		lu256FromInt(1), lu256FromInt(2), LString(proofRef2))
+
+	if got := LVAsString(invokeStdlib(t, L, tos, "statusOf(u256)",
+		lu256FromInt(1))); got != "4" {
+		t.Fatalf("statusOf after all milestones: got=%s want=4", got)
+	}
+
+	// Final milestone: per_milestone + remainder = 33 + (100 - 33*3) = 33 + 1 = 34.
+	if host.lastReleaseAmt != "34" {
+		t.Fatalf("milestone 2 (final) release: got=%s want=34", host.lastReleaseAmt)
+	}
+}
+
+func TestTaskSettlementMilestoneRequiresWorker(t *testing.T) {
+	taskRef := stdlibBytes32("1")
+	receiptRef := stdlibBytes32("2")
+	proofRef := stdlibBytes32("3")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/settlement/TaskSettlement.tol", LString(alice))
+	defer L.Close()
+
+	// Poster (bob) opens milestone task but does NOT accept.
+	stdlibSetSender(host, bob)
+	stdlibSetTimestamp(host, 100)
+	stdlibSetValue(host, 50)
+	invokeStdlib(t, L, tos, "openMilestoneTask(bytes32,u256,u256,bytes32)",
+		LString(taskRef), lu256FromInt(2), lu256FromInt(500), LString(receiptRef))
+	stdlibSetValue(host, 0)
+
+	// Poster tries completeMilestone → should FAIL with "WRONG_STATUS".
+	errMsg := invokeStdlibErr(t, L, tos, "completeMilestone(u256,u256,bytes32)",
+		lu256FromInt(1), lu256FromInt(0), LString(proofRef))
+	if !strings.Contains(errMsg, "WRONG_STATUS") {
+		t.Fatalf("expected WRONG_STATUS, got %q", errMsg)
+	}
+}
+
+func TestServiceDirectoryStructuredFields(t *testing.T) {
+	manifestRef := stdlibBytes32("2")
+	capabilityRef := stdlibBytes32("3")
+	versionRef := stdlibBytes32("4")
+	quoteRef := stdlibBytes32("5")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/discovery/ServiceDirectory.tol")
+	defer L.Close()
+
+	// Provider (alice) registers service.
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "registerService(bytes32,bytes32,bytes32,bytes32)",
+		LString(manifestRef), LString(capabilityRef), LString(versionRef), LString(quoteRef))
+
+	// Provider sets fee: setServiceFee(1, 500).
+	invokeStdlib(t, L, tos, "setServiceFee(u256,u256)",
+		lu256FromInt(1), lu256FromInt(500))
+
+	// Provider sets SLA: setServiceSLA(1, 3600000).
+	invokeStdlib(t, L, tos, "setServiceSLA(u256,u256)",
+		lu256FromInt(1), lu256FromInt(3600000))
+
+	// Check feeOf(1) → 500.
+	if got := LVAsString(invokeStdlib(t, L, tos, "feeOf(u256)",
+		lu256FromInt(1))); got != "500" {
+		t.Fatalf("feeOf(1): got=%s want=500", got)
+	}
+
+	// Check slaOf(1) → 3600000.
+	if got := LVAsString(invokeStdlib(t, L, tos, "slaOf(u256)",
+		lu256FromInt(1))); got != "3600000" {
+		t.Fatalf("slaOf(1): got=%s want=3600000", got)
 	}
 }

@@ -194,6 +194,21 @@ contract PolicyAccount is IPolicyAccount {
             if (msg.sender != owner) {
                 require(delegate_used[msg.sender] + value <= delegate_allowance[msg.sender], "OVER_ALLOWANCE");
                 set delegate_used[msg.sender] = delegate_used[msg.sender] + value;
+
+                // Enforce per-delegate caps if configured.
+                u256 d_single = delegate_single_limit[msg.sender];
+                if (d_single > 0) {
+                    require(value <= d_single, "OVER_DELEGATE_SINGLE");
+                }
+                u256 d_daily = delegate_daily_limit[msg.sender];
+                if (d_daily > 0) {
+                    if (today != delegate_spend_day[msg.sender]) {
+                        set delegate_daily_spent[msg.sender] = 0;
+                        set delegate_spend_day[msg.sender] = today;
+                    }
+                    require(delegate_daily_spent[msg.sender] + value <= d_daily, "OVER_DELEGATE_DAILY");
+                    set delegate_daily_spent[msg.sender] = delegate_daily_spent[msg.sender] + value;
+                }
             }
         }
 

@@ -180,19 +180,19 @@ cleaner composed example and convenience surface.
 
 | Package | What developers no longer hand-write | Implementation | Gaps |
 |---------|-------------------------------------|----------------|------|
-| `account` | Spend cap arithmetic, allowlist storage, suspension flags | **~85%** — `PolicyAccount` with `setSpendCaps`, `setAllowlisted`, `suspend`, `authorizeDelegate` | No per-role spend caps; caps are owner-scoped only |
+| `account` | Spend cap arithmetic, allowlist storage, suspension flags | **~90%** — `PolicyAccount` with `setSpendCaps`, `setAllowlisted`, `suspend`, `authorizeDelegate`, `setDelegateCaps`, `delegateDailyRemaining` | Per-delegate caps now enforced in execute path |
 | `authority` | Delegation maps, expiry checks, revocation propagation | **~90%** — `AuthorityBook` with `grant`, `revoke`, `consume`, scoped by operator+scope key | — |
 | `execution_binding` | Nonce management, policy hash binding, replay guards | **~90%** — `ExecutionBindingBook` with `approve`, `cancel`, `consume`, nonce+expiry+policy_hash | — |
-| `session` | Terminal type discrimination, trust tier checks, step-up logic | **~75%** — `SessionBook` with `grantSession`, `consume`, `requiresStepUp` | Step-up is query-only (not enforced); trust tiers are raw u256, not named enum |
+| `session` | Terminal type discrimination, trust tier checks, step-up logic | **~80%** — `SessionBook` with `grantSession`, `consume`, `requiresStepUp`, `requireTerminal` | `requireTerminal` provides convenience enforcement; trust tiers are raw u256 |
 | `recovery` | Timelock arithmetic, challenge periods, ownership transfer | **~90%** — `RecoveryController` with `startRecovery`, `approveRecovery`, `executeRecovery`, `freeze` | — |
-| `agreement` | Quote/offer/acceptance state machines | **~85%** — `CommercialAgreement` with `createOffer`, `accept`, `cancel`, `fulfill`, `expire` | No invoice or subscription sub-types |
-| `settlement` | Escrow state machines, milestone tracking, slash distribution | **~85%** — `TaskSettlement` with full task lifecycle + dispute; `RecurringPayment` with subscribe/execute/cancel/pause/resume | No milestone staged release; no slash distribution |
+| `agreement` | Quote/offer/acceptance state machines | **~90%** — `CommercialAgreement` with `createOffer`, `createInvoice`, `accept`, `cancel`, `fulfill`, `expire`, `agreementTypeOf` | Invoice subtype implemented |
+| `settlement` | Escrow state machines, milestone tracking, slash distribution | **~90%** — `TaskSettlement` with full task lifecycle + dispute + milestone staged release; `RecurringPayment` with subscribe/execute/cancel/pause/resume | No configurable slash distribution |
 | `sponsor` | Sponsor authorization, budget tracking, attribution records | **~85%** — `SponsorPolicyRelay` with `authorizeRelayer`, `relay`, budget tracking | — |
 | `evidence` | Oracle write-once guards, proof reference attachment | **~85%** — `EvidenceBook` with `openEvidence`, `fulfill`, `challenge`, `finalize` | — |
 | `receipt` | Receipt formatting, approval linkage, settlement traces | **~80%** — `ReceiptBook` with `openReceipt`, `finalizeSuccess`, `finalizeFailure` | Not auto-emitted; requires explicit caller integration |
-| `trust` | Reputation queries, stake checks, scorer integration | **~60%** — `TrustRegistry` with `depositBond`, `setTrustFloor`, `isEligible`, `snapshotReputationOf` | No reputation write/update; no scorer callback; no per-agreement stake lock |
+| `trust` | Reputation queries, stake checks, scorer integration | **~85%** — `TrustRegistry` with `depositBond`, `setTrustFloor`, `isEligible`, `snapshotReputationOf`, `updateReputation`, `setScorerCallback`, `lockStake`, `unlockStake`, `lockedStakeOf` | Reputation writes affect eligibility; per-agreement stake locks implemented |
 | `privacy` | UNO bridge wiring, disclosure flow setup, auditor view construction | **~85%** — `ConfidentialVault` (deposit/withdraw/auditor auth) + `ConfidentialEscrow` (escrow/release/refund) + `ConfidentialPayment` (batch/individual payments) + `ConfidentialTreasury` (multi-signer treasury) + `ConfidentialAllowance` (encrypted approve/transferFrom) + `AuditorDisclosureBook` (snapshot-based disclosure) | GTOS selective disclosure stack is resolved; remaining work is higher-level composed helper flows |
-| `discovery` | Manifest construction, capability advertisement, version markers | **~70%** — `ServiceDirectory` with `registerService`, `updateManifest`, `updateQuote`, `deactivate` | All metadata stored as bytes32 refs; no structured SLA, fee, or capability fields |
+| `discovery` | Manifest construction, capability advertisement, version markers | **~80%** — `ServiceDirectory` with `registerService`, `updateManifest`, `updateQuote`, `deactivate`, `setServiceFee`, `setServiceSLA`, `feeOf`, `slaOf` | Fee and SLA are structured u256 fields; capability still bytes32 ref |
 
 ---
 

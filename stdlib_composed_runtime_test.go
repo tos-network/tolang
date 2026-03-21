@@ -1934,8 +1934,10 @@ func TestPrivateServiceOrderRuntimeStatefulPackageFlow(t *testing.T) {
 	invokeStdlib(t, evidenceL, evidenceTOS, "finalize(bytes32)", LString(evidenceID))
 
 	stdlibSetAgentProp(trustHost, bob, "stake", lu256FromInt(150))
-	stdlibSetAgentProp(trustHost, bob, "reputation", lu256FromInt(10))
 	stdlibSetAgentProp(trustHost, bob, "suspended", lu256FromInt(0))
+	// Reputation is now stored in the contract mapping via updateReputation.
+	stdlibSetSender(trustHost, alice)
+	invokeStdlib(t, trustL, trustTOS, "updateReputation(agent,i256,bytes32)", LString(bob), lu256FromInt(10), LString(stdlibBytes32("0")))
 
 	stdlibSetSender(discoveryHost, bob)
 	invokeStdlib(

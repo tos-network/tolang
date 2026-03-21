@@ -2,8 +2,8 @@
   "package_name": "tolang.stdlib.privacy.confidential_vault",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0xb58e5cec9fc19968a336c73a95e6a24f7778509b8e56a37b9a7fcf6ff7ae9b96",
-    "bytecode_hash": "0xc4d149e4124edf3d0dcc502a0decec90a06275459da4d5b060b6f51fa950f081",
+    "package_hash": "0xf57e7303379841e2ec303e4cc0e1d1a4fc877b4bfbf35dfe8a6c9fe42a2d773b",
+    "bytecode_hash": "0xe7c4f840dacb071858718e05b70a2c1adfbdb93e263330e235bd4471621ffe5b",
     "source_hash": "0x0f648d8ab6795aaa1081aedf5791aada7c01f3762e248506cefbe69d5fac4349",
     "abi_hash": "0x75162145e434dbcaaf11340f229d82745998330bc61599285e9ebde6bad6c765",
     "version": "1.0.0"
@@ -45,8 +45,8 @@
     "package_name": "tolang.stdlib.privacy.confidential_vault",
     "package_version": "1.0.0",
     "artifact_ref": {
-      "package_hash": "0xb58e5cec9fc19968a336c73a95e6a24f7778509b8e56a37b9a7fcf6ff7ae9b96",
-      "bytecode_hash": "0xc4d149e4124edf3d0dcc502a0decec90a06275459da4d5b060b6f51fa950f081",
+      "package_hash": "0xf57e7303379841e2ec303e4cc0e1d1a4fc877b4bfbf35dfe8a6c9fe42a2d773b",
+      "bytecode_hash": "0xe7c4f840dacb071858718e05b70a2c1adfbdb93e263330e235bd4471621ffe5b",
       "source_hash": "0x0f648d8ab6795aaa1081aedf5791aada7c01f3762e248506cefbe69d5fac4349",
       "abi_hash": "0x75162145e434dbcaaf11340f229d82745998330bc61599285e9ebde6bad6c765",
       "version": "1.0.0"

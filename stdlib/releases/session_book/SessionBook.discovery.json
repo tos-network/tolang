@@ -3,8 +3,8 @@
   "package_name": "tolang.stdlib.session_book",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0xca3a062e126d801082788ffdf20e0e2d852a7eff57548a9c329e0f633f88e23e",
-    "bytecode_hash": "0x2b1f28d5ba64b75930c174f3941e4c574c4cd5a8f356fb53da7bd9c78e4c3832",
+    "package_hash": "0x095c2f5e4c04b443bf2b98582bcfabcb7240c2acb6337e42846e9f7ccc6ff480",
+    "bytecode_hash": "0x2f19da1f43a49c18fa4a459009cfa183e0ff2a4892b5ddc36bab8d98bb68f02c",
     "source_hash": "0xdda04bf05d82ac84388bcccac595ae423486473bce52a1b20c814e51472cc648",
     "abi_hash": "0x5834fc5639a57380d6af4b8f8b96696ddb11ccf2e3c7cf17b197aa33319f3aec",
     "version": "1.0.0"

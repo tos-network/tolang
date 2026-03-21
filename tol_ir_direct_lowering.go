@@ -199,6 +199,8 @@ type loweringEnv struct {
 	enumByName map[string]map[string]int
 	// errorSigByName maps error name → canonical ABI signature string (e.g. "Unauthorized(agent,uint256)").
 	errorSigByName map[string]string
+	// errorTypesByName maps error name → normalized parameter type list.
+	errorTypesByName map[string][]string
 	// structFields maps struct name → ordered list of field names.
 	structFields map[string][]string
 	// structFieldTypes maps struct name → ordered list of fields (name+type).
@@ -342,6 +344,7 @@ func buildLoweringEnv(contractName string, dispatchFns []dispatchFunc, funcs []l
 	}
 	// Build error ABI signature lookup: error name → canonical signature.
 	errorSigByName := make(map[string]string, len(errors))
+	errorTypesByName := make(map[string][]string, len(errors))
 	for _, ed := range errors {
 		eName := strings.TrimSpace(ed.Name)
 		if eName == "" {
@@ -356,6 +359,7 @@ func buildLoweringEnv(contractName string, dispatchFns []dispatchFunc, funcs []l
 		}
 		sig := fmt.Sprintf("%s(%s)", eName, strings.Join(types, ","))
 		errorSigByName[eName] = sig
+		errorTypesByName[eName] = append([]string(nil), types...)
 	}
 	// Build struct fields lookup: struct name → ordered field names.
 	sfm := make(map[string][]string, len(structs))
@@ -451,6 +455,7 @@ func buildLoweringEnv(contractName string, dispatchFns []dispatchFunc, funcs []l
 		usingTypeToLib:      um,
 		enumByName:          enumByName,
 		errorSigByName:      errorSigByName,
+		errorTypesByName:    errorTypesByName,
 		structFields:        sfm,
 		structFieldTypes:    sftm,
 		constantByName:      constByName,
@@ -1228,6 +1233,24 @@ function abi.encodeWithSignature(sig, ...)
   return abi.encodeWithSelector(sel, ...)
 end
 
+function __tol_abi_encode_with_selector_v2(sel, ...)
+  if type(sel) ~= "string" then
+    error("__tol_abi_encode_with_selector_v2 selector must be string")
+  end
+  sel = string.lower(sel)
+  if #sel ~= 10 or string.sub(sel, 1, 2) ~= "0x" then
+    error("__tol_abi_encode_with_selector_v2 selector must be 0x followed by 8 hex chars")
+  end
+  for i = 3, 10 do
+    local b = string.byte(sel, i)
+    if not __tol_is_hex_char_byte(b) then
+      error("__tol_abi_encode_with_selector_v2 selector must be 0x followed by 8 hex chars")
+    end
+  end
+  local payload = __tol_abi_encode_v2(...)
+  return "0x" .. string.sub(sel, 3) .. string.sub(payload, 3)
+end
+
 function abi.decode(data)
   return data
 end
@@ -1866,7 +1889,7 @@ if tos ~= nil and type(tos) == "table" then
   end
 end
 
-function __tol_host_call(addr, value, data)
+function __tol_host_call(addr, value, data, gas)
   local f = nil
   if tos ~= nil and type(tos) == "table" and type(tos.call) == "function" then
     f = tos.call
@@ -1874,7 +1897,12 @@ function __tol_host_call(addr, value, data)
     f = call
   end
   if f ~= nil then
-    local ok, ret = f(addr, value, data)
+    local ok, ret = nil, nil
+    if gas ~= nil then
+      ok, ret = f(addr, value, data, gas)
+    else
+      ok, ret = f(addr, value, data)
+    end
     if ok == nil then ok = false end
     if ret == nil then ret = "0x" end
     return ok, ret
@@ -1882,7 +1910,7 @@ function __tol_host_call(addr, value, data)
   error("host function 'call' is not available")
 end
 
-function __tol_host_staticcall(addr, data)
+function __tol_host_staticcall(addr, data, gas)
   local f = nil
   if tos ~= nil and type(tos) == "table" and type(tos.staticcall) == "function" then
     f = tos.staticcall
@@ -1890,7 +1918,12 @@ function __tol_host_staticcall(addr, data)
     f = staticcall
   end
   if f ~= nil then
-    local ok, ret = f(addr, data)
+    local ok, ret = nil, nil
+    if gas ~= nil then
+      ok, ret = f(addr, data, gas)
+    else
+      ok, ret = f(addr, data)
+    end
     if ok == nil then ok = false end
     if ret == nil then ret = "0x" end
     return ok, ret
@@ -1898,7 +1931,7 @@ function __tol_host_staticcall(addr, data)
   error("host function 'staticcall' is not available")
 end
 
-function __tol_host_delegatecall(addr, data)
+function __tol_host_delegatecall(addr, data, gas)
   local f = nil
   if tos ~= nil and type(tos) == "table" and type(tos.delegatecall) == "function" then
     f = tos.delegatecall
@@ -1906,7 +1939,12 @@ function __tol_host_delegatecall(addr, data)
     f = delegatecall
   end
   if f ~= nil then
-    local ok, ret = f(addr, data)
+    local ok, ret = nil, nil
+    if gas ~= nil then
+      ok, ret = f(addr, data, gas)
+    else
+      ok, ret = f(addr, data)
+    end
     if ok == nil then ok = false end
     if ret == nil then ret = "0x" end
     return ok, ret
@@ -2114,7 +2152,7 @@ function __tol_keccak256(data)
   error("host function 'keccak256' is not available")
 end
 
-function __tol_host_package_call(addr, contractName, selector, data)
+function __tol_host_package_call(addr, contractName, selector, data, gas)
   -- selector: "0xXXXXXXXX" (4-byte selector as 8 hex chars after 0x prefix)
   -- data: "0x..." ABI-encoded args, or "0x" if none
   -- Builds calldata = selector_bytes ++ data_bytes, then delegates to tos.package_call
@@ -2123,6 +2161,9 @@ function __tol_host_package_call(addr, contractName, selector, data)
   local dat_hex = (data or "0x"):sub(3)
   local calldata = "0x" .. sel_hex .. dat_hex
   if tos ~= nil and type(tos) == "table" and type(tos.package_call) == "function" then
+    if gas ~= nil then
+      return tos.package_call(addr, contractName, calldata, gas)
+    end
     return tos.package_call(addr, contractName, calldata)
   end
   error("host function 'package_call' is not available")
@@ -4817,10 +4858,9 @@ func lowerGasLeftBuiltinExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool
 // Syntax: expr{gas: G, value: V}(args)
 //
 // Supported patterns:
-//   - addr.call{gas: G, value: V}(data) → __tol_host_call(addr, V, data)
-//     (gas option is accepted but currently ignored by the host function)
-//   - addr.staticcall{gas: G}(data)     → __tol_host_staticcall(addr, data)
-//   - addr.delegatecall{gas: G}(data)   → __tol_host_delegatecall(addr, data)
+//   - addr.call{gas: G, value: V}(data) → __tol_host_call(addr, V, data, G)
+//   - addr.staticcall{gas: G}(data)     → __tol_host_staticcall(addr, data, G)
+//   - addr.delegatecall{gas: G}(data)   → __tol_host_delegatecall(addr, data, G)
 //   - addr.transfer{value: V}(to)       → __tol_host_transfer(addr, V)  [value from options]
 //
 // For unrecognized callee patterns the function returns (nil, false, nil) and
@@ -4846,8 +4886,6 @@ func lowerCallWithOptionsExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 			valueOpt = e.Options[i].Value
 		}
 	}
-	_ = gasOpt // gas option accepted but currently passed through; host handles it
-
 	addrExpr, err := tolExprToLua(ctx, callee.Object)
 	if err != nil {
 		return nil, true, err
@@ -4855,7 +4893,7 @@ func lowerCallWithOptionsExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 
 	switch member {
 	case "call":
-		// addr.call{value: V}(data) → __tol_host_call(addr, V, data)
+		// addr.call{value: V, gas: G}(data) → __tol_host_call(addr, V, data, G)
 		// The value defaults to 0 if not provided.
 		var valueExpr luast.Expr
 		if valueOpt != nil {
@@ -4874,14 +4912,22 @@ func lowerCallWithOptionsExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 		if err != nil {
 			return nil, true, err
 		}
+		args := []luast.Expr{addrExpr, valueExpr, dataExpr}
+		if gasOpt != nil {
+			gasExpr, err := tolExprToLua(ctx, gasOpt)
+			if err != nil {
+				return nil, true, err
+			}
+			args = append(args, gasExpr)
+		}
 		return withLineExpr(&luast.FuncCallExpr{
 			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_host_call"}),
-			Args:      []luast.Expr{addrExpr, valueExpr, dataExpr},
+			Args:      args,
 			AdjustRet: true,
 		}), true, nil
 
 	case "staticcall":
-		// addr.staticcall{gas: G}(data) → __tol_host_staticcall(addr, data)
+		// addr.staticcall{gas: G}(data) → __tol_host_staticcall(addr, data, G)
 		if len(e.Args) != 1 {
 			return nil, true, fmt.Errorf("[%s] addr.staticcall{...}(data) requires exactly 1 data argument", diag.CodeLowerUnsupportedFeature)
 		}
@@ -4889,14 +4935,22 @@ func lowerCallWithOptionsExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 		if err != nil {
 			return nil, true, err
 		}
+		args := []luast.Expr{addrExpr, dataExpr}
+		if gasOpt != nil {
+			gasExpr, err := tolExprToLua(ctx, gasOpt)
+			if err != nil {
+				return nil, true, err
+			}
+			args = append(args, gasExpr)
+		}
 		return withLineExpr(&luast.FuncCallExpr{
 			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_host_staticcall"}),
-			Args:      []luast.Expr{addrExpr, dataExpr},
+			Args:      args,
 			AdjustRet: true,
 		}), true, nil
 
 	case "delegatecall":
-		// addr.delegatecall{gas: G}(data) → __tol_host_delegatecall(addr, data)
+		// addr.delegatecall{gas: G}(data) → __tol_host_delegatecall(addr, data, G)
 		if len(e.Args) != 1 {
 			return nil, true, fmt.Errorf("[%s] addr.delegatecall{...}(data) requires exactly 1 data argument", diag.CodeLowerUnsupportedFeature)
 		}
@@ -4904,9 +4958,17 @@ func lowerCallWithOptionsExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 		if err != nil {
 			return nil, true, err
 		}
+		args := []luast.Expr{addrExpr, dataExpr}
+		if gasOpt != nil {
+			gasExpr, err := tolExprToLua(ctx, gasOpt)
+			if err != nil {
+				return nil, true, err
+			}
+			args = append(args, gasExpr)
+		}
 		return withLineExpr(&luast.FuncCallExpr{
 			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_host_delegatecall"}),
-			Args:      []luast.Expr{addrExpr, dataExpr},
+			Args:      args,
 			AdjustRet: true,
 		}), true, nil
 
@@ -5035,37 +5097,49 @@ func lowerHostBuiltinCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 		}
 	}
 	hostFn := ""
-	wantArity := -1
+	minArity := -1
+	maxArity := -1
 	switch name {
 	case "call":
 		hostFn = "__tol_host_call"
-		wantArity = 3
+		minArity = 3
+		maxArity = 4
 	case "staticcall":
 		hostFn = "__tol_host_staticcall"
-		wantArity = 2
+		minArity = 2
+		maxArity = 3
 	case "delegatecall":
 		hostFn = "__tol_host_delegatecall"
-		wantArity = 2
+		minArity = 2
+		maxArity = 3
 	case "create":
 		hostFn = "__tol_host_create"
-		wantArity = 2
+		minArity = 2
+		maxArity = 2
 	case "create2":
 		hostFn = "__tol_host_create2"
-		wantArity = 3
+		minArity = 3
+		maxArity = 3
 	case "createx":
 		hostFn = "__tol_host_createx"
-		wantArity = 4
+		minArity = 4
+		maxArity = 4
 	case "create2x":
 		hostFn = "__tol_host_create2x"
-		wantArity = 5
+		minArity = 5
+		maxArity = 5
 	case "transfer":
 		hostFn = "__tol_host_transfer"
-		wantArity = 2
+		minArity = 2
+		maxArity = 2
 	default:
 		return nil, false, nil
 	}
-	if len(e.Args) != wantArity {
-		return nil, true, fmt.Errorf("[%s] %s(...) requires exactly %d argument(s)", diag.CodeLowerUnsupportedFeature, name, wantArity)
+	if len(e.Args) < minArity || len(e.Args) > maxArity {
+		if minArity == maxArity {
+			return nil, true, fmt.Errorf("[%s] %s(...) requires exactly %d argument(s)", diag.CodeLowerUnsupportedFeature, name, minArity)
+		}
+		return nil, true, fmt.Errorf("[%s] %s(...) requires %d to %d argument(s)", diag.CodeLowerUnsupportedFeature, name, minArity, maxArity)
 	}
 	args := make([]luast.Expr, 0, len(e.Args))
 	for _, a := range e.Args {
@@ -6259,18 +6333,23 @@ func lowerCustomErrorRevertExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, b
 		args = append(args, arg)
 	}
 
-	// If we have the error ABI signature, emit abi.encodeWithSignature(sig, args...).
+	// If we have the error ABI signature, emit __tol_abi_encode_with_selector_v2(sel, v1, "t1", ...).
 	// This produces the standard EVM custom error encoding: 4-byte selector + ABI args.
 	if ctx != nil && ctx.env != nil {
 		if sig, ok := ctx.env.errorSigByName[name]; ok {
-			callArgs := make([]luast.Expr, 0, 1+len(args))
-			callArgs = append(callArgs, withLineExpr(&luast.StringExpr{Value: sig}))
-			callArgs = append(callArgs, args...)
-			return withLineExpr(&luast.FuncCallExpr{
-				Func:      withLineExpr(&luast.IdentExpr{Value: "abi.encodeWithSignature"}),
-				Args:      callArgs,
-				AdjustRet: true,
-			}), true, nil
+			if types, ok := ctx.env.errorTypesByName[name]; ok && len(types) == len(args) {
+				callArgs := make([]luast.Expr, 0, 1+len(args)*2)
+				callArgs = append(callArgs, withLineExpr(&luast.StringExpr{Value: selectorHexFromSignature(sig)}))
+				for i, arg := range args {
+					callArgs = append(callArgs, arg)
+					callArgs = append(callArgs, withLineExpr(&luast.StringExpr{Value: types[i]}))
+				}
+				return withLineExpr(&luast.FuncCallExpr{
+					Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_abi_encode_with_selector_v2"}),
+					Args:      callArgs,
+					AdjustRet: true,
+				}), true, nil
+			}
 		}
 	}
 

@@ -1482,6 +1482,207 @@ contract Demo {
 	}
 }
 
+func TestCompileBytecodeHostBuiltinsPassExplicitGasToTosHooks(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract Demo {
+  function run() public {
+    set c = call("0x01", 1, "0xaa", 7000);
+    set s = staticcall("0x02", "0xbb", 2300);
+    set d = delegatecall("0x03", "0xcc", 5000);
+    return;
+  }
+}
+`)
+	bc, err := CompileBytecode(src, "<tol>")
+	if err != nil {
+		t.Fatalf("unexpected compile error: %v", err)
+	}
+	L := NewState()
+	defer L.Close()
+
+	tosTable := L.NewTable()
+	L.SetField(tosTable, "call", L.NewFunction(func(L *LState) int {
+		L.SetGlobal("__call_arg1", L.CheckAny(1))
+		L.SetGlobal("__call_arg2", L.CheckAny(2))
+		L.SetGlobal("__call_arg3", L.CheckAny(3))
+		L.SetGlobal("__call_arg4", L.CheckAny(4))
+		L.Push(LBool(true))
+		L.Push(LString("0xaaaa"))
+		return 2
+	}))
+	L.SetField(tosTable, "staticcall", L.NewFunction(func(L *LState) int {
+		L.SetGlobal("__static_arg1", L.CheckAny(1))
+		L.SetGlobal("__static_arg2", L.CheckAny(2))
+		L.SetGlobal("__static_arg3", L.CheckAny(3))
+		L.Push(LBool(true))
+		L.Push(LString("0xbbbb"))
+		return 2
+	}))
+	L.SetField(tosTable, "delegatecall", L.NewFunction(func(L *LState) int {
+		L.SetGlobal("__delegate_arg1", L.CheckAny(1))
+		L.SetGlobal("__delegate_arg2", L.CheckAny(2))
+		L.SetGlobal("__delegate_arg3", L.CheckAny(3))
+		L.Push(LBool(true))
+		L.Push(LString("0xcccc"))
+		return 2
+	}))
+	L.SetGlobal("tos", tosTable)
+
+	if err := L.DoBytecode(bc); err != nil {
+		t.Fatalf("DoBytecode failed: %v", err)
+	}
+	tos := L.GetGlobal("tos")
+	oninvoke := L.GetField(tos, "oninvoke")
+	if oninvoke == LNil {
+		t.Fatalf("expected tos.oninvoke wrapper")
+	}
+
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("run()")))
+	if err := L.PCall(1, 0, nil); err != nil {
+		t.Fatalf("oninvoke call failed: %v", err)
+	}
+
+	if got := LVAsString(L.GetGlobal("__call_arg1")); got != "0x01" {
+		t.Fatalf("unexpected call() arg1: got=%s want=0x01", got)
+	}
+	if got := LVAsString(L.GetGlobal("__call_arg2")); got != "1" {
+		t.Fatalf("unexpected call() arg2: got=%s want=1", got)
+	}
+	if got := LVAsString(L.GetGlobal("__call_arg3")); got != "0xaa" {
+		t.Fatalf("unexpected call() arg3: got=%s want=0xaa", got)
+	}
+	if got := LVAsString(L.GetGlobal("__call_arg4")); got != "7000" {
+		t.Fatalf("unexpected call() gas arg: got=%s want=7000", got)
+	}
+	if got := LVAsString(L.GetGlobal("__static_arg1")); got != "0x02" {
+		t.Fatalf("unexpected staticcall() arg1: got=%s want=0x02", got)
+	}
+	if got := LVAsString(L.GetGlobal("__static_arg2")); got != "0xbb" {
+		t.Fatalf("unexpected staticcall() arg2: got=%s want=0xbb", got)
+	}
+	if got := LVAsString(L.GetGlobal("__static_arg3")); got != "2300" {
+		t.Fatalf("unexpected staticcall() gas arg: got=%s want=2300", got)
+	}
+	if got := LVAsString(L.GetGlobal("__delegate_arg1")); got != "0x03" {
+		t.Fatalf("unexpected delegatecall() arg1: got=%s want=0x03", got)
+	}
+	if got := LVAsString(L.GetGlobal("__delegate_arg2")); got != "0xcc" {
+		t.Fatalf("unexpected delegatecall() arg2: got=%s want=0xcc", got)
+	}
+	if got := LVAsString(L.GetGlobal("__delegate_arg3")); got != "5000" {
+		t.Fatalf("unexpected delegatecall() gas arg: got=%s want=5000", got)
+	}
+}
+
+func TestCompileBytecodeCallOptionsPassExplicitGasToTosHooks(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract Demo {
+  function run() public {
+    agent addr = 0x0000000000000000000000000000000000000001;
+    (bool ok1, bytes ret1) = addr.call{value: 9, gas: 7000}("0xaa");
+    (bool ok2, bytes ret2) = addr.staticcall{gas: 2300}("0xbb");
+    (bool ok3, bytes ret3) = addr.delegatecall{gas: 5000}("0xcc");
+    set c = ok1;
+    set s = ok2;
+    set d = ok3;
+    return;
+  }
+}
+`)
+	bc, err := CompileBytecode(src, "<tol>")
+	if err != nil {
+		t.Fatalf("unexpected compile error: %v", err)
+	}
+	L := NewState()
+	defer L.Close()
+
+	tosTable := L.NewTable()
+	L.SetField(tosTable, "call", L.NewFunction(func(L *LState) int {
+		L.SetGlobal("__call_opt_arg1", L.CheckAny(1))
+		L.SetGlobal("__call_opt_arg2", L.CheckAny(2))
+		L.SetGlobal("__call_opt_arg3", L.CheckAny(3))
+		L.SetGlobal("__call_opt_arg4", L.CheckAny(4))
+		L.Push(LBool(true))
+		L.Push(LString("0xaaaa"))
+		return 2
+	}))
+	L.SetField(tosTable, "staticcall", L.NewFunction(func(L *LState) int {
+		L.SetGlobal("__static_opt_arg1", L.CheckAny(1))
+		L.SetGlobal("__static_opt_arg2", L.CheckAny(2))
+		L.SetGlobal("__static_opt_arg3", L.CheckAny(3))
+		L.Push(LBool(true))
+		L.Push(LString("0xbbbb"))
+		return 2
+	}))
+	L.SetField(tosTable, "delegatecall", L.NewFunction(func(L *LState) int {
+		L.SetGlobal("__delegate_opt_arg1", L.CheckAny(1))
+		L.SetGlobal("__delegate_opt_arg2", L.CheckAny(2))
+		L.SetGlobal("__delegate_opt_arg3", L.CheckAny(3))
+		L.Push(LBool(true))
+		L.Push(LString("0xcccc"))
+		return 2
+	}))
+	L.SetGlobal("tos", tosTable)
+
+	if err := L.DoBytecode(bc); err != nil {
+		t.Fatalf("DoBytecode failed: %v", err)
+	}
+	tos := L.GetGlobal("tos")
+	oninvoke := L.GetField(tos, "oninvoke")
+	if oninvoke == LNil {
+		t.Fatalf("expected tos.oninvoke wrapper")
+	}
+
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("run()")))
+	if err := L.PCall(1, 0, nil); err != nil {
+		t.Fatalf("oninvoke call failed: %v", err)
+	}
+
+	if got := LVAsBool(L.GetGlobal("c")); !got {
+		t.Fatalf("unexpected call() first return: got=%v want=true", got)
+	}
+	if got := LVAsBool(L.GetGlobal("s")); !got {
+		t.Fatalf("unexpected staticcall() first return: got=%v want=true", got)
+	}
+	if got := LVAsBool(L.GetGlobal("d")); !got {
+		t.Fatalf("unexpected delegatecall() first return: got=%v want=true", got)
+	}
+	if got := LVAsString(L.GetGlobal("__call_opt_arg1")); got == "" {
+		t.Fatalf("unexpected empty call() addr arg")
+	}
+	if got := LVAsString(L.GetGlobal("__call_opt_arg2")); got != "9" {
+		t.Fatalf("unexpected call() value arg: got=%s want=9", got)
+	}
+	if got := LVAsString(L.GetGlobal("__call_opt_arg3")); got != "0xaa" {
+		t.Fatalf("unexpected call() data arg: got=%s want=0xaa", got)
+	}
+	if got := LVAsString(L.GetGlobal("__call_opt_arg4")); got != "7000" {
+		t.Fatalf("unexpected call() gas arg: got=%s want=7000", got)
+	}
+	if got := LVAsString(L.GetGlobal("__static_opt_arg1")); got == "" {
+		t.Fatalf("unexpected empty staticcall() addr arg")
+	}
+	if got := LVAsString(L.GetGlobal("__static_opt_arg2")); got != "0xbb" {
+		t.Fatalf("unexpected staticcall() data arg: got=%s want=0xbb", got)
+	}
+	if got := LVAsString(L.GetGlobal("__static_opt_arg3")); got != "2300" {
+		t.Fatalf("unexpected staticcall() gas arg: got=%s want=2300", got)
+	}
+	if got := LVAsString(L.GetGlobal("__delegate_opt_arg1")); got == "" {
+		t.Fatalf("unexpected empty delegatecall() addr arg")
+	}
+	if got := LVAsString(L.GetGlobal("__delegate_opt_arg2")); got != "0xcc" {
+		t.Fatalf("unexpected delegatecall() data arg: got=%s want=0xcc", got)
+	}
+	if got := LVAsString(L.GetGlobal("__delegate_opt_arg3")); got != "5000" {
+		t.Fatalf("unexpected delegatecall() gas arg: got=%s want=5000", got)
+	}
+}
+
 func TestCompileBytecodeHostBuiltinsNormalizeNilReturns(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;
@@ -1646,7 +1847,7 @@ contract Demo {
 	if !strings.Contains(err.Error(), "TOL2019") {
 		t.Fatalf("expected TOL2019 error, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "builtin 'call' expects 3 argument") {
+	if !strings.Contains(err.Error(), "builtin 'call' expects 3 to 4 argument") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -6127,6 +6328,60 @@ contract Demo {
 	}
 	if len(bc) == 0 {
 		t.Fatalf("expected non-empty bytecode for error revert contract")
+	}
+}
+
+func TestErrorDeclRevertProducesStructuredPayload(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract Demo {
+  error Unauthorized(agent caller);
+  function run(agent caller) public {
+    revert Unauthorized(caller);
+  }
+}
+`)
+	bc, err := CompileBytecode(src, "<tol>")
+	if err != nil {
+		t.Fatalf("compile error: %v", err)
+	}
+	L := NewState()
+	defer L.Close()
+	if err := L.DoBytecode(bc); err != nil {
+		t.Fatalf("DoBytecode failed: %v", err)
+	}
+
+	tos := L.GetGlobal("tos")
+	oninvoke := L.GetField(tos, "oninvoke")
+	if oninvoke == LNil {
+		t.Fatalf("expected tos.oninvoke wrapper")
+	}
+
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("run(agent)")))
+	L.Push(LString("0x000000000000000000000000000000000000000000000000000000000000beef"))
+	err = L.PCall(2, 0, nil)
+	if err == nil {
+		t.Fatalf("expected custom error revert")
+	}
+	apiErr, ok := err.(*ApiError)
+	if !ok {
+		t.Fatalf("expected ApiError, got %T", err)
+	}
+	tbl, ok := apiErr.Object.(*LTable)
+	if !ok {
+		t.Fatalf("expected revert table, got %T (%v)", apiErr.Object, apiErr.Object)
+	}
+	if got := tbl.RawGetString("selector").String(); got != "custom" {
+		t.Fatalf("unexpected selector: got=%s want=custom", got)
+	}
+	data := tbl.RawGetString("data")
+	if data == LNil {
+		t.Fatalf("expected custom error data payload")
+	}
+	wantPrefix := selectorHexFromSignature("Unauthorized(agent)")
+	if got := data.String(); !strings.HasPrefix(got, wantPrefix) {
+		t.Fatalf("unexpected custom error payload: got=%s want-prefix=%s", got, wantPrefix)
 	}
 }
 

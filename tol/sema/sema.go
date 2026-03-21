@@ -1947,40 +1947,40 @@ func isAllowedEnvField(scope, key string) bool {
 	}
 }
 
-func builtinCallArity(name string) (int, bool) {
+func builtinCallArity(name string) (int, int, bool) {
 	switch name {
 	case "call":
-		return 3, true
+		return 3, 4, true
 	case "staticcall":
-		return 2, true
+		return 2, 3, true
 	case "delegatecall":
-		return 2, true
+		return 2, 3, true
 	case "create":
-		return 2, true
+		return 2, 2, true
 	case "create2":
-		return 3, true
+		return 3, 3, true
 	case "createx":
-		return 4, true
+		return 4, 4, true
 	case "create2x":
-		return 5, true
+		return 5, 5, true
 	case "transfer":
-		return 2, true
+		return 2, 2, true
 	case "bytes_eq", "string_eq":
-		return 2, true
+		return 2, 2, true
 	case "keccak256":
-		return 1, true
+		return 1, 1, true
 	case "sha256":
-		return 1, true
+		return 1, 1, true
 	case "ripemd160":
-		return 1, true
+		return 1, 1, true
 	case "ecrecover":
-		return 4, true
+		return 4, 4, true
 	default:
 		// Integer type casts uN(expr) and iN(expr) take exactly 1 argument.
 		if isIntegerTypeCastName(name) {
-			return 1, true
+			return 1, 1, true
 		}
-		return 0, false
+		return 0, 0, false
 	}
 }
 
@@ -3615,11 +3615,17 @@ func checkExpr(contractName string, funcVis map[string]string, funcArity map[str
 		}
 		if callee != nil && callee.Kind == "ident" {
 			name := strings.TrimSpace(callee.Value)
-			if want, ok := builtinCallArity(name); ok {
-				if _, declared := funcArity[name]; !declared && len(e.Args) != want {
+			if minWant, maxWant, ok := builtinCallArity(name); ok {
+				if _, declared := funcArity[name]; !declared && (len(e.Args) < minWant || len(e.Args) > maxWant) {
+					msg := ""
+					if minWant == maxWant {
+						msg = fmt.Sprintf("builtin '%s' expects %d argument(s), got %d", name, minWant, len(e.Args))
+					} else {
+						msg = fmt.Sprintf("builtin '%s' expects %d to %d argument(s), got %d", name, minWant, maxWant, len(e.Args))
+					}
 					*diags = append(*diags, diag.Diagnostic{
 						Code:    diag.CodeSemaCallArity,
-						Message: fmt.Sprintf("builtin '%s' expects %d argument(s), got %d", name, want, len(e.Args)),
+						Message: msg,
 						Span:    defaultSpan(filename),
 					})
 				}

@@ -3,8 +3,8 @@
   "package_name": "tolang.stdlib.authority",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x069f731b5a5d345d62db1033bb5752de7729fe19d2639943595bf38f2d0ab8e8",
-    "bytecode_hash": "0x6e154bf6350f37199cd303f279e2cbbc2d5b87f2ef84e228e1c1098f736d2cb3",
+    "package_hash": "0x0c0083ebe5d6c76be2e1b68f7bbb98231a922b7159b404d072e7a0fd6e4b7f3b",
+    "bytecode_hash": "0x1243baea2783eee6db78ff6ac723f2dbdefd66f57a1f8707342d55beb5660065",
     "source_hash": "0x0bf4b02622cac7f149e8261d8e4baa013622cdffa35ea6bd900ef35fdae6515b",
     "abi_hash": "0xfdb654445d39b524f93f5b65eed60cd0b84cba1c161079bb3faa376ffc2282aa",
     "version": "1.0.0"

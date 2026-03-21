@@ -3,8 +3,8 @@
   "package_name": "tolang.stdlib.privacy.confidential_escrow",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0xd77b207f847ce8e04266abb55dddcecb0fc518689a7341098c0bbbc9848375df",
-    "bytecode_hash": "0x4f95dcc46c8c3202e351eef35b255f1717acd0f0c7cc8195df2154ff57a30b52",
+    "package_hash": "0xad5ea5b8531180d36756432429b854632fc0d5ca73678c9fb4d0bf2efda5e4be",
+    "bytecode_hash": "0x4b0106fd38bf4f5f823af4191265ba8e1b5737e16b148df69adef9f91a95277d",
     "source_hash": "0x55729962310a3de3ff3373d60d4a1f4cf2023a51f0db3d41593d146df8ca0af9",
     "abi_hash": "0x6adb85ecc6b851186e86e29a661bcf80f6466d7aa55da23f053c981f8fdf11a9",
     "version": "1.0.0"

@@ -2432,7 +2432,7 @@ contract BadCap {
     /// @requires(caller: UnknownCap)
     function guarded() public view returns (u256 result) {
         return 1;
-    }
+	}
 }
 `)
 	_, err := CompileArtifact(source, "BadCap")
@@ -2442,6 +2442,50 @@ contract BadCap {
 	errMsg := err.Error()
 	if !strings.Contains(errMsg, "TOL2302") && !strings.Contains(errMsg, "undeclared capability") {
 		t.Fatalf("expected error about undeclared capability (TOL2302), got: %s", errMsg)
+	}
+}
+
+func TestRequiresCapabilityInvalidKeyRejected(t *testing.T) {
+	cases := []struct {
+		name   string
+		source string
+	}{
+		{
+			name: "doc_comment_key",
+			source: `pragma tolang 0.4.0;
+contract BadCapDoc {
+    capability AdminCap;
+    /// @requires(foo: AdminCap)
+    function guarded() public view returns (u256 result) {
+        return 1;
+    }
+}
+`,
+		},
+		{
+			name: "attribute_key",
+			source: `pragma tolang 0.4.0;
+contract BadCapAttr {
+    capability AdminCap;
+    @requires(foo: AdminCap)
+    function guarded() public view returns (u256 result) {
+        return 1;
+    }
+}
+`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := CompileArtifact([]byte(tc.source), "")
+			if err == nil {
+				t.Fatal("expected compilation error for invalid @requires key, got nil")
+			}
+			errMsg := err.Error()
+			if !strings.Contains(errMsg, "@requires only supports 'caller: CapName'") {
+				t.Fatalf("expected invalid @requires key error, got: %s", errMsg)
+			}
+		})
 	}
 }
 
@@ -2459,6 +2503,10 @@ contract GuardedContract {
 }
 `)
 	L, tos, host := deployStdlibSourceContract(t, source, "<GuardedContract.tol>")
+	runtimeBC, err := CompileBytecode(source, "<GuardedContract.tol>")
+	if err != nil {
+		t.Fatalf("CompileBytecode: %v", err)
+	}
 
 	// open() should succeed without any capability hook.
 	if got := LVAsString(invokeStdlib(t, L, tos, "open()")); got != "1" {
@@ -2471,13 +2519,31 @@ contract GuardedContract {
 		t.Fatalf("secret() without hook: expected CapabilityDenied, got: %s", errMsg)
 	}
 
-	// Install tos.hascapability that always grants.
+	// Install tos.hascapability that always grants. Without capabilitybit,
+	// the check must still fail closed instead of silently mapping to bit 0.
 	L.SetField(host.tosTable, "hascapability", L.NewFunction(func(L *LState) int {
-		// caller := LVAsString(L.CheckAny(1))
-		// capName := LVAsString(L.CheckAny(2))
 		L.Push(LTrue) // always grant
 		return 1
 	}))
+
+	errMsg = invokeStdlibErr(t, L, tos, "secret()")
+	if !strings.Contains(errMsg, "CapabilityDenied") {
+		t.Fatalf("secret() without capabilitybit: expected CapabilityDenied, got: %s", errMsg)
+	}
+
+	// Install capabilitybit and ensure bit 0 still works as a valid capability.
+	L.SetField(host.tosTable, "capabilitybit", L.NewFunction(func(L *LState) int {
+		if LVAsString(L.CheckAny(1)) != "OwnerCap" {
+			L.Push(LNil)
+			return 1
+		}
+		L.Push(lu256FromInt(0))
+		return 1
+	}))
+	if err := L.DoBytecode(runtimeBC); err != nil {
+		t.Fatalf("reload runtime with capabilitybit: %v", err)
+	}
+	tos = L.GetGlobal("tos")
 
 	// secret() should succeed now.
 	if got := LVAsString(invokeStdlib(t, L, tos, "secret()")); got != "99" {

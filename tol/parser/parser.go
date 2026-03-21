@@ -2090,19 +2090,20 @@ func (p *Parser) parseFunctionAttributes() (string, bool) {
 			// @requires(caller: CapName) — add to pendingDoc.
 			if hasParen {
 				rawArgs := p.collectAttrArgs()
-				// Parse: "caller:CapName" or "caller: CapName"
-				rawArgs = strings.TrimSpace(rawArgs)
-				if strings.HasPrefix(rawArgs, "caller") {
-					rest := strings.TrimSpace(strings.TrimPrefix(rawArgs, "caller"))
-					rest = strings.TrimPrefix(rest, ":")
-					rest = strings.TrimPrefix(rest, "=")
-					capName := strings.TrimSpace(rest)
-					if capName != "" {
-						if p.pendingDoc == nil {
-							p.pendingDoc = &ast.DocMeta{}
-						}
-						p.pendingDoc.RequiresCap = append(p.pendingDoc.RequiresCap, capName)
+				caps, err := parseRequiresArgs(rawArgs)
+				if err != nil {
+					p.addDiag(diag.Diagnostic{
+						Code:    diag.CodeParseUnexpected,
+						Message: err.Error(),
+						Span:    p.span(attrName),
+					})
+					continue
+				}
+				if len(caps) > 0 {
+					if p.pendingDoc == nil {
+						p.pendingDoc = &ast.DocMeta{}
 					}
+					p.pendingDoc.RequiresCap = append(p.pendingDoc.RequiresCap, caps...)
 				}
 			}
 			continue
@@ -5656,7 +5657,16 @@ func (p *Parser) next() {
 			break
 		}
 		// Accumulate consecutive doc-comment tokens into pendingDoc.
-		parsed := parseDocMeta(p.cur.Literal)
+		parsed, parsedDiags := parseDocMeta(p.cur.Literal)
+		for _, d := range parsedDiags {
+			if d.Span.File == "" {
+				d.Span = p.span(p.cur)
+			}
+			p.addDiag(d)
+		}
+		if parsed == nil {
+			continue
+		}
 		if p.pendingDoc == nil {
 			p.pendingDoc = parsed
 		} else {
@@ -5760,8 +5770,9 @@ func (p *Parser) clearPendingDocOnNonDecl() {
 
 // parseDocMeta parses the raw text of a TokenDocComment into a *ast.DocMeta.
 // Handles both /// and /** */ style raw literals.
-func parseDocMeta(raw string) *ast.DocMeta {
+func parseDocMeta(raw string) (*ast.DocMeta, diag.Diagnostics) {
 	meta := &ast.DocMeta{}
+	var diags diag.Diagnostics
 	lines := strings.Split(raw, "\n")
 	for _, line := range lines {
 		// Strip /// prefix or block-comment decoration (* prefix).
@@ -5810,7 +5821,15 @@ func parseDocMeta(raw string) *ast.DocMeta {
 		case "gas":
 			parseGasTag(meta, stripOuterParens(rest))
 		case "requires":
-			parseRequiresTag(meta, rest)
+			caps, err := parseRequiresArgs(rest)
+			if err != nil {
+				diags = append(diags, diag.Diagnostic{
+					Code:    diag.CodeParseUnexpected,
+					Message: err.Error(),
+				})
+			} else {
+				meta.RequiresCap = append(meta.RequiresCap, caps...)
+			}
 		case "pay":
 			parsePayTag(meta, rest)
 		case "delegated":
@@ -5829,9 +5848,9 @@ func parseDocMeta(raw string) *ast.DocMeta {
 		len(meta.RequiresCap) == 0 && !meta.Delegated && !meta.Verifiable &&
 		!meta.HasPay && meta.PayAmount == "" &&
 		meta.QuotaCalls == "" && meta.TotalCostMax == "" {
-		return nil
+		return nil, diags
 	}
-	return meta
+	return meta, diags
 }
 
 // stripOuterParens removes surrounding parentheses if present.
@@ -6078,27 +6097,41 @@ func parseGasTag(meta *ast.DocMeta, rest string) {
 	}
 }
 
-// parseRequiresTag parses "@requires(caller: X)" into meta.RequiresCap.
-// Multiple @requires lines accumulate capability names.
-func parseRequiresTag(meta *ast.DocMeta, rest string) {
+// parseRequiresArgs parses "@requires(caller: X)" into capability names.
+// Multiple @requires lines accumulate via repeated calls, not comma lists.
+func parseRequiresArgs(rest string) ([]string, error) {
 	// rest is like "(caller: CapName)" or "caller: CapName"
 	s := strings.TrimSpace(rest)
 	s = strings.TrimPrefix(s, "(")
 	s = strings.TrimSuffix(s, ")")
-	colonIdx := strings.Index(s, ":")
-	if colonIdx < 0 {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, fmt.Errorf("@requires requires a capability name")
+	}
+	key := ""
+	val := ""
+	if lhs, rhs, ok := strings.Cut(s, ":"); ok {
+		key = strings.TrimSpace(lhs)
+		val = strings.TrimSpace(rhs)
+	} else if lhs, rhs, ok := strings.Cut(s, "="); ok {
+		key = strings.TrimSpace(lhs)
+		val = strings.TrimSpace(rhs)
+	}
+	if key == "" {
 		// bare name: @requires CapName
 		name := strings.TrimSpace(s)
-		if name != "" {
-			meta.RequiresCap = append(meta.RequiresCap, name)
+		if name == "" {
+			return nil, fmt.Errorf("@requires requires a capability name")
 		}
-		return
+		return []string{name}, nil
 	}
-	// key: value — key should be "caller"
-	val := strings.TrimSpace(s[colonIdx+1:])
-	if val != "" {
-		meta.RequiresCap = append(meta.RequiresCap, val)
+	if key != "caller" {
+		return nil, fmt.Errorf("@requires only supports 'caller: CapName'")
 	}
+	if val == "" {
+		return nil, fmt.Errorf("@requires(caller: ...) requires a capability name")
+	}
+	return []string{val}, nil
 }
 
 // parsePayTag parses "@pay(...)" into meta.PayAmount / PayRecipient.

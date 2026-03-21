@@ -946,7 +946,7 @@ func buildAgentNativePrelude(p *lower.Program) ([]luast.Stmt, error) {
 	// 1. Capability bit locals.
 	for _, cap := range p.Capabilities {
 		luaName := "__tol_cap_" + cap
-		sb.WriteString(fmt.Sprintf("local %s = tos and type(tos.capabilitybit)==\"function\" and tos.capabilitybit(%q) or 0\n", luaName, cap))
+		sb.WriteString(fmt.Sprintf("local %s = tos and type(tos.capabilitybit)==\"function\" and tos.capabilitybit(%q) or nil\n", luaName, cap))
 	}
 
 	// 2. Purpose ordinal locals.
@@ -2943,7 +2943,8 @@ func buildRequiresCapPreamble(caps []string) ([]luast.Stmt, error) {
 	for _, cap := range caps {
 		luaCapVar := "__tol_cap_" + cap
 		sb.WriteString(fmt.Sprintf(
-			"if not (tos and type(tos.hascapability)==\"function\" and tos.hascapability(msg.sender, %s)) then error(%q) end\n",
+			"if not (%s ~= nil and tos and type(tos.hascapability)==\"function\" and tos.hascapability(msg.sender, %s)) then error(%q) end\n",
+			luaCapVar,
 			luaCapVar, "CapabilityDenied:"+cap,
 		))
 	}

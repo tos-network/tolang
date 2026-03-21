@@ -83,6 +83,13 @@
         "payable": false,
         "delegated": false,
         "verifiable": false,
+        "failure_modes": [
+          {
+            "name": "Error",
+            "kind": "error",
+            "selector": "0x08c379a0"
+          }
+        ],
         "summary": "Pure computation with no state access"
       },
       {
@@ -92,6 +99,13 @@
         "payable": false,
         "delegated": false,
         "verifiable": false,
+        "failure_modes": [
+          {
+            "name": "Error",
+            "kind": "error",
+            "selector": "0x08c379a0"
+          }
+        ],
         "summary": "Pure computation with no state access"
       },
       {
@@ -101,6 +115,13 @@
         "payable": false,
         "delegated": false,
         "verifiable": false,
+        "failure_modes": [
+          {
+            "name": "Error",
+            "kind": "error",
+            "selector": "0x08c379a0"
+          }
+        ],
         "summary": "Pure computation with no state access"
       },
       {
@@ -110,6 +131,13 @@
         "payable": false,
         "delegated": false,
         "verifiable": false,
+        "failure_modes": [
+          {
+            "name": "Error",
+            "kind": "error",
+            "selector": "0x08c379a0"
+          }
+        ],
         "summary": "Pure computation with no state access"
       },
       {

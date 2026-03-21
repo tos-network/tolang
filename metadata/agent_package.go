@@ -14,6 +14,7 @@ type AgentPackageInfo struct {
 	PackageName    string              `json:"package_name"`
 	PackageVersion string              `json:"package_version"`
 	ArtifactRef    ArtifactRef         `json:"artifact_ref"`
+	Errors         []ErrorMeta         `json:"errors,omitempty"`
 	Capabilities   *CapabilityManifest `json:"capabilities"`
 	Discovery      *DiscoveryManifest  `json:"discovery"`
 	HumanSummary   string              `json:"human_summary"`
@@ -37,6 +38,7 @@ func BuildAgentPackageInfo(meta *ContractMetadata, packageName string) *AgentPac
 		PackageName:    packageName,
 		PackageVersion: version,
 		ArtifactRef:    meta.ArtifactRef,
+		Errors:         meta.Errors,
 		Capabilities:   capManifest,
 		Discovery:      discManifest,
 		HumanSummary:   summary.RiskSummary,

@@ -14,9 +14,10 @@ type DiscoveryManifest struct {
 	PackageName      string            `json:"package_name"`
 	PackageVersion   string            `json:"package_version"`
 	ArtifactRef      ArtifactRef       `json:"artifact_ref"`
-	ContractType     string            `json:"contract_type"`  // "token", "policy_wallet", "task_escrow", "oracle", "payment", "delegation", "custom"
-	ServiceKinds     []string          `json:"service_kinds"`  // what discovery service kinds this supports
+	ContractType     string            `json:"contract_type"` // "token", "policy_wallet", "task_escrow", "oracle", "payment", "delegation", "custom"
+	ServiceKinds     []string          `json:"service_kinds"` // what discovery service kinds this supports
 	Capabilities     []string          `json:"capabilities"`
+	Errors           []ErrorMeta       `json:"errors,omitempty"`
 	InterfaceMethods []DiscoveryMethod `json:"interface_methods"`
 	PolicyProfile    *PolicyProfile    `json:"policy_profile,omitempty"`
 	HumanSummary     string            `json:"human_summary"`
@@ -25,13 +26,14 @@ type DiscoveryManifest struct {
 
 // DiscoveryMethod describes a single method in the discovery manifest.
 type DiscoveryMethod struct {
-	Name       string `json:"name"`
-	Selector   string `json:"selector"`
-	RiskLevel  string `json:"risk_level"`
-	Payable    bool   `json:"payable"`
-	Delegated  bool   `json:"delegated"`
-	Verifiable bool   `json:"verifiable"`
-	Summary    string `json:"summary"`
+	Name         string        `json:"name"`
+	Selector     string        `json:"selector"`
+	RiskLevel    string        `json:"risk_level"`
+	Payable      bool          `json:"payable"`
+	Delegated    bool          `json:"delegated"`
+	Verifiable   bool          `json:"verifiable"`
+	FailureModes []FailureMode `json:"failure_modes,omitempty"`
+	Summary      string        `json:"summary"`
 }
 
 // BuildDiscoveryManifest creates a discovery manifest from contract metadata.
@@ -41,6 +43,7 @@ func BuildDiscoveryManifest(meta *ContractMetadata, packageName string) *Discove
 		PackageName:   packageName,
 		ArtifactRef:   meta.ArtifactRef,
 		Capabilities:  meta.Capabilities,
+		Errors:        meta.Errors,
 		PolicyProfile: meta.PolicyProfile,
 	}
 
@@ -58,13 +61,14 @@ func BuildDiscoveryManifest(meta *ContractMetadata, packageName string) *Discove
 			continue
 		}
 		dm.InterfaceMethods = append(dm.InterfaceMethods, DiscoveryMethod{
-			Name:       fn.Name,
-			Selector:   fn.Selector,
-			RiskLevel:  fn.RiskLevel,
-			Payable:    fn.Mutability == "payable",
-			Delegated:  fn.Delegated,
-			Verifiable: fn.Verifiable,
-			Summary:    GenerateFunctionDescription(fn),
+			Name:         fn.Name,
+			Selector:     fn.Selector,
+			RiskLevel:    fn.RiskLevel,
+			Payable:      fn.Mutability == "payable",
+			Delegated:    fn.Delegated,
+			Verifiable:   fn.Verifiable,
+			FailureModes: fn.FailureModes,
+			Summary:      GenerateFunctionDescription(fn),
 		})
 	}
 

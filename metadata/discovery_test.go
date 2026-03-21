@@ -22,6 +22,10 @@ func TestBuildDiscoveryManifest(t *testing.T) {
 				Mutability: "payable",
 				Verifiable: true,
 				RiskLevel:  "high",
+				FailureModes: []FailureMode{
+					{Name: "Error", Kind: "error", Selector: "0x08c379a0"},
+					{Name: "InsufficientBalance", Kind: "custom", Selector: "0xcf479181"},
+				},
 				Effects: &EffectsMeta{
 					Reads:  []string{"balances"},
 					Writes: []string{"balances"},
@@ -47,6 +51,9 @@ func TestBuildDiscoveryManifest(t *testing.T) {
 			Version: "1.0.0",
 			Spec:    "TRC-20",
 		},
+		Errors: []ErrorMeta{
+			{Name: "InsufficientBalance", Kind: "custom", Selector: "0xcf479181"},
+		},
 		Capabilities: []string{"token_send"},
 	}
 
@@ -70,6 +77,12 @@ func TestBuildDiscoveryManifest(t *testing.T) {
 	}
 	if dm.InterfaceMethods[0].Name != "transfer" {
 		t.Errorf("InterfaceMethods[0].Name = %q, want %q", dm.InterfaceMethods[0].Name, "transfer")
+	}
+	if len(dm.InterfaceMethods[0].FailureModes) != 2 {
+		t.Fatalf("len(InterfaceMethods[0].FailureModes) = %d, want 2", len(dm.InterfaceMethods[0].FailureModes))
+	}
+	if len(dm.Errors) != 1 || dm.Errors[0].Name != "InsufficientBalance" {
+		t.Fatalf("Errors = %+v, want one InsufficientBalance entry", dm.Errors)
 	}
 	if !dm.InterfaceMethods[0].Payable {
 		t.Error("expected transfer to be payable")

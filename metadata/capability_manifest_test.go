@@ -215,6 +215,9 @@ func TestBuildAgentPackageInfo(t *testing.T) {
 				Visibility: "external",
 				Mutability: "payable",
 				Verifiable: true,
+				FailureModes: []FailureMode{
+					{Name: "Error", Kind: "error", Selector: "0x08c379a0"},
+				},
 			},
 			{
 				Name:       "acceptTask",
@@ -225,6 +228,9 @@ func TestBuildAgentPackageInfo(t *testing.T) {
 		},
 		Manifest: &ManifestMeta{
 			Version: "2.0.0",
+		},
+		Errors: []ErrorMeta{
+			{Name: "TaskClosed", Kind: "custom", Selector: "0x12345678"},
 		},
 		Capabilities: []string{"task_management"},
 	}
@@ -245,6 +251,12 @@ func TestBuildAgentPackageInfo(t *testing.T) {
 	}
 	if pkg.ArtifactRef.PackageHash != "0xaabb" {
 		t.Errorf("ArtifactRef.PackageHash = %q, want 0xaabb", pkg.ArtifactRef.PackageHash)
+	}
+	if len(pkg.Errors) != 1 || pkg.Errors[0].Name != "TaskClosed" {
+		t.Fatalf("Errors = %+v, want one TaskClosed entry", pkg.Errors)
+	}
+	if len(pkg.Discovery.InterfaceMethods) == 0 || len(pkg.Discovery.InterfaceMethods[0].FailureModes) != 1 {
+		t.Fatalf("Discovery failure modes missing: %+v", pkg.Discovery.InterfaceMethods)
 	}
 }
 

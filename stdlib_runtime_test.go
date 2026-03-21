@@ -1692,3 +1692,391 @@ func TestConfidentialEscrowRuntimeOpenReleaseRefundAndReclaim(t *testing.T) {
 		t.Fatalf("nativeBalance alice after reclaim: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(35)))
 	}
 }
+
+func TestConfidentialPaymentRuntimeSingleBatchReleaseAndRefund(t *testing.T) {
+	paymentOne := stdlibBytes32("1")
+	paymentTwo := stdlibBytes32("2")
+	batchOne := stdlibBytes32("3")
+	batchTwo := stdlibBytes32("4")
+	receiptOne := stdlibBytes32("5")
+	receiptTwo := stdlibBytes32("6")
+	receiptThree := stdlibBytes32("7")
+	receiptFour := stdlibBytes32("8")
+	settlementOne := stdlibBytes32("9")
+	settlementTwo := stdlibBytes32("a")
+	reasonOne := stdlibBytes32("b")
+	reasonTwo := stdlibBytes32("c")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/privacy/ConfidentialPayment.tol", LString(charlie))
+	defer L.Close()
+
+	stdlibSetSender(host, alice)
+	stdlibSetUnoValue(host, stdlibUnoFromInt(40))
+	invokeStdlib(t, L, tos, "pay(bytes32,agent,bytes32)", LString(paymentOne), LString(bob), LString(receiptOne))
+	stdlibSetUnoValue(host, stdlibUnoFromInt(0))
+	if got := LVAsString(invokeStdlib(t, L, tos, "statusOf(bytes32)", LString(paymentOne))); got != "1" {
+		t.Fatalf("status payment one after pay: got=%s want=1", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "payerOf(bytes32)", LString(paymentOne))); got != alice {
+		t.Fatalf("payerOf payment one: got=%s want=%s", got, alice)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "payeeOf(bytes32)", LString(paymentOne))); got != bob {
+		t.Fatalf("payeeOf payment one: got=%s want=%s", got, bob)
+	}
+
+	stdlibSetSender(host, bob)
+	errMsg := invokeStdlibErr(t, L, tos, "releasePayment(bytes32,bytes32)", LString(paymentOne), LString(settlementOne))
+	if !strings.Contains(errMsg, "NOT_COORDINATOR") {
+		t.Fatalf("expected NOT_COORDINATOR, got %q", errMsg)
+	}
+
+	stdlibSetSender(host, charlie)
+	invokeStdlib(t, L, tos, "releasePayment(bytes32,bytes32)", LString(paymentOne), LString(settlementOne))
+	if got := LVAsString(invokeStdlib(t, L, tos, "statusOf(bytes32)", LString(paymentOne))); got != "2" {
+		t.Fatalf("status payment one after release: got=%s want=2", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "nativeBalance(agent)", LString(bob))); got != LVAsString(stdlibUnoFromInt(40)) {
+		t.Fatalf("nativeBalance bob after payment release: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(40)))
+	}
+
+	stdlibSetSender(host, alice)
+	stdlibSetUnoValue(host, stdlibUnoFromInt(15))
+	invokeStdlib(t, L, tos, "pay(bytes32,agent,bytes32)", LString(paymentTwo), LString(bob), LString(receiptTwo))
+	stdlibSetUnoValue(host, stdlibUnoFromInt(0))
+	stdlibSetSender(host, charlie)
+	invokeStdlib(t, L, tos, "refund(bytes32,bytes32)", LString(paymentTwo), LString(reasonOne))
+	if got := LVAsString(invokeStdlib(t, L, tos, "statusOf(bytes32)", LString(paymentTwo))); got != "3" {
+		t.Fatalf("status payment two after refund: got=%s want=3", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "nativeBalance(agent)", LString(alice))); got != LVAsString(stdlibUnoFromInt(15)) {
+		t.Fatalf("nativeBalance alice after payment refund: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(15)))
+	}
+
+	stdlibSetSender(host, alice)
+	stdlibSetUnoValue(host, stdlibUnoFromInt(30))
+	invokeStdlib(t, L, tos, "batchPay(bytes32,bytes32)", LString(batchOne), LString(receiptThree))
+	stdlibSetUnoValue(host, stdlibUnoFromInt(0))
+	stdlibSetSender(host, charlie)
+	invokeStdlib(t, L, tos, "addPayee(bytes32,agent,uno)", LString(batchOne), LString(bob), stdlibUnoFromInt(10))
+	invokeStdlib(t, L, tos, "addPayee(bytes32,agent,uno)", LString(batchOne), LString(stdlibMerchant), stdlibUnoFromInt(20))
+	invokeStdlib(t, L, tos, "releaseBatch(bytes32,bytes32)", LString(batchOne), LString(settlementTwo))
+	if got := LVAsString(invokeStdlib(t, L, tos, "batchStatusOf(bytes32)", LString(batchOne))); got != "2" {
+		t.Fatalf("batchStatus batch one after release: got=%s want=2", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "nativeBalance(agent)", LString(bob))); got != LVAsString(stdlibUnoFromInt(50)) {
+		t.Fatalf("nativeBalance bob after batch release: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(50)))
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "nativeBalance(agent)", LString(stdlibMerchant))); got != LVAsString(stdlibUnoFromInt(20)) {
+		t.Fatalf("nativeBalance merchant after batch release: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(20)))
+	}
+
+	stdlibSetSender(host, alice)
+	stdlibSetUnoValue(host, stdlibUnoFromInt(25))
+	invokeStdlib(t, L, tos, "batchPay(bytes32,bytes32)", LString(batchTwo), LString(receiptFour))
+	stdlibSetUnoValue(host, stdlibUnoFromInt(0))
+	stdlibSetSender(host, charlie)
+	invokeStdlib(t, L, tos, "addPayee(bytes32,agent,uno)", LString(batchTwo), LString(bob), stdlibUnoFromInt(10))
+	errMsg = invokeStdlibErr(t, L, tos, "releaseBatch(bytes32,bytes32)", LString(batchTwo), LString(settlementTwo))
+	if !strings.Contains(errMsg, "BATCH_TOTAL_MISMATCH") {
+		t.Fatalf("expected BATCH_TOTAL_MISMATCH, got %q", errMsg)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "batchStatusOf(bytes32)", LString(batchTwo))); got != "1" {
+		t.Fatalf("batchStatus batch two after failed release: got=%s want=1", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "nativeBalance(agent)", LString(bob))); got != LVAsString(stdlibUnoFromInt(50)) {
+		t.Fatalf("nativeBalance bob should be unchanged after failed batch release: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(50)))
+	}
+	invokeStdlib(t, L, tos, "refundBatch(bytes32,bytes32)", LString(batchTwo), LString(reasonTwo))
+	if got := LVAsString(invokeStdlib(t, L, tos, "batchStatusOf(bytes32)", LString(batchTwo))); got != "3" {
+		t.Fatalf("batchStatus batch two after refund: got=%s want=3", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "nativeBalance(agent)", LString(alice))); got != LVAsString(stdlibUnoFromInt(40)) {
+		t.Fatalf("nativeBalance alice after batch refund: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(40)))
+	}
+}
+
+func TestConfidentialTreasuryRuntimeSignerSpendAndAuditorLifecycle(t *testing.T) {
+	spendOne := stdlibBytes32("1")
+	spendTwo := stdlibBytes32("2")
+	purposeOne := stdlibBytes32("3")
+	purposeTwo := stdlibBytes32("4")
+	settlementRef := stdlibBytes32("5")
+	disclosureRef := stdlibBytes32("6")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/privacy/ConfidentialTreasury.tol", LString(alice))
+	defer L.Close()
+
+	stdlibSetSender(host, alice)
+	stdlibSetUnoValue(host, stdlibUnoFromInt(100))
+	invokeStdlib(t, L, tos, "deposit()")
+	stdlibSetUnoValue(host, stdlibUnoFromInt(0))
+	if got := LVAsString(invokeStdlib(t, L, tos, "totalBalance()")); got != LVAsString(stdlibUnoFromInt(100)) {
+		t.Fatalf("totalBalance after deposit: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(100)))
+	}
+
+	invokeStdlib(t, L, tos, "addSigner(agent)", LString(bob))
+	if got := invokeStdlib(t, L, tos, "isSigner(agent)", LString(bob)); !LVAsBool(got) {
+		t.Fatal("bob should be an authorized signer")
+	}
+
+	stdlibSetSender(host, bob)
+	invokeStdlib(t, L, tos, "authorizeSpend(bytes32,agent,uno,bytes32)", LString(spendOne), LString(charlie), stdlibUnoFromInt(30), LString(purposeOne))
+	if got := LVAsString(invokeStdlib(t, L, tos, "spendStatusOf(bytes32)", LString(spendOne))); got != "1" {
+		t.Fatalf("spendStatus spend one after authorize: got=%s want=1", got)
+	}
+
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "executeSpend(bytes32,bytes32)", LString(spendOne), LString(settlementRef))
+	if got := LVAsString(invokeStdlib(t, L, tos, "spendStatusOf(bytes32)", LString(spendOne))); got != "2" {
+		t.Fatalf("spendStatus spend one after execute: got=%s want=2", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "totalBalance()")); got != LVAsString(stdlibUnoFromInt(70)) {
+		t.Fatalf("totalBalance after execute: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(70)))
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "nativeBalance(agent)", LString(charlie))); got != LVAsString(stdlibUnoFromInt(30)) {
+		t.Fatalf("nativeBalance charlie after execute: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(30)))
+	}
+
+	stdlibSetSender(host, bob)
+	invokeStdlib(t, L, tos, "authorizeSpend(bytes32,agent,uno,bytes32)", LString(spendTwo), LString(stdlibMerchant), stdlibUnoFromInt(10), LString(purposeTwo))
+	invokeStdlib(t, L, tos, "cancelSpend(bytes32)", LString(spendTwo))
+	if got := LVAsString(invokeStdlib(t, L, tos, "spendStatusOf(bytes32)", LString(spendTwo))); got != "3" {
+		t.Fatalf("spendStatus spend two after cancel: got=%s want=3", got)
+	}
+
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "authorizeAuditor(agent,bytes32)", LString(stdlibService), LString(disclosureRef))
+	if got := invokeStdlib(t, L, tos, "canAudit(agent)", LString(stdlibService)); !LVAsBool(got) {
+		t.Fatal("auditor should be authorized")
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "disclosureRefOf(agent)", LString(stdlibService))); got != disclosureRef {
+		t.Fatalf("disclosureRefOf: got=%s want=%s", got, disclosureRef)
+	}
+	invokeStdlib(t, L, tos, "revokeAuditor(agent)", LString(stdlibService))
+	if got := invokeStdlib(t, L, tos, "canAudit(agent)", LString(stdlibService)); LVAsBool(got) {
+		t.Fatal("auditor should be revoked")
+	}
+}
+
+func TestConfidentialAllowanceRuntimeApproveTransferAndExpiry(t *testing.T) {
+	receiptRef := stdlibBytes32("1")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/privacy/ConfidentialAllowance.tol")
+	defer L.Close()
+
+	stdlibSetSender(host, alice)
+	stdlibSetUnoValue(host, stdlibUnoFromInt(60))
+	invokeStdlib(t, L, tos, "deposit()")
+	stdlibSetUnoValue(host, stdlibUnoFromInt(0))
+	if got := LVAsString(invokeStdlib(t, L, tos, "balanceOf(agent)", LString(alice))); got != LVAsString(stdlibUnoFromInt(60)) {
+		t.Fatalf("balanceOf alice after deposit: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(60)))
+	}
+
+	stdlibSetTimestamp(host, 100)
+	invokeStdlib(t, L, tos, "approve(agent,uno,u256)", LString(bob), stdlibUnoFromInt(25), lu256FromInt(150))
+	if got := invokeStdlib(t, L, tos, "isApproved(agent,agent)", LString(alice), LString(bob)); !LVAsBool(got) {
+		t.Fatal("approval should be active before expiry")
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "allowanceOf(agent,agent)", LString(alice), LString(bob))); got != LVAsString(stdlibUnoFromInt(25)) {
+		t.Fatalf("allowanceOf before spend: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(25)))
+	}
+
+	stdlibSetSender(host, bob)
+	invokeStdlib(t, L, tos, "transferFrom(agent,agent,uno,bytes32)", LString(alice), LString(charlie), stdlibUnoFromInt(10), LString(receiptRef))
+	if got := LVAsString(invokeStdlib(t, L, tos, "balanceOf(agent)", LString(alice))); got != LVAsString(stdlibUnoFromInt(50)) {
+		t.Fatalf("balanceOf alice after transferFrom: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(50)))
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "balanceOf(agent)", LString(charlie))); got != LVAsString(stdlibUnoFromInt(10)) {
+		t.Fatalf("balanceOf charlie after transferFrom: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(10)))
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "allowanceOf(agent,agent)", LString(alice), LString(bob))); got != LVAsString(stdlibUnoFromInt(15)) {
+		t.Fatalf("allowanceOf after transferFrom: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(15)))
+	}
+
+	stdlibSetTimestamp(host, 151)
+	if got := invokeStdlib(t, L, tos, "isApproved(agent,agent)", LString(alice), LString(bob)); LVAsBool(got) {
+		t.Fatal("approval should be inactive after expiry")
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "allowanceOf(agent,agent)", LString(alice), LString(bob))); got != LVAsString(stdlibUnoFromInt(0)) {
+		t.Fatalf("allowanceOf after expiry: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(0)))
+	}
+	errMsg := invokeStdlibErr(t, L, tos, "transferFrom(agent,agent,uno,bytes32)", LString(alice), LString(charlie), stdlibUnoFromInt(1), LString(receiptRef))
+	if !strings.Contains(errMsg, "ALLOWANCE_EXPIRED") {
+		t.Fatalf("expected ALLOWANCE_EXPIRED, got %q", errMsg)
+	}
+}
+
+func TestAuditorDisclosureBookRuntimeExpiryAndSnapshots(t *testing.T) {
+	scopeRef := stdlibBytes32("1")
+	snapshotID := stdlibBytes32("2")
+	dataRef := stdlibBytes32("3")
+	proofRefOne := stdlibBytes32("4")
+	proofRefTwo := stdlibBytes32("5")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/privacy/AuditorDisclosureBook.tol", LString(alice))
+	defer L.Close()
+
+	stdlibSetSender(host, alice)
+	stdlibSetTimestamp(host, 100)
+	invokeStdlib(t, L, tos, "authorizeAuditor(agent,bytes32,u256)", LString(bob), LString(scopeRef), lu256FromInt(150))
+	if got := invokeStdlib(t, L, tos, "isAuthorized(agent)", LString(bob)); !LVAsBool(got) {
+		t.Fatal("auditor should be authorized before expiry")
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "scopeRefOf(agent)", LString(bob))); got != scopeRef {
+		t.Fatalf("scopeRefOf: got=%s want=%s", got, scopeRef)
+	}
+
+	stdlibSetTimestamp(host, 151)
+	if got := invokeStdlib(t, L, tos, "isAuthorized(agent)", LString(bob)); LVAsBool(got) {
+		t.Fatal("auditor should not be authorized after expiry")
+	}
+
+	stdlibSetTimestamp(host, 200)
+	invokeStdlib(t, L, tos, "publishSnapshot(bytes32,bytes32,bytes32,u256,u256)", LString(snapshotID), LString(dataRef), LString(proofRefOne), lu256FromInt(0), lu256FromInt(100))
+	if got := LVAsString(invokeStdlib(t, L, tos, "snapshotStatusOf(bytes32)", LString(snapshotID))); got != "1" {
+		t.Fatalf("snapshotStatus after publish: got=%s want=1", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "snapshotCount()")); got != "1" {
+		t.Fatalf("snapshotCount after publish: got=%s want=1", got)
+	}
+
+	invokeStdlib(t, L, tos, "attachProof(bytes32,bytes32)", LString(snapshotID), LString(proofRefTwo))
+	if got := LVAsString(invokeStdlib(t, L, tos, "proofRefOf(bytes32)", LString(snapshotID))); got != proofRefTwo {
+		t.Fatalf("proofRefOf after attachProof: got=%s want=%s", got, proofRefTwo)
+	}
+
+	invokeStdlib(t, L, tos, "finalizeSnapshot(bytes32)", LString(snapshotID))
+	if got := LVAsString(invokeStdlib(t, L, tos, "snapshotStatusOf(bytes32)", LString(snapshotID))); got != "2" {
+		t.Fatalf("snapshotStatus after finalize: got=%s want=2", got)
+	}
+	if got := invokeStdlib(t, L, tos, "isFinalized(bytes32)", LString(snapshotID)); !LVAsBool(got) {
+		t.Fatal("snapshot should be finalized")
+	}
+
+	errMsg := invokeStdlibErr(t, L, tos, "attachProof(bytes32,bytes32)", LString(snapshotID), LString(proofRefOne))
+	if !strings.Contains(errMsg, "NOT_DRAFT") {
+		t.Fatalf("expected NOT_DRAFT, got %q", errMsg)
+	}
+
+	invokeStdlib(t, L, tos, "revokeAuditor(agent)", LString(bob))
+	if got := invokeStdlib(t, L, tos, "isAuthorized(agent)", LString(bob)); LVAsBool(got) {
+		t.Fatal("auditor should be revoked")
+	}
+}
+
+func TestRecurringPaymentRuntimeLifecyclePauseResumeCancelAndComplete(t *testing.T) {
+	subOne := stdlibBytes32("1")
+	subTwo := stdlibBytes32("2")
+	agreementOne := stdlibBytes32("3")
+	agreementTwo := stdlibBytes32("4")
+	receiptOne := stdlibBytes32("5")
+	receiptTwo := stdlibBytes32("6")
+	receiptThree := stdlibBytes32("7")
+	receiptFour := stdlibBytes32("8")
+	reasonRef := stdlibBytes32("9")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/settlement/RecurringPayment.tol", LString(charlie))
+	defer L.Close()
+
+	stdlibSetSender(host, alice)
+	stdlibSetTimestamp(host, 100)
+	stdlibSetValue(host, 30)
+	invokeStdlib(t, L, tos, "subscribe(bytes32,agent,u256,u256,u256,bytes32)", LString(subOne), LString(bob), lu256FromInt(10), lu256FromInt(50), lu256FromInt(3), LString(agreementOne))
+	stdlibSetValue(host, 0)
+	if got := LVAsString(invokeStdlib(t, L, tos, "statusOf(bytes32)", LString(subOne))); got != "1" {
+		t.Fatalf("status sub one after subscribe: got=%s want=1", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "remainingBalance(bytes32)", LString(subOne))); got != "30" {
+		t.Fatalf("remainingBalance sub one after subscribe: got=%s want=30", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "nextPaymentAfter(bytes32)", LString(subOne))); got != "150" {
+		t.Fatalf("nextPaymentAfter sub one after subscribe: got=%s want=150", got)
+	}
+	if host.lastEscrowAddr != alice || host.lastEscrowAmt != "30" {
+		t.Fatalf("subscribe escrow mismatch: addr=%q amt=%q", host.lastEscrowAddr, host.lastEscrowAmt)
+	}
+
+	stdlibSetSender(host, charlie)
+	stdlibSetTimestamp(host, 149)
+	errMsg := invokeStdlibErr(t, L, tos, "executePayment(bytes32,bytes32)", LString(subOne), LString(receiptOne))
+	if !strings.Contains(errMsg, "INTERVAL_NOT_ELAPSED") {
+		t.Fatalf("expected INTERVAL_NOT_ELAPSED, got %q", errMsg)
+	}
+
+	stdlibSetTimestamp(host, 150)
+	invokeStdlib(t, L, tos, "executePayment(bytes32,bytes32)", LString(subOne), LString(receiptOne))
+	if got := LVAsString(invokeStdlib(t, L, tos, "cyclesCompleted(bytes32)", LString(subOne))); got != "1" {
+		t.Fatalf("cyclesCompleted sub one after first payment: got=%s want=1", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "remainingBalance(bytes32)", LString(subOne))); got != "20" {
+		t.Fatalf("remainingBalance sub one after first payment: got=%s want=20", got)
+	}
+	if host.lastReleaseAddr != bob || host.lastReleaseAmt != "10" {
+		t.Fatalf("executePayment release mismatch: addr=%q amt=%q", host.lastReleaseAddr, host.lastReleaseAmt)
+	}
+
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "pause(bytes32)", LString(subOne))
+	if got := LVAsString(invokeStdlib(t, L, tos, "statusOf(bytes32)", LString(subOne))); got != "2" {
+		t.Fatalf("status sub one after pause: got=%s want=2", got)
+	}
+
+	stdlibSetSender(host, charlie)
+	stdlibSetTimestamp(host, 200)
+	errMsg = invokeStdlibErr(t, L, tos, "executePayment(bytes32,bytes32)", LString(subOne), LString(receiptTwo))
+	if !strings.Contains(errMsg, "NOT_ACTIVE") {
+		t.Fatalf("expected NOT_ACTIVE while paused, got %q", errMsg)
+	}
+
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "resume(bytes32)", LString(subOne))
+	if got := LVAsString(invokeStdlib(t, L, tos, "statusOf(bytes32)", LString(subOne))); got != "1" {
+		t.Fatalf("status sub one after resume: got=%s want=1", got)
+	}
+
+	stdlibSetSender(host, charlie)
+	stdlibSetTimestamp(host, 200)
+	invokeStdlib(t, L, tos, "executePayment(bytes32,bytes32)", LString(subOne), LString(receiptTwo))
+	if got := LVAsString(invokeStdlib(t, L, tos, "cyclesCompleted(bytes32)", LString(subOne))); got != "2" {
+		t.Fatalf("cyclesCompleted sub one after second payment: got=%s want=2", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "remainingBalance(bytes32)", LString(subOne))); got != "10" {
+		t.Fatalf("remainingBalance sub one after second payment: got=%s want=10", got)
+	}
+
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "cancel(bytes32,bytes32)", LString(subOne), LString(reasonRef))
+	if got := LVAsString(invokeStdlib(t, L, tos, "statusOf(bytes32)", LString(subOne))); got != "3" {
+		t.Fatalf("status sub one after cancel: got=%s want=3", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "remainingBalance(bytes32)", LString(subOne))); got != "0" {
+		t.Fatalf("remainingBalance sub one after cancel: got=%s want=0", got)
+	}
+	if host.lastReleaseAddr != alice || host.lastReleaseAmt != "10" {
+		t.Fatalf("cancel release mismatch: addr=%q amt=%q", host.lastReleaseAddr, host.lastReleaseAmt)
+	}
+
+	stdlibSetSender(host, alice)
+	stdlibSetTimestamp(host, 300)
+	stdlibSetValue(host, 10)
+	invokeStdlib(t, L, tos, "subscribe(bytes32,agent,u256,u256,u256,bytes32)", LString(subTwo), LString(bob), lu256FromInt(5), lu256FromInt(10), lu256FromInt(2), LString(agreementTwo))
+	stdlibSetValue(host, 0)
+
+	stdlibSetSender(host, charlie)
+	stdlibSetTimestamp(host, 310)
+	invokeStdlib(t, L, tos, "executePayment(bytes32,bytes32)", LString(subTwo), LString(receiptThree))
+	stdlibSetTimestamp(host, 320)
+	invokeStdlib(t, L, tos, "executePayment(bytes32,bytes32)", LString(subTwo), LString(receiptFour))
+	if got := LVAsString(invokeStdlib(t, L, tos, "statusOf(bytes32)", LString(subTwo))); got != "4" {
+		t.Fatalf("status sub two after completion: got=%s want=4", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "cyclesCompleted(bytes32)", LString(subTwo))); got != "2" {
+		t.Fatalf("cyclesCompleted sub two after completion: got=%s want=2", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "remainingBalance(bytes32)", LString(subTwo))); got != "0" {
+		t.Fatalf("remainingBalance sub two after completion: got=%s want=0", got)
+	}
+	if host.lastReleaseAddr != bob || host.lastReleaseAmt != "5" {
+		t.Fatalf("final completion release mismatch: addr=%q amt=%q", host.lastReleaseAddr, host.lastReleaseAmt)
+	}
+}

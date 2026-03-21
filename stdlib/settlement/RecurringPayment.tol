@@ -166,15 +166,17 @@ contract RecurringPayment is IRecurringPayment {
         require(msg.sender == sub_subscriber[subscription_id], "NOT_SUBSCRIBER");
         require(sub_paused[subscription_id] != true, "ALREADY_PAUSED");
 
+        set sub_status[subscription_id] = STATUS_PAUSED;
         set sub_paused[subscription_id] = true;
         emit SubscriptionPaused(subscription_id, msg.sender);
     }
 
     function resume(bytes32 subscription_id) public {
-        require(sub_status[subscription_id] == STATUS_ACTIVE, "NOT_ACTIVE");
+        require(sub_status[subscription_id] == STATUS_PAUSED, "NOT_PAUSED");
         require(msg.sender == sub_subscriber[subscription_id], "NOT_SUBSCRIBER");
         require(sub_paused[subscription_id] == true, "NOT_PAUSED");
 
+        set sub_status[subscription_id] = STATUS_ACTIVE;
         set sub_paused[subscription_id] = false;
         emit SubscriptionResumed(subscription_id, msg.sender);
     }

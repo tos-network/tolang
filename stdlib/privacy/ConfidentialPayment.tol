@@ -20,6 +20,7 @@ interface IConfidentialPayment {
     function pay(bytes32 payment_id, agent payee, bytes32 receipt_ref) public payable(uno);
     function batchPay(bytes32 batch_id, bytes32 receipt_ref) public payable(uno);
     function addPayee(bytes32 batch_id, agent payee, uno amount) public;
+    function releasePayment(bytes32 payment_id, bytes32 settlement_ref) public;
     function releaseBatch(bytes32 batch_id, bytes32 settlement_ref) public;
     function refund(bytes32 payment_id, bytes32 reason_ref) public;
     function refundBatch(bytes32 batch_id, bytes32 reason_ref) public;
@@ -66,6 +67,7 @@ contract ConfidentialPayment is IConfidentialPayment {
     mapping(bytes32 => u8) batch_status;
     mapping(bytes32 => agent) batch_depositor;
     mapping(bytes32 => uno) batch_total;
+    mapping(bytes32 => uno) batch_allocated;
     mapping(bytes32 => bytes32) batch_receipt_ref;
     mapping(bytes32 => u256) batch_payee_count;
     mapping(bytes32 => mapping(u256 => agent)) batch_payee_addr;
@@ -119,12 +121,26 @@ contract ConfidentialPayment is IConfidentialPayment {
         require(payee != agent(0), "ZERO_PAYEE");
         require(amount.gt(uno.zero()), "ZERO_AMOUNT");
 
+        uno allocated = batch_allocated[batch_id].add(amount);
+        require(batch_total[batch_id].gte(allocated), "BATCH_OVERALLOCATED");
+
         u256 idx = batch_payee_count[batch_id];
         set batch_payee_addr[batch_id][idx] = payee;
         set batch_payee_amount[batch_id][idx] = amount;
         set batch_payee_count[batch_id] = idx + 1;
+        set batch_allocated[batch_id] = allocated;
 
         emit BatchPayeeAdded(batch_id, payee, amount);
+    }
+
+    function releasePayment(bytes32 payment_id, bytes32 settlement_ref) public {
+        require(msg.sender == coordinator, "NOT_COORDINATOR");
+        require(payment_status[payment_id] == STATUS_PENDING, "NOT_PENDING");
+
+        set payment_status[payment_id] = STATUS_RELEASED;
+        uno.transfer(payment_payee[payment_id], payment_amount[payment_id]);
+
+        emit PaymentReleased(payment_id, settlement_ref);
     }
 
     function releaseBatch(bytes32 batch_id, bytes32 settlement_ref) public {
@@ -133,17 +149,15 @@ contract ConfidentialPayment is IConfidentialPayment {
 
         u256 count = batch_payee_count[batch_id];
         require(count > 0, "NO_PAYEES");
+        require(batch_total[batch_id].gte(batch_allocated[batch_id]), "OVERSPEND");
+        require(batch_allocated[batch_id].gte(batch_total[batch_id]), "BATCH_TOTAL_MISMATCH");
 
-        uno distributed = uno.zero();
         u256 i = 0;
         while (i < count) {
             uno amt = batch_payee_amount[batch_id][i];
             uno.transfer(batch_payee_addr[batch_id][i], amt);
-            distributed = distributed.add(amt);
             i = i + 1;
         }
-
-        require(batch_total[batch_id].gte(distributed), "OVERSPEND");
 
         set batch_status[batch_id] = STATUS_RELEASED;
 

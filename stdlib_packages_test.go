@@ -151,7 +151,7 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			pkgName:       "tolang.stdlib.privacy",
 			contractName:  "ConfidentialPayment",
 			interfaceName: "IConfidentialPayment",
-			functions:     []string{"pay", "batchPay", "addPayee", "releaseBatch", "refund", "refundBatch", "statusOf", "batchStatusOf", "payerOf", "payeeOf", "receiptRefOf", "nativeBalance"},
+			functions:     []string{"pay", "batchPay", "addPayee", "releasePayment", "releaseBatch", "refund", "refundBatch", "statusOf", "batchStatusOf", "payerOf", "payeeOf", "receiptRefOf", "nativeBalance"},
 		},
 		{
 			relPath:       "stdlib/privacy/ConfidentialTreasury.tol",

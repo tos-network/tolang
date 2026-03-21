@@ -147,7 +147,14 @@ contract AuditorDisclosureBook is IAuditorDisclosureBook {
 
     @verifiable
     function isAuthorized(agent auditor) public view returns (bool ok) {
-        return auditor_authorized[auditor];
+        if (auditor_authorized[auditor] != true) {
+            return false;
+        }
+        u256 expiry_ms = auditor_expiry[auditor];
+        if (expiry_ms == 0) {
+            return true;
+        }
+        return block.timestamp_ms < expiry_ms;
     }
 
     @verifiable

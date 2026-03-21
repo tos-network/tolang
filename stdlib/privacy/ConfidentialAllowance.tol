@@ -130,12 +130,26 @@ contract ConfidentialAllowance is IConfidentialAllowance {
 
     @verifiable
     function allowanceOf(agent owner, agent operator) public view returns (uno remaining) {
+        u256 expiry_ms = allowance_expiry[owner][operator];
+        if (allowance_active[owner][operator] != true) {
+            return uno.zero();
+        }
+        if (expiry_ms > 0 && block.timestamp_ms >= expiry_ms) {
+            return uno.zero();
+        }
         return allowances[owner][operator];
     }
 
     @verifiable
     function isApproved(agent owner, agent operator) public view returns (bool ok) {
-        return allowance_active[owner][operator];
+        if (allowance_active[owner][operator] != true) {
+            return false;
+        }
+        u256 expiry_ms = allowance_expiry[owner][operator];
+        if (expiry_ms > 0 && block.timestamp_ms >= expiry_ms) {
+            return false;
+        }
+        return true;
     }
 
     @verifiable

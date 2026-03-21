@@ -503,7 +503,7 @@ looking like a language of machine commerce.
 
 ### `stdlib/settlement`
 
-Status: ✅ implemented seed in `stdlib/settlement/TaskSettlement.tol`
+Status: ✅ implemented — `TaskSettlement.tol` + `RecurringPayment.tol` (2026-03-21)
 
 Derived from:
 
@@ -528,6 +528,11 @@ Its canonical forms should support both:
 
 - public value rails
 - UNO confidential value rails
+
+Current contracts:
+
+- `stdlib/settlement/TaskSettlement.tol` — task escrow with dispute/proof/receipt
+- `stdlib/settlement/RecurringPayment.tol` — subscription/periodic payment scheduler
 
 Current seeds:
 
@@ -632,8 +637,7 @@ commercially reusable contract semantics.
 
 ### `stdlib/privacy`
 
-Status: ✅ implemented seeds in `stdlib/privacy/ConfidentialVault.tol` and
-`stdlib/privacy/ConfidentialEscrow.tol`
+Status: ✅ all 6 contracts implemented (2026-03-21)
 
 Derived from:
 
@@ -681,10 +685,14 @@ These should let authors write business logic in terms of:
 
 rather than directly wiring low-level UNO bridge calls each time.
 
-Current seeds:
+Current contracts:
 
-- `stdlib/privacy/ConfidentialVault.tol`
-- `stdlib/privacy/ConfidentialEscrow.tol`
+- `stdlib/privacy/ConfidentialVault.tol` — deposit/withdraw/auditor auth
+- `stdlib/privacy/ConfidentialEscrow.tol` — escrow/release/refund on UNO rails
+- `stdlib/privacy/ConfidentialPayment.tol` — batch/individual encrypted payments
+- `stdlib/privacy/ConfidentialTreasury.tol` — multi-signer treasury with auditor disclosure
+- `stdlib/privacy/ConfidentialAllowance.tol` — encrypted approve/transferFrom with expiry
+- `stdlib/privacy/AuditorDisclosureBook.tol` — snapshot-based auditor disclosure management
 
 ### `stdlib/recovery`
 
@@ -1130,6 +1138,35 @@ For each remaining item, the closure bar should be:
 - release metadata and discovery semantics are updated when applicable
 - the threat-model implications are reflected in
   `docs/STDLIB_THREAT_MODEL_MATRIX.md` when materially changed
+
+## Document ownership of the five major follow-on gaps
+
+These five workstreams are different in scale and should not be collapsed into
+one implementation bucket.
+
+They should be documented as follows:
+
+| Gap | Nature | Primary summary document | Capability / shortcoming document | Detailed design home |
+| --- | --- | --- | --- | --- |
+| Cross-contract atomicity | VM / protocol | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/TOLANG_SHORTCOMINGS.md` | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
+| Privacy family completion | stdlib family | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `docs/PRIVACY_STDLIB_FAMILY.md` |
+| Recurring / subscription settlement | stdlib + scheduler + protocol | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
+| `@requires(caller: Cap)` | language / compiler | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/TOLANG_SHORTCOMINGS.md` | `docs/CALLER_CAPABILITY_SYNTAX.md` |
+| Selective disclosure (`ZK + token`) | privacy / protocol / cryptography | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |
+
+### Status note
+
+The five items above should be treated as strategic workstreams, not as one
+flat backlog.
+
+Some of them may already have partial or substantial implementation in the
+current repo state, but their design homes remain stable:
+
+- atomicity still belongs primarily to GTOS / LVM design
+- privacy-family completion still belongs primarily to stdlib family design
+- recurring settlement still belongs primarily to scheduler + settlement design
+- caller capability syntax still belongs primarily to compiler design
+- selective disclosure still belongs primarily to privacy and protocol design
 
 ## A hard rule
 

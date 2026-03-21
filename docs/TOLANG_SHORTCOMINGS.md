@@ -341,6 +341,30 @@ The priority order should be:
 6. Namespace cleanup so standard library naming is conceptually clean and not
    parser-accidental.
 
+## Design homes for the five strategic follow-on gaps
+
+This document is the right home for the **structural** part of the five major
+follow-on gaps, but not for every detail of their implementation.
+
+The split should be:
+
+| Gap | Why it touches this document | Detailed design home |
+| --- | --- | --- |
+| Cross-contract atomicity | this is fundamentally a VM / protocol semantic issue | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
+| Privacy family completion | only insofar as privacy depends on runtime/protocol closure | `docs/PRIVACY_STDLIB_FAMILY.md` |
+| Recurring / subscription settlement | only insofar as scheduler/runtime semantics affect settlement guarantees | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
+| `@requires(caller: Cap)` | this is a direct language/compiler shortcoming | `docs/CALLER_CAPABILITY_SYNTAX.md` |
+| Selective disclosure (`ZK + token`) | only insofar as protocol-backed proof systems are still ahead of runtime enforcement | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |
+
+Practical rule:
+
+- if the question is "what capability is still missing from stdlib?",
+  track it in `docs/STDLIB_CAPABILITY_ANALYSIS.md`
+- if the question is "what structural weakness in Tolang / LVM causes this?",
+  track it here
+- if the question is "what exact mechanism should we build?",
+  use the dedicated design document
+
 ## Bottom Line
 
 The stdlib effort was valuable not only because it produced packages.

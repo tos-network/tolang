@@ -228,6 +228,28 @@ All previously missing contracts have been implemented (2026-03-21):
 | Selective disclosure (ZK layer) | ZK proof gate for privacy-preserving verification |
 | Selective disclosure (decryption token layer) | Per-counterparty decryption token issuance |
 
+### Document placement for the five strategic workstreams
+
+These five follow-on workstreams should not all be tracked as contract-level
+feature tickets.
+
+They split cleanly between stdlib capability backlog, structural shortcomings,
+and deeper design homes:
+
+| Workstream | This document tracks | Detailed design home |
+|------------|----------------------|----------------------|
+| Cross-contract atomicity | impact on stdlib commercial closure | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
+| Privacy family completion | contract-family scope and remaining privacy semantics | `docs/PRIVACY_STDLIB_FAMILY.md` |
+| Recurring / subscription settlement | settlement-level capability expectations | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
+| `@requires(caller: Cap)` | compiler feature required for capability-complete stdlib ergonomics | `docs/CALLER_CAPABILITY_SYNTAX.md` |
+| Selective disclosure (`ZK + token`) | missing privacy capability layers | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |
+
+Status guidance:
+
+- This document is the right place to state what stdlib capability is still not
+  commercially closed.
+- It is not the right place to hold full VM, compiler, or cryptographic design.
+
 ---
 
 ## The Commercial Value Proposition

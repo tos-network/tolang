@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tos-network/tolang/metadata"
 )
 
 const (
@@ -2364,5 +2366,133 @@ func TestRecurringPaymentRuntimeLifecyclePauseResumeCancelAndComplete(t *testing
 	}
 	if host.lastReleaseAddr != bob || host.lastReleaseAmt != "5" {
 		t.Fatalf("final completion release mismatch: addr=%q amt=%q", host.lastReleaseAddr, host.lastReleaseAmt)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// @requires(caller: Cap) capability annotation tests
+// ---------------------------------------------------------------------------
+
+func TestRequiresCapabilityCompileAndABI(t *testing.T) {
+	source := []byte(`pragma tolang 0.4.0;
+contract TestCap {
+    capability AdminCap;
+    /// @requires(caller: AdminCap)
+    function adminOnly() public view returns (u256 result) {
+        return 42;
+    }
+    function openFunc() public view returns (u256 result) {
+        return 1;
+    }
+}
+`)
+	artBytes, err := CompileArtifact(source, "TestCap")
+	if err != nil {
+		t.Fatalf("CompileArtifact: %v", err)
+	}
+	art, err := DecodeArtifact(artBytes)
+	if err != nil {
+		t.Fatalf("DecodeArtifact: %v", err)
+	}
+	meta, err := metadata.ExtractFromABI(art.ABIJSON)
+	if err != nil {
+		t.Fatalf("ExtractFromABI: %v", err)
+	}
+
+	// Find adminOnly — should have RequiresCapability containing "AdminCap".
+	var foundAdmin, foundOpen bool
+	for _, fn := range meta.Functions {
+		switch fn.Name {
+		case "adminOnly":
+			foundAdmin = true
+			if len(fn.RequiresCapability) == 0 {
+				t.Fatal("adminOnly: RequiresCapability is empty, expected [AdminCap]")
+			}
+			if fn.RequiresCapability[0] != "AdminCap" {
+				t.Fatalf("adminOnly: RequiresCapability[0]=%q, want AdminCap", fn.RequiresCapability[0])
+			}
+		case "openFunc":
+			foundOpen = true
+			if len(fn.RequiresCapability) != 0 {
+				t.Fatalf("openFunc: RequiresCapability should be empty, got %v", fn.RequiresCapability)
+			}
+		}
+	}
+	if !foundAdmin {
+		t.Fatal("adminOnly not found in metadata functions")
+	}
+	if !foundOpen {
+		t.Fatal("openFunc not found in metadata functions")
+	}
+}
+
+func TestRequiresCapabilityUnknownCapRejected(t *testing.T) {
+	source := []byte(`pragma tolang 0.4.0;
+contract BadCap {
+    /// @requires(caller: UnknownCap)
+    function guarded() public view returns (u256 result) {
+        return 1;
+    }
+}
+`)
+	_, err := CompileArtifact(source, "BadCap")
+	if err == nil {
+		t.Fatal("expected compilation error for undeclared capability, got nil")
+	}
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "TOL2302") && !strings.Contains(errMsg, "undeclared capability") {
+		t.Fatalf("expected error about undeclared capability (TOL2302), got: %s", errMsg)
+	}
+}
+
+func TestRequiresCapabilityRuntimePreamble(t *testing.T) {
+	source := []byte(`pragma tolang 0.4.0;
+contract GuardedContract {
+    capability OwnerCap;
+    /// @requires(caller: OwnerCap)
+    function secret() public view returns (u256 result) {
+        return 99;
+    }
+    function open() public view returns (u256 result) {
+        return 1;
+    }
+}
+`)
+	L, tos, host := deployStdlibSourceContract(t, source, "<GuardedContract.tol>")
+
+	// open() should succeed without any capability hook.
+	if got := LVAsString(invokeStdlib(t, L, tos, "open()")); got != "1" {
+		t.Fatalf("open(): got=%s want=1", got)
+	}
+
+	// secret() should fail — no tos.hascapability hook installed.
+	errMsg := invokeStdlibErr(t, L, tos, "secret()")
+	if !strings.Contains(errMsg, "CapabilityDenied") {
+		t.Fatalf("secret() without hook: expected CapabilityDenied, got: %s", errMsg)
+	}
+
+	// Install tos.hascapability that always grants.
+	L.SetField(host.tosTable, "hascapability", L.NewFunction(func(L *LState) int {
+		// caller := LVAsString(L.CheckAny(1))
+		// capName := LVAsString(L.CheckAny(2))
+		L.Push(LTrue) // always grant
+		return 1
+	}))
+
+	// secret() should succeed now.
+	if got := LVAsString(invokeStdlib(t, L, tos, "secret()")); got != "99" {
+		t.Fatalf("secret() with grant hook: got=%s want=99", got)
+	}
+
+	// Change hook to deny.
+	L.SetField(host.tosTable, "hascapability", L.NewFunction(func(L *LState) int {
+		L.Push(LFalse) // deny
+		return 1
+	}))
+
+	// secret() should fail again.
+	errMsg = invokeStdlibErr(t, L, tos, "secret()")
+	if !strings.Contains(errMsg, "CapabilityDenied") {
+		t.Fatalf("secret() with deny hook: expected CapabilityDenied, got: %s", errMsg)
 	}
 }

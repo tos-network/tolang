@@ -131,7 +131,7 @@ some higher-level privacy ergonomics.
 |------------|----------------------|--------------|----------------------|
 | Safe value transfer | `SafeERC20.safeTransfer()` library | `TaskSettlement.openTask` / `ConfidentialEscrow.openEscrow` — escrow-native | **~90%** |
 | Reentrancy protection | `ReentrancyGuard` modifier | Compiler-enforced `@effects` + `set` keyword — no library needed | **~90%** — compiler-level |
-| Access control | `Ownable` / `AccessControl` | Manual `require(msg.sender == owner)` checks in seed contracts | **~60%** — `@requires(caller: Cap)` compiler syntax NOT IMPLEMENTED; access control is hand-rolled in each contract |
+| Access control | `Ownable` / `AccessControl` | `@requires(caller: Cap)` compiler-enforced + `tos.hascapability()` runtime check | **~85%** — compiler pipeline implemented; stdlib contracts can migrate from hand-rolled checks |
 | Proxy delegation | `approve()` + `transferFrom()` | `AuthorityBook.grant` / `.revoke` / `.consume` — capped, time-bounded, revocable | **~85%** |
 | Multi-terminal support | Not supported | `SessionBook.grantSession` with trust tier, budget, step-up threshold | **~70%** — trust tiers are u256 constants, not a formal 6x5 matrix |
 | Encrypted transfers | Not supported | `uno.transfer()` + `ConfidentialEscrow.openEscrow` / `.releaseEscrow` | **~90%** |
@@ -230,7 +230,7 @@ All previously missing contracts have been implemented (2026-03-21):
 
 | Feature | Description |
 |---------|-------------|
-| `@requires(caller: Cap)` | Compiler-enforced capability-based access control syntax; currently hand-rolled `require(msg.sender == owner)` |
+| ~~`@requires(caller: Cap)`~~ | **RESOLVED** — compiler pipeline implemented (parser/sema/lower/codegen/ABI); 3 tests; design doc completed |
 | ~~Selective disclosure (ZK layer)~~ | **RESOLVED** — DisclosureProof (DLEQ Sigma) implemented in GTOS `crypto/priv/disclosure.go` |
 | ~~Selective disclosure (decryption token layer)~~ | **RESOLVED** — DecryptionToken implemented in GTOS `core/priv/decryption_token.go` |
 | ~~Selective disclosure (regulatory / auditor key layer)~~ | **RESOLVED** — AuditorKey consensus path implemented and documented in `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` |
@@ -248,7 +248,7 @@ and deeper design homes:
 | Cross-contract atomicity | **RESOLVED** — `tos.multicall` implemented | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
 | Privacy family completion | **RESOLVED** — all 6 contracts implemented; GTOS selective disclosure stack also resolved | `docs/PRIVACY_STDLIB_FAMILY.md` |
 | Recurring / subscription settlement | **RESOLVED** — `RecurringPayment` contract; protocol scheduler pending | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
-| `@requires(caller: Cap)` | compiler feature required for capability-complete stdlib ergonomics | `docs/CALLER_CAPABILITY_SYNTAX.md` |
+| `@requires(caller: Cap)` | **RESOLVED** — compiler pipeline implemented + 3 tests | `docs/CALLER_CAPABILITY_SYNTAX.md` |
 | Selective disclosure (`ZK + token`) | **RESOLVED** — all 3 layers in GTOS (DisclosureProof, DecryptionToken, AuditorKey) | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |
 
 Status guidance:

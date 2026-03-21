@@ -355,7 +355,7 @@ The split should be:
 | Cross-contract atomicity | **RESOLVED** — `tos.multicall` implemented | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
 | Privacy family completion | **RESOLVED** — all 6 contracts; ZK/token layers pending | `docs/PRIVACY_STDLIB_FAMILY.md` |
 | Recurring / subscription settlement | **RESOLVED** — `RecurringPayment` contract; protocol scheduler pending | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
-| `@requires(caller: Cap)` | this is a direct language/compiler shortcoming | `docs/CALLER_CAPABILITY_SYNTAX.md` |
+| `@requires(caller: Cap)` | **RESOLVED** — compiler pipeline implemented + tested | `docs/CALLER_CAPABILITY_SYNTAX.md` |
 | Selective disclosure (`ZK + token`) | **RESOLVED** — all 3 layers implemented in GTOS (DisclosureProof, DecryptionToken, AuditorKey) | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |
 
 Practical rule:

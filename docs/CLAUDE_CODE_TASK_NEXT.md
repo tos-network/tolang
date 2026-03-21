@@ -119,8 +119,9 @@ Files changed: `stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`,
    `ConfidentialAllowance`, `AuditorDisclosureBook`)
 3. ~~**Recurring/subscription payments**~~ — **RESOLVED (2026-03-21):**
    `RecurringPayment` contract added to `stdlib/settlement/`
-4. **`@requires(caller: Cap)`** — compiler-enforced capability syntax not yet
-   implemented
+4. ~~**`@requires(caller: Cap)`**~~ — **RESOLVED (2026-03-21):** compiler
+   pipeline was already implemented (parser/sema/lower/codegen/ABI); added
+   3 tests and completed design doc `docs/CALLER_CAPABILITY_SYNTAX.md`
 5. ~~**Selective disclosure**~~ — **RESOLVED:** all three layers implemented
    in GTOS: DisclosureProof (ZK/DLEQ), DecryptionToken (per-ciphertext),
    AuditorKey (consensus-enforced).  See `gtos/docs/SELECTIVE-DISCLOSURE.md`.

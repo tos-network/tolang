@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/tos-network/tolang/metadata"
 )
 
 func TestStdlibReleaseArtifactsAreCurrent(t *testing.T) {
@@ -22,6 +24,8 @@ func TestStdlibReleaseArtifactsAreCurrent(t *testing.T) {
 		ABIPath            string `json:"abi_path"`
 		InitPath           string `json:"init_path"`
 		TORPath            string `json:"tor_path"`
+		DiscoveryPath      string `json:"discovery_path"`
+		AgentPackagePath   string `json:"agent_package_path"`
 		BytecodeHash       string `json:"bytecode_hash"`
 		PackageHash        string `json:"package_hash"`
 	}
@@ -123,6 +127,37 @@ func TestStdlibReleaseArtifactsAreCurrent(t *testing.T) {
 		}
 		if len(pkg.ManifestJSON) == 0 {
 			t.Fatalf("package manifest missing for %s", entry.Contract)
+		}
+
+		meta, err := metadata.ExtractFromABI(art.ABIJSON)
+		if err != nil {
+			t.Fatalf("extract metadata %s: %v", entry.Contract, err)
+		}
+		meta.Contract.Name = art.ContractName
+		meta.ArtifactRef = metadata.ComputeArtifactRef(torBytes, art.Bytecode, source, art.ABIJSON, meta.ArtifactRef.Version)
+
+		discoveryWant, err := json.MarshalIndent(metadata.BuildDiscoveryManifest(meta, entry.ReleasePackageName), "", "  ")
+		if err != nil {
+			t.Fatalf("marshal discovery %s: %v", entry.Contract, err)
+		}
+		discoveryGot, err := os.ReadFile(filepath.Join(repoRoot, idxEntry.DiscoveryPath))
+		if err != nil {
+			t.Fatalf("read %s: %v", idxEntry.DiscoveryPath, err)
+		}
+		if string(discoveryGot) != string(discoveryWant) {
+			t.Fatalf("stale discovery json for %s; rerun stdlib exporter", entry.Contract)
+		}
+
+		agentPkgWant, err := json.MarshalIndent(metadata.BuildAgentPackageInfo(meta, entry.ReleasePackageName), "", "  ")
+		if err != nil {
+			t.Fatalf("marshal agent package %s: %v", entry.Contract, err)
+		}
+		agentPkgGot, err := os.ReadFile(filepath.Join(repoRoot, idxEntry.AgentPackagePath))
+		if err != nil {
+			t.Fatalf("read %s: %v", idxEntry.AgentPackagePath, err)
+		}
+		if string(agentPkgGot) != string(agentPkgWant) {
+			t.Fatalf("stale agent package json for %s; rerun stdlib exporter", entry.Contract)
 		}
 	}
 }

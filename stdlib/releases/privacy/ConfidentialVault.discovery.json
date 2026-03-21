@@ -1,0 +1,108 @@
+{
+  "schema_version": "0.1.0",
+  "package_name": "tolang.stdlib.privacy.confidential_vault",
+  "package_version": "1.0.0",
+  "artifact_ref": {
+    "package_hash": "0x004681ae6cbcc4d27211f3de3b2238968a4fa68103c2c3ece9520b25783833fd",
+    "bytecode_hash": "0x94088fc99ca97517dbe7cca71a95adb06cb3dac55dfd8d595a5f250fe95c944c",
+    "source_hash": "0x0f648d8ab6795aaa1081aedf5791aada7c01f3762e248506cefbe69d5fac4349",
+    "abi_hash": "0x75162145e434dbcaaf11340f229d82745998330bc61599285e9ebde6bad6c765",
+    "version": "1.0.0"
+  },
+  "contract_type": "token",
+  "service_kinds": [
+    "query",
+    "token_transfer",
+    "balance_query",
+    "verifiable_compute"
+  ],
+  "capabilities": null,
+  "interface_methods": [
+    {
+      "name": "registerPublicKey",
+      "selector": "0x1a79004b",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "deposit",
+      "selector": "0xd0e30db0",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "withdraw",
+      "selector": "0xd37b3a20",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "authorizeAuditor",
+      "selector": "0xc5334bbe",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "revokeAuditor",
+      "selector": "0xf24ab38d",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "balanceOf",
+      "selector": "0x585ddc84",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "nativeBalance",
+      "selector": "0x18910f40",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "canAudit",
+      "selector": "0xb119a46b",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "disclosureRefOf",
+      "selector": "0x9ba82df1",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    }
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "tags": [
+    "token",
+    "verifiable"
+  ]
+}

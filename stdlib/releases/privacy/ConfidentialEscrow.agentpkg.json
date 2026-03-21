@@ -1,0 +1,171 @@
+{
+  "package_name": "tolang.stdlib.privacy.confidential_escrow",
+  "package_version": "1.0.0",
+  "artifact_ref": {
+    "package_hash": "0x1609904c4be27b380f084c22c4ac4c5b71b6d289b14b6342e1222c33f68d4ff9",
+    "bytecode_hash": "0x2d09323ba33221ddd6cac8ce1765a59e667ed3b8fc2c307f21137d2a3d15a159",
+    "source_hash": "0x55729962310a3de3ff3373d60d4a1f4cf2023a51f0db3d41593d146df8ca0af9",
+    "abi_hash": "0x6adb85ecc6b851186e86e29a661bcf80f6466d7aa55da23f053c981f8fdf11a9",
+    "version": "1.0.0"
+  },
+  "capabilities": {
+    "contract_name": "ConfidentialEscrow",
+    "version": "1.0.0",
+    "capabilities": null,
+    "verifiable_methods": [
+      {
+        "function_name": "statusOf",
+        "selector": "0xc7df14e2",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      },
+      {
+        "function_name": "amountOf",
+        "selector": "0x8251eac9",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      },
+      {
+        "function_name": "payerOf",
+        "selector": "0x24108273",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      },
+      {
+        "function_name": "payeeOf",
+        "selector": "0x8cede576",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      },
+      {
+        "function_name": "receiptRefOf",
+        "selector": "0xb7761847",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      },
+      {
+        "function_name": "nativeBalance",
+        "selector": "0x18910f40",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      }
+    ],
+    "delegated_methods": null
+  },
+  "discovery": {
+    "schema_version": "0.1.0",
+    "package_name": "tolang.stdlib.privacy.confidential_escrow",
+    "package_version": "1.0.0",
+    "artifact_ref": {
+      "package_hash": "0x1609904c4be27b380f084c22c4ac4c5b71b6d289b14b6342e1222c33f68d4ff9",
+      "bytecode_hash": "0x2d09323ba33221ddd6cac8ce1765a59e667ed3b8fc2c307f21137d2a3d15a159",
+      "source_hash": "0x55729962310a3de3ff3373d60d4a1f4cf2023a51f0db3d41593d146df8ca0af9",
+      "abi_hash": "0x6adb85ecc6b851186e86e29a661bcf80f6466d7aa55da23f053c981f8fdf11a9",
+      "version": "1.0.0"
+    },
+    "contract_type": "custom",
+    "service_kinds": [
+      "query",
+      "verifiable_compute"
+    ],
+    "capabilities": null,
+    "interface_methods": [
+      {
+        "name": "openEscrow",
+        "selector": "0xd424dd42",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "releaseEscrow",
+        "selector": "0x5b7d6b7e",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "refundEscrow",
+        "selector": "0xfc3e8c70",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "reclaimExpired",
+        "selector": "0x7d2c2931",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "statusOf",
+        "selector": "0xc7df14e2",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "amountOf",
+        "selector": "0x8251eac9",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "payerOf",
+        "selector": "0x24108273",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "payeeOf",
+        "selector": "0x8cede576",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "receiptRefOf",
+        "selector": "0xb7761847",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "nativeBalance",
+        "selector": "0x18910f40",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      }
+    ],
+    "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+    "tags": [
+      "custom",
+      "verifiable"
+    ]
+  },
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls"
+}

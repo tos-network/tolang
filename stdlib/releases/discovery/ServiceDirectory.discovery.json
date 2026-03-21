@@ -1,0 +1,106 @@
+{
+  "schema_version": "0.1.0",
+  "package_name": "tolang.stdlib.discovery",
+  "package_version": "1.0.0",
+  "artifact_ref": {
+    "package_hash": "0x9cc5d6818f6d1d6effa45567b194a675ef8931a7396ba93dddf16b5acf7b4be7",
+    "bytecode_hash": "0x660defbfe68e549f74730d855b8e7a340b70732e479ab4d591ede4dc179ae16c",
+    "source_hash": "0x27541af701b2055c2300a5a9b4b02dd9dd3a6bd6fa1b67d288b9c8ac07255b23",
+    "abi_hash": "0x5a0238d6bff3b6838441df1effdc9790319889370f11847749b64f2a71bedb14",
+    "version": "1.0.0"
+  },
+  "contract_type": "custom",
+  "service_kinds": [
+    "query",
+    "verifiable_compute"
+  ],
+  "capabilities": null,
+  "interface_methods": [
+    {
+      "name": "registerService",
+      "selector": "0xbd65f37f",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "updateManifest",
+      "selector": "0x5c330dcc",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "updateQuote",
+      "selector": "0x515bd0e5",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "deactivate",
+      "selector": "0x7592196d",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "providerOf",
+      "selector": "0xdc309699",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "manifestRefOf",
+      "selector": "0x733a7961",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "capabilityRefOf",
+      "selector": "0x5f83f865",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "quoteRefOf",
+      "selector": "0x308b5663",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "isActive",
+      "selector": "0x4f0c4a37",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    }
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "tags": [
+    "custom",
+    "verifiable"
+  ]
+}

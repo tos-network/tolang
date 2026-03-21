@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	lua "github.com/tos-network/tolang"
+	"github.com/tos-network/tolang/metadata"
 )
 
 type releaseIndexEntry struct {
@@ -19,6 +20,8 @@ type releaseIndexEntry struct {
 	ABIPath            string `json:"abi_path"`
 	InitPath           string `json:"init_path,omitempty"`
 	TORPath            string `json:"tor_path"`
+	DiscoveryPath      string `json:"discovery_path"`
+	AgentPackagePath   string `json:"agent_package_path"`
 	BytecodeHash       string `json:"bytecode_hash"`
 	PackageHash        string `json:"package_hash"`
 }
@@ -86,6 +89,30 @@ func main() {
 		if err != nil {
 			fatalf("decode artifact %s: %v", entry.Contract, err)
 		}
+		meta, err := metadata.ExtractFromABI(art.ABIJSON)
+		if err != nil {
+			fatalf("extract metadata %s: %v", entry.Contract, err)
+		}
+		meta.Contract.Name = art.ContractName
+		meta.ArtifactRef = metadata.ComputeArtifactRef(built.PackageTOR, art.Bytecode, source, art.ABIJSON, meta.ArtifactRef.Version)
+		discovery := metadata.BuildDiscoveryManifest(meta, entry.ReleasePackageName)
+		agentPkg := metadata.BuildAgentPackageInfo(meta, entry.ReleasePackageName)
+		discoveryBytes, err := json.MarshalIndent(discovery, "", "  ")
+		if err != nil {
+			fatalf("marshal discovery %s: %v", entry.Contract, err)
+		}
+		agentPkgBytes, err := json.MarshalIndent(agentPkg, "", "  ")
+		if err != nil {
+			fatalf("marshal agent package %s: %v", entry.Contract, err)
+		}
+		discoveryRel := filepath.ToSlash(filepath.Join("stdlib", "releases", entry.Family, entry.Contract+".discovery.json"))
+		agentPkgRel := filepath.ToSlash(filepath.Join("stdlib", "releases", entry.Family, entry.Contract+".agentpkg.json"))
+		if err := os.WriteFile(filepath.Join(repoRoot, discoveryRel), discoveryBytes, 0o644); err != nil {
+			fatalf("write %s: %v", discoveryRel, err)
+		}
+		if err := os.WriteFile(filepath.Join(repoRoot, agentPkgRel), agentPkgBytes, 0o644); err != nil {
+			fatalf("write %s: %v", agentPkgRel, err)
+		}
 		index.Entries = append(index.Entries, releaseIndexEntry{
 			Family:             entry.Family,
 			Contract:           entry.Contract,
@@ -95,6 +122,8 @@ func main() {
 			ABIPath:            abiRel,
 			InitPath:           initRel,
 			TORPath:            torRel,
+			DiscoveryPath:      discoveryRel,
+			AgentPackagePath:   agentPkgRel,
 			BytecodeHash:       art.BytecodeHash,
 			PackageHash:        lua.PackageHash(built.PackageTOR),
 		})

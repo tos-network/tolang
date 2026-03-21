@@ -1,0 +1,117 @@
+{
+  "package_name": "tolang.stdlib.session_book",
+  "package_version": "1.0.0",
+  "artifact_ref": {
+    "package_hash": "0x58b39a30b4e2cacfa834d9d169e0fb28d40abbc5820c78ce100f80d18fa5c04e",
+    "bytecode_hash": "0x49d0c22c89da8e11b87823ddd99c365eb334ab5926ff5baf58be7cd0ba3cd878",
+    "source_hash": "0xdda04bf05d82ac84388bcccac595ae423486473bce52a1b20c814e51472cc648",
+    "abi_hash": "0x5834fc5639a57380d6af4b8f8b96696ddb11ccf2e3c7cf17b197aa33319f3aec",
+    "version": "1.0.0"
+  },
+  "capabilities": {
+    "contract_name": "SessionBook",
+    "version": "1.0.0",
+    "capabilities": null,
+    "verifiable_methods": [
+      {
+        "function_name": "isActive",
+        "selector": "0x5c36901c",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      },
+      {
+        "function_name": "requiresStepUp",
+        "selector": "0xf04cc77d",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      },
+      {
+        "function_name": "remainingOf",
+        "selector": "0xa4cceccc",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      }
+    ],
+    "delegated_methods": null
+  },
+  "discovery": {
+    "schema_version": "0.1.0",
+    "package_name": "tolang.stdlib.session_book",
+    "package_version": "1.0.0",
+    "artifact_ref": {
+      "package_hash": "0x58b39a30b4e2cacfa834d9d169e0fb28d40abbc5820c78ce100f80d18fa5c04e",
+      "bytecode_hash": "0x49d0c22c89da8e11b87823ddd99c365eb334ab5926ff5baf58be7cd0ba3cd878",
+      "source_hash": "0xdda04bf05d82ac84388bcccac595ae423486473bce52a1b20c814e51472cc648",
+      "abi_hash": "0x5834fc5639a57380d6af4b8f8b96696ddb11ccf2e3c7cf17b197aa33319f3aec",
+      "version": "1.0.0"
+    },
+    "contract_type": "custom",
+    "service_kinds": [
+      "query",
+      "verifiable_compute"
+    ],
+    "capabilities": null,
+    "interface_methods": [
+      {
+        "name": "grantSession",
+        "selector": "0x5555e916",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "revokeSession",
+        "selector": "0xa7fed385",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "consume",
+        "selector": "0xb9d0d97e",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "isActive",
+        "selector": "0x5c36901c",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "requiresStepUp",
+        "selector": "0xf04cc77d",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "remainingOf",
+        "selector": "0xa4cceccc",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      }
+    ],
+    "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+    "tags": [
+      "custom",
+      "verifiable"
+    ]
+  },
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls"
+}

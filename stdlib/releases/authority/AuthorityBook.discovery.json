@@ -1,0 +1,79 @@
+{
+  "schema_version": "0.1.0",
+  "package_name": "tolang.stdlib.authority",
+  "package_version": "1.0.0",
+  "artifact_ref": {
+    "package_hash": "0x3142beea8ab75c7e59ced27b90f7e4f3df8aa1bc6109bd30553e08b5c2e8c100",
+    "bytecode_hash": "0x08ff142798a49a20d09432ab5fdb53b626f3aaa92e05315d9f942a352fb2cc1c",
+    "source_hash": "0x0bf4b02622cac7f149e8261d8e4baa013622cdffa35ea6bd900ef35fdae6515b",
+    "abi_hash": "0xfdb654445d39b524f93f5b65eed60cd0b84cba1c161079bb3faa376ffc2282aa",
+    "version": "1.0.0"
+  },
+  "contract_type": "custom",
+  "service_kinds": [
+    "query",
+    "verifiable_compute"
+  ],
+  "capabilities": null,
+  "interface_methods": [
+    {
+      "name": "grant",
+      "selector": "0xa35bb02c",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "revoke",
+      "selector": "0xb4b7bbdb",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "consume",
+      "selector": "0xadfd12d0",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "remainingOf",
+      "selector": "0xb7ea7e99",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "isActive",
+      "selector": "0xf45c9d6e",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "policyHashOf",
+      "selector": "0xb268e04c",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    }
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "tags": [
+    "custom",
+    "verifiable"
+  ]
+}

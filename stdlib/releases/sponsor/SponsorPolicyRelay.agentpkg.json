@@ -1,0 +1,152 @@
+{
+  "package_name": "tolang.stdlib.sponsor",
+  "package_version": "1.0.0",
+  "artifact_ref": {
+    "package_hash": "0xec923c0b78d8099650c92dbb95d7a052ce5cb7086f1382336dc3c13da53731ac",
+    "bytecode_hash": "0x0a8f51e9582de85e5fde7944a14c4d3aff56c0801b24660bd3af964eb4eefef2",
+    "source_hash": "0xb6024e452986ac3e75c5452552b1a0eb5aa26774408a5def646e5d4f1fcbf43b",
+    "abi_hash": "0x3575b6169bf88583e70731e5f65028377d0172ed37c4704d28f4adc1b1f52265",
+    "version": "1.0.0"
+  },
+  "capabilities": {
+    "contract_name": "SponsorPolicyRelay",
+    "version": "1.0.0",
+    "capabilities": null,
+    "verifiable_methods": [
+      {
+        "function_name": "remainingOf",
+        "selector": "0x9ed407e6",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      },
+      {
+        "function_name": "policyHashOf",
+        "selector": "0xbc852e85",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      },
+      {
+        "function_name": "isRelayerActive",
+        "selector": "0x5cf919c1",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      }
+    ],
+    "delegated_methods": [
+      {
+        "function_name": "relay",
+        "selector": "0x3b0d9c18",
+        "scope_fields": [
+          "target",
+          "data",
+          "user",
+          "cost",
+          "policy_hash",
+          "binding_ref",
+          "receipt_ref"
+        ],
+        "description": "Pure computation with no state access"
+      }
+    ]
+  },
+  "discovery": {
+    "schema_version": "0.1.0",
+    "package_name": "tolang.stdlib.sponsor",
+    "package_version": "1.0.0",
+    "artifact_ref": {
+      "package_hash": "0xec923c0b78d8099650c92dbb95d7a052ce5cb7086f1382336dc3c13da53731ac",
+      "bytecode_hash": "0x0a8f51e9582de85e5fde7944a14c4d3aff56c0801b24660bd3af964eb4eefef2",
+      "source_hash": "0xb6024e452986ac3e75c5452552b1a0eb5aa26774408a5def646e5d4f1fcbf43b",
+      "abi_hash": "0x3575b6169bf88583e70731e5f65028377d0172ed37c4704d28f4adc1b1f52265",
+      "version": "1.0.0"
+    },
+    "contract_type": "payment",
+    "service_kinds": [
+      "query",
+      "payment_processing",
+      "verifiable_compute",
+      "delegated_execution"
+    ],
+    "capabilities": null,
+    "interface_methods": [
+      {
+        "name": "deposit",
+        "selector": "0xd0e30db0",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "withdraw",
+        "selector": "0xbbc26126",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "authorizeRelayer",
+        "selector": "0xf597e887",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "revokeRelayer",
+        "selector": "0x6f6cd49d",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "relay",
+        "selector": "0x3b0d9c18",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": true,
+        "verifiable": false,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "remainingOf",
+        "selector": "0x9ed407e6",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "policyHashOf",
+        "selector": "0xbc852e85",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "isRelayerActive",
+        "selector": "0x5cf919c1",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      }
+    ],
+    "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+    "tags": [
+      "payment",
+      "verifiable"
+    ]
+  },
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls"
+}

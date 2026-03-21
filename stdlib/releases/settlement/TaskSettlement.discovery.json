@@ -1,0 +1,142 @@
+{
+  "schema_version": "0.1.0",
+  "package_name": "tolang.stdlib.settlement",
+  "package_version": "1.0.0",
+  "artifact_ref": {
+    "package_hash": "0xaf77b51924bc7ca5569020116c90122f1f77d1688c92fe5f86b331beb10b515b",
+    "bytecode_hash": "0xa5e01481b48de31ee94863c9d0ab52c673378cd1e6a7e107a30777d7f7f44773",
+    "source_hash": "0xc932980b3dca2e60892534fa2845b0eb9a42763fc4fa44a6842938c640006a0f",
+    "abi_hash": "0xae3268f31d06681aa45e29838270804746efa76b948fd5a498a4bcb2b434b631",
+    "version": "1.0.0"
+  },
+  "contract_type": "custom",
+  "service_kinds": [
+    "query",
+    "verifiable_compute"
+  ],
+  "capabilities": null,
+  "interface_methods": [
+    {
+      "name": "openTask",
+      "selector": "0xb6291732",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "acceptTask",
+      "selector": "0x77709642",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "submitTask",
+      "selector": "0xbee6092a",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "approveTask",
+      "selector": "0x2dc49768",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "rejectTask",
+      "selector": "0x4032c302",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "disputeTask",
+      "selector": "0x2429a44e",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "resolveDispute",
+      "selector": "0x13280917",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "cancelTask",
+      "selector": "0x5f2eef77",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "reclaimExpired",
+      "selector": "0xb30377e7",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "statusOf",
+      "selector": "0x50233782",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "rewardOf",
+      "selector": "0x6df4930a",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "receiptRefOf",
+      "selector": "0x41924967",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "proofRefOf",
+      "selector": "0xac8b9f74",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    }
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "tags": [
+    "custom",
+    "verifiable"
+  ]
+}

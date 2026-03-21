@@ -93,6 +93,9 @@ func TestBuildDiscoveryManifest(t *testing.T) {
 	if len(dm.Tags) == 0 {
 		t.Error("expected non-empty Tags")
 	}
+	if dm.TypedDiscovery != nil {
+		t.Fatalf("token manifest should not expose typed discovery, got %+v", dm.TypedDiscovery)
+	}
 }
 
 func TestInferContractType(t *testing.T) {
@@ -164,6 +167,16 @@ func TestInferContractType(t *testing.T) {
 			wantType: "delegation",
 		},
 		{
+			name: "discovery",
+			meta: &ContractMetadata{
+				Functions: []FunctionMeta{
+					{Name: "registerService"},
+					{Name: "serviceKindOf"},
+				},
+			},
+			wantType: "discovery",
+		},
+		{
 			name: "custom fallback",
 			meta: &ContractMetadata{
 				Functions: []FunctionMeta{
@@ -181,6 +194,72 @@ func TestInferContractType(t *testing.T) {
 				t.Errorf("InferContractType() = %q, want %q", got, tt.wantType)
 			}
 		})
+	}
+}
+
+func TestBuildDiscoveryManifestTypedDiscoveryProfile(t *testing.T) {
+	meta := &ContractMetadata{
+		SchemaVersion: SchemaVersion,
+		ArtifactRef: ArtifactRef{
+			PackageHash:  "0xabc",
+			BytecodeHash: "0xdef",
+			ABIHash:      "0x123",
+			Version:      "1.0.0",
+		},
+		Contract: ContractInfo{Name: "ServiceDirectory"},
+		Manifest: &ManifestMeta{Version: "1.0.0"},
+		Functions: []FunctionMeta{
+			{Name: "registerService", Visibility: "public"},
+			{Name: "serviceKindOf", Visibility: "public"},
+			{Name: "capabilityKindOf", Visibility: "public"},
+			{Name: "pricingKindOf", Visibility: "public"},
+			{Name: "privacyModeOf", Visibility: "public"},
+			{Name: "receiptModeOf", Visibility: "public"},
+			{Name: "trustFloorRefOf", Visibility: "public"},
+			{Name: "manifestRefOf", Visibility: "public"},
+			{Name: "capabilityRefOf", Visibility: "public"},
+			{Name: "quoteRefOf", Visibility: "public"},
+			{Name: "feeOf", Visibility: "public"},
+			{Name: "slaOf", Visibility: "public"},
+		},
+	}
+
+	dm := BuildDiscoveryManifest(meta, "tolang.stdlib.discovery.service_directory")
+	if dm.ContractType != "discovery" {
+		t.Fatalf("ContractType = %q, want %q", dm.ContractType, "discovery")
+	}
+	if dm.TypedDiscovery == nil {
+		t.Fatal("expected typed discovery profile")
+	}
+	if dm.TypedDiscovery.ServiceKind != "DISCOVERY" {
+		t.Fatalf("typed discovery service kind = %q, want %q", dm.TypedDiscovery.ServiceKind, "DISCOVERY")
+	}
+	if dm.TypedDiscovery.Pricing == nil || dm.TypedDiscovery.Pricing.Kind != "FREE" {
+		t.Fatalf("typed discovery pricing = %+v, want FREE", dm.TypedDiscovery.Pricing)
+	}
+	if dm.TypedDiscovery.Receipts == nil || dm.TypedDiscovery.Receipts.Mode != "MANUAL_RECEIPT" {
+		t.Fatalf("typed discovery receipts = %+v, want MANUAL_RECEIPT", dm.TypedDiscovery.Receipts)
+	}
+	fields := map[string]bool{}
+	for _, field := range dm.TypedDiscovery.SupportedFields {
+		fields[field] = true
+	}
+	for _, want := range []string{
+		"service_kind",
+		"capability_kind",
+		"pricing_kind",
+		"privacy_mode",
+		"receipt_mode",
+		"fee_amount",
+		"sla_duration_ms",
+		"trust_floor_ref",
+		"manifest_ref",
+		"capability_ref",
+		"quote_ref",
+	} {
+		if !fields[want] {
+			t.Fatalf("missing typed discovery supported field %q in %v", want, dm.TypedDiscovery.SupportedFields)
+		}
 	}
 }
 

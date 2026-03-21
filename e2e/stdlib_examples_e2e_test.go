@@ -72,6 +72,12 @@ func TestStdlibComposedExamplesMetadataAndDiscovery(t *testing.T) {
 			packageName:  "tolang.examples.stdlib_composed.sponsored_private_escrow_checkout",
 			functions:    []string{"preflight", "executeSponsoredRelease", "abortSponsoredRefund", "sponsorRemaining", "receiptStatus", "confidentialBalance"},
 		},
+		{
+			file:         "PrivateDisputeEscrow.tol",
+			contractName: "PrivateDisputeEscrow",
+			packageName:  "tolang.examples.stdlib_composed.private_dispute_escrow",
+			functions:    []string{"openOrder", "settleOrder", "disputeOrder", "resolveDispute", "escrowStatus", "receiptStatus"},
+		},
 	}
 
 	for _, tc := range testCases {

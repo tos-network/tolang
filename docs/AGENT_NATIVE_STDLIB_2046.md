@@ -1014,13 +1014,18 @@ A more aggressive execution posture is:
 The stdlib seeds, release artifacts, runtime coverage, and discovery surfaces
 are now substantially complete.  The five major follow-on gaps (cross-contract
 atomicity, privacy family completion, recurring payments, `@requires` syntax,
-and selective disclosure) are all resolved.  The capability audit in
-`docs/STDLIB_CAPABILITY_ANALYSIS.md` now tracks the remaining feature-level
-gaps: slash distribution, auto-receipt binding, named terminal/trust taxonomy,
-stronger step-up ergonomics, and higher-level privacy composition helpers.
+and selective disclosure) are all resolved. The next six follow-on delivery
+items are also now closed in code:
 
-These remaining items are not hypothetical future ideas.
-They are the current remaining implementation backlog.
+- slash distribution
+- canonical auto-receipt binding
+- named terminal / trust taxonomy
+- stronger reusable step-up enforcement
+- v1 privacy composition helper coverage
+- typed discovery / capability schema normalization
+
+The capability audit in `docs/STDLIB_CAPABILITY_ANALYSIS.md` now treats those
+as resolved implementation work, not open backlog.
 
 ### Missing contracts — RESOLVED (2026-03-21)
 
@@ -1034,7 +1039,7 @@ All previously missing privacy-family contracts are now implemented in
 
 ### Missing control-plane capability features
 
-These gaps exist even though the seed contracts compile and have runtime tests:
+The previous control-plane gaps are now resolved in the current stdlib wave:
 
 - ~~`PolicyAccount` still lacks per-role or per-employee spend caps~~ —
   **RESOLVED (2026-03-21)**: `setDelegateCaps(...)` and execute-path
@@ -1042,11 +1047,13 @@ These gaps exist even though the seed contracts compile and have runtime tests:
 - ~~`SessionBook` and related flows still lack single-call convenience APIs such
   as `require_terminal(...)`~~ — **RESOLVED (2026-03-21)**:
   `requireTerminal(...)` exists as a convenience enforcement wrapper
-- terminal and trust modeling is still represented as raw `u256` constants
-  rather than a named `6 terminal types x 5 trust tiers` semantic matrix
-- step-up logic is still too query-oriented
-  the stdlib has `requiresStepUp(...)`, but not a stronger canonical
-  enforcement layer that downstream packages can reuse directly
+- ~~terminal and trust modeling is still represented as raw `u256` constants
+  rather than a named `6 terminal types x 5 trust tiers` semantic matrix~~ —
+  **RESOLVED (2026-03-21)**: `SessionBook` now ships named terminal/trust
+  constants and rejects out-of-taxonomy values at runtime
+- ~~step-up logic is still too query-oriented~~ —
+  **RESOLVED (2026-03-21)**: `SessionBook.enforceStepUp(...)` and
+  `requireTerminal(...)` provide canonical reusable enforcement guards
 
 ### Missing execution-plane capability features
 
@@ -1059,12 +1066,13 @@ These are the main remaining commercial-flow gaps:
 - ~~milestone staged release~~ — **RESOLVED (2026-03-21)**:
   `TaskSettlement.openMilestoneTask` / `completeMilestone` / `milestoneStatusOf`
   with floor-division remainder handling and partial-reclaim support
-- slash distribution
-  dispute resolution exists, but there is no configurable slash or split
-  distribution model
-- auto-receipt binding
-  `ReceiptBook` exists, but settlement does not yet auto-bind receipt creation
-  and finalization
+- ~~slash distribution~~ — **RESOLVED (2026-03-21)**:
+  `TaskSettlement.setSlashPolicy(...)` now precommits a configurable dispute
+  split before submission/dispute and is enforced at resolution time
+- ~~auto-receipt binding~~ — **RESOLVED (2026-03-21)**:
+  `TaskSettlement` now binds `ReceiptBook.openReceipt(...)` /
+  `finalizeSuccess(...)` / `finalizeFailure(...)` into approval, dispute,
+  cancellation, reclaim, and final milestone settlement paths
 - ~~invoice sub-type~~ — **RESOLVED (2026-03-21)**:
   `CommercialAgreement.createInvoice` / `agreementTypeOf` (TYPE_OFFER=1,
   TYPE_INVOICE=2)
@@ -1081,11 +1089,12 @@ These are the main remaining scale-out and privacy gaps:
 - ~~per-agreement or per-service stake lock semantics~~ — **RESOLVED (2026-03-21)**:
   `TrustRegistry.lockStake` / `unlockStake` / `lockedStakeOf`
 - ~~structured discovery fields~~ — **RESOLVED (2026-03-21)**:
-  `ServiceDirectory.setServiceFee` / `setServiceSLA` / `feeOf` / `slaOf`
-- selective disclosure is now RESOLVED at the GTOS protocol layer
-  DisclosureProof, DecryptionToken, and AuditorKey are implemented in
-  `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md`; the remaining work is
-  stdlib-level convenience composition rather than missing protocol primitives
+  `ServiceDirectory` now exposes typed service/capability/pricing/privacy/
+  receipt/trust-floor fields and exporter-generated `typed_discovery` metadata
+- ~~selective disclosure is now RESOLVED at the GTOS protocol layer~~ —
+  **RESOLVED (2026-03-21)**: GTOS provides DisclosureProof, DecryptionToken,
+  and AuditorKey; stdlib now also has stateful `PrivateDisputeEscrow` helper
+  coverage for privacy-aware dispute/refund coordination
 
 ### Missing compiler and language features — RESOLVED (2026-03-21)
 
@@ -1103,21 +1112,14 @@ The following items have been resolved:
 
 Remaining implementation order:
 
-1. close settlement automation:
-   slash distribution and canonical auto-receipt binding between settlement and
-   `ReceiptBook`
-2. close policy and session ergonomics:
-   named terminal/trust taxonomy and stronger reusable step-up enforcement
-3. close market/privacy ergonomics:
-   richer composed disclosure/arbitrator/regulator helper flows and discovery
-   schema normalization beyond reference-only capability metadata
-
-Detailed design homes for item 3:
-
-- privacy composition helpers:
-  `docs/PRIVACY_COMPOSITION_HELPERS.md`
-- typed discovery / capability schema normalization:
-  `docs/DISCOVERY_TYPED_SCHEMA.md`
+1. broaden privacy helper coverage beyond the current `PrivateDisputeEscrow`
+   seed into the wider helper family described in
+   `docs/PRIVACY_COMPOSITION_HELPERS.md`
+2. continue typed discovery integration beyond stdlib release/export into
+   broader GTOS/OpenFox consumption paths described in
+   `docs/DISCOVERY_TYPED_SCHEMA.md`
+3. keep tightening release/discovery/threat-model documentation as new helper
+   flows are added
 
 ### Acceptance bar for capability-complete closure
 

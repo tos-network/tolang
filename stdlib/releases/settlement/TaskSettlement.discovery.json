@@ -3,9 +3,9 @@
   "package_name": "tolang.stdlib.settlement",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0xe23f576c2d79f418fbe6543a7d92327b004fffc9d8479cd13c3960a915b53283",
-    "bytecode_hash": "0xa70460aba18d9fddbd44864b9161135dc94214e4f291462fd8baa10e1fe0feee",
-    "source_hash": "0xab35f6e41417ab6ab00ac807ef2b25f36bc1f5e14480e223811fa6d41d5bbdcf",
+    "package_hash": "0x74b1176b6aa3fe9e9a9d7536d8ac2a1ea1fa25bd7af2d27cd0bffb5faa2c88a0",
+    "bytecode_hash": "0x9aa7a8a8c0c76cb6bc57a3693952b593c546639833aeab890e09ad74ef2b35e9",
+    "source_hash": "0x424b2e809092d23fa4262e4c6c9bfb58f2cbcb7401c3f21c4efa103e9a9200db",
     "abi_hash": "0xd5b671ac6deb748de276054f23609b15dcc2aea8edba943a7fb02e39c666b4b4",
     "version": "1.0.0"
   },

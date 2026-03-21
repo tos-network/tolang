@@ -108,6 +108,39 @@ func invokePackageContractCalldata(t *testing.T, dep *stdlibDeployedPackageContr
 	return rets
 }
 
+func invokePackageContractCalldataWithUno(t *testing.T, dep *stdlibDeployedPackageContract, caller string, callerUno LValue, calldata string) []LValue {
+	t.Helper()
+
+	oninvoke := dep.L.GetField(dep.tos, "oninvoke")
+	if oninvoke == LNil {
+		t.Fatalf("%s missing tos.oninvoke", dep.name)
+	}
+
+	storageSnap, transientSnap := snapshotLuaStorage(dep.L)
+	hostSnap := snapshotRuntimeHost(dep.host)
+
+	base := dep.L.GetTop()
+	stdlibSetSender(dep.host, caller)
+	stdlibSetUnoValue(dep.host, callerUno)
+	dep.host.tosTable.RawSetString("calldata", LString(calldata))
+	dep.L.Push(oninvoke)
+	dep.L.Push(LString(stdlibSelectorFromCalldata(calldata)))
+	if err := dep.L.PCall(1, MultRet, nil); err != nil {
+		revertLuaStorage(dep.L, storageSnap, transientSnap)
+		restoreRuntimeHost(dep.host, hostSnap)
+		t.Fatalf("package call %s failed: %v", dep.name, err)
+	}
+
+	n := dep.L.GetTop() - base
+	rets := make([]LValue, 0, n)
+	for i := 0; i < n; i++ {
+		rets = append(rets, dep.L.Get(base+1+i))
+	}
+	dep.L.SetTop(base)
+	restoreRuntimeHostCallContext(dep.host, hostSnap)
+	return rets
+}
+
 func attachActualPackageRouter(t *testing.T, coordinatorHost *stdlibRuntimeHost, caller string, deps ...*stdlibDeployedPackageContract) {
 	t.Helper()
 
@@ -968,6 +1001,113 @@ func TestPrivateEscrowCheckoutRuntimeStatefulPackageFlow(t *testing.T) {
 	}
 }
 
+func TestPrivateDisputeEscrowRuntimeStatefulPackageFlow(t *testing.T) {
+	contractAddr := stdlibBytes32("1")
+	escrowAddr := stdlibBytes32("2")
+	disclosureAddr := stdlibBytes32("3")
+	receiptAddr := stdlibBytes32("4")
+
+	orderOne := stdlibBytes32("5")
+	orderTwo := stdlibBytes32("6")
+	scopeRef := stdlibBytes32("7")
+	settlementOne := stdlibBytes32("8")
+	settlementTwo := stdlibBytes32("9")
+	arbitrator := stdlibBytes32("a")
+	payerTwo := stdlibBytes32("b")
+
+	escrowL, escrowTOS, escrowHost := deployStdlibContract(t, "stdlib/privacy/ConfidentialEscrow.tol", LString(contractAddr))
+	defer escrowL.Close()
+	disclosureL, disclosureTOS, disclosureHost := deployStdlibContract(t, "stdlib/privacy/AuditorDisclosureBook.tol", LString(contractAddr))
+	defer disclosureL.Close()
+	receiptL, receiptTOS, receiptHost := deployStdlibContract(t, "stdlib/receipt/ReceiptBook.tol", LString(contractAddr))
+	defer receiptL.Close()
+
+	coordL, coordTOS, coordHost := deployStdlibExampleContract(
+		t,
+		"examples/stdlib_composed/PrivateDisputeEscrow.tol",
+		LString(alice),
+		LString(escrowAddr),
+		LString(disclosureAddr),
+		LString(receiptAddr),
+	)
+	defer coordL.Close()
+
+	deps := map[string]*stdlibDeployedPackageContract{
+		escrowAddr:     {name: "ConfidentialEscrow", addr: escrowAddr, L: escrowL, tos: escrowTOS, host: escrowHost},
+		disclosureAddr: {name: "AuditorDisclosureBook", addr: disclosureAddr, L: disclosureL, tos: disclosureTOS, host: disclosureHost},
+		receiptAddr:    {name: "ReceiptBook", addr: receiptAddr, L: receiptL, tos: receiptTOS, host: receiptHost},
+	}
+	coordHost.packageCallHook = func(addr, contractName, calldata string) []LValue {
+		dep := deps[addr]
+		if dep == nil {
+			t.Fatalf("package_call to unknown addr=%s contract=%s calldata=%s", addr, contractName, calldata)
+		}
+		if dep.name != contractName {
+			t.Fatalf("package_call contract mismatch: addr=%s got=%s want=%s", addr, contractName, dep.name)
+		}
+		if contractName == "ConfidentialEscrow" && stdlibSelectorFromCalldata(calldata) == selectorHexFromSignature("openEscrow(bytes32,agent,u256,bytes32)") {
+			return invokePackageContractCalldataWithUno(t, dep, contractAddr, coordHost.msgTable.RawGetString("uno_value"), calldata)
+		}
+		return invokePackageContractCalldata(t, dep, contractAddr, calldata)
+	}
+
+	stdlibSetSender(coordHost, bob)
+	stdlibSetTimestamp(coordHost, 100)
+	stdlibSetUnoValue(coordHost, stdlibUnoFromInt(40))
+	invokeStdlib(t, coordL, coordTOS, "openOrder(bytes32,agent,u256)", LString(orderOne), LString(charlie), lu256FromInt(500))
+	stdlibSetUnoValue(coordHost, stdlibUnoFromInt(0))
+
+	if got := LVAsString(invokeStdlib(t, escrowL, escrowTOS, "statusOf(bytes32)", LString(orderOne))); got != "1" {
+		t.Fatalf("order one escrow status after open: got=%s want=1", got)
+	}
+	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "statusOf(bytes32)", LString(orderOne))); got != "1" {
+		t.Fatalf("order one receipt status after open: got=%s want=1", got)
+	}
+
+	stdlibSetSender(coordHost, alice)
+	invokeStdlib(t, coordL, coordTOS, "settleOrder(bytes32,bytes32)", LString(orderOne), LString(settlementOne))
+
+	if got := LVAsString(invokeStdlib(t, escrowL, escrowTOS, "statusOf(bytes32)", LString(orderOne))); got != "2" {
+		t.Fatalf("order one escrow status after settle: got=%s want=2", got)
+	}
+	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "statusOf(bytes32)", LString(orderOne))); got != "2" {
+		t.Fatalf("order one receipt status after settle: got=%s want=2", got)
+	}
+	if got := LVAsString(invokeStdlib(t, escrowL, escrowTOS, "nativeBalance(agent)", LString(charlie))); got != LVAsString(stdlibUnoFromInt(40)) {
+		t.Fatalf("charlie confidential balance after settle: got=%s want=%s", got, LVAsString(stdlibUnoFromInt(40)))
+	}
+
+	stdlibSetSender(coordHost, payerTwo)
+	stdlibSetTimestamp(coordHost, 150)
+	stdlibSetUnoValue(coordHost, stdlibUnoFromInt(25))
+	invokeStdlib(t, coordL, coordTOS, "openOrder(bytes32,agent,u256)", LString(orderTwo), LString(charlie), lu256FromInt(550))
+	stdlibSetUnoValue(coordHost, stdlibUnoFromInt(0))
+
+	stdlibSetSender(coordHost, alice)
+	stdlibSetTimestamp(coordHost, 200)
+	invokeStdlib(t, coordL, coordTOS, "disputeOrder(bytes32,agent,bytes32,u256)",
+		LString(orderTwo), LString(arbitrator), LString(scopeRef), lu256FromInt(600))
+
+	if got := invokeStdlib(t, disclosureL, disclosureTOS, "isAuthorized(agent)", LString(arbitrator)); !LVAsBool(got) {
+		t.Fatal("arbitrator should be authorized after disputeOrder")
+	}
+
+	invokeStdlib(t, coordL, coordTOS, "resolveDispute(bytes32,bool,bytes32)", LString(orderTwo), LFalse, LString(settlementTwo))
+
+	if got := LVAsString(invokeStdlib(t, escrowL, escrowTOS, "statusOf(bytes32)", LString(orderTwo))); got != "3" {
+		t.Fatalf("order two escrow status after refund: got=%s want=3", got)
+	}
+	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "statusOf(bytes32)", LString(orderTwo))); got != "3" {
+		t.Fatalf("order two receipt status after refund: got=%s want=3", got)
+	}
+	if got := stdlibNativeUnoBalance(coordHost, payerTwo); got.Cmp(stdlibParseUnoString(LVAsString(stdlibUnoFromInt(25)))) != 0 {
+		t.Fatalf("payerTwo confidential balance after refund: got=%s want=%s", got.String(), stdlibParseUnoString(LVAsString(stdlibUnoFromInt(25))).String())
+	}
+	if got := LVAsString(invokeStdlib(t, coordL, coordTOS, "receiptStatus(bytes32)", LString(orderTwo))); got != "3" {
+		t.Fatalf("coordinator receiptStatus order two: got=%s want=3", got)
+	}
+}
+
 func TestSponsoredPrivateEscrowCheckoutRuntimeComposedFlow(t *testing.T) {
 	bindingAddr := stdlibBytes32("1")
 	sponsorAddr := stdlibBytes32("2")
@@ -1519,15 +1659,16 @@ func TestTaskSettlementAtomicApproveRelease(t *testing.T) {
 	if err2 != nil {
 		t.Fatalf("getwd: %v", err2)
 	}
-	source2, err2 := os.ReadFile(filepath.Join(repoRoot2, "stdlib/settlement/TaskSettlement.tol"))
+	sourcePath2 := filepath.Join(repoRoot2, "stdlib/settlement/TaskSettlement.tol")
+	source2, err2 := os.ReadFile(sourcePath2)
 	if err2 != nil {
 		t.Fatalf("read: %v", err2)
 	}
-	runtimeBC2, err2 := CompileBytecode(source2, "TaskSettlement")
+	runtimeBC2, err2 := CompileBytecode(source2, sourcePath2)
 	if err2 != nil {
 		t.Fatalf("compile runtime: %v", err2)
 	}
-	initBC2, err2 := CompileInitBytecode(source2, "TaskSettlement")
+	initBC2, err2 := CompileInitBytecode(source2, sourcePath2)
 	if err2 != nil {
 		t.Fatalf("compile init: %v", err2)
 	}

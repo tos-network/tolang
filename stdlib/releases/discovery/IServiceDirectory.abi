@@ -15,7 +15,19 @@ interface IServiceDirectory {
   function feeOf(u256 service_id) public view returns (u256 fee);
   function slaOf(u256 service_id) public view returns (u256 sla_duration_ms);
   function setCapabilityType(u256 service_id, u256 capability_type) public;
+  function setServiceKind(u256 service_id, u256 service_kind_value) public;
+  function setCapabilityKind(u256 service_id, u256 capability_kind) public;
+  function setPricingKind(u256 service_id, u256 pricing_kind) public;
+  function setPrivacyMode(u256 service_id, u256 privacy_mode) public;
+  function setReceiptMode(u256 service_id, u256 receipt_mode) public;
+  function setTrustFloorRef(u256 service_id, bytes32 trust_floor_ref) public;
   function capabilityTypeOf(u256 service_id) public view returns (u256 capability_type);
+  function serviceKindOf(u256 service_id) public view returns (u256 service_kind_value);
+  function capabilityKindOf(u256 service_id) public view returns (u256 capability_kind);
+  function pricingKindOf(u256 service_id) public view returns (u256 pricing_kind);
+  function privacyModeOf(u256 service_id) public view returns (u256 privacy_mode);
+  function receiptModeOf(u256 service_id) public view returns (u256 receipt_mode);
+  function trustFloorRefOf(u256 service_id) public view returns (bytes32 trust_floor_ref);
   function serviceCount() public view returns (u256 count);
   event ServiceRegistered(u256 service_id indexed, agent provider indexed, bytes32 manifest_ref, bytes32 capability_ref, bytes32 version_ref, bytes32 quote_ref);
   event ServiceManifestUpdated(u256 service_id indexed, bytes32 manifest_ref, bytes32 capability_ref, bytes32 version_ref);
@@ -23,4 +35,5 @@ interface IServiceDirectory {
   event ServiceDeactivated(u256 service_id indexed);
   event ServiceFeeUpdated(u256 service_id indexed, u256 fee_amount);
   event ServiceSLAUpdated(u256 service_id indexed, u256 sla_duration_ms);
+  event ServiceTypedSchemaUpdated(u256 service_id indexed, u256 service_kind, u256 capability_kind, u256 pricing_kind, u256 privacy_mode, u256 receipt_mode, bytes32 trust_floor_ref);
 }

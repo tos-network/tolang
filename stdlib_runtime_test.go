@@ -2826,11 +2826,12 @@ func TestServiceDirectoryStructuredFields(t *testing.T) {
 	}
 }
 
-func TestServiceDirectoryTypedCapability(t *testing.T) {
+func TestServiceDirectoryTypedSchemaFields(t *testing.T) {
 	manifestRef := stdlibBytes32("2")
 	capabilityRef := stdlibBytes32("3")
 	versionRef := stdlibBytes32("4")
 	quoteRef := stdlibBytes32("5")
+	trustFloorRef := stdlibBytes32("6")
 
 	L, tos, host := deployStdlibContract(t, "stdlib/discovery/ServiceDirectory.tol")
 	defer L.Close()
@@ -2840,20 +2841,63 @@ func TestServiceDirectoryTypedCapability(t *testing.T) {
 	invokeStdlib(t, L, tos, "registerService(bytes32,bytes32,bytes32,bytes32)",
 		LString(manifestRef), LString(capabilityRef), LString(versionRef), LString(quoteRef))
 
-	// Capability type defaults to 0 (CAP_UNSET).
+	// Typed fields default to 0 / empty refs.
+	if got := LVAsString(invokeStdlib(t, L, tos, "serviceKindOf(u256)",
+		lu256FromInt(1))); got != "0" {
+		t.Fatalf("serviceKindOf(1) default: got=%s want=0", got)
+	}
 	if got := LVAsString(invokeStdlib(t, L, tos, "capabilityTypeOf(u256)",
 		lu256FromInt(1))); got != "0" {
 		t.Fatalf("capabilityTypeOf(1) default: got=%s want=0", got)
 	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "pricingKindOf(u256)",
+		lu256FromInt(1))); got != "0" {
+		t.Fatalf("pricingKindOf(1) default: got=%s want=0", got)
+	}
 
-	// Set capability type to CAP_TRANSLATION (4).
+	// Set full typed schema.
+	invokeStdlib(t, L, tos, "setServiceKind(u256,u256)",
+		lu256FromInt(1), lu256FromInt(8))
 	invokeStdlib(t, L, tos, "setCapabilityType(u256,u256)",
 		lu256FromInt(1), lu256FromInt(4))
+	invokeStdlib(t, L, tos, "setCapabilityKind(u256,u256)",
+		lu256FromInt(1), lu256FromInt(4))
+	invokeStdlib(t, L, tos, "setPricingKind(u256,u256)",
+		lu256FromInt(1), lu256FromInt(2))
+	invokeStdlib(t, L, tos, "setPrivacyMode(u256,u256)",
+		lu256FromInt(1), lu256FromInt(4))
+	invokeStdlib(t, L, tos, "setReceiptMode(u256,u256)",
+		lu256FromInt(1), lu256FromInt(3))
+	invokeStdlib(t, L, tos, "setTrustFloorRef(u256,bytes32)",
+		lu256FromInt(1), LString(trustFloorRef))
 
-	// Verify capabilityTypeOf returns 4.
+	if got := LVAsString(invokeStdlib(t, L, tos, "serviceKindOf(u256)",
+		lu256FromInt(1))); got != "8" {
+		t.Fatalf("serviceKindOf(1): got=%s want=8", got)
+	}
 	if got := LVAsString(invokeStdlib(t, L, tos, "capabilityTypeOf(u256)",
 		lu256FromInt(1))); got != "4" {
 		t.Fatalf("capabilityTypeOf(1): got=%s want=4", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "capabilityKindOf(u256)",
+		lu256FromInt(1))); got != "4" {
+		t.Fatalf("capabilityKindOf(1): got=%s want=4", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "pricingKindOf(u256)",
+		lu256FromInt(1))); got != "2" {
+		t.Fatalf("pricingKindOf(1): got=%s want=2", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "privacyModeOf(u256)",
+		lu256FromInt(1))); got != "4" {
+		t.Fatalf("privacyModeOf(1): got=%s want=4", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "receiptModeOf(u256)",
+		lu256FromInt(1))); got != "3" {
+		t.Fatalf("receiptModeOf(1): got=%s want=3", got)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "trustFloorRefOf(u256)",
+		lu256FromInt(1))); got != trustFloorRef {
+		t.Fatalf("trustFloorRefOf(1): got=%s want=%s", got, trustFloorRef)
 	}
 }
 
@@ -2867,8 +2911,7 @@ func TestServiceDirectoryServiceCount(t *testing.T) {
 	defer L.Close()
 
 	// Initially no services registered; count should be 0.
-	if got := LVAsString(invokeStdlib(t, L, tos, "serviceCount()",
-	)); got != "0" {
+	if got := LVAsString(invokeStdlib(t, L, tos, "serviceCount()")); got != "0" {
 		t.Fatalf("serviceCount initial: got=%s want=0", got)
 	}
 
@@ -2877,8 +2920,7 @@ func TestServiceDirectoryServiceCount(t *testing.T) {
 	invokeStdlib(t, L, tos, "registerService(bytes32,bytes32,bytes32,bytes32)",
 		LString(manifestRef), LString(capabilityRef), LString(versionRef), LString(quoteRef))
 
-	if got := LVAsString(invokeStdlib(t, L, tos, "serviceCount()",
-	)); got != "1" {
+	if got := LVAsString(invokeStdlib(t, L, tos, "serviceCount()")); got != "1" {
 		t.Fatalf("serviceCount after 1: got=%s want=1", got)
 	}
 
@@ -2887,14 +2929,48 @@ func TestServiceDirectoryServiceCount(t *testing.T) {
 	invokeStdlib(t, L, tos, "registerService(bytes32,bytes32,bytes32,bytes32)",
 		LString(manifestRef), LString(capabilityRef), LString(versionRef), LString(quoteRef))
 
-	if got := LVAsString(invokeStdlib(t, L, tos, "serviceCount()",
-	)); got != "2" {
+	if got := LVAsString(invokeStdlib(t, L, tos, "serviceCount()")); got != "2" {
 		t.Fatalf("serviceCount after 2: got=%s want=2", got)
+	}
+}
+
+func TestServiceDirectoryTypedSchemaValidation(t *testing.T) {
+	manifestRef := stdlibBytes32("2")
+	capabilityRef := stdlibBytes32("3")
+	versionRef := stdlibBytes32("4")
+	quoteRef := stdlibBytes32("5")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/discovery/ServiceDirectory.tol")
+	defer L.Close()
+
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "registerService(bytes32,bytes32,bytes32,bytes32)",
+		LString(manifestRef), LString(capabilityRef), LString(versionRef), LString(quoteRef))
+
+	errMsg := invokeStdlibErr(t, L, tos, "setServiceKind(u256,u256)", lu256FromInt(1), lu256FromInt(99))
+	if !strings.Contains(errMsg, "INVALID_SERVICE_KIND") {
+		t.Fatalf("expected INVALID_SERVICE_KIND, got %q", errMsg)
+	}
+
+	errMsg = invokeStdlibErr(t, L, tos, "setPricingKind(u256,u256)", lu256FromInt(1), lu256FromInt(99))
+	if !strings.Contains(errMsg, "INVALID_PRICING_KIND") {
+		t.Fatalf("expected INVALID_PRICING_KIND, got %q", errMsg)
+	}
+
+	errMsg = invokeStdlibErr(t, L, tos, "setPrivacyMode(u256,u256)", lu256FromInt(1), lu256FromInt(99))
+	if !strings.Contains(errMsg, "INVALID_PRIVACY_MODE") {
+		t.Fatalf("expected INVALID_PRIVACY_MODE, got %q", errMsg)
+	}
+
+	errMsg = invokeStdlibErr(t, L, tos, "setReceiptMode(u256,u256)", lu256FromInt(1), lu256FromInt(99))
+	if !strings.Contains(errMsg, "INVALID_RECEIPT_MODE") {
+		t.Fatalf("expected INVALID_RECEIPT_MODE, got %q", errMsg)
 	}
 }
 
 func TestSessionBookTerminalTrustTaxonomy(t *testing.T) {
 	sessionID := stdlibBytes32("a")
+	invalidSessionID := stdlibBytes32("c")
 	terminalID := stdlibBytes32("b")
 
 	L, tos, host := deployStdlibContract(t, "stdlib/session_book/SessionBook.tol", LString(alice))
@@ -2926,6 +3002,44 @@ func TestSessionBookTerminalTrustTaxonomy(t *testing.T) {
 	// Verify trustTierOf returns 2.
 	if got := LVAsString(invokeStdlib(t, L, tos, "trustTierOf(bytes32)", LString(sessionID))); got != "2" {
 		t.Fatalf("trustTierOf: got=%s want=2", got)
+	}
+
+	errMsg := invokeStdlibErr(
+		t,
+		L,
+		tos,
+		"grantSession(bytes32,agent,bytes32,u256,u256,u256,u256,u256,bool)",
+		LString(invalidSessionID),
+		LString(bob),
+		LString(terminalID),
+		lu256FromInt(99),
+		lu256FromInt(2),
+		lu256FromInt(1000),
+		lu256FromInt(500),
+		lu256FromInt(100),
+		LFalse,
+	)
+	if !strings.Contains(errMsg, "INVALID_TERMINAL") {
+		t.Fatalf("expected INVALID_TERMINAL, got %q", errMsg)
+	}
+
+	errMsg = invokeStdlibErr(
+		t,
+		L,
+		tos,
+		"grantSession(bytes32,agent,bytes32,u256,u256,u256,u256,u256,bool)",
+		LString(stdlibBytes32("d")),
+		LString(bob),
+		LString(terminalID),
+		lu256FromInt(2),
+		lu256FromInt(99),
+		lu256FromInt(1000),
+		lu256FromInt(500),
+		lu256FromInt(100),
+		LFalse,
+	)
+	if !strings.Contains(errMsg, "INVALID_TRUST") {
+		t.Fatalf("expected INVALID_TRUST, got %q", errMsg)
 	}
 }
 
@@ -2989,7 +3103,12 @@ func TestTaskSettlementSlashDistribution(t *testing.T) {
 	stdlibSetTimestamp(host, 150)
 	invokeStdlib(t, L, tos, "acceptTask(u256)", lu256FromInt(1))
 
+	// 2a. Poster precommits slash policy before submission/dispute.
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "setSlashPolicy(u256,u256)", lu256FromInt(1), lu256FromInt(30))
+
 	// 3. Submit task.
+	stdlibSetSender(host, bob)
 	invokeStdlib(t, L, tos, "submitTask(u256,bytes32,bytes32)",
 		lu256FromInt(1), LString(resultRef), LString(proofRef))
 
@@ -3003,9 +3122,12 @@ func TestTaskSettlementSlashDistribution(t *testing.T) {
 	invokeStdlib(t, L, tos, "disputeTask(u256,bytes32)", lu256FromInt(1), LString(disputeProof))
 	stdlibSetValue(host, 0)
 
-	// 6. Set slash policy to 30% (worker gets 30% of reward on loss).
+	// 6. Policy is frozen once the dispute is live.
 	stdlibSetSender(host, alice)
-	invokeStdlib(t, L, tos, "setSlashPolicy(u256,u256)", lu256FromInt(1), lu256FromInt(30))
+	errMsg := invokeStdlibErr(t, L, tos, "setSlashPolicy(u256,u256)", lu256FromInt(1), lu256FromInt(40))
+	if !strings.Contains(errMsg, "POLICY_FROZEN") {
+		t.Fatalf("expected POLICY_FROZEN, got %q", errMsg)
+	}
 
 	// 7. Resolve dispute — worker loses.
 	host.releaseCount = 0
@@ -3028,16 +3150,23 @@ func TestTaskSettlementSlashDistribution(t *testing.T) {
 	}
 }
 
-func TestTaskSettlementAutoReceiptEvent(t *testing.T) {
+func TestTaskSettlementAutoReceiptBinding(t *testing.T) {
 	taskRef := stdlibBytes32("1")
 	receiptRef := stdlibBytes32("2")
 	resultRef := stdlibBytes32("3")
 	proofRef := stdlibBytes32("4")
 	settlementRef := stdlibBytes32("5")
-	receiptBookAddr := "0x000000000000000000000000000000000000000000000000000000000000beef"
+	settlementAddr := stdlibBytes32("6")
+	receiptBookAddr := stdlibBytes32("7")
 
 	L, tos, host := deployStdlibContract(t, "stdlib/settlement/TaskSettlement.tol", LString(charlie))
 	defer L.Close()
+	receiptL, receiptTOS, receiptHost := deployStdlibContract(t, "stdlib/receipt/ReceiptBook.tol", LString(settlementAddr))
+	defer receiptL.Close()
+
+	attachActualPackageRouter(t, host, settlementAddr,
+		&stdlibDeployedPackageContract{name: "ReceiptBook", addr: receiptBookAddr, L: receiptL, tos: receiptTOS, host: receiptHost},
+	)
 
 	// Set receipt book via resolver.
 	stdlibSetSender(host, charlie)
@@ -3060,22 +3189,77 @@ func TestTaskSettlementAutoReceiptEvent(t *testing.T) {
 	invokeStdlib(t, L, tos, "submitTask(u256,bytes32,bytes32)",
 		lu256FromInt(1), LString(resultRef), LString(proofRef))
 
-	// Clear emitted events to isolate approveTask emissions.
-	host.emittedEvents = nil
-
-	// Approve — should emit SettlementReceipt since receipt book is set.
+	// Approve — should open and finalize the canonical receipt.
 	stdlibSetSender(host, alice)
 	invokeStdlib(t, L, tos, "approveTask(u256,bytes32)", lu256FromInt(1), LString(settlementRef))
 
-	// Find SettlementReceipt event in emitted events.
-	found := false
-	for _, ev := range host.emittedEvents {
-		if ev.Name == "SettlementReceipt" {
-			found = true
-			break
-		}
+	if host.packageCallCount != 4 {
+		t.Fatalf("expected 4 receipt package calls, got %d", host.packageCallCount)
 	}
-	if !found {
-		t.Fatalf("expected SettlementReceipt event, got events: %v", host.emittedEvents)
+	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "statusOf(bytes32)", LString(receiptRef))); got != "2" {
+		t.Fatalf("receipt status after approve: got=%s want=2", got)
+	}
+	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "proofRefOf(bytes32)", LString(receiptRef))); got != proofRef {
+		t.Fatalf("receipt proof ref after approve: got=%s want=%s", got, proofRef)
+	}
+}
+
+func TestTaskSettlementDisputeFinalizesFailureReceipt(t *testing.T) {
+	taskRef := stdlibBytes32("1")
+	receiptRef := stdlibBytes32("2")
+	resultRef := stdlibBytes32("3")
+	proofRef := stdlibBytes32("4")
+	disputeProof := stdlibBytes32("5")
+	settlementRef := stdlibBytes32("6")
+	settlementAddr := stdlibBytes32("7")
+	receiptBookAddr := stdlibBytes32("8")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/settlement/TaskSettlement.tol", LString(charlie))
+	defer L.Close()
+	receiptL, receiptTOS, receiptHost := deployStdlibContract(t, "stdlib/receipt/ReceiptBook.tol", LString(settlementAddr))
+	defer receiptL.Close()
+
+	attachActualPackageRouter(t, host, settlementAddr,
+		&stdlibDeployedPackageContract{name: "ReceiptBook", addr: receiptBookAddr, L: receiptL, tos: receiptTOS, host: receiptHost},
+	)
+
+	stdlibSetSender(host, charlie)
+	invokeStdlib(t, L, tos, "setReceiptBook(agent)", LString(receiptBookAddr))
+
+	stdlibSetSender(host, alice)
+	stdlibSetTimestamp(host, 100)
+	stdlibSetValue(host, 90)
+	invokeStdlib(t, L, tos, "openTask(bytes32,u256,bytes32)",
+		LString(taskRef), lu256FromInt(500), LString(receiptRef))
+	stdlibSetValue(host, 0)
+
+	stdlibSetSender(host, bob)
+	stdlibSetTimestamp(host, 150)
+	invokeStdlib(t, L, tos, "acceptTask(u256)", lu256FromInt(1))
+
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "setSlashPolicy(u256,u256)", lu256FromInt(1), lu256FromInt(25))
+
+	stdlibSetSender(host, bob)
+	invokeStdlib(t, L, tos, "submitTask(u256,bytes32,bytes32)",
+		lu256FromInt(1), LString(resultRef), LString(proofRef))
+
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "rejectTask(u256,bytes32)", lu256FromInt(1), LString(stdlibBytes32("9")))
+
+	stdlibSetSender(host, bob)
+	stdlibSetValue(host, 10)
+	invokeStdlib(t, L, tos, "disputeTask(u256,bytes32)", lu256FromInt(1), LString(disputeProof))
+	stdlibSetValue(host, 0)
+
+	stdlibSetSender(host, charlie)
+	invokeStdlib(t, L, tos, "resolveDispute(u256,bool,bytes32)",
+		lu256FromInt(1), LFalse, LString(settlementRef))
+
+	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "statusOf(bytes32)", LString(receiptRef))); got != "3" {
+		t.Fatalf("receipt status after dispute loss: got=%s want=3", got)
+	}
+	if got := LVAsString(invokeStdlib(t, receiptL, receiptTOS, "proofRefOf(bytes32)", LString(receiptRef))); got != disputeProof {
+		t.Fatalf("receipt proof ref after dispute: got=%s want=%s", got, disputeProof)
 	}
 }

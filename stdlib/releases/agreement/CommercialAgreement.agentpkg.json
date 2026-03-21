@@ -206,9 +206,16 @@
         "summary": "Pure computation with no state access"
       }
     ],
+    "typed_discovery": {
+      "schema_version": "0.1.0",
+      "supported_fields": [
+        "quote_ref"
+      ]
+    },
     "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
     "tags": [
       "custom",
+      "typed-discovery",
       "verifiable"
     ]
   },

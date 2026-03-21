@@ -10,18 +10,58 @@ const DiscoverySchemaVersion = "0.1.0"
 // DiscoveryManifest is the standardized manifest format that OpenFox discovery clients
 // can parse to understand what a TOL package provides.
 type DiscoveryManifest struct {
-	SchemaVersion    string            `json:"schema_version"`
-	PackageName      string            `json:"package_name"`
-	PackageVersion   string            `json:"package_version"`
-	ArtifactRef      ArtifactRef       `json:"artifact_ref"`
-	ContractType     string            `json:"contract_type"` // "token", "policy_wallet", "task_escrow", "oracle", "payment", "delegation", "custom"
-	ServiceKinds     []string          `json:"service_kinds"` // what discovery service kinds this supports
-	Capabilities     []string          `json:"capabilities"`
-	Errors           []ErrorMeta       `json:"errors,omitempty"`
-	InterfaceMethods []DiscoveryMethod `json:"interface_methods"`
-	PolicyProfile    *PolicyProfile    `json:"policy_profile,omitempty"`
-	HumanSummary     string            `json:"human_summary"`
-	Tags             []string          `json:"tags"`
+	SchemaVersion    string                 `json:"schema_version"`
+	PackageName      string                 `json:"package_name"`
+	PackageVersion   string                 `json:"package_version"`
+	ArtifactRef      ArtifactRef            `json:"artifact_ref"`
+	ContractType     string                 `json:"contract_type"` // "token", "policy_wallet", "task_escrow", "oracle", "payment", "delegation", "custom"
+	ServiceKinds     []string               `json:"service_kinds"` // what discovery service kinds this supports
+	Capabilities     []string               `json:"capabilities"`
+	Errors           []ErrorMeta            `json:"errors,omitempty"`
+	InterfaceMethods []DiscoveryMethod      `json:"interface_methods"`
+	PolicyProfile    *PolicyProfile         `json:"policy_profile,omitempty"`
+	TypedDiscovery   *TypedDiscoveryProfile `json:"typed_discovery,omitempty"`
+	HumanSummary     string                 `json:"human_summary"`
+	Tags             []string               `json:"tags"`
+}
+
+// TypedDiscoveryProfile is the normalized routing-facing discovery shape that
+// agent runtimes can consume without dereferencing ad hoc refs first.
+type TypedDiscoveryProfile struct {
+	SchemaVersion   string                 `json:"schema_version"`
+	ServiceKind     string                 `json:"service_kind,omitempty"`
+	CapabilityKind  string                 `json:"capability_kind,omitempty"`
+	Pricing         *TypedDiscoveryPricing `json:"pricing,omitempty"`
+	Privacy         *TypedDiscoveryPrivacy `json:"privacy,omitempty"`
+	Receipts        *TypedDiscoveryReceipt `json:"receipts,omitempty"`
+	SLA             *TypedDiscoverySLA     `json:"sla,omitempty"`
+	Refs            *TypedDiscoveryRefs    `json:"refs,omitempty"`
+	SupportedFields []string               `json:"supported_fields,omitempty"`
+}
+
+type TypedDiscoveryPricing struct {
+	Kind    string `json:"kind,omitempty"`
+	BaseFee string `json:"base_fee,omitempty"`
+}
+
+type TypedDiscoveryPrivacy struct {
+	Mode            string `json:"mode,omitempty"`
+	DisclosureReady bool   `json:"disclosure_ready,omitempty"`
+}
+
+type TypedDiscoveryReceipt struct {
+	Mode string `json:"mode,omitempty"`
+}
+
+type TypedDiscoverySLA struct {
+	DurationMS string `json:"duration_ms,omitempty"`
+}
+
+type TypedDiscoveryRefs struct {
+	ManifestRef   string `json:"manifest_ref,omitempty"`
+	CapabilityRef string `json:"capability_ref,omitempty"`
+	VersionRef    string `json:"version_ref,omitempty"`
+	TrustFloorRef string `json:"trust_floor_ref,omitempty"`
 }
 
 // DiscoveryMethod describes a single method in the discovery manifest.
@@ -54,6 +94,7 @@ func BuildDiscoveryManifest(meta *ContractMetadata, packageName string) *Discove
 	dm.ContractType = InferContractType(meta)
 	dm.ServiceKinds = InferServiceKinds(meta)
 	dm.Tags = InferTags(meta)
+	dm.TypedDiscovery = BuildTypedDiscoveryProfile(meta)
 
 	// Build interface methods.
 	for _, fn := range meta.Functions {
@@ -115,6 +156,18 @@ func InferContractType(meta *ContractMetadata) string {
 	if containsAny(names, "delegate", "undelegate", "redelegate", "delegation") {
 		return "delegation"
 	}
+	// Discovery patterns.
+	if containsAny(
+		names,
+		"registerservice",
+		"servicerefof",
+		"servicecount",
+		"servicekindof",
+		"capabilitykindof",
+		"capabilitytypeof",
+	) {
+		return "discovery"
+	}
 
 	return "custom"
 }
@@ -141,6 +194,8 @@ func InferServiceKinds(meta *ContractMetadata) []string {
 		kinds = append(kinds, "payment_processing")
 	case "delegation":
 		kinds = append(kinds, "delegation_management")
+	case "discovery":
+		kinds = append(kinds, "discovery_registry", "directory_query")
 	}
 
 	// Check for verifiable functions.
@@ -190,6 +245,9 @@ func InferTags(meta *ContractMetadata) []string {
 	if meta.IsAccount {
 		tags = append(tags, "account")
 	}
+	if BuildTypedDiscoveryProfile(meta) != nil {
+		tags = append(tags, "typed-discovery")
+	}
 
 	// Tag based on policy features.
 	if meta.PolicyProfile != nil {
@@ -216,6 +274,63 @@ func InferTags(meta *ContractMetadata) []string {
 	}
 
 	return dedup(tags)
+}
+
+// BuildTypedDiscoveryProfile derives a normalized typed discovery view from
+// release metadata when the contract exposes typed discovery schema APIs.
+func BuildTypedDiscoveryProfile(meta *ContractMetadata) *TypedDiscoveryProfile {
+	names := collectFunctionNames(meta)
+	supported := []string{}
+	if containsAny(names, "servicekindof", "setservicekind") {
+		supported = append(supported, "service_kind")
+	}
+	if containsAny(names, "capabilitykindof", "setcapabilitykind", "capabilitytypeof", "setcapabilitytype") {
+		supported = append(supported, "capability_kind")
+	}
+	if containsAny(names, "pricingkindof", "setpricingkind", "feeof", "setservicefee") {
+		supported = append(supported, "pricing_kind", "fee_amount")
+	}
+	if containsAny(names, "privacymodeof", "setprivacymode") {
+		supported = append(supported, "privacy_mode")
+	}
+	if containsAny(names, "receiptmodeof", "setreceiptmode") {
+		supported = append(supported, "receipt_mode")
+	}
+	if containsAny(names, "slaof", "setservicesla") {
+		supported = append(supported, "sla_duration_ms")
+	}
+	if containsAny(names, "trustfloorrefof", "settrustfloorref") {
+		supported = append(supported, "trust_floor_ref")
+	}
+	if containsAny(names, "manifestrefof") {
+		supported = append(supported, "manifest_ref")
+	}
+	if containsAny(names, "capabilityrefof") {
+		supported = append(supported, "capability_ref")
+	}
+	if containsAny(names, "quoterefof") {
+		supported = append(supported, "quote_ref")
+	}
+	if len(supported) == 0 {
+		return nil
+	}
+
+	profile := &TypedDiscoveryProfile{
+		SchemaVersion:   DiscoverySchemaVersion,
+		SupportedFields: dedup(supported),
+	}
+
+	if InferContractType(meta) == "discovery" {
+		profile.ServiceKind = "DISCOVERY"
+		profile.CapabilityKind = "READ_ONLY"
+		profile.Pricing = &TypedDiscoveryPricing{Kind: "FREE", BaseFee: "0"}
+		profile.Privacy = &TypedDiscoveryPrivacy{Mode: "PUBLIC_ONLY"}
+		profile.Receipts = &TypedDiscoveryReceipt{Mode: "MANUAL_RECEIPT"}
+		profile.SLA = &TypedDiscoverySLA{DurationMS: "0"}
+		profile.Refs = &TypedDiscoveryRefs{}
+	}
+
+	return profile
 }
 
 // collectFunctionNames returns lower-cased function names from metadata.

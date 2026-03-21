@@ -2,6 +2,8 @@ pragma tolang 0.4.0;
 
 package tolang.stdlib.settlement;
 
+import tolang.stdlib.receipt.ReceiptBook;
+
 // TaskSettlement — reference task escrow / dispute / payout settlement package.
 
 interface ITaskSettlement {
@@ -162,15 +164,36 @@ contract TaskSettlement is ITaskSettlement {
 
         agent worker = task_worker[task_id];
         u256 reward = task_reward[task_id];
+        bytes32 receipt_ref = task_receipt_ref[task_id];
 
         set task_status[task_id] = STATUS_APPROVED;
         set task_settlement_ref[task_id] = settlement_ref;
         release(worker, reward);
 
+        if (task_receipt_book != agent(0) && receipt_ref != bytes32(0)) {
+            ReceiptBook receipt = ReceiptBook(task_receipt_book);
+            if (receipt.statusOf(receipt_ref) == 0) {
+                receipt.openReceipt(
+                    receipt_ref,
+                    task_poster[task_id],
+                    worker,
+                    agent(0),
+                    worker,
+                    reward,
+                    bytes32(0),
+                    bytes32(0),
+                    task_proof_ref[task_id],
+                    task_ref[task_id]
+                );
+            }
+            if (receipt.statusOf(receipt_ref) == 1) {
+                receipt.finalizeSuccess(receipt_ref, task_result_ref[task_id], settlement_ref);
+            }
+        }
+
         emit TaskApproved(task_id, msg.sender, worker, reward, settlement_ref);
 
-        if (task_receipt_book != agent(0)) {
-            bytes32 receipt_ref = task_receipt_ref[task_id];
+        if (task_receipt_book != agent(0) && receipt_ref != bytes32(0)) {
             emit SettlementReceipt(task_id, receipt_ref, worker, reward);
         }
     }
@@ -203,12 +226,34 @@ contract TaskSettlement is ITaskSettlement {
         agent worker = task_worker[task_id];
         u256 reward = task_reward[task_id];
         u256 bond = task_dispute_bond[task_id];
+        bytes32 receipt_ref = task_receipt_ref[task_id];
 
         set task_status[task_id] = STATUS_RESOLVED;
         set task_settlement_ref[task_id] = settlement_ref;
 
         if (worker_wins) {
             release(worker, reward + bond);
+            if (task_receipt_book != agent(0) && receipt_ref != bytes32(0)) {
+                ReceiptBook receipt = ReceiptBook(task_receipt_book);
+                if (receipt.statusOf(receipt_ref) == 0) {
+                    receipt.openReceipt(
+                        receipt_ref,
+                        poster,
+                        worker,
+                        agent(0),
+                        worker,
+                        reward,
+                        bytes32(0),
+                        bytes32(0),
+                        task_proof_ref[task_id],
+                        task_ref[task_id]
+                    );
+                }
+                if (receipt.statusOf(receipt_ref) == 1) {
+                    receipt.finalizeSuccess(receipt_ref, task_result_ref[task_id], settlement_ref);
+                }
+                emit SettlementReceipt(task_id, receipt_ref, worker, reward + bond);
+            }
             emit TaskResolved(task_id, worker, reward + bond, settlement_ref);
         }
         if (worker_wins != true) {
@@ -220,10 +265,52 @@ contract TaskSettlement is ITaskSettlement {
                     release(worker, worker_share);
                 }
                 release(poster, poster_share + bond);
+                if (task_receipt_book != agent(0) && receipt_ref != bytes32(0)) {
+                    ReceiptBook receipt = ReceiptBook(task_receipt_book);
+                    if (receipt.statusOf(receipt_ref) == 0) {
+                        receipt.openReceipt(
+                            receipt_ref,
+                            poster,
+                            worker,
+                            agent(0),
+                            worker,
+                            reward,
+                            bytes32(0),
+                            bytes32(0),
+                            task_proof_ref[task_id],
+                            task_ref[task_id]
+                        );
+                    }
+                    if (receipt.statusOf(receipt_ref) == 1) {
+                        receipt.finalizeFailure(receipt_ref, settlement_ref);
+                    }
+                    emit SettlementReceipt(task_id, receipt_ref, worker, poster_share + bond);
+                }
                 emit TaskResolved(task_id, poster, poster_share + bond, settlement_ref);
             }
             if (slash_pct == 0) {
                 release(poster, reward + bond);
+                if (task_receipt_book != agent(0) && receipt_ref != bytes32(0)) {
+                    ReceiptBook receipt = ReceiptBook(task_receipt_book);
+                    if (receipt.statusOf(receipt_ref) == 0) {
+                        receipt.openReceipt(
+                            receipt_ref,
+                            poster,
+                            worker,
+                            agent(0),
+                            worker,
+                            reward,
+                            bytes32(0),
+                            bytes32(0),
+                            task_proof_ref[task_id],
+                            task_ref[task_id]
+                        );
+                    }
+                    if (receipt.statusOf(receipt_ref) == 1) {
+                        receipt.finalizeFailure(receipt_ref, settlement_ref);
+                    }
+                    emit SettlementReceipt(task_id, receipt_ref, worker, reward + bond);
+                }
                 emit TaskResolved(task_id, poster, reward + bond, settlement_ref);
             }
         }
@@ -231,7 +318,8 @@ contract TaskSettlement is ITaskSettlement {
 
     function setSlashPolicy(u256 task_id, u256 slash_pct) public {
         require(msg.sender == task_poster[task_id], "NOT_POSTER");
-        require(task_status[task_id] == STATUS_DISPUTED, "NOT_DISPUTED");
+        u8 status = task_status[task_id];
+        require(status == STATUS_OPEN || status == STATUS_ACCEPTED, "POLICY_FROZEN");
         require(slash_pct <= 100, "PCT_OOB");
         set task_slash_pct[task_id] = slash_pct;
     }
@@ -247,6 +335,26 @@ contract TaskSettlement is ITaskSettlement {
 
         set task_status[task_id] = STATUS_CANCELLED;
         release(msg.sender, task_reward[task_id]);
+        if (task_receipt_book != agent(0) && task_receipt_ref[task_id] != bytes32(0)) {
+            ReceiptBook receipt = ReceiptBook(task_receipt_book);
+            if (receipt.statusOf(task_receipt_ref[task_id]) == 0) {
+                receipt.openReceipt(
+                    task_receipt_ref[task_id],
+                    task_poster[task_id],
+                    task_worker[task_id],
+                    agent(0),
+                    task_worker[task_id],
+                    task_reward[task_id],
+                    bytes32(0),
+                    bytes32(0),
+                    task_proof_ref[task_id],
+                    task_ref[task_id]
+                );
+            }
+            if (receipt.statusOf(task_receipt_ref[task_id]) == 1) {
+                receipt.finalizeFailure(task_receipt_ref[task_id], bytes32(0));
+            }
+        }
         emit TaskCancelled(task_id, msg.sender);
     }
 
@@ -271,6 +379,26 @@ contract TaskSettlement is ITaskSettlement {
         set task_status[task_id] = STATUS_CANCELLED;
         if (refund_amount > 0) {
             release(msg.sender, refund_amount);
+        }
+        if (task_receipt_book != agent(0) && task_receipt_ref[task_id] != bytes32(0)) {
+            ReceiptBook receipt = ReceiptBook(task_receipt_book);
+            if (receipt.statusOf(task_receipt_ref[task_id]) == 0) {
+                receipt.openReceipt(
+                    task_receipt_ref[task_id],
+                    task_poster[task_id],
+                    task_worker[task_id],
+                    agent(0),
+                    task_worker[task_id],
+                    task_reward[task_id],
+                    bytes32(0),
+                    bytes32(0),
+                    task_proof_ref[task_id],
+                    task_ref[task_id]
+                );
+            }
+            if (receipt.statusOf(task_receipt_ref[task_id]) == 1) {
+                receipt.finalizeFailure(task_receipt_ref[task_id], bytes32(0));
+            }
         }
         emit TaskCancelled(task_id, msg.sender);
     }
@@ -333,6 +461,7 @@ contract TaskSettlement is ITaskSettlement {
         set task_milestone_status[task_id][milestone_index] = 1;
         u256 done = task_milestone_done[task_id] + 1;
         set task_milestone_done[task_id] = done;
+        set task_proof_ref[task_id] = proof_ref;
 
         u256 reward = task_reward[task_id];
         u256 per_milestone = reward / count;
@@ -342,6 +471,27 @@ contract TaskSettlement is ITaskSettlement {
             u256 remainder = reward - (per_milestone * count);
             set task_status[task_id] = STATUS_APPROVED;
             release(worker, per_milestone + remainder);
+            if (task_receipt_book != agent(0) && task_receipt_ref[task_id] != bytes32(0)) {
+                ReceiptBook receipt = ReceiptBook(task_receipt_book);
+                if (receipt.statusOf(task_receipt_ref[task_id]) == 0) {
+                    receipt.openReceipt(
+                        task_receipt_ref[task_id],
+                        task_poster[task_id],
+                        worker,
+                        agent(0),
+                        worker,
+                        reward,
+                        bytes32(0),
+                        bytes32(0),
+                        proof_ref,
+                        task_ref[task_id]
+                    );
+                }
+                if (receipt.statusOf(task_receipt_ref[task_id]) == 1) {
+                    receipt.finalizeSuccess(task_receipt_ref[task_id], proof_ref, proof_ref);
+                }
+                emit SettlementReceipt(task_id, task_receipt_ref[task_id], worker, reward);
+            }
         }
         if (done != count) {
             set task_status[task_id] = STATUS_MILESTONE_PARTIAL;

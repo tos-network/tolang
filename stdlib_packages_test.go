@@ -144,7 +144,7 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			pkgName:       "tolang.stdlib.discovery",
 			contractName:  "ServiceDirectory",
 			interfaceName: "IServiceDirectory",
-			functions:     []string{"registerService", "updateManifest", "updateQuote", "deactivate", "providerOf", "manifestRefOf", "capabilityRefOf", "quoteRefOf", "isActive", "setServiceFee", "setServiceSLA", "feeOf", "slaOf", "setCapabilityType", "capabilityTypeOf", "serviceCount"},
+			functions:     []string{"registerService", "updateManifest", "updateQuote", "deactivate", "providerOf", "manifestRefOf", "capabilityRefOf", "quoteRefOf", "isActive", "setServiceFee", "setServiceSLA", "feeOf", "slaOf", "setCapabilityType", "setServiceKind", "setCapabilityKind", "setPricingKind", "setPrivacyMode", "setReceiptMode", "setTrustFloorRef", "capabilityTypeOf", "serviceKindOf", "capabilityKindOf", "pricingKindOf", "privacyModeOf", "receiptModeOf", "trustFloorRefOf", "serviceCount"},
 		},
 		{
 			relPath:       "stdlib/privacy/ConfidentialPayment.tol",

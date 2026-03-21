@@ -131,6 +131,8 @@ contract SessionBook is ISessionBook {
         require(operator != agent(0), "ZERO_OPERATOR");
         require(terminal_id != bytes32(0), "ZERO_TERMINAL");
         require(spend_limit > 0, "ZERO_LIMIT");
+        require(terminal_class > 0 && terminal_class <= 6, "INVALID_TERMINAL");
+        require(trust_tier <= 4, "INVALID_TRUST");
         require(step_up_limit <= spend_limit, "STEP_UP_LIMIT");
 
         set session_exists[session_id] = true;

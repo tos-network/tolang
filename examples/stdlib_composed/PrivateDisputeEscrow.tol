@@ -23,6 +23,7 @@ contract PrivateDisputeEscrow {
     agent receipt_addr;
 
     mapping(bytes32 => bool) order_disputed;
+    mapping(bytes32 => agent) order_payer;
 
     event OrderOpened(
         bytes32 indexed order_id,
@@ -61,6 +62,7 @@ contract PrivateDisputeEscrow {
         ConfidentialEscrow escrow = ConfidentialEscrow(escrow_addr);
         ReceiptBook receipt = ReceiptBook(receipt_addr);
 
+        set order_payer[order_id] = msg.sender;
         escrow.openEscrow(order_id, payee, expiry_ms, order_id);
 
         receipt.openReceipt(
@@ -120,9 +122,13 @@ contract PrivateDisputeEscrow {
             escrow.releaseEscrow(order_id, settlement_ref);
             receipt.finalizeSuccess(order_id, settlement_ref, settlement_ref);
         } else {
+            uno amount = escrow.amountOf(order_id);
             escrow.refundEscrow(order_id, settlement_ref);
+            uno.transfer(order_payer[order_id], amount);
             receipt.finalizeFailure(order_id, settlement_ref);
         }
+
+        set order_disputed[order_id] = false;
 
         emit DisputeResolved(order_id, payee_wins, settlement_ref);
     }

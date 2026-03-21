@@ -9,6 +9,19 @@ package tolang.stdlib.session_book;
 // machine-readable session surface instead of burying session checks in ad hoc
 // business logic.
 
+u256 constant TERMINAL_MOBILE = 1;
+u256 constant TERMINAL_NFC = 2;
+u256 constant TERMINAL_POS = 3;
+u256 constant TERMINAL_VOICE = 4;
+u256 constant TERMINAL_KIOSK = 5;
+u256 constant TERMINAL_API = 6;
+
+u256 constant TRUST_NONE = 0;
+u256 constant TRUST_LOW = 1;
+u256 constant TRUST_MEDIUM = 2;
+u256 constant TRUST_HIGH = 3;
+u256 constant TRUST_CRITICAL = 4;
+
 interface ISessionBook {
     event SessionGranted(
         bytes32 indexed session_id,
@@ -51,6 +64,14 @@ interface ISessionBook {
 
     @verifiable
     function requireTerminal(bytes32 session_id, u256 amount) public view returns (bool ok);
+
+    @verifiable
+    function terminalTypeOf(bytes32 session_id) public view returns (u256 terminal_type);
+
+    @verifiable
+    function trustTierOf(bytes32 session_id) public view returns (u256 trust_tier);
+
+    function enforceStepUp(bytes32 session_id, u256 amount) public view;
 }
 
 contract SessionBook is ISessionBook {
@@ -214,5 +235,19 @@ contract SessionBook is ISessionBook {
             return false;
         }
         return true;
+    }
+
+    @verifiable
+    function terminalTypeOf(bytes32 session_id) public view returns (u256 terminal_type) {
+        return session_terminal_class[session_id];
+    }
+
+    @verifiable
+    function trustTierOf(bytes32 session_id) public view returns (u256 trust_tier) {
+        return session_trust_tier[session_id];
+    }
+
+    function enforceStepUp(bytes32 session_id, u256 amount) public view {
+        require(requiresStepUp(session_id, amount) != true, "STEP_UP_REQUIRED");
     }
 }

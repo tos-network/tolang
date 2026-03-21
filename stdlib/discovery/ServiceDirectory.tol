@@ -65,6 +65,14 @@ interface IServiceDirectory {
 
     @verifiable
     function slaOf(u256 service_id) public view returns (u256 sla_duration_ms);
+
+    function setCapabilityType(u256 service_id, u256 capability_type) public;
+
+    @verifiable
+    function capabilityTypeOf(u256 service_id) public view returns (u256 capability_type);
+
+    @verifiable
+    function serviceCount() public view returns (u256 count);
 }
 
 contract ServiceDirectory is IServiceDirectory {
@@ -73,6 +81,15 @@ contract ServiceDirectory is IServiceDirectory {
         version: "1.0.0";
         description: "Discovery registry for provider identity, manifest refs, capability refs, compatibility markers, and quote refs";
     }
+
+    u256 constant CAP_UNSET = 0;
+    u256 constant CAP_COMPUTE = 1;
+    u256 constant CAP_STORAGE = 2;
+    u256 constant CAP_ORACLE = 3;
+    u256 constant CAP_TRANSLATION = 4;
+    u256 constant CAP_VERIFICATION = 5;
+    u256 constant CAP_RELAY = 6;
+    u256 constant CAP_CUSTOM = 7;
 
     u256 next_service_id;
 
@@ -84,6 +101,7 @@ contract ServiceDirectory is IServiceDirectory {
     mapping(u256 => bool) service_active;
     mapping(u256 => u256) service_fee;
     mapping(u256 => u256) service_sla;
+    mapping(u256 => u256) service_capability_type;
 
     event ServiceRegistered(
         u256 indexed service_id,
@@ -211,5 +229,22 @@ contract ServiceDirectory is IServiceDirectory {
     @verifiable
     function slaOf(u256 service_id) public view returns (u256 sla_duration_ms) {
         return service_sla[service_id];
+    }
+
+    function setCapabilityType(u256 service_id, u256 capability_type) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        require(capability_type <= CAP_CUSTOM, "INVALID_CAPABILITY");
+        set service_capability_type[service_id] = capability_type;
+    }
+
+    @verifiable
+    function capabilityTypeOf(u256 service_id) public view returns (u256 capability_type) {
+        return service_capability_type[service_id];
+    }
+
+    @verifiable
+    function serviceCount() public view returns (u256 count) {
+        return next_service_id - 1;
     }
 }

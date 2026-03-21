@@ -53,6 +53,13 @@ type stdlibRuntimeHost struct {
 
 	capturedResult string
 	hasResult      bool
+
+	emittedEvents []stdlibEmittedEvent
+}
+
+type stdlibEmittedEvent struct {
+	Name string
+	Args []string // alternating type, value pairs
 }
 
 var stdlibResultSentinel = &struct{}{}
@@ -711,7 +718,17 @@ func installStdlibRuntimeHost(L *LState) *stdlibRuntimeHost {
 		return 0
 	}))
 
-	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
+	L.SetGlobal("emit", L.NewFunction(func(L *LState) int {
+		n := L.GetTop()
+		if n >= 1 {
+			ev := stdlibEmittedEvent{Name: LVAsString(L.Get(1))}
+			for i := 2; i <= n; i++ {
+				ev.Args = append(ev.Args, LVAsString(L.Get(i)))
+			}
+			host.emittedEvents = append(host.emittedEvents, ev)
+		}
+		return 0
+	}))
 	L.SetGlobal("tos", tosTable)
 	L.SetGlobal("msg", msgTable)
 	L.SetGlobal("block", blockTable)
@@ -2806,5 +2823,259 @@ func TestServiceDirectoryStructuredFields(t *testing.T) {
 	if got := LVAsString(invokeStdlib(t, L, tos, "slaOf(u256)",
 		lu256FromInt(1))); got != "3600000" {
 		t.Fatalf("slaOf(1): got=%s want=3600000", got)
+	}
+}
+
+func TestServiceDirectoryTypedCapability(t *testing.T) {
+	manifestRef := stdlibBytes32("2")
+	capabilityRef := stdlibBytes32("3")
+	versionRef := stdlibBytes32("4")
+	quoteRef := stdlibBytes32("5")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/discovery/ServiceDirectory.tol")
+	defer L.Close()
+
+	// Provider registers service.
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "registerService(bytes32,bytes32,bytes32,bytes32)",
+		LString(manifestRef), LString(capabilityRef), LString(versionRef), LString(quoteRef))
+
+	// Capability type defaults to 0 (CAP_UNSET).
+	if got := LVAsString(invokeStdlib(t, L, tos, "capabilityTypeOf(u256)",
+		lu256FromInt(1))); got != "0" {
+		t.Fatalf("capabilityTypeOf(1) default: got=%s want=0", got)
+	}
+
+	// Set capability type to CAP_TRANSLATION (4).
+	invokeStdlib(t, L, tos, "setCapabilityType(u256,u256)",
+		lu256FromInt(1), lu256FromInt(4))
+
+	// Verify capabilityTypeOf returns 4.
+	if got := LVAsString(invokeStdlib(t, L, tos, "capabilityTypeOf(u256)",
+		lu256FromInt(1))); got != "4" {
+		t.Fatalf("capabilityTypeOf(1): got=%s want=4", got)
+	}
+}
+
+func TestServiceDirectoryServiceCount(t *testing.T) {
+	manifestRef := stdlibBytes32("2")
+	capabilityRef := stdlibBytes32("3")
+	versionRef := stdlibBytes32("4")
+	quoteRef := stdlibBytes32("5")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/discovery/ServiceDirectory.tol")
+	defer L.Close()
+
+	// Initially no services registered; count should be 0.
+	if got := LVAsString(invokeStdlib(t, L, tos, "serviceCount()",
+	)); got != "0" {
+		t.Fatalf("serviceCount initial: got=%s want=0", got)
+	}
+
+	// Register first service.
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "registerService(bytes32,bytes32,bytes32,bytes32)",
+		LString(manifestRef), LString(capabilityRef), LString(versionRef), LString(quoteRef))
+
+	if got := LVAsString(invokeStdlib(t, L, tos, "serviceCount()",
+	)); got != "1" {
+		t.Fatalf("serviceCount after 1: got=%s want=1", got)
+	}
+
+	// Register second service.
+	stdlibSetSender(host, bob)
+	invokeStdlib(t, L, tos, "registerService(bytes32,bytes32,bytes32,bytes32)",
+		LString(manifestRef), LString(capabilityRef), LString(versionRef), LString(quoteRef))
+
+	if got := LVAsString(invokeStdlib(t, L, tos, "serviceCount()",
+	)); got != "2" {
+		t.Fatalf("serviceCount after 2: got=%s want=2", got)
+	}
+}
+
+func TestSessionBookTerminalTrustTaxonomy(t *testing.T) {
+	sessionID := stdlibBytes32("a")
+	terminalID := stdlibBytes32("b")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/session_book/SessionBook.tol", LString(alice))
+	defer L.Close()
+
+	// Grant session with terminal_type=TERMINAL_NFC (2), trust_tier=TRUST_MEDIUM (2).
+	stdlibSetSender(host, alice)
+	invokeStdlib(
+		t,
+		L,
+		tos,
+		"grantSession(bytes32,agent,bytes32,u256,u256,u256,u256,u256,bool)",
+		LString(sessionID),
+		LString(bob),
+		LString(terminalID),
+		lu256FromInt(2), // TERMINAL_NFC
+		lu256FromInt(2), // TRUST_MEDIUM
+		lu256FromInt(1000),
+		lu256FromInt(500),
+		lu256FromInt(100),
+		LFalse,
+	)
+
+	// Verify terminalTypeOf returns 2.
+	if got := LVAsString(invokeStdlib(t, L, tos, "terminalTypeOf(bytes32)", LString(sessionID))); got != "2" {
+		t.Fatalf("terminalTypeOf: got=%s want=2", got)
+	}
+
+	// Verify trustTierOf returns 2.
+	if got := LVAsString(invokeStdlib(t, L, tos, "trustTierOf(bytes32)", LString(sessionID))); got != "2" {
+		t.Fatalf("trustTierOf: got=%s want=2", got)
+	}
+}
+
+func TestSessionBookEnforcedStepUp(t *testing.T) {
+	sessionID := stdlibBytes32("a")
+	terminalID := stdlibBytes32("b")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/session_book/SessionBook.tol", LString(alice))
+	defer L.Close()
+
+	// Grant session with step_up_limit=100.
+	stdlibSetSender(host, alice)
+	invokeStdlib(
+		t,
+		L,
+		tos,
+		"grantSession(bytes32,agent,bytes32,u256,u256,u256,u256,u256,bool)",
+		LString(sessionID),
+		LString(bob),
+		LString(terminalID),
+		lu256FromInt(1),
+		lu256FromInt(1),
+		lu256FromInt(1000),
+		lu256FromInt(500),
+		lu256FromInt(100),
+		LFalse,
+	)
+
+	// enforceStepUp with amount below threshold -> succeeds (no revert).
+	invokeStdlib(t, L, tos, "enforceStepUp(bytes32,u256)", LString(sessionID), lu256FromInt(50))
+
+	// enforceStepUp with amount above threshold -> reverts "STEP_UP_REQUIRED".
+	errMsg := invokeStdlibErr(t, L, tos, "enforceStepUp(bytes32,u256)", LString(sessionID), lu256FromInt(150))
+	if !strings.Contains(errMsg, "STEP_UP_REQUIRED") {
+		t.Fatalf("expected STEP_UP_REQUIRED, got %q", errMsg)
+	}
+}
+
+func TestTaskSettlementSlashDistribution(t *testing.T) {
+	taskRef := stdlibBytes32("1")
+	receiptRef := stdlibBytes32("2")
+	resultRef := stdlibBytes32("3")
+	proofRef := stdlibBytes32("4")
+	disputeProof := stdlibBytes32("5")
+	settlementRef := stdlibBytes32("6")
+	reasonRef := stdlibBytes32("7")
+
+	L, tos, host := deployStdlibContract(t, "stdlib/settlement/TaskSettlement.tol", LString(charlie))
+	defer L.Close()
+
+	// 1. Open task with reward=100.
+	stdlibSetSender(host, alice)
+	stdlibSetTimestamp(host, 100)
+	stdlibSetValue(host, 100)
+	invokeStdlib(t, L, tos, "openTask(bytes32,u256,bytes32)",
+		LString(taskRef), lu256FromInt(500), LString(receiptRef))
+	stdlibSetValue(host, 0)
+
+	// 2. Accept task.
+	stdlibSetSender(host, bob)
+	stdlibSetTimestamp(host, 150)
+	invokeStdlib(t, L, tos, "acceptTask(u256)", lu256FromInt(1))
+
+	// 3. Submit task.
+	invokeStdlib(t, L, tos, "submitTask(u256,bytes32,bytes32)",
+		lu256FromInt(1), LString(resultRef), LString(proofRef))
+
+	// 4. Reject task.
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "rejectTask(u256,bytes32)", lu256FromInt(1), LString(reasonRef))
+
+	// 5. Dispute task with bond=20.
+	stdlibSetSender(host, bob)
+	stdlibSetValue(host, 20)
+	invokeStdlib(t, L, tos, "disputeTask(u256,bytes32)", lu256FromInt(1), LString(disputeProof))
+	stdlibSetValue(host, 0)
+
+	// 6. Set slash policy to 30% (worker gets 30% of reward on loss).
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "setSlashPolicy(u256,u256)", lu256FromInt(1), lu256FromInt(30))
+
+	// 7. Resolve dispute — worker loses.
+	host.releaseCount = 0
+	stdlibSetSender(host, charlie)
+	invokeStdlib(t, L, tos, "resolveDispute(u256,bool,bytes32)",
+		lu256FromInt(1), LFalse, LString(settlementRef))
+
+	// Expect two releases: worker gets 30% of 100 = 30, poster gets 70% of 100 + bond 20 = 90.
+	if host.releaseCount != 2 {
+		t.Fatalf("expected 2 releases, got %d", host.releaseCount)
+	}
+	// lastRelease is the second (poster) release.
+	if host.lastReleaseAddr != alice || host.lastReleaseAmt != "90" {
+		t.Fatalf("poster release mismatch: addr=%q amt=%q want addr=%q amt=90", host.lastReleaseAddr, host.lastReleaseAmt, alice)
+	}
+
+	// Status should be RESOLVED (7).
+	if got := LVAsString(invokeStdlib(t, L, tos, "statusOf(u256)", lu256FromInt(1))); got != "7" {
+		t.Fatalf("status after resolve: got=%s want=7", got)
+	}
+}
+
+func TestTaskSettlementAutoReceiptEvent(t *testing.T) {
+	taskRef := stdlibBytes32("1")
+	receiptRef := stdlibBytes32("2")
+	resultRef := stdlibBytes32("3")
+	proofRef := stdlibBytes32("4")
+	settlementRef := stdlibBytes32("5")
+	receiptBookAddr := "0x000000000000000000000000000000000000000000000000000000000000beef"
+
+	L, tos, host := deployStdlibContract(t, "stdlib/settlement/TaskSettlement.tol", LString(charlie))
+	defer L.Close()
+
+	// Set receipt book via resolver.
+	stdlibSetSender(host, charlie)
+	invokeStdlib(t, L, tos, "setReceiptBook(agent)", LString(receiptBookAddr))
+
+	// Open task with reward=50.
+	stdlibSetSender(host, alice)
+	stdlibSetTimestamp(host, 100)
+	stdlibSetValue(host, 50)
+	invokeStdlib(t, L, tos, "openTask(bytes32,u256,bytes32)",
+		LString(taskRef), lu256FromInt(500), LString(receiptRef))
+	stdlibSetValue(host, 0)
+
+	// Accept.
+	stdlibSetSender(host, bob)
+	stdlibSetTimestamp(host, 150)
+	invokeStdlib(t, L, tos, "acceptTask(u256)", lu256FromInt(1))
+
+	// Submit.
+	invokeStdlib(t, L, tos, "submitTask(u256,bytes32,bytes32)",
+		lu256FromInt(1), LString(resultRef), LString(proofRef))
+
+	// Clear emitted events to isolate approveTask emissions.
+	host.emittedEvents = nil
+
+	// Approve — should emit SettlementReceipt since receipt book is set.
+	stdlibSetSender(host, alice)
+	invokeStdlib(t, L, tos, "approveTask(u256,bytes32)", lu256FromInt(1), LString(settlementRef))
+
+	// Find SettlementReceipt event in emitted events.
+	found := false
+	for _, ev := range host.emittedEvents {
+		if ev.Name == "SettlementReceipt" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected SettlementReceipt event, got events: %v", host.emittedEvents)
 	}
 }

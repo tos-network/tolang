@@ -3,10 +3,10 @@
   "package_name": "tolang.stdlib.session_book",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x5f12b613b11cd4fc4d4c7afa92f489f11e6be7f4e4c22d42e33fbb420670023a",
-    "bytecode_hash": "0x79bddbada79e228cb8e3ddafc17a6c3ef7af47054bedf6ba14f49fb0f8da496a",
-    "source_hash": "0xe8d114d7d7cbae02906fdf75a391686750fa0c1944f9b65264ff1bb5d662488e",
-    "abi_hash": "0x83d64d8737403b9c078f75eb039f3f34a812e688db436495f454ee43fd474de7",
+    "package_hash": "0x9a9855df0142a027ab4bb0326bc7477d337ead1aadf7ad41053c74ca166a86d8",
+    "bytecode_hash": "0xc203cd4749f9315664471733d13168d7d6a49980bd416a46efac303dee73fb9b",
+    "source_hash": "0x98306121fcf0c832e430b153baaef6a1d088515f4d4ae338ca8518f58808bae7",
+    "abi_hash": "0xa4a0f6622ba33a4a9c00106e328ef2623409230a29fce159d972c593cf9ce44b",
     "version": "1.0.0"
   },
   "contract_type": "custom",
@@ -98,6 +98,40 @@
       "payable": false,
       "delegated": false,
       "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "terminalTypeOf",
+      "selector": "0x980eac6f",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "trustTierOf",
+      "selector": "0xbd8af51b",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "enforceStepUp",
+      "selector": "0x1489189e",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
       "summary": "Pure computation with no state access"
     }
   ],

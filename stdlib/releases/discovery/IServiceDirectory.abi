@@ -14,6 +14,9 @@ interface IServiceDirectory {
   function setServiceSLA(u256 service_id, u256 sla_duration_ms) public;
   function feeOf(u256 service_id) public view returns (u256 fee);
   function slaOf(u256 service_id) public view returns (u256 sla_duration_ms);
+  function setCapabilityType(u256 service_id, u256 capability_type) public;
+  function capabilityTypeOf(u256 service_id) public view returns (u256 capability_type);
+  function serviceCount() public view returns (u256 count);
   event ServiceRegistered(u256 service_id indexed, agent provider indexed, bytes32 manifest_ref, bytes32 capability_ref, bytes32 version_ref, bytes32 quote_ref);
   event ServiceManifestUpdated(u256 service_id indexed, bytes32 manifest_ref, bytes32 capability_ref, bytes32 version_ref);
   event ServiceQuoteUpdated(u256 service_id indexed, bytes32 quote_ref);

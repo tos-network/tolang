@@ -8,6 +8,9 @@ interface ISessionBook {
   function requiresStepUp(bytes32 session_id, u256 amount) public view returns (bool ok);
   function remainingOf(bytes32 session_id) public view returns (u256 remaining);
   function requireTerminal(bytes32 session_id, u256 amount) public view returns (bool ok);
+  function terminalTypeOf(bytes32 session_id) public view returns (u256 terminal_type);
+  function trustTierOf(bytes32 session_id) public view returns (u256 trust_tier);
+  function enforceStepUp(bytes32 session_id, u256 amount) public view;
   event SessionGranted(bytes32 session_id indexed, agent operator indexed, bytes32 terminal_id indexed, u256 terminal_class, u256 trust_tier, u256 expiry_ms, u256 spend_limit, u256 step_up_limit, bool degraded_mode);
   event SessionConsumed(bytes32 session_id indexed, u256 amount, u256 remaining);
   event SessionRevoked(bytes32 session_id indexed);

@@ -74,7 +74,7 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			pkgName:       "tolang.stdlib.session_book",
 			contractName:  "SessionBook",
 			interfaceName: "ISessionBook",
-			functions:     []string{"grantSession", "revokeSession", "consume", "isActive", "requiresStepUp", "remainingOf", "requireTerminal"},
+			functions:     []string{"grantSession", "revokeSession", "consume", "isActive", "requiresStepUp", "remainingOf", "requireTerminal", "terminalTypeOf", "trustTierOf", "enforceStepUp"},
 		},
 		{
 			relPath:       "stdlib/recovery/RecoveryController.tol",
@@ -102,7 +102,7 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			pkgName:       "tolang.stdlib.settlement",
 			contractName:  "TaskSettlement",
 			interfaceName: "ITaskSettlement",
-			functions:     []string{"openTask", "acceptTask", "submitTask", "approveTask", "rejectTask", "disputeTask", "resolveDispute", "cancelTask", "reclaimExpired", "openMilestoneTask", "completeMilestone", "statusOf", "rewardOf", "receiptRefOf", "proofRefOf", "milestoneStatusOf"},
+			functions:     []string{"openTask", "acceptTask", "submitTask", "approveTask", "rejectTask", "disputeTask", "resolveDispute", "cancelTask", "reclaimExpired", "openMilestoneTask", "completeMilestone", "setSlashPolicy", "setReceiptBook", "statusOf", "rewardOf", "receiptRefOf", "proofRefOf", "milestoneStatusOf"},
 		},
 		{
 			relPath:       "stdlib/receipt/ReceiptBook.tol",
@@ -144,7 +144,7 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			pkgName:       "tolang.stdlib.discovery",
 			contractName:  "ServiceDirectory",
 			interfaceName: "IServiceDirectory",
-			functions:     []string{"registerService", "updateManifest", "updateQuote", "deactivate", "providerOf", "manifestRefOf", "capabilityRefOf", "quoteRefOf", "isActive", "setServiceFee", "setServiceSLA", "feeOf", "slaOf"},
+			functions:     []string{"registerService", "updateManifest", "updateQuote", "deactivate", "providerOf", "manifestRefOf", "capabilityRefOf", "quoteRefOf", "isActive", "setServiceFee", "setServiceSLA", "feeOf", "slaOf", "setCapabilityType", "capabilityTypeOf", "serviceCount"},
 		},
 		{
 			relPath:       "stdlib/privacy/ConfidentialPayment.tol",

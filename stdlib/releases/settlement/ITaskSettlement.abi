@@ -8,6 +8,8 @@ interface ITaskSettlement {
   function rejectTask(u256 task_id, bytes32 reason_ref) public;
   function disputeTask(u256 task_id, bytes32 proof_ref) public payable;
   function resolveDispute(u256 task_id, bool worker_wins, bytes32 settlement_ref) public;
+  function setSlashPolicy(u256 task_id, u256 slash_pct) public;
+  function setReceiptBook(agent book) public;
   function cancelTask(u256 task_id) public;
   function reclaimExpired(u256 task_id) public;
   function statusOf(u256 task_id) public view returns (u256 status);
@@ -27,4 +29,5 @@ interface ITaskSettlement {
   event TaskCancelled(u256 task_id indexed, agent poster indexed);
   event MilestoneTaskOpened(u256 task_id indexed, agent poster indexed, u256 milestone_count, u256 reward, u256 deadline_ms);
   event MilestoneCompleted(u256 task_id indexed, u256 milestone_index indexed, bytes32 proof_ref);
+  event SettlementReceipt(u256 task_id indexed, bytes32 receipt_ref, agent worker indexed, u256 reward);
 }

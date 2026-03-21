@@ -38,6 +38,11 @@ func TestStdlibComposedExamplesCompile(t *testing.T) {
 			contractName: "SponsoredPrivateEscrowCheckout",
 			functions:    []string{"preflight", "executeSponsoredRelease", "abortSponsoredRefund", "sponsorRemaining", "receiptStatus", "confidentialBalance"},
 		},
+		{
+			file:         filepath.Join(repoRoot, "examples/stdlib_composed/PrivateDisputeEscrow.tol"),
+			contractName: "PrivateDisputeEscrow",
+			functions:    []string{"openOrder", "settleOrder", "disputeOrder", "resolveDispute", "escrowStatus", "receiptStatus"},
+		},
 	}
 
 	for _, tc := range testCases {

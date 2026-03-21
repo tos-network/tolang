@@ -21,6 +21,8 @@ interface ITaskSettlement {
     event TaskResolved(u256 indexed task_id, agent indexed winner, u256 payout, bytes32 settlement_ref)
     event TaskCancelled(u256 indexed task_id, agent indexed poster)
 
+    event SettlementReceipt(u256 indexed task_id, bytes32 receipt_ref, agent indexed worker, u256 reward)
+
     function openTask(bytes32 task_ref, u256 deadline_ms, bytes32 receipt_ref) public payable returns (u256 task_id);
     function acceptTask(u256 task_id) public;
     function submitTask(u256 task_id, bytes32 result_ref, bytes32 proof_ref) public;
@@ -33,6 +35,9 @@ interface ITaskSettlement {
 
     function openMilestoneTask(bytes32 task_ref, u256 milestone_count, u256 deadline_ms, bytes32 receipt_ref) public payable returns (u256 task_id);
     function completeMilestone(u256 task_id, u256 milestone_index, bytes32 proof_ref) public;
+
+    function setSlashPolicy(u256 task_id, u256 slash_pct) public;
+    function setReceiptBook(agent book) public;
 
     @verifiable
     function statusOf(u256 task_id) public view returns (u256 status);
@@ -85,6 +90,8 @@ contract TaskSettlement is ITaskSettlement {
     mapping(u256 => u256) task_milestone_count;
     mapping(u256 => u256) task_milestone_done;
     mapping(u256 => mapping(u256 => u256)) task_milestone_status;
+    mapping(u256 => u256) task_slash_pct;
+    agent task_receipt_book;
 
     event TaskOpened(
         u256 indexed task_id,
@@ -103,6 +110,7 @@ contract TaskSettlement is ITaskSettlement {
     event TaskCancelled(u256 indexed task_id, agent indexed poster)
     event MilestoneTaskOpened(u256 indexed task_id, agent indexed poster, u256 milestone_count, u256 reward, u256 deadline_ms)
     event MilestoneCompleted(u256 indexed task_id, u256 indexed milestone_index, bytes32 proof_ref)
+    event SettlementReceipt(u256 indexed task_id, bytes32 receipt_ref, agent indexed worker, u256 reward)
 
     constructor(agent _resolver) {
         require(_resolver != agent(0), "ZERO_RESOLVER");
@@ -160,6 +168,11 @@ contract TaskSettlement is ITaskSettlement {
         release(worker, reward);
 
         emit TaskApproved(task_id, msg.sender, worker, reward, settlement_ref);
+
+        if (task_receipt_book != agent(0)) {
+            bytes32 receipt_ref = task_receipt_ref[task_id];
+            emit SettlementReceipt(task_id, receipt_ref, worker, reward);
+        }
     }
 
     function rejectTask(u256 task_id, bytes32 reason_ref) public {
@@ -199,9 +212,33 @@ contract TaskSettlement is ITaskSettlement {
             emit TaskResolved(task_id, worker, reward + bond, settlement_ref);
         }
         if (worker_wins != true) {
-            release(poster, reward + bond);
-            emit TaskResolved(task_id, poster, reward + bond, settlement_ref);
+            u256 slash_pct = task_slash_pct[task_id];
+            if (slash_pct > 0) {
+                u256 worker_share = (reward * slash_pct) / 100;
+                u256 poster_share = reward - worker_share;
+                if (worker_share > 0) {
+                    release(worker, worker_share);
+                }
+                release(poster, poster_share + bond);
+                emit TaskResolved(task_id, poster, poster_share + bond, settlement_ref);
+            }
+            if (slash_pct == 0) {
+                release(poster, reward + bond);
+                emit TaskResolved(task_id, poster, reward + bond, settlement_ref);
+            }
         }
+    }
+
+    function setSlashPolicy(u256 task_id, u256 slash_pct) public {
+        require(msg.sender == task_poster[task_id], "NOT_POSTER");
+        require(task_status[task_id] == STATUS_DISPUTED, "NOT_DISPUTED");
+        require(slash_pct <= 100, "PCT_OOB");
+        set task_slash_pct[task_id] = slash_pct;
+    }
+
+    function setReceiptBook(agent book) public {
+        require(msg.sender == resolver, "NOT_RESOLVER");
+        set task_receipt_book = book;
     }
 
     function cancelTask(u256 task_id) public {

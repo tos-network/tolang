@@ -2,6 +2,7 @@
 
 **Date**: 2026-03-20
 **Basis**: `docs/AGENT_NATIVE_STDLIB_2046.md` (first-principles design)
+**Implementation audit**: 2026-03-21
 
 ---
 
@@ -13,82 +14,134 @@ in under 50 lines of code.
 
 ---
 
+## Implementation Status Overview
+
+All 13 stdlib seed contracts exist and compile. Runtime test coverage exists
+for every package (`stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`).
+Core lifecycles (grant/revoke, escrow/release, recovery, receipts) are
+functionally closed.
+
+**Overall implementation: ~75%.**
+
+Remaining gaps fall into three categories:
+
+1. **Missing contracts**: 4 privacy-family contracts described in
+   `AGENT_NATIVE_STDLIB_2046.md` do not yet exist (`ConfidentialPayment`,
+   `ConfidentialTreasury`, `ConfidentialAllowance`, `AuditorDisclosureBook`)
+2. **Missing features**: recurring/subscription payments, milestone staged
+   release, slash distribution, batch confidential payroll, structured
+   SLA/quote fields in discovery
+3. **Missing compiler features**: `@requires(caller: Cap)` compiler-enforced
+   capability syntax is not yet implemented; selective disclosure has only
+   the auditor-authorization layer (no ZK proof gate or decryption token layer)
+
+---
+
 ## Capabilities by Wave
 
 ### Wave 1: Control Plane — Making Agents Safe to Use
 
-| Scenario | Without stdlib | With stdlib |
-|----------|--------------|-------------|
-| Employee agent daily spend cap of 1000 TOS | Hand-rolled storage + time-window arithmetic | `import "stdlib/account"; set_daily_cap(employee, 1000)` |
-| NFC card limited to 100 TOS at POS terminals | Hand-rolled terminal type check + amount guard | `import "stdlib/session"; require_terminal(POS, trust_medium, 100)` |
-| Guardian recovers a compromised account | Hand-rolled timelock + challenge period + ownership transfer | `import "stdlib/recovery"; initiate_recovery(guardian, new_owner, 24h)` |
-| AI agent delegated with revocable authority | Hand-rolled delegation map + expiry + revocation | `import "stdlib/authority"; delegate(ai_agent, cap: 500, expiry: 7d)` |
-| Off-chain approval bound to on-chain execution | Hand-rolled nonce + policy hash + replay guard | `import "stdlib/execution_binding"; bind_approval(policy_hash, nonce, expiry)` |
+**Wave status: ~85% implemented.** All 5 seed contracts exist with runtime
+tests. Gaps are convenience wrappers and per-role spend cap granularity.
 
-**What this wave unlocks**: Multi-terminal consumer finance. The same account
-is safely accessible from a mobile app, NFC card, POS terminal, voice
-assistant, kiosk, and robot API — each with independent spending limits,
-trust tiers, and revocation semantics.
+| Scenario | Without stdlib | With stdlib | Status |
+|----------|--------------|-------------|--------|
+| Employee agent daily spend cap of 1000 TOS | Hand-rolled storage + time-window arithmetic | `PolicyAccount.setSpendCaps(daily_limit, single_limit)` | **~80%** — function exists but sets owner-level caps, not per-employee caps |
+| NFC card limited to 100 TOS at POS terminals | Hand-rolled terminal type check + amount guard | `SessionBook.grantSession(session_id, terminal, scope, trust_tier, budget, ...)` | **~70%** — session grant with trust tier and budget exists; no single-call `require_terminal` convenience API |
+| Guardian recovers a compromised account | Hand-rolled timelock + challenge period + ownership transfer | `RecoveryController.startRecovery(new_owner)` → `approveRecovery()` → `executeRecovery()` | **~90%** — full lifecycle with timelock, cancel, freeze; multi-step rather than single-call |
+| AI agent delegated with revocable authority | Hand-rolled delegation map + expiry + revocation | `AuthorityBook.grant(operator, scope, budget, expiry_ms, policy_hash, nonce_floor)` / `PolicyAccount.authorizeDelegate(delegate, allowance, expiry_ms)` | **~85%** — capped, time-bounded, revocable delegation in both contracts |
+| Off-chain approval bound to on-chain execution | Hand-rolled nonce + policy hash + replay guard | `ExecutionBindingBook.approve(binding_id, principal, executor, expiry_ms, nonce, policy_hash, ...)` | **~85%** — full binding with nonce, policy hash, expiry, proof ref |
+
+**Gaps:**
+- No per-employee / per-role spend cap — `PolicyAccount.setSpendCaps` is owner-scoped
+- No single-call convenience APIs (e.g. `require_terminal`) — consumers must
+  call lower-level contract functions directly
+- `SessionBook` models trust tiers as u256 constants, not a named enum of 6
+  terminal types x 5 trust tiers
 
 ---
 
 ### Wave 2: Execution Plane — Making Agents Commercially Productive
 
-| Scenario | With stdlib |
-|----------|-------------|
-| Bounty task: post → claim → submit → approve → pay | `post_task("translation", spec, 50 TOS, 48h)` → `claim` → `submit` → `approve` (5 function calls) |
-| Oracle: weather data written once, immutable | `resolve_oracle(query_id, answer)` — built-in write-once guard |
-| Merchant POS payment, sponsor pays gas | `import "stdlib/sponsor"; sponsored_payment(merchant, amount, sponsor_policy)` |
-| Monthly subscription auto-debit | `import "stdlib/settlement"; schedule(provider, 10 TOS, monthly, 12)` |
-| Every settlement auto-generates audit receipt | `import "stdlib/receipt"; settlement_receipt(escrow_id, approved)` — evidence chain automatic |
-| Confidential escrow with milestone release | `import "stdlib/settlement"; confidential_hold(payee, uno_amount, deadline)` → `release` |
-| Quote → offer → acceptance → invoice lifecycle | `import "stdlib/agreement"; quote(provider, service, price, validity)` |
+**Wave status: ~75% implemented.** Core task escrow, agreement, sponsor relay,
+evidence, and receipt contracts exist. Main gap is recurring/subscription
+payments.
 
-**What this wave unlocks**: Machine commerce. Agents don't just transfer
-value — they express structured commitments (quotes, offers, invoices,
-subscriptions), settle through explicit escrow lifecycles, and produce
-machine-verifiable receipts. Every commercial action has a proof reference.
+| Scenario | With stdlib | Status |
+|----------|-------------|--------|
+| Bounty task: post → claim → submit → approve → pay | `TaskSettlement.openTask(task_ref, deadline_ms, receipt_ref)` → `acceptTask` → `submitTask` → `approveTask` | **~90%** — full lifecycle with dispute, reject, reclaim |
+| Oracle: weather data written once, immutable | `EvidenceBook.openEvidence(evidence_id, claim_ref, attester, ...)` → `fulfill(evidence_id, value, proof_ref)` | **~80%** — write-once guard via status check; semantics shifted from Oracle to Evidence |
+| Merchant POS payment, sponsor pays gas | `SponsorPolicyRelay.relay(target, data, user, cost, policy_hash, binding_ref, receipt_ref)` | **~70%** — relay with policy + budget exists; no `sponsored_payment` convenience wrapper |
+| Monthly subscription auto-debit | — | **0% — NOT IMPLEMENTED.** `TaskSettlement` has no `schedule`, recurring, or subscription payment function |
+| Every settlement auto-generates audit receipt | `ReceiptBook.openReceipt(...)` → `finalizeSuccess(receipt_id, result_ref, settlement_ref)` | **~80%** — receipt creation is manual (caller must invoke), not auto-generated by settlement |
+| Confidential escrow with milestone release | `ConfidentialEscrow.openEscrow(escrow_id, payee, expiry_ms, receipt_ref)` → `releaseEscrow(escrow_id, settlement_ref)` | **~70%** — single-release escrow works; milestone staged release NOT IMPLEMENTED |
+| Quote → offer → acceptance → invoice lifecycle | `CommercialAgreement.createOffer(counterparty, amount, expiry_ms, quote_ref, terms_ref)` → `accept` → `fulfill` | **~85%** — offer/accept/fulfill/cancel/expire lifecycle exists; no explicit invoice sub-type |
+
+**Gaps:**
+- **Recurring/subscription payments** — no `schedule` or periodic debit mechanism
+  in any settlement contract
+- **Milestone staged release** — `ConfidentialEscrow` and `TaskSettlement`
+  support only single-release, not multi-milestone payout
+- **Slash distribution** — `TaskSettlement` has dispute resolution but no
+  configurable slash/split distribution logic
+- **Auto-receipt binding** — receipts require explicit `ReceiptBook` calls;
+  settlement does not auto-emit receipts
+- **Invoice sub-type** — `CommercialAgreement` models offer/accept/fulfill but
+  has no distinct invoice or subscription agreement state
 
 ---
 
 ### Wave 3: Market Plane — Making Agent Economies Scale
 
-| Scenario | With stdlib |
-|----------|-------------|
-| Encrypted payroll: employees see amounts, not each other | `import "stdlib/privacy"; confidential_payroll(employees, amounts)` |
-| Auditor verifies financials without seeing individual txs | `auditor_disclosure_book(auditor_key, quarterly_snapshots)` |
-| Agent filters counterparties by reputation | `import "stdlib/trust"; require_reputation(provider, min: 80)` |
-| New agent advertises translation capability | `import "stdlib/discovery"; advertise_capability("translation", sla: 1h, fee: 5 TOS)` |
-| Confidential treasury with selective disclosure | `import "stdlib/privacy"; ConfidentialTreasury(auditor_key)` |
-| Stake-backed service guarantee | `import "stdlib/trust"; require_stake(provider, minimum: 1000 TOS)` |
+**Wave status: ~55% implemented.** Seed contracts for trust, privacy, and
+discovery exist. Several privacy-family contracts described in the design
+doc are missing entirely.
 
-**What this wave unlocks**: Scalable agent marketplaces. Agents discover each
-other by capability, evaluate each other by reputation, transact with
-encrypted values, and prove solvency without revealing balances. Trust is
-quantified, not assumed.
+| Scenario | With stdlib | Status |
+|----------|-------------|--------|
+| Encrypted payroll: employees see amounts, not each other | — | **0% — NOT IMPLEMENTED.** No `ConfidentialPayment` or batch payroll contract exists |
+| Auditor verifies financials without seeing individual txs | `ConfidentialVault.authorizeAuditor(auditor, disclosure_ref)` / `revokeAuditor(auditor)` | **~40%** — auditor authorization exists; no `AuditorDisclosureBook` with snapshot-based quarterly disclosure |
+| Agent filters counterparties by reputation | `TrustRegistry.isEligible(subject)` / `snapshotReputationOf(subject)` | **~60%** — read-only eligibility check exists; no reputation write/update function (depends on external scorer) |
+| New agent advertises translation capability | `ServiceDirectory.registerService(manifest_ref, capability_ref, version_ref, quote_ref)` | **~70%** — registration exists with bytes32 references; no structured SLA or fee fields |
+| Confidential treasury with selective disclosure | — | **0% — NOT IMPLEMENTED.** No `ConfidentialTreasury` contract exists in `stdlib/privacy/` |
+| Stake-backed service guarantee | `TrustRegistry.depositBond()` / `setTrustFloor(min_stake, min_reputation)` / `isEligible(subject)` | **~70%** — bond deposit and eligibility floor exist; no per-service-agreement stake lock |
+
+**Gaps:**
+- **Missing contracts** (from `AGENT_NATIVE_STDLIB_2046.md` §privacy):
+  - `ConfidentialPayment` — batch/individual encrypted payments
+  - `ConfidentialTreasury` — multi-owner confidential treasury with disclosure
+  - `ConfidentialAllowance` — encrypted allowance/approval patterns
+  - `AuditorDisclosureBook` — structured auditor disclosure with snapshots
+- **Reputation writes** — `TrustRegistry` can read snapshots and check
+  eligibility but has no `updateReputation` or scorer callback; reputation
+  values must be written by external integration
+- **Discovery structure** — `ServiceDirectory` stores all metadata as bytes32
+  references; no structured SLA duration, fee amount, or capability enum fields
+- **Selective disclosure layers** — only auditor-key authorization is
+  implemented; ZK proof gate and decryption token layers are not implemented
 
 ---
 
 ## Comparison With Existing Ecosystems
 
-| Capability | Solidity + OpenZeppelin | TOL + stdlib |
-|------------|----------------------|--------------|
-| Safe value transfer | `SafeERC20.safeTransfer()` library | Language-native `escrow` / `release` — no library needed |
-| Reentrancy protection | `ReentrancyGuard` modifier | Compiler-enforced `@effects` + `set` keyword — no library needed |
-| Access control | `Ownable` / `AccessControl` | `capability` + `@requires(caller: Cap)` — compiler-enforced, in ABI |
-| Proxy delegation | `approve()` + `transferFrom()` | `stdlib/authority` — capped, time-bounded, instantly revocable |
-| Multi-terminal support | Not supported | `stdlib/session` — 6 terminal types x 5 trust tiers |
-| Encrypted transfers | Not supported | `uno.transfer()` + `stdlib/privacy` ConfidentialEscrow |
-| Selective disclosure | Not supported | `stdlib/privacy` — three layers (ZK proof, decryption token, auditor key) |
-| Task marketplace | ~200 lines hand-rolled state machine | `stdlib/agreement` + `stdlib/settlement` — 5 function calls |
-| Gas sponsorship | ERC-4337 complex stack | `stdlib/sponsor` — native sponsor binding + policy |
-| Machine-readable audit | Optional event logs | `stdlib/receipt` — mandatory structured evidence chain |
-| Verifiable effects | Source audit required | `@effects` declarations verified by compiler, published in ABI |
-| Gas bounds | Guessed or empirical | `@gas(upper: N)` verified by compiler, bound-checked |
-| Terminal-scoped policy | Not supported | `stdlib/session` + `stdlib/account` — per-terminal-class ceilings |
-| Guardian recovery | ~150 lines hand-rolled | `stdlib/recovery` — timelocked, cancellable, challenge-windowed |
-| Discovery metadata | No standard | `stdlib/discovery` — manifest, capabilities, SLA, quote envelopes |
-| Confidential DeFi | Not supported | `stdlib/privacy` + `stdlib/settlement` — dual-rail public/UNO |
+| Capability | Solidity + OpenZeppelin | TOL + stdlib | Implementation status |
+|------------|----------------------|--------------|----------------------|
+| Safe value transfer | `SafeERC20.safeTransfer()` library | `TaskSettlement.openTask` / `ConfidentialEscrow.openEscrow` — escrow-native | **~90%** |
+| Reentrancy protection | `ReentrancyGuard` modifier | Compiler-enforced `@effects` + `set` keyword — no library needed | **~90%** — compiler-level |
+| Access control | `Ownable` / `AccessControl` | Manual `require(msg.sender == owner)` checks in seed contracts | **~60%** — `@requires(caller: Cap)` compiler syntax NOT IMPLEMENTED; access control is hand-rolled in each contract |
+| Proxy delegation | `approve()` + `transferFrom()` | `AuthorityBook.grant` / `.revoke` / `.consume` — capped, time-bounded, revocable | **~85%** |
+| Multi-terminal support | Not supported | `SessionBook.grantSession` with trust tier, budget, step-up threshold | **~70%** — trust tiers are u256 constants, not a formal 6x5 matrix |
+| Encrypted transfers | Not supported | `uno.transfer()` + `ConfidentialEscrow.openEscrow` / `.releaseEscrow` | **~90%** |
+| Selective disclosure | Not supported | `ConfidentialVault.authorizeAuditor` / `.revokeAuditor` — auditor layer only | **~30%** — ZK proof gate and decryption token layers NOT IMPLEMENTED |
+| Task marketplace | ~200 lines hand-rolled state machine | `CommercialAgreement.createOffer` + `TaskSettlement.openTask` | **~90%** |
+| Gas sponsorship | ERC-4337 complex stack | `SponsorPolicyRelay.relay` — native sponsor binding + policy + budget | **~85%** |
+| Machine-readable audit | Optional event logs | `ReceiptBook.openReceipt` / `.finalizeSuccess` — structured evidence chain | **~80%** — requires explicit calls, not auto-emitted |
+| Verifiable effects | Source audit required | `@effects` declarations verified by compiler, published in ABI | **~90%** — compiler-level |
+| Gas bounds | Guessed or empirical | `@gas(upper: N)` verified by compiler, bound-checked | **~90%** — compiler-level |
+| Terminal-scoped policy | Not supported | `SessionBook` + `PolicyAccount` — per-session trust tier and budget | **~70%** — requires manual composition of two contracts |
+| Guardian recovery | ~150 lines hand-rolled | `RecoveryController.startRecovery` → `approveRecovery` → `executeRecovery` — timelocked, cancellable | **~90%** |
+| Discovery metadata | No standard | `ServiceDirectory.registerService(manifest_ref, capability_ref, version_ref, quote_ref)` | **~70%** — bytes32 references only, no structured SLA/quote fields |
+| Confidential DeFi | Not supported | `ConfidentialEscrow` + `ConfidentialVault` — deposit/withdraw/escrow on UNO rails | **~50%** — single-escrow works; no treasury, allowance, or multi-milestone confidential settlement |
 
 ---
 
@@ -114,25 +167,65 @@ Without it: hundreds of lines of hand-rolled state machines, policy checks,
 encryption handling, receipt formatting, and terminal discrimination logic —
 repeated differently in every contract, with different bugs each time.
 
+**Implementation note:** The end-to-end scenario above is partially
+demonstrated in `stdlib_composed_runtime_test.go` (`PolicySponsoredCheckout`,
+`PrivateServiceOrder`, `SponsoredPrivateEscrowCheckout`). The selective
+disclosure to arbitrator step is not yet covered — it requires the missing
+`AuditorDisclosureBook` contract and deeper privacy layer work.
+
 ---
 
 ## What Each Package Eliminates
 
-| Package | What developers no longer hand-write |
-|---------|-------------------------------------|
-| `account` | Spend cap arithmetic, allowlist storage, suspension flags |
-| `authority` | Delegation maps, expiry checks, revocation propagation |
-| `execution_binding` | Nonce management, policy hash binding, replay guards |
-| `session` | Terminal type discrimination, trust tier checks, step-up logic |
-| `recovery` | Timelock arithmetic, challenge periods, ownership transfer |
-| `agreement` | Quote/offer/acceptance state machines |
-| `settlement` | Escrow state machines, milestone tracking, slash distribution |
-| `sponsor` | Sponsor authorization, budget tracking, attribution records |
-| `evidence` | Oracle write-once guards, proof reference attachment |
-| `receipt` | Receipt formatting, approval linkage, settlement traces |
-| `trust` | Reputation queries, stake checks, scorer integration |
-| `privacy` | UNO bridge wiring, disclosure flow setup, auditor view construction |
-| `discovery` | Manifest construction, capability advertisement, version markers |
+| Package | What developers no longer hand-write | Implementation | Gaps |
+|---------|-------------------------------------|----------------|------|
+| `account` | Spend cap arithmetic, allowlist storage, suspension flags | **~85%** — `PolicyAccount` with `setSpendCaps`, `setAllowlisted`, `suspend`, `authorizeDelegate` | No per-role spend caps; caps are owner-scoped only |
+| `authority` | Delegation maps, expiry checks, revocation propagation | **~90%** — `AuthorityBook` with `grant`, `revoke`, `consume`, scoped by operator+scope key | — |
+| `execution_binding` | Nonce management, policy hash binding, replay guards | **~90%** — `ExecutionBindingBook` with `approve`, `cancel`, `consume`, nonce+expiry+policy_hash | — |
+| `session` | Terminal type discrimination, trust tier checks, step-up logic | **~75%** — `SessionBook` with `grantSession`, `consume`, `requiresStepUp` | Step-up is query-only (not enforced); trust tiers are raw u256, not named enum |
+| `recovery` | Timelock arithmetic, challenge periods, ownership transfer | **~90%** — `RecoveryController` with `startRecovery`, `approveRecovery`, `executeRecovery`, `freeze` | — |
+| `agreement` | Quote/offer/acceptance state machines | **~85%** — `CommercialAgreement` with `createOffer`, `accept`, `cancel`, `fulfill`, `expire` | No invoice or subscription sub-types |
+| `settlement` | Escrow state machines, milestone tracking, slash distribution | **~75%** — `TaskSettlement` with full task lifecycle + dispute | No milestone staged release; no slash distribution; no recurring payments |
+| `sponsor` | Sponsor authorization, budget tracking, attribution records | **~85%** — `SponsorPolicyRelay` with `authorizeRelayer`, `relay`, budget tracking | — |
+| `evidence` | Oracle write-once guards, proof reference attachment | **~85%** — `EvidenceBook` with `openEvidence`, `fulfill`, `challenge`, `finalize` | — |
+| `receipt` | Receipt formatting, approval linkage, settlement traces | **~80%** — `ReceiptBook` with `openReceipt`, `finalizeSuccess`, `finalizeFailure` | Not auto-emitted; requires explicit caller integration |
+| `trust` | Reputation queries, stake checks, scorer integration | **~60%** — `TrustRegistry` with `depositBond`, `setTrustFloor`, `isEligible`, `snapshotReputationOf` | No reputation write/update; no scorer callback; no per-agreement stake lock |
+| `privacy` | UNO bridge wiring, disclosure flow setup, auditor view construction | **~50%** — `ConfidentialVault` (deposit/withdraw/auditor auth) + `ConfidentialEscrow` (escrow/release/refund on UNO) | Missing: `ConfidentialPayment`, `ConfidentialTreasury`, `ConfidentialAllowance`, `AuditorDisclosureBook` |
+| `discovery` | Manifest construction, capability advertisement, version markers | **~70%** — `ServiceDirectory` with `registerService`, `updateManifest`, `updateQuote`, `deactivate` | All metadata stored as bytes32 refs; no structured SLA, fee, or capability fields |
+
+---
+
+## Consolidated Gap List
+
+### Missing contracts (described in `AGENT_NATIVE_STDLIB_2046.md` but not implemented)
+
+| Contract | Package | Purpose |
+|----------|---------|---------|
+| `ConfidentialPayment` | `privacy` | Batch/individual encrypted payment flows |
+| `ConfidentialTreasury` | `privacy` | Multi-owner confidential treasury with selective disclosure |
+| `ConfidentialAllowance` | `privacy` | Encrypted allowance/approval patterns |
+| `AuditorDisclosureBook` | `privacy` | Structured auditor disclosure with quarterly snapshots |
+
+### Missing features in existing contracts
+
+| Feature | Affected contract | Description |
+|---------|------------------|-------------|
+| Recurring/subscription payments | `TaskSettlement` | No `schedule` or periodic debit mechanism |
+| Milestone staged release | `TaskSettlement`, `ConfidentialEscrow` | Only single-release; no multi-milestone payout |
+| Slash distribution | `TaskSettlement` | Dispute resolution exists but no configurable split/slash |
+| Auto-receipt emission | `ReceiptBook` | Receipts require explicit calls; not auto-bound to settlement |
+| Invoice/subscription agreement types | `CommercialAgreement` | Only offer/accept/fulfill; no invoice or subscription sub-state |
+| Per-role spend caps | `PolicyAccount` | Caps are owner-scoped; no per-employee or per-delegate caps |
+| Reputation writes | `TrustRegistry` | Read-only snapshots; no `updateReputation` or scorer callback |
+| Structured discovery fields | `ServiceDirectory` | SLA, fee, capability stored as opaque bytes32 refs |
+
+### Missing compiler/language features
+
+| Feature | Description |
+|---------|-------------|
+| `@requires(caller: Cap)` | Compiler-enforced capability-based access control syntax; currently hand-rolled `require(msg.sender == owner)` |
+| Selective disclosure (ZK layer) | ZK proof gate for privacy-preserving verification |
+| Selective disclosure (decryption token layer) | Per-counterparty decryption token issuance |
 
 ---
 
@@ -151,3 +244,9 @@ receipts, and supports selective disclosure to regulators — all without the
 developer thinking about any of it.
 
 That is what makes TOL commercially viable at scale.
+
+**Current reality:** The core escrow + privacy + sponsor + receipt path is
+demonstrated end-to-end in composed runtime tests. The remaining ~25% gap
+is primarily in the privacy package family (4 missing contracts) and in
+convenience/compositional features (recurring payments, milestone release,
+auto-receipt binding, structured discovery fields).

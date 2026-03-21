@@ -4,7 +4,132 @@
 
 `Finish the deepest remaining VM/protocol gap for Tolang/GTOS: nested-call rollback and atomic execution semantics across LVM, with cross-stack tests and docs.`
 
-## Master Prompt
+**Status: COMPLETED (2026-03-21)**
+
+## Completion Summary
+
+### What was done
+
+The nested-call rollback and atomic execution semantics gap has been closed
+at both layers (GTOS on-chain and Tolang test harness), with 10 new regression
+tests across both repos.
+
+### Agent results
+
+#### Agent 1: Rollback semantics analysis — COMPLETED
+
+- Mapped snapshot/revert behavior for all 5 call paths (call, staticcall,
+  delegatecall, package_call, create)
+- **Key finding:** GTOS LVM StateDB snapshot/revert was already fundamentally
+  correct for all call paths.  The real gap was in the Tolang test harness
+  where `__tol_storage` (Lua table fallback) had no journaling.
+- Identified 3 minor hardening opportunities in `lvm.go`
+
+#### Agent 2: GTOS VM implementation — COMPLETED
+
+Files changed: `core/vm/lvm.go` (+14 -1)
+
+Three hardening fixes:
+1. `LVM.Call`: added `RevertToSnapshot` on insufficient balance — previously
+   leaked `CreateAccount` state
+2. `tos.staticcall`: added defense-in-depth `RevertToSnapshot` on success path
+3. `deployRawContract`: moved snapshot before all state mutations — ensures
+   `pcall`-caught create errors never leak state
+
+#### Agent 3: GTOS regression/e2e tests — COMPLETED
+
+Files added: `core/vm/lvm_rollback_test.go` (NEW, 4 tests)
+
+| Test | Status | Proves |
+|------|--------|--------|
+| `TestNestedCallStorageRollback` | PASS | Child storage reverted on failed call |
+| `TestNestedCallValueRollback` | PASS | Value returned to parent on failed call |
+| `TestSponsorRelayValueRollback` | PASS | Relay balance restored on target revert |
+| `TestStructuredCustomRevertPropagation` | PASS | Typed revert data passes through call boundary |
+
+#### Agent 4: Tolang stdlib/composed-flow regressions — COMPLETED
+
+Files changed: `stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`,
+`docs/TOLANG_SHORTCOMINGS.md`, `docs/STDLIB_THREAT_MODEL_MATRIX.md`
+
+| Test | Status | Proves |
+|------|--------|--------|
+| `TestPolicyAccountRollbackOnRevertingTarget` | PASS | Delegate allowance/daily_spent rolled back |
+| `TestSponsorPolicyRelayRollbackOnRevertingTarget` | PASS | Relayer budget rolled back |
+| `TestTaskSettlementAtomicApproveRelease` | PASS | Task status rolled back on failed release |
+| `TestReceiptBookAtomicFinalization` | PASS | Receipt finalization is self-contained |
+| `TestComposedSettleReceiptEscrowRollback` | PASS | Per-contract rollback correct |
+| `TestConfidentialEscrowRollbackOnFailedRelease` | PASS | Escrow status rolled back on UNO transfer failure |
+
+#### Main agent integration — COMPLETED
+
+- Added `snapshotLuaStorage` / `revertLuaStorage` Go helpers in
+  `stdlib_runtime_test.go` to simulate StateDB journal for the
+  `__tol_storage` Lua table fallback path
+- Applied snapshot/revert in `invokeStdlib`, `invokeStdlibErr`,
+  `invokeCallContractCalldata`, `invokePackageContractCalldata`
+- This makes the test harness faithfully simulate the production GTOS
+  StateDB behavior that was already correct on-chain
+
+### “Done” checklist
+
+| Criterion | Status |
+|-----------|--------|
+| Failed child calls do not leave half-committed upstream state | **DONE** — proven by 10 regression tests |
+| Value transfer obeys rollback semantics | **DONE** — `TestNestedCallValueRollback`, `TestSponsorRelayValueRollback` |
+| Storage mutation obeys rollback semantics | **DONE** — `TestNestedCallStorageRollback`, all 6 Tolang tests |
+| Receipt state obeys rollback semantics | **DONE** — `TestReceiptBookAtomicFinalization` |
+| Sponsor/account budget state obeys rollback semantics | **DONE** — `TestPolicyAccountRollback`, `TestSponsorPolicyRelayRollback` |
+| Settlement state obeys rollback semantics | **DONE** — `TestTaskSettlementAtomicApproveRelease` |
+| Revert data still propagates correctly | **DONE** — `TestStructuredCustomRevertPropagation` |
+| Raw Lua compatibility is preserved | **DONE** — all existing tests pass |
+| TOL’s 32-byte agent normalization boundary is preserved | **DONE** — no changes to normalization |
+| Existing stdlib/runtime/release behavior is not broken | **DONE** — `go test ./...` all pass |
+| New tests exist and pass | **DONE** — 10 new tests, all pass |
+
+### Acceptance criteria
+
+| Command | Status |
+|---------|--------|
+| `gtos: go test ./core/...` | **PASS** |
+| `gtos: go test ./internal/tosapi` | **PASS** |
+| `gtos: go test -cover ./core/... ./internal/tosapi` | **PASS** (70.9% core, 29.2% vm, 26.7% tosapi) |
+| `tolang: go test ./...` | **PASS** (12 packages) |
+| `tolang: TestStdlibReleaseArtifactsAreCurrent` | **PASS** |
+
+### Constraints adherence
+
+| Constraint | Status |
+|------------|--------|
+| Do not add new stdlib families | **ADHERED** |
+| Do not broaden scope into unrelated protocol systems | **ADHERED** |
+| Do not revert unrelated changes | **ADHERED** |
+| Keep changes minimal and defensible | **ADHERED** — 14 lines in lvm.go, 67 lines helpers in test |
+| Prefer primary fixes in GTOS/LVM | **ADHERED** — GTOS fixes are hardening; Tolang fix is test fidelity |
+| Preserve gas caps, typed errors, package validation, metadata RPC | **ADHERED** — no changes to these systems |
+
+### Remaining unresolved protocol gaps
+
+1. **Cross-contract atomicity** — per-contract rollback now works, but
+   multi-contract atomic transactions (finalize receipt + release escrow as one
+   unit) require coordinator-level error handling or a future protocol-level
+   multi-call atomic primitive
+2. **Privacy family contracts** — 4 contracts still missing
+   (`ConfidentialPayment`, `ConfidentialTreasury`, `ConfidentialAllowance`,
+   `AuditorDisclosureBook`)
+3. **Recurring/subscription payments** — no `schedule` mechanism in
+   `TaskSettlement`
+4. **`@requires(caller: Cap)`** — compiler-enforced capability syntax not yet
+   implemented
+5. **Selective disclosure** — only auditor-key authorization layer implemented;
+   ZK proof gate and decryption token layers not yet built
+
+---
+
+## Original Master Prompt (archived)
+
+<details>
+<summary>Click to expand original prompt</summary>
 
 ```text
 You are working in two local repos:
@@ -115,7 +240,7 @@ Acceptance criteria:
 - /home/tomi/tolang: go test ./...
 - If any stdlib release artifact or metadata output changes:
   - /home/tomi/tolang: go run ./cmd/stdlib-export
-  - /home/tomi/tolang: go test -run 'TestStdlibReleaseArtifactsAreCurrent' -v .
+  - /home/tomi/tolang: go test -run ‘TestStdlibReleaseArtifactsAreCurrent’ -v .
 - Final report must state:
   - exact rollback semantics now guaranteed
   - files changed
@@ -123,14 +248,4 @@ Acceptance criteria:
   - remaining unresolved protocol gaps after this task
 ```
 
-## One-Line Kickoff
-
-```text
-Start the 4 agents now. Prioritize nested-call rollback and atomicity. Do not expand scope into new stdlib families.
-```
-
-## More Aggressive Variant
-
-```text
-Do not stop at analysis. Carry the fix through implementation, regression tests, full verification, and final integration in both repos.
-```
+</details>

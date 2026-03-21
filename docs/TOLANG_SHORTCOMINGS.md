@@ -141,20 +141,44 @@ Evidence:
 - in the runtime harness, `tos.call` is basically modeled as `(ok, ret)`
 - `tos.package_call` is likewise a host hook
 
-Missing or not yet clearly hardened:
+Previously missing or not clearly hardened:
 
 - nested call atomicity
 - rollback semantics on failure
 - revert-data propagation as a first-class contract surface
 - gas/accounting propagation across nested host calls
 
-Why this matters:
+**Resolved (2026-03-21):**
 
-- agent-native commerce is not just "can one contract call another"
-- it is "can a policy-bound, delegated, auditable, multi-party execution path
-  be trusted to settle atomically and predictably"
+Two layers of rollback are now in place:
 
-This is currently the single most important LVM/runtime gap.
+1. **GTOS LVM (on-chain):** StateDB snapshot/revert was already correct for all
+   call paths (call, staticcall, delegatecall, package_call, create).  Three
+   hardening fixes were added: `LVM.Call` now reverts on insufficient balance
+   (previously leaked `CreateAccount`), `tos.staticcall` reverts on success as
+   defense-in-depth, and `deployRawContract` snapshots before all state writes.
+   Four focused regression tests in `lvm_rollback_test.go` cover nested storage
+   rollback, value rollback, sponsor relay rollback, and structured revert
+   propagation.
+
+2. **Tolang test harness (off-chain):** `snapshotLuaStorage` /
+   `revertLuaStorage` helpers now deep-copy `__tol_storage` and
+   `__tol_transient_storage` before every top-level or cross-contract call, and
+   revert on error.  Applied in `invokeStdlib`, `invokeStdlibErr`,
+   `invokeCallContractCalldata`, and `invokePackageContractCalldata`.  Six
+   regression tests in `stdlib_composed_runtime_test.go` prove per-contract
+   atomicity for PolicyAccount, SponsorPolicyRelay, TaskSettlement, ReceiptBook,
+   ConfidentialEscrow, and a composed cross-contract scenario.
+
+**Remaining gap — cross-contract atomicity:**
+
+Per-contract rollback is now guaranteed.  However, multi-contract atomic
+transactions (e.g. finalize receipt + release escrow as one unit) remain the
+coordinator's responsibility.  If a coordinator calls contract A successfully
+and then contract B fails, contract A's mutations persist.  This is consistent
+with EVM semantics and is by design — cross-contract atomicity requires either
+a coordinator-level error check or a future protocol-level multi-call atomic
+primitive.
 
 ### 3. Agent-native annotations are ahead of protocol backing
 

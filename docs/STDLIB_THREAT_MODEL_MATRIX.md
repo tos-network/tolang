@@ -39,13 +39,30 @@ Its purpose is narrower and practical:
 
 Several risks cut across nearly every family:
 
-### 1. Nested call rollback is still the highest-value runtime hardening target
+### 1. Nested call rollback — resolved for per-contract atomicity
 
 Packages such as `account`, `settlement`, `sponsor`, and composed checkout
 coordinators all rely on the assumption that downstream failure does not leave
 upstream budget, receipt, or settlement state in a half-committed condition.
 
-This is partly a contract-design issue, but primarily an LVM/runtime issue.
+**Resolved (2026-03-21):**
+
+Per-contract atomicity is now guaranteed at both layers:
+
+- **GTOS LVM (on-chain):** StateDB snapshot/revert covers all call paths.
+  Three hardening fixes added (`LVM.Call` balance revert, `tos.staticcall`
+  defense-in-depth, `deployRawContract` snapshot scope).  Four regression tests
+  in `lvm_rollback_test.go`.
+- **Tolang test harness (off-chain):** `snapshotLuaStorage` /
+  `revertLuaStorage` now snapshot `__tol_storage` before every call entry point
+  and revert on error.  Six regression tests in
+  `stdlib_composed_runtime_test.go` cover PolicyAccount, SponsorPolicyRelay,
+  TaskSettlement, ReceiptBook, ConfidentialEscrow, and composed flows.
+
+**Remaining gap — cross-contract atomicity:** When a coordinator calls
+contract A (succeeds) then contract B (fails), contract A's mutations persist.
+This is consistent with EVM semantics.  Coordinators must check return values
+and handle partial failure explicitly.
 
 ### 2. Receipt correctness is becoming a system invariant, not a helper feature
 

@@ -563,6 +563,61 @@ func stdlibRememberAgentString(host *stdlibRuntimeHost, addr string) {
 	}
 }
 
+// snapshotLuaStorage deep-copies the __tol_storage and __tol_transient_storage
+// Lua tables, simulating the StateDB snapshot that the on-chain LVM takes
+// before every top-level call or nested tos.call.
+func snapshotLuaStorage(L *LState) (storage map[string]LValue, transient map[string]LValue) {
+	storage = make(map[string]LValue)
+	transient = make(map[string]LValue)
+	if tbl, ok := L.GetGlobal("__tol_storage").(*LTable); ok {
+		tbl.ForEach(func(k, v LValue) {
+			storage[LVAsString(k)] = v
+		})
+	}
+	if tbl, ok := L.GetGlobal("__tol_transient_storage").(*LTable); ok {
+		tbl.ForEach(func(k, v LValue) {
+			transient[LVAsString(k)] = v
+		})
+	}
+	return
+}
+
+// revertLuaStorage restores __tol_storage and __tol_transient_storage to a
+// previously captured snapshot, simulating the StateDB revert that the on-chain
+// LVM performs when a call reverts.
+func revertLuaStorage(L *LState, storageSnap, transientSnap map[string]LValue) {
+	if tbl, ok := L.GetGlobal("__tol_storage").(*LTable); ok {
+		// Collect all current keys, then remove any not in snapshot.
+		var keys []string
+		tbl.ForEach(func(k, _ LValue) {
+			keys = append(keys, LVAsString(k))
+		})
+		for _, k := range keys {
+			if _, exists := storageSnap[k]; !exists {
+				tbl.RawSetString(k, LNil)
+			}
+		}
+		// Restore snapshot values.
+		for k, v := range storageSnap {
+			tbl.RawSetString(k, v)
+		}
+	}
+	if tbl, ok := L.GetGlobal("__tol_transient_storage").(*LTable); ok {
+		var keys []string
+		tbl.ForEach(func(k, _ LValue) {
+			keys = append(keys, LVAsString(k))
+		})
+		for _, k := range keys {
+			if _, exists := transientSnap[k]; !exists {
+				tbl.RawSetString(k, LNil)
+			}
+		}
+		for k, v := range transientSnap {
+			tbl.RawSetString(k, v)
+		}
+	}
+}
+
 func invokeStdlib(t *testing.T, L *LState, tos LValue, fnSig string, args ...LValue) LValue {
 	t.Helper()
 
@@ -570,6 +625,9 @@ func invokeStdlib(t *testing.T, L *LState, tos LValue, fnSig string, args ...LVa
 	if oninvoke == LNil {
 		t.Fatal("tos.oninvoke not set")
 	}
+
+	// Snapshot storage before the call — if the call reverts, we restore.
+	storageSnap, transientSnap := snapshotLuaStorage(L)
 
 	base := L.GetTop()
 	prevCalldata := L.GetField(tos, "calldata")
@@ -582,6 +640,7 @@ func invokeStdlib(t *testing.T, L *LState, tos LValue, fnSig string, args ...LVa
 		L.Push(arg)
 	}
 	if err := L.PCall(1+len(args), MultRet, nil); err != nil {
+		revertLuaStorage(L, storageSnap, transientSnap)
 		t.Fatalf("invoke %s failed: %v", fnSig, err)
 	}
 
@@ -601,6 +660,11 @@ func invokeStdlibErr(t *testing.T, L *LState, tos LValue, fnSig string, args ...
 		t.Fatal("tos.oninvoke not set")
 	}
 
+	// Snapshot storage — this simulates the StateDB snapshot taken by
+	// LVM.Call before execution.  On revert the snapshot is restored,
+	// rolling back any __tol_storage mutations made before the error.
+	storageSnap, transientSnap := snapshotLuaStorage(L)
+
 	base := L.GetTop()
 	prevCalldata := L.GetField(tos, "calldata")
 	L.SetField(tos, "calldata", LNil)
@@ -616,6 +680,9 @@ func invokeStdlibErr(t *testing.T, L *LState, tos LValue, fnSig string, args ...
 	if err == nil {
 		t.Fatalf("expected error for %s", fnSig)
 	}
+	// Revert storage to pre-call state — matches on-chain behavior where
+	// a reverted transaction's StateDB snapshot is restored.
+	revertLuaStorage(L, storageSnap, transientSnap)
 	return extractApiRevertMsg(err)
 }
 

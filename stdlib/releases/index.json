@@ -193,8 +193,8 @@
       "tor_path": "stdlib/releases/trust/TrustRegistry.tor",
       "discovery_path": "stdlib/releases/trust/TrustRegistry.discovery.json",
       "agent_package_path": "stdlib/releases/trust/TrustRegistry.agentpkg.json",
-      "bytecode_hash": "0x088a9eb0abd8193fa0cb5711a34a594411c72c95d33b8a666fa413b5ac3a999c",
-      "package_hash": "0xa5888c5ca9c58d8a390ead57e37bcbf46ef25999a472048712f466d385586789"
+      "bytecode_hash": "0x7d4d401562e46c6ede5db875bc40825a63f1ac63e129ca17958bd11efa37bde1",
+      "package_hash": "0x526fc849cfc883d2a84bbf1441b85c3381e4d2300beedee87e0339d715fcb5da"
     }
   ],
   "bundles": [

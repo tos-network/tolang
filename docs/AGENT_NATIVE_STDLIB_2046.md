@@ -1055,33 +1055,30 @@ These are the main remaining commercial-flow gaps:
   `RecurringPayment` contract provides subscribe/execute/pause/resume/cancel
   lifecycle; protocol-level native scheduler pending (see
   `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md`)
-- milestone staged release
-  `TaskSettlement` and `ConfidentialEscrow` still model single-release payout,
-  not multi-milestone settlement
+- ~~milestone staged release~~ — **RESOLVED (2026-03-21)**:
+  `TaskSettlement.openMilestoneTask` / `completeMilestone` / `milestoneStatusOf`
+  with floor-division remainder handling and partial-reclaim support
 - slash distribution
   dispute resolution exists, but there is no configurable slash or split
   distribution model
 - auto-receipt binding
   `ReceiptBook` exists, but settlement does not yet auto-bind receipt creation
   and finalization
-- invoice and subscription agreement sub-types
-  `CommercialAgreement` models offer/accept/fulfill/cancel/expire, but not a
-  distinct invoice or subscription state model
+- ~~invoice and subscription agreement sub-types~~ — **RESOLVED (2026-03-21)**:
+  `CommercialAgreement.createInvoice` / `agreementTypeOf` (TYPE_OFFER=1,
+  TYPE_INVOICE=2)
 
 ### Missing market-plane capability features
 
 These are the main remaining scale-out and privacy gaps:
 
-- reputation writes and scorer callbacks
-  `TrustRegistry` can read eligibility and reputation snapshots, but it still
-  lacks canonical `updateReputation(...)` or scorer callback flows
-- per-agreement or per-service stake lock semantics
-  bond deposit exists, but there is no stronger agreement-bound stake lock
-  model
-- structured discovery fields
-  `ServiceDirectory` still stores service metadata as opaque `bytes32`
-  references rather than structured SLA duration, fee amount, capability enum,
-  and quote fields
+- ~~reputation writes and scorer callbacks~~ — **RESOLVED (2026-03-21)**:
+  `TrustRegistry.updateReputation` / `setScorerCallback`; effective reputation
+  composes native baseline + local delta
+- ~~per-agreement or per-service stake lock semantics~~ — **RESOLVED (2026-03-21)**:
+  `TrustRegistry.lockStake` / `unlockStake` / `lockedStakeOf`
+- ~~structured discovery fields~~ — **RESOLVED (2026-03-21)**:
+  `ServiceDirectory.setServiceFee` / `setServiceSLA` / `feeOf` / `slaOf`
 - selective disclosure is now RESOLVED at the GTOS protocol layer
   DisclosureProof, DecryptionToken, and AuditorKey are implemented in
   `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md`; the remaining work is

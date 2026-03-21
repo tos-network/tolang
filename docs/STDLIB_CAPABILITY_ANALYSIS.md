@@ -77,14 +77,14 @@ subscription/periodic payment scheduling.
 **Gaps:**
 - ~~**Recurring/subscription payments**~~ — **RESOLVED**: `RecurringPayment`
   contract provides subscribe/execute/pause/resume/cancel lifecycle
-- **Milestone staged release** — `ConfidentialEscrow` and `TaskSettlement`
-  support only single-release, not multi-milestone payout
+- ~~**Milestone staged release**~~ — **RESOLVED**: `TaskSettlement.openMilestoneTask`
+  / `completeMilestone` / `milestoneStatusOf` with remainder handling
 - **Slash distribution** — `TaskSettlement` has dispute resolution but no
   configurable slash/split distribution logic
 - **Auto-receipt binding** — receipts require explicit `ReceiptBook` calls;
   settlement does not auto-emit receipts
-- **Invoice sub-type** — `CommercialAgreement` models offer/accept/fulfill but
-  has no distinct invoice or subscription agreement state
+- ~~**Invoice sub-type**~~ — **RESOLVED**: `CommercialAgreement.createInvoice`
+  / `agreementTypeOf`
 
 ---
 
@@ -109,11 +109,10 @@ some higher-level privacy ergonomics.
 - ~~**Missing contracts**~~ — **RESOLVED**: all 6 privacy-family contracts
   implemented (ConfidentialVault, ConfidentialEscrow, ConfidentialPayment,
   ConfidentialTreasury, ConfidentialAllowance, AuditorDisclosureBook)
-- **Reputation writes** — `TrustRegistry` can read snapshots and check
-  eligibility but has no `updateReputation` or scorer callback; reputation
-  values must be written by external integration
-- **Discovery structure** — `ServiceDirectory` stores all metadata as bytes32
-  references; no structured SLA duration, fee amount, or capability enum fields
+- ~~**Reputation writes**~~ — **RESOLVED**: `TrustRegistry.updateReputation` /
+  `setScorerCallback`; effective reputation = native baseline + local delta
+- ~~**Discovery structure**~~ — **RESOLVED**: `ServiceDirectory.setServiceFee` /
+  `setServiceSLA` / `feeOf` / `slaOf`; capability still bytes32 ref
 - **Selective disclosure composition ergonomics** — GTOS now implements all
   three protocol layers (DisclosureProof, DecryptionToken, AuditorKey), but
   stdlib still exposes only contract-side management patterns rather than one
@@ -214,13 +213,13 @@ All previously missing contracts have been implemented:
 
 | Feature | Affected contract | Description |
 |---------|------------------|-------------|
-| Milestone staged release | `TaskSettlement`, `ConfidentialEscrow` | Only single-release; no multi-milestone payout |
+| ~~Milestone staged release~~ | `TaskSettlement` | **RESOLVED** — `openMilestoneTask` / `completeMilestone` / `milestoneStatusOf` |
 | Slash distribution | `TaskSettlement` | Dispute resolution exists but no configurable split/slash |
 | Auto-receipt emission | `ReceiptBook` | Receipts require explicit calls; not auto-bound to settlement |
-| Invoice/subscription agreement types | `CommercialAgreement` | Only offer/accept/fulfill; no invoice or subscription sub-state |
-| Per-role spend caps | `PolicyAccount` | Caps are owner-scoped; no per-employee or per-delegate caps |
-| Reputation writes | `TrustRegistry` | Read-only snapshots; no `updateReputation` or scorer callback |
-| Structured discovery fields | `ServiceDirectory` | SLA, fee, capability stored as opaque bytes32 refs |
+| ~~Invoice/subscription agreement types~~ | `CommercialAgreement` | **RESOLVED** — `createInvoice` / `agreementTypeOf` |
+| ~~Per-role spend caps~~ | `PolicyAccount` | **RESOLVED** — `setDelegateCaps` / `delegateDailyRemaining`; enforced in execute path |
+| ~~Reputation writes~~ | `TrustRegistry` | **RESOLVED** — `updateReputation` / `setScorerCallback`; composes native + local |
+| ~~Structured discovery fields~~ | `ServiceDirectory` | **RESOLVED** — `setServiceFee` / `setServiceSLA` / `feeOf` / `slaOf` |
 
 ### Missing compiler/language features
 

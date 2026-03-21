@@ -2,10 +2,13 @@ pragma tolang 0.4.0;
 
 package tolang.stdlib.trust;
 
-// TrustRegistry — trust-floor and bond surface over native agent properties.
+// TrustRegistry — trust-floor and bond surface composing native agent properties
+// with contract-local reputation deltas.
 //
-// It converts ambient chain properties such as `agent.stake`, `agent.reputation`,
-// and `agent.is_active` into reusable contract semantics.
+// Eligibility combines ambient chain properties (`agent.stake`, `agent.is_active`)
+// with a contract-local reputation mapping.  The effective reputation for a
+// subject is `subject.reputation + reputation[subject]` — the native baseline
+// plus any local adjustments written via `updateReputation`.
 
 interface ITrustRegistry {
     event TrustFloorSet(u256 min_stake, i256 min_reputation)
@@ -115,7 +118,8 @@ contract TrustRegistry is ITrustRegistry {
         if (subject.stake < min_required_stake) {
             return false;
         }
-        if (reputation[subject] < min_required_reputation) {
+        // Effective reputation = native baseline + local delta.
+        if (subject.reputation + reputation[subject] < min_required_reputation) {
             return false;
         }
         return true;
@@ -128,7 +132,7 @@ contract TrustRegistry is ITrustRegistry {
 
     @verifiable
     function snapshotReputationOf(agent subject) public view returns (i256 score) {
-        return reputation[subject];
+        return subject.reputation + reputation[subject];
     }
 
     @verifiable

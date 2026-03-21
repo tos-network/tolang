@@ -1,0 +1,32 @@
+{
+  "version": "1.0.0",
+  "family": "privacy",
+  "source_package_path": "tolang.stdlib.privacy",
+  "tor_path": "stdlib/releases/privacy/privacy.tor",
+  "package_hash": "0x0941a7f3369aee0c14d232ee59a17b82edf8cda486152ea2743ce37c24a7d480",
+  "contracts": [
+    {
+      "contract": "ConfidentialEscrow",
+      "release_package_name": "tolang.stdlib.privacy.confidential_escrow",
+      "toc_path": "stdlib/releases/privacy/ConfidentialEscrow.toc",
+      "abi_path": "stdlib/releases/privacy/IConfidentialEscrow.abi",
+      "init_path": "stdlib/releases/privacy/ConfidentialEscrow_init.toc",
+      "tor_path": "stdlib/releases/privacy/ConfidentialEscrow.tor",
+      "discovery_path": "stdlib/releases/privacy/ConfidentialEscrow.discovery.json",
+      "agent_package_path": "stdlib/releases/privacy/ConfidentialEscrow.agentpkg.json",
+      "bytecode_hash": "0x4f95dcc46c8c3202e351eef35b255f1717acd0f0c7cc8195df2154ff57a30b52",
+      "package_hash": "0xd77b207f847ce8e04266abb55dddcecb0fc518689a7341098c0bbbc9848375df"
+    },
+    {
+      "contract": "ConfidentialVault",
+      "release_package_name": "tolang.stdlib.privacy.confidential_vault",
+      "toc_path": "stdlib/releases/privacy/ConfidentialVault.toc",
+      "abi_path": "stdlib/releases/privacy/IConfidentialVault.abi",
+      "tor_path": "stdlib/releases/privacy/ConfidentialVault.tor",
+      "discovery_path": "stdlib/releases/privacy/ConfidentialVault.discovery.json",
+      "agent_package_path": "stdlib/releases/privacy/ConfidentialVault.agentpkg.json",
+      "bytecode_hash": "0xc4d149e4124edf3d0dcc502a0decec90a06275459da4d5b060b6f51fa950f081",
+      "package_hash": "0xb58e5cec9fc19968a336c73a95e6a24f7778509b8e56a37b9a7fcf6ff7ae9b96"
+    }
+  ]
+}

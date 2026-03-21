@@ -3,8 +3,8 @@
   "package_name": "tolang.stdlib.privacy.confidential_vault",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x004681ae6cbcc4d27211f3de3b2238968a4fa68103c2c3ece9520b25783833fd",
-    "bytecode_hash": "0x94088fc99ca97517dbe7cca71a95adb06cb3dac55dfd8d595a5f250fe95c944c",
+    "package_hash": "0xb58e5cec9fc19968a336c73a95e6a24f7778509b8e56a37b9a7fcf6ff7ae9b96",
+    "bytecode_hash": "0xc4d149e4124edf3d0dcc502a0decec90a06275459da4d5b060b6f51fa950f081",
     "source_hash": "0x0f648d8ab6795aaa1081aedf5791aada7c01f3762e248506cefbe69d5fac4349",
     "abi_hash": "0x75162145e434dbcaaf11340f229d82745998330bc61599285e9ebde6bad6c765",
     "version": "1.0.0"

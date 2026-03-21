@@ -1,0 +1,246 @@
+{
+  "schema_version": "0.1.0",
+  "package_name": "tolang.stdlib.privacy",
+  "package_version": "1.0.0",
+  "source_package_path": "tolang.stdlib.privacy",
+  "tor_path": "stdlib/releases/privacy/privacy.tor",
+  "package_hash": "0x0941a7f3369aee0c14d232ee59a17b82edf8cda486152ea2743ce37c24a7d480",
+  "service_kinds": [
+    "balance_query",
+    "query",
+    "token_transfer",
+    "verifiable_compute"
+  ],
+  "capabilities": null,
+  "tags": [
+    "custom",
+    "token",
+    "verifiable"
+  ],
+  "contracts": [
+    {
+      "schema_version": "0.1.0",
+      "package_name": "tolang.stdlib.privacy.confidential_escrow",
+      "package_version": "1.0.0",
+      "artifact_ref": {
+        "package_hash": "0xd77b207f847ce8e04266abb55dddcecb0fc518689a7341098c0bbbc9848375df",
+        "bytecode_hash": "0x4f95dcc46c8c3202e351eef35b255f1717acd0f0c7cc8195df2154ff57a30b52",
+        "source_hash": "0x55729962310a3de3ff3373d60d4a1f4cf2023a51f0db3d41593d146df8ca0af9",
+        "abi_hash": "0x6adb85ecc6b851186e86e29a661bcf80f6466d7aa55da23f053c981f8fdf11a9",
+        "version": "1.0.0"
+      },
+      "contract_type": "custom",
+      "service_kinds": [
+        "query",
+        "verifiable_compute"
+      ],
+      "capabilities": null,
+      "interface_methods": [
+        {
+          "name": "openEscrow",
+          "selector": "0xd424dd42",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": false,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "releaseEscrow",
+          "selector": "0x5b7d6b7e",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": false,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "refundEscrow",
+          "selector": "0xfc3e8c70",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": false,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "reclaimExpired",
+          "selector": "0x7d2c2931",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": false,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "statusOf",
+          "selector": "0xc7df14e2",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": true,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "amountOf",
+          "selector": "0x8251eac9",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": true,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "payerOf",
+          "selector": "0x24108273",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": true,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "payeeOf",
+          "selector": "0x8cede576",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": true,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "receiptRefOf",
+          "selector": "0xb7761847",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": true,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "nativeBalance",
+          "selector": "0x18910f40",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": true,
+          "summary": "Pure computation with no state access"
+        }
+      ],
+      "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+      "tags": [
+        "custom",
+        "verifiable"
+      ]
+    },
+    {
+      "schema_version": "0.1.0",
+      "package_name": "tolang.stdlib.privacy.confidential_vault",
+      "package_version": "1.0.0",
+      "artifact_ref": {
+        "package_hash": "0xb58e5cec9fc19968a336c73a95e6a24f7778509b8e56a37b9a7fcf6ff7ae9b96",
+        "bytecode_hash": "0xc4d149e4124edf3d0dcc502a0decec90a06275459da4d5b060b6f51fa950f081",
+        "source_hash": "0x0f648d8ab6795aaa1081aedf5791aada7c01f3762e248506cefbe69d5fac4349",
+        "abi_hash": "0x75162145e434dbcaaf11340f229d82745998330bc61599285e9ebde6bad6c765",
+        "version": "1.0.0"
+      },
+      "contract_type": "token",
+      "service_kinds": [
+        "query",
+        "token_transfer",
+        "balance_query",
+        "verifiable_compute"
+      ],
+      "capabilities": null,
+      "interface_methods": [
+        {
+          "name": "registerPublicKey",
+          "selector": "0x1a79004b",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": false,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "deposit",
+          "selector": "0xd0e30db0",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": false,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "withdraw",
+          "selector": "0xd37b3a20",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": false,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "authorizeAuditor",
+          "selector": "0xc5334bbe",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": false,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "revokeAuditor",
+          "selector": "0xf24ab38d",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": false,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "balanceOf",
+          "selector": "0x585ddc84",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": true,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "nativeBalance",
+          "selector": "0x18910f40",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": true,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "canAudit",
+          "selector": "0xb119a46b",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": true,
+          "summary": "Pure computation with no state access"
+        },
+        {
+          "name": "disclosureRefOf",
+          "selector": "0x9ba82df1",
+          "risk_level": "low",
+          "payable": false,
+          "delegated": false,
+          "verifiable": true,
+          "summary": "Pure computation with no state access"
+        }
+      ],
+      "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+      "tags": [
+        "token",
+        "verifiable"
+      ]
+    }
+  ],
+  "human_summary": "Family bundle for tolang.stdlib.privacy with contracts: ConfidentialEscrow, ConfidentialVault"
+}

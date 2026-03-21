@@ -2,8 +2,8 @@
   "package_name": "tolang.stdlib.evidence",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x9df6ced51580b32140a3539b362be0a6226c415cdead7a62be4709f841cd418e",
-    "bytecode_hash": "0x97a843c2a8ec7c01f389e9241ed1e032297cf646d3dced9545fa3b25919fb50a",
+    "package_hash": "0x8a8da5062c3750eec87b825ce12b9e747d30469e90def7145539d832871951ae",
+    "bytecode_hash": "0xec21b42dc802acd84ae6946c3ad65dafdadd66340c601e9e758aa24a3cdb8b32",
     "source_hash": "0x824a439e55c33bb5ce6d141acb0b01a78441ef569b3a6894b396893c40966892",
     "abi_hash": "0x0d875de674f070b27c5b68a474a67e89ef70d95863033659935273ccb6a42520",
     "version": "1.0.0"
@@ -45,8 +45,8 @@
     "package_name": "tolang.stdlib.evidence",
     "package_version": "1.0.0",
     "artifact_ref": {
-      "package_hash": "0x9df6ced51580b32140a3539b362be0a6226c415cdead7a62be4709f841cd418e",
-      "bytecode_hash": "0x97a843c2a8ec7c01f389e9241ed1e032297cf646d3dced9545fa3b25919fb50a",
+      "package_hash": "0x8a8da5062c3750eec87b825ce12b9e747d30469e90def7145539d832871951ae",
+      "bytecode_hash": "0xec21b42dc802acd84ae6946c3ad65dafdadd66340c601e9e758aa24a3cdb8b32",
       "source_hash": "0x824a439e55c33bb5ce6d141acb0b01a78441ef569b3a6894b396893c40966892",
       "abi_hash": "0x0d875de674f070b27c5b68a474a67e89ef70d95863033659935273ccb6a42520",
       "version": "1.0.0"

@@ -347,6 +347,14 @@ aspirational.
   and real downstream call execution in `stdlib_composed_runtime_test.go`
 - ✅ Deterministic stdlib release artifacts now exist under `stdlib/releases/`,
   produced by `cmd/stdlib-export` and locked by `stdlib_release_test.go`
+- ✅ Family-level stdlib bundle packages now exist for multi-contract families,
+  so package identity is not limited to per-contract `.tor` artifacts
+- ✅ Family-local bundle catalogs now exist beside those bundle packages, so a
+  consumer can resolve a multi-contract stdlib family without first loading the
+  global release index
+- ✅ Family-level bundle discovery and agent-package metadata now exist beside
+  those bundle packages, so discovery clients can consume a multi-contract
+  family directly rather than reconstructing one from contract-level records
 - ✅ A first-pass stdlib threat model baseline now exists in
   `docs/STDLIB_THREAT_MODEL_MATRIX.md`
 - ✅ Low-level external-call runtime coverage now executes real target contracts

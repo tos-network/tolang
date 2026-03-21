@@ -189,7 +189,7 @@ contract PolicyAccount is IPolicyAccount {
             }
         }
 
-        ok = target.call(data);
+        ok = target.call{value: value}(data);
         require(ok, "CALL_FAILED");
         emit Executed(msg.sender, target, value, remainingDaily());
         return true;

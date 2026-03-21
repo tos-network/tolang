@@ -597,6 +597,49 @@ func buildStoragePreludeFromLowered(env *loweringEnv) ([]luast.Stmt, error) {
 	// If host storage hooks exist at tos.sload/tos.sstore, prefer those.
 	sb.WriteString(`__tol_storage = __tol_storage or {}
 
+local function __tol_storage_decode_static(v, typ)
+  if typ == "bool" then
+    if v == nil or v == false then return false end
+    if v == true then return true end
+    return tostring(v) ~= "0"
+  end
+  if typ == "agent" then
+    if type(v) == "string" and string.sub(v, 1, 2) == "0x" then
+      local hex = string.lower(string.sub(v, 3))
+      if #hex == 40 or #hex == 64 then
+        if #hex > 64 then
+          hex = string.sub(hex, #hex - 63)
+        end
+        return "0x" .. string.rep("0", 64 - #hex) .. hex
+      end
+    end
+    return __tol_abi_decode_typed("0x" .. __tol_abi_slot_static(v, "u256"), "agent")
+  end
+  if type(typ) == "string" and string.sub(typ, 1, 5) == "bytes" and #typ > 5 then
+    local n = tonumber(string.sub(typ, 6))
+    if n ~= nil and n >= 1 and n <= 32 then
+      if type(v) == "string" and string.sub(v, 1, 2) == "0x" then
+        local hex = string.lower(string.sub(v, 3))
+        if #hex == n * 2 then
+          return "0x" .. hex
+        end
+      end
+      return __tol_abi_decode_typed("0x" .. __tol_abi_slot_static(v, "u256"), typ)
+    end
+  end
+  return v
+end
+
+local function __tol_storage_encode_static(v, typ)
+  if type(typ) == "string" and string.sub(typ, 1, 5) == "bytes" and #typ > 5 then
+    local n = tonumber(string.sub(typ, 6))
+    if n ~= nil and n >= 1 and n <= 32 then
+      return "0x" .. __tol_abi_slot_static(v, typ)
+    end
+  end
+  return v
+end
+
 -- Read a slot by its final derived hash key.
 function __tol_sload(slot_hash)
   if tos ~= nil and type(tos) == "table" and type(tos.sload) == "function" then
@@ -909,10 +952,40 @@ func buildAgentNativePrelude(p *lower.Program) ([]luast.Stmt, error) {
 
 	// 3. Agent cast + property helpers — always emitted when any agent-native content is present.
 	sb.WriteString(`
+local __tol_ZERO_AGENT = "0x" .. string.rep("0", 64)
+local __tol_is_zero_agent = function(a)
+  if a == nil then
+    return false
+  end
+  local s = tostring(a)
+  if s == "0" then
+    return true
+  end
+  if string.sub(s, 1, 2) ~= "0x" then
+    return false
+  end
+  local rest = string.lower(string.sub(s, 3))
+  if #rest ~= 40 and #rest ~= 64 then
+    return false
+  end
+  return rest == string.rep("0", #rest)
+end
 local __tol_agent_cast = tos and type(tos.agentload)=="function" and function(a)
-  if tos.agentload(a) == 0 then error("AgentNotFound") end
-  return a
-end or function(a) return a end
+  if __tol_is_zero_agent(a) then
+    return __tol_ZERO_AGENT
+  end
+  local addr = tostring(a)
+  local registered = tos.agentload(addr, "is_registered")
+  if registered == nil or registered == false or tostring(registered) == "0" then
+    error("AgentNotFound")
+  end
+  return addr
+end or function(a)
+  if __tol_is_zero_agent(a) then
+    return __tol_ZERO_AGENT
+  end
+  return tostring(a)
+end
 local __tol_agent_prop = tos and type(tos.agentload)=="function" and function(addr, field)
   local v = tos.agentload(addr, field)
   return v ~= nil and v or 0
@@ -1702,6 +1775,32 @@ end
 
 func buildHostPrelude() ([]luast.Stmt, error) {
 	const src = `
+local function __tol_canon_agent(addr)
+  if addr == nil then
+    return nil
+  end
+  local s = tostring(addr)
+  if string.sub(s, 1, 2) ~= "0x" then
+    return s
+  end
+  local hex = string.lower(string.sub(s, 3))
+  for i = 1, #hex do
+    local c = string.byte(hex, i)
+    local is_digit = c >= string.byte("0") and c <= string.byte("9")
+    local is_hex = c >= string.byte("a") and c <= string.byte("f")
+    if not is_digit and not is_hex then
+      return s
+    end
+  end
+  if #hex == 40 then
+    return "0x" .. string.rep("0", 24) .. hex
+  end
+  if #hex == 64 then
+    return "0x" .. hex
+  end
+  return s
+end
+
 function __tol_emit(...)
   local n = select("#", ...)
   local name = n >= 1 and select(1, ...) or nil
@@ -1730,6 +1829,42 @@ function __tol_emit(...)
 end
 
 local __tol_zero_addr = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+if msg ~= nil and type(msg) == "table" and type(msg.sender) == "string" then
+  msg.sender = __tol_canon_agent(msg.sender)
+end
+if tx ~= nil and type(tx) == "table" and type(tx.origin) == "string" then
+  tx.origin = __tol_canon_agent(tx.origin)
+end
+if block ~= nil and type(block) == "table" and type(block.coinbase) == "string" then
+  block.coinbase = __tol_canon_agent(block.coinbase)
+end
+if tos ~= nil and type(tos) == "table" then
+  if type(tos.caller) == "string" then
+    tos.caller = __tol_canon_agent(tos.caller)
+  end
+  if type(tos.self) == "string" then
+    tos.self = __tol_canon_agent(tos.self)
+  end
+  if type(tos.ZERO_ADDRESS) == "string" then
+    tos.ZERO_ADDRESS = __tol_canon_agent(tos.ZERO_ADDRESS)
+  end
+  if type(tos.TASK_SCHEDULER) == "string" then
+    tos.TASK_SCHEDULER = __tol_canon_agent(tos.TASK_SCHEDULER)
+  end
+  if type(tos.toAddress) == "function" then
+    local __tol_raw_toAddress = tos.toAddress
+    tos.toAddress = function(s)
+      return __tol_canon_agent(__tol_raw_toAddress(s))
+    end
+  end
+  if type(tos.ecrecover) == "function" then
+    local __tol_raw_ecrecover = tos.ecrecover
+    tos.ecrecover = function(hash, v, r, s)
+      return __tol_canon_agent(__tol_raw_ecrecover(hash, v, r, s))
+    end
+  end
+end
 
 function __tol_host_call(addr, value, data)
   local f = nil
@@ -2024,10 +2159,10 @@ end
 
 function __tol_ecrecover(hash, v, r, s)
   if tos ~= nil and type(tos) == "table" and type(tos.ecrecover) == "function" then
-    return tos.ecrecover(hash, v, r, s)
+    return __tol_canon_agent(tos.ecrecover(hash, v, r, s))
   end
   if type(ecrecover) == "function" then
-    return ecrecover(hash, v, r, s)
+    return __tol_canon_agent(ecrecover(hash, v, r, s))
   end
   error("host function 'ecrecover' is not available")
 end
@@ -6323,6 +6458,17 @@ func lowerStorageStoreStmt(ctx *loweringCtx, target *tolast.Expr, valueExpr *tol
 		return withLineStmt(&luast.DoBlockStmt{Stmts: stmts}, 1), true, nil
 	}
 
+	if isFixedBytesStorageType(effectiveType) {
+		value = withLineExpr(&luast.FuncCallExpr{
+			Func: withLineExpr(&luast.IdentExpr{Value: "__tol_storage_encode_static"}),
+			Args: []luast.Expr{
+				value,
+				withLineExpr(&luast.StringExpr{Value: effectiveType}),
+			},
+			AdjustRet: true,
+		})
+	}
+
 	call := withLineExpr(&luast.FuncCallExpr{
 		Func:      withLineExpr(&luast.IdentExpr{Value: storeFn}),
 		Args:      []luast.Expr{slotExpr, value},
@@ -6378,11 +6524,22 @@ func lowerStorageLoadExpr(ctx *loweringCtx, slotName string, keys []*tolast.Expr
 		}), nil
 	}
 
-	return withLineExpr(&luast.FuncCallExpr{
+	rawLoad := withLineExpr(&luast.FuncCallExpr{
 		Func:      withLineExpr(&luast.IdentExpr{Value: loadFn}),
 		Args:      []luast.Expr{slotExpr},
 		AdjustRet: true,
-	}), nil
+	})
+	if effectiveType == "bool" || effectiveType == "agent" || isFixedBytesStorageType(effectiveType) {
+		return withLineExpr(&luast.FuncCallExpr{
+			Func: withLineExpr(&luast.IdentExpr{Value: "__tol_storage_decode_static"}),
+			Args: []luast.Expr{
+				rawLoad,
+				withLineExpr(&luast.StringExpr{Value: effectiveType}),
+			},
+			AdjustRet: true,
+		}), nil
+	}
+	return rawLoad, nil
 }
 
 // storageEffectiveType returns the type after applying numKeys index/mapping accesses.
@@ -6402,6 +6559,15 @@ func storageEffectiveType(typ string, numKeys int) string {
 		}
 	}
 	return strings.TrimSpace(cur)
+}
+
+func isFixedBytesStorageType(typ string) bool {
+	compact := strings.ReplaceAll(normalizeSelectorType(typ), " ", "")
+	if !strings.HasPrefix(compact, "bytes") || len(compact) <= len("bytes") {
+		return false
+	}
+	n, err := strconv.Atoi(compact[len("bytes"):])
+	return err == nil && n >= 1 && n <= 32
 }
 
 func lowerStorageLengthMemberExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {

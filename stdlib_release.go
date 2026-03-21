@@ -3,6 +3,7 @@ package lua
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	tolast "github.com/tos-network/tolang/tol/ast"
@@ -20,13 +21,13 @@ type StdlibReleaseEntry struct {
 // StdlibReleaseArtifacts is the deterministic release payload generated from a
 // stdlib source file.
 type StdlibReleaseArtifacts struct {
-	ArtifactPath string
-	ArtifactTOC  []byte
+	ArtifactPath  string
+	ArtifactTOC   []byte
 	InterfacePath string
-	InterfaceABI []byte
-	InitPath     string
-	InitTOC      []byte
-	PackageTOR   []byte
+	InterfaceABI  []byte
+	InitPath      string
+	InitTOC       []byte
+	PackageTOR    []byte
 }
 
 // StdlibReleaseCatalog returns the published stdlib contract set.
@@ -252,4 +253,82 @@ func stdlibContractLookup(mod *tolast.Module, contractName string) (*tolast.Cont
 		return c, false, nil
 	}
 	return nil, false, fmt.Errorf("stdlib release: contract %s not found", contractName)
+}
+
+// BuildStdlibFamilyBundlePackage builds a multi-contract family bundle .tor for
+// families that contain more than one published contract release.
+func BuildStdlibFamilyBundlePackage(entries []StdlibReleaseEntry, sources map[string][]byte) ([]byte, error) {
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("stdlib family bundle: empty entry set")
+	}
+	ordered := append([]StdlibReleaseEntry(nil), entries...)
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].Family != ordered[j].Family {
+			return ordered[i].Family < ordered[j].Family
+		}
+		return ordered[i].Contract < ordered[j].Contract
+	})
+
+	family := strings.TrimSpace(ordered[0].Family)
+	packagePath := strings.TrimSpace(ordered[0].SourcePackagePath)
+	if family == "" || packagePath == "" {
+		return nil, fmt.Errorf("stdlib family bundle: incomplete family metadata")
+	}
+
+	files := map[string][]byte{}
+	contracts := make([]struct {
+		Name      string `json:"name"`
+		Artifact  string `json:"toc"`
+		Interface string `json:"abi"`
+	}, 0, len(ordered))
+
+	for _, entry := range ordered {
+		if entry.Family != family {
+			return nil, fmt.Errorf("stdlib family bundle: mixed families %q and %q", family, entry.Family)
+		}
+		if strings.TrimSpace(entry.SourcePackagePath) != packagePath {
+			return nil, fmt.Errorf("stdlib family bundle: mixed package paths %q and %q", packagePath, entry.SourcePackagePath)
+		}
+		source := sources[entry.SourcePath]
+		if len(source) == 0 {
+			return nil, fmt.Errorf("stdlib family bundle: missing source for %s", entry.SourcePath)
+		}
+		built, err := BuildStdlibReleaseArtifacts(source, entry.SourcePath, entry)
+		if err != nil {
+			return nil, err
+		}
+		files[built.ArtifactPath] = built.ArtifactTOC
+		files[built.InterfacePath] = built.InterfaceABI
+		if built.InitPath != "" {
+			files[built.InitPath] = built.InitTOC
+		}
+		contracts = append(contracts, struct {
+			Name      string `json:"name"`
+			Artifact  string `json:"toc"`
+			Interface string `json:"abi"`
+		}{
+			Name: entry.Contract, Artifact: built.ArtifactPath, Interface: built.InterfacePath,
+		})
+	}
+
+	manifest := struct {
+		Name      string `json:"name"`
+		Package   string `json:"package,omitempty"`
+		Version   string `json:"version"`
+		Contracts []struct {
+			Name      string `json:"name"`
+			Artifact  string `json:"toc"`
+			Interface string `json:"abi"`
+		} `json:"contracts"`
+	}{
+		Name:      packagePath,
+		Package:   packagePath,
+		Version:   "1.0.0",
+		Contracts: contracts,
+	}
+	manifestJSON, err := json.Marshal(manifest)
+	if err != nil {
+		return nil, fmt.Errorf("stdlib family bundle: marshal manifest: %w", err)
+	}
+	return EncodePackage(manifestJSON, files)
 }

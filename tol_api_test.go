@@ -4189,6 +4189,171 @@ contract Demo {
 	}
 }
 
+func TestCompileBytecodeHostStorageRestoresTypedScalars(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract Demo {
+  agent owner;
+  bool paused;
+  bytes16 tag;
+
+  function configure(agent newOwner, bytes16 newTag) public {
+    set owner = newOwner;
+    set paused = true;
+    set tag = newTag;
+  }
+
+  function isOwner() public returns (bool ok) {
+    return msg.sender == owner;
+  }
+
+  function isPaused() public returns (bool ok) {
+    return paused == true;
+  }
+
+  function readTag() public returns (bytes16 out) {
+    return tag;
+  }
+
+  function clearPaused() public {
+    set paused = false;
+  }
+}
+`)
+	bc, err := CompileBytecode(src, "<tol>")
+	if err != nil {
+		t.Fatalf("unexpected compile error: %v", err)
+	}
+	L := NewState()
+	defer L.Close()
+
+	msgTable := L.NewTable()
+	L.SetField(msgTable, "sender", LString("0x"+strings.Repeat("0", 64)))
+	L.SetGlobal("msg", msgTable)
+
+	hostStorage := map[string]LUint256{}
+	tosTable := L.NewTable()
+	L.SetField(tosTable, "sload", L.NewFunction(func(L *LState) int {
+		slot := L.CheckString(1)
+		if v, ok := hostStorage[slot]; ok {
+			L.Push(v)
+		} else {
+			L.Push(LNil)
+		}
+		return 1
+	}))
+	L.SetField(tosTable, "sstore", L.NewFunction(func(L *LState) int {
+		slot := L.CheckString(1)
+		lv := L.CheckAny(2)
+		switch v := lv.(type) {
+		case LUint256:
+			hostStorage[slot] = v
+		case LBool:
+			if bool(v) {
+				hostStorage[slot] = LUint256One
+			} else {
+				hostStorage[slot] = LUint256Zero
+			}
+		case LString:
+			s := strings.TrimSpace(string(v))
+			if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+				hex := strings.TrimPrefix(strings.TrimPrefix(s, "0x"), "0X")
+				if len(hex) > 64 {
+					hex = hex[len(hex)-64:]
+				}
+				hex = strings.Repeat("0", 64-len(hex)) + strings.ToLower(hex)
+				u, err := lu256FromHex64(hex)
+				if err != nil {
+					t.Fatalf("lu256FromHex64(%q): %v", hex, err)
+				}
+				hostStorage[slot] = u
+			} else {
+				u, err := parseUint256(s)
+				if err != nil {
+					t.Fatalf("parseUint256(%q): %v", s, err)
+				}
+				hostStorage[slot] = u
+			}
+		case *LNilType:
+			hostStorage[slot] = LUint256Zero
+		default:
+			t.Fatalf("unexpected host storage value type %T", lv)
+		}
+		return 0
+	}))
+	L.SetGlobal("tos", tosTable)
+
+	if err := L.DoBytecode(bc); err != nil {
+		t.Fatalf("DoBytecode failed: %v", err)
+	}
+	tos := L.GetGlobal("tos")
+	oninvoke := L.GetField(tos, "oninvoke")
+	if oninvoke == LNil {
+		t.Fatalf("expected tos.oninvoke wrapper")
+	}
+
+	owner := "0x" + strings.Repeat("0", 60) + "a1b2"
+	tag := "0x11223344556677889900aabbccddeeff"
+
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("configure(agent,bytes16)")))
+	L.Push(LString(owner))
+	L.Push(LString(tag))
+	if err := L.PCall(3, 0, nil); err != nil {
+		t.Fatalf("configure failed: %v", err)
+	}
+
+	L.SetField(msgTable, "sender", LString(owner))
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("isOwner()")))
+	if err := L.PCall(1, 1, nil); err != nil {
+		t.Fatalf("isOwner failed: %v", err)
+	}
+	if got := LVAsBool(L.Get(-1)); !got {
+		t.Fatalf("expected owner comparison to succeed after host-backed sload decode")
+	}
+	L.Pop(1)
+
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("isPaused()")))
+	if err := L.PCall(1, 1, nil); err != nil {
+		t.Fatalf("isPaused failed: %v", err)
+	}
+	if got := LVAsBool(L.Get(-1)); !got {
+		t.Fatalf("expected paused bool to decode as true after host-backed sload")
+	}
+	L.Pop(1)
+
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("readTag()")))
+	if err := L.PCall(1, 1, nil); err != nil {
+		t.Fatalf("readTag failed: %v", err)
+	}
+	if got := LVAsString(L.Get(-1)); got != strings.ToLower(tag) {
+		t.Fatalf("unexpected bytes16 storage round-trip: got=%s want=%s", got, strings.ToLower(tag))
+	}
+	L.Pop(1)
+
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("clearPaused()")))
+	if err := L.PCall(1, 0, nil); err != nil {
+		t.Fatalf("clearPaused failed: %v", err)
+	}
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("isPaused()")))
+	if err := L.PCall(1, 1, nil); err != nil {
+		t.Fatalf("isPaused after clear failed: %v", err)
+	}
+	if got := LVAsBool(L.Get(-1)); got {
+		t.Fatalf("expected paused bool to decode as false after host-backed sload")
+	}
+	L.Pop(1)
+
+	if len(hostStorage) == 0 {
+		t.Fatalf("expected GTOS-style host storage hooks to be used")
+	}
+}
+
 func TestCompileBytecodeStorageMappingSlot(t *testing.T) {
 	src := []byte(`
 pragma tolang 0.2.0;

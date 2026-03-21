@@ -352,11 +352,14 @@ func installStdlibRuntimeHost(L *LState) *stdlibRuntimeHost {
 	}))
 	L.SetField(tosTable, "agentload", L.NewFunction(func(L *LState) int {
 		addr := LVAsString(L.CheckAny(1))
-		field := "registered"
+		field := "is_registered"
 		if L.GetTop() >= 2 {
 			field = LVAsString(L.CheckAny(2))
 		}
 		if field == "registered" {
+			field = "is_registered"
+		}
+		if field == "is_registered" {
 			if addr == "0" ||
 				addr == "0x0000000000000000000000000000000000000000" ||
 				addr == "0x0000000000000000000000000000000000000000000000000000000000000000" {
@@ -366,14 +369,14 @@ func installStdlibRuntimeHost(L *LState) *stdlibRuntimeHost {
 		}
 		props := host.agentProps[addr]
 		if props == nil {
-			if field == "registered" {
+			if field == "is_registered" {
 				L.Push(lu256FromInt(0))
 				return 1
 			}
 			L.Push(LNil)
 			return 1
 		}
-		if field == "registered" {
+		if field == "is_registered" {
 			L.Push(lu256FromInt(1))
 			return 1
 		}
@@ -495,6 +498,15 @@ func stdlibSetSender(host *stdlibRuntimeHost, sender string) {
 
 func stdlibSetValue(host *stdlibRuntimeHost, value int) {
 	host.msgTable.RawSetString("value", lu256FromInt(value))
+}
+
+func stdlibSetValueString(host *stdlibRuntimeHost, value string) {
+	parsed, err := parseUint256(strings.TrimSpace(value))
+	if err != nil {
+		host.msgTable.RawSetString("value", lu256FromInt(0))
+		return
+	}
+	host.msgTable.RawSetString("value", parsed)
 }
 
 func stdlibSetUnoValue(host *stdlibRuntimeHost, value LValue) {
@@ -647,6 +659,9 @@ func TestPolicyAccountRuntimeDelegateAndSuspension(t *testing.T) {
 	if host.lastCallData != "0x1234" {
 		t.Fatalf("host call data: got=%q want=%q", host.lastCallData, "0x1234")
 	}
+	if host.lastCallCost != "200" {
+		t.Fatalf("host call value: got=%q want=%q", host.lastCallCost, "200")
+	}
 	if got := LVAsString(invokeStdlib(t, L, tos, "remainingDaily()")); got != "800" {
 		t.Fatalf("remainingDaily: got=%s want=800", got)
 	}
@@ -668,6 +683,59 @@ func TestPolicyAccountRuntimeDelegateAndSuspension(t *testing.T) {
 	invokeStdlib(t, L, tos, "unsuspend()")
 	if got := invokeStdlib(t, L, tos, "isSuspended()"); LVAsBool(got) {
 		t.Fatal("isSuspended should be false after owner unsuspend")
+	}
+}
+
+func TestAgentCastRuntimeZeroAndRegistrySemantics(t *testing.T) {
+	const source = `pragma tolang 0.4.0;
+
+contract AgentCastProbe {
+    agent owner;
+
+    constructor(agent _owner) {
+        require(_owner != agent(0), "ZERO_OWNER");
+        set owner = _owner;
+    }
+
+    function zero() public pure returns (agent out) {
+        return agent(0);
+    }
+
+    function cast(agent who) public view returns (agent out) {
+        return agent(who);
+    }
+
+    function callerAgent() public view returns (agent out) {
+        return agent(msg.sender);
+    }
+}
+`
+
+	alice := stdlibBytes32("a")
+	bob := "0x00000000000000000000000000000000000000bb"
+	zero := stdlibBytes32("0")
+
+	L, tos, host := deployStdlibSourceContract(t, []byte(source), "<AgentCastProbe.tol>", LString(alice))
+	defer L.Close()
+
+	if got := LVAsString(invokeStdlib(t, L, tos, "zero()")); got != zero {
+		t.Fatalf("zero agent: got=%s want=%s", got, zero)
+	}
+	if got := LVAsString(invokeStdlib(t, L, tos, "cast(agent)", LString(alice))); got != alice {
+		t.Fatalf("cast registered: got=%s want=%s", got, alice)
+	}
+	if errMsg := invokeStdlibErr(t, L, tos, "cast(agent)", LString(bob)); !strings.Contains(errMsg, "AgentNotFound") {
+		t.Fatalf("cast unregistered: got=%s want contains AgentNotFound", errMsg)
+	}
+
+	stdlibSetSender(host, alice)
+	if got := LVAsString(invokeStdlib(t, L, tos, "callerAgent()")); got != alice {
+		t.Fatalf("caller registered: got=%s want=%s", got, alice)
+	}
+
+	stdlibSetSender(host, bob)
+	if errMsg := invokeStdlibErr(t, L, tos, "callerAgent()"); !strings.Contains(errMsg, "AgentNotFound") {
+		t.Fatalf("caller unregistered: got=%s want contains AgentNotFound", errMsg)
 	}
 }
 

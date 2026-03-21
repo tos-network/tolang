@@ -13,6 +13,7 @@ pragma tolang 0.4.0;
 contract CallTargetRecorder {
     bytes32 last_order_id;
     u256 last_amount;
+    u256 last_value;
     u256 call_count;
     bool fail_next;
 
@@ -20,6 +21,7 @@ contract CallTargetRecorder {
         require(fail_next != true, "FAIL_NEXT");
         set last_order_id = order_id;
         set last_amount = amount;
+        set last_value = msg.value;
         set call_count = call_count + 1;
         return true;
     }
@@ -34,6 +36,10 @@ contract CallTargetRecorder {
 
     function lastAmount() public view returns (u256 amount) {
         return last_amount;
+    }
+
+    function lastValue() public view returns (u256 value) {
+        return last_value;
     }
 
     function callCount() public view returns (u256 count) {
@@ -114,7 +120,7 @@ func attachActualPackageRouter(t *testing.T, coordinatorHost *stdlibRuntimeHost,
 	}
 }
 
-func invokeCallContractCalldata(t *testing.T, dep *stdlibDeployedPackageContract, caller, calldata string) (bool, string) {
+func invokeCallContractCalldata(t *testing.T, dep *stdlibDeployedPackageContract, caller, value, calldata string) (bool, string) {
 	t.Helper()
 
 	oninvoke := dep.L.GetField(dep.tos, "oninvoke")
@@ -124,13 +130,17 @@ func invokeCallContractCalldata(t *testing.T, dep *stdlibDeployedPackageContract
 
 	base := dep.L.GetTop()
 	stdlibSetSender(dep.host, caller)
+	prevValue := dep.host.msgTable.RawGetString("value")
+	stdlibSetValueString(dep.host, value)
 	dep.host.tosTable.RawSetString("calldata", LString(calldata))
 	dep.L.Push(oninvoke)
 	dep.L.Push(LString(stdlibSelectorFromCalldata(calldata)))
 	if err := dep.L.PCall(1, MultRet, nil); err != nil {
+		dep.host.msgTable.RawSetString("value", prevValue)
 		dep.L.SetTop(base)
 		return false, err.Error()
 	}
+	dep.host.msgTable.RawSetString("value", prevValue)
 	dep.L.SetTop(base)
 	return true, "0x"
 }
@@ -147,7 +157,7 @@ func attachActualCallRouter(t *testing.T, callerHost *stdlibRuntimeHost, caller 
 		if dep == nil {
 			t.Fatalf("call to unknown addr=%s data=%s", addr, data)
 		}
-		ok, ret := invokeCallContractCalldata(t, dep, caller, data)
+		ok, ret := invokeCallContractCalldata(t, dep, caller, value, data)
 		return ok, ret, true
 	}
 }
@@ -772,6 +782,9 @@ func TestPolicySponsoredCheckoutRuntimeStatefulPackageFlow(t *testing.T) {
 	}
 	if got := LVAsString(invokeStdlib(t, targetL, targetTOS, "lastAmount()")); got != "200" {
 		t.Fatalf("target lastAmount after executeCheckout: got=%s want=200", got)
+	}
+	if got := LVAsString(invokeStdlib(t, targetL, targetTOS, "lastValue()")); got != "200" {
+		t.Fatalf("target lastValue after executeCheckout: got=%s want=200", got)
 	}
 	if got := LVAsString(invokeStdlib(t, targetL, targetTOS, "callCount()")); got != "1" {
 		t.Fatalf("target callCount after executeCheckout: got=%s want=1", got)

@@ -1102,7 +1102,7 @@ These are the main remaining scale-out and privacy gaps:
   and tested (parser/sema/lower/codegen/ABI); 3 tests; design doc at
   `docs/CALLER_CAPABILITY_SYNTAX.md`
 
-### Priority order for remaining gaps
+### Priority order for the next evolution wave
 
 The following items have been resolved:
 
@@ -1110,7 +1110,7 @@ The following items have been resolved:
 - ~~close recurring settlement~~ — **RESOLVED**: `RecurringPayment` implemented
 - ~~close compiler semantics: `@requires(caller: Cap)`~~ — **RESOLVED**: pipeline implemented + tested
 
-Remaining implementation order:
+Next evolution order:
 
 1. broaden privacy helper coverage beyond the current `PrivateDisputeEscrow`
    seed into the wider helper family described in
@@ -1161,19 +1161,16 @@ stable for future evolution:
 - caller capability syntax — **RESOLVED** (compiler pipeline + tests); design home: compiler
 - selective disclosure — **RESOLVED** (all 3 GTOS layers); design home: GTOS privacy/protocol
 
-### Design homes for the current remaining backlog
+### Design homes for the next evolution wave
 
-The remaining backlog is smaller and should now use the following focused design
-homes:
+The current stdlib closure wave is complete. These design homes now describe
+future expansion, not unresolved correctness gaps in the present codebase.
 
-| Remaining item | Primary implementation surface | Detailed design home |
+| Next evolution item | Primary implementation surface | Detailed design home |
 | --- | --- | --- |
-| Slash distribution | `stdlib/settlement/TaskSettlement.tol` | `docs/AGENT_NATIVE_STDLIB_2046.md` plus `docs/STDLIB_CAPABILITY_ANALYSIS.md` |
-| Auto-receipt binding | `stdlib/settlement` + `stdlib/receipt` | `docs/AGENT_NATIVE_STDLIB_2046.md` plus `docs/STDLIB_CAPABILITY_ANALYSIS.md` |
-| Named terminal/trust taxonomy | `stdlib/session_book/SessionBook.tol` | `docs/AGENT_NATIVE_STDLIB_2046.md` plus `docs/STDLIB_CAPABILITY_ANALYSIS.md` |
-| Stronger reusable step-up enforcement | `stdlib/session_book/SessionBook.tol` | `docs/AGENT_NATIVE_STDLIB_2046.md` plus `docs/STDLIB_CAPABILITY_ANALYSIS.md` |
-| Higher-level privacy composition helpers | `stdlib/privacy` + composed examples | `docs/PRIVACY_COMPOSITION_HELPERS.md` |
-| Typed discovery / capability schema normalization | `stdlib/discovery` + exporter + metadata | `docs/DISCOVERY_TYPED_SCHEMA.md` plus `docs/AGENT_ABI_SCHEMA.md` |
+| Broader privacy helper family beyond `PrivateDisputeEscrow` | `stdlib/privacy` + composed examples | `docs/PRIVACY_COMPOSITION_HELPERS.md` |
+| Typed discovery integration beyond stdlib release/export into GTOS/OpenFox consumers | `stdlib/discovery` + exporter + metadata + GTOS/OpenFox consumers | `docs/DISCOVERY_TYPED_SCHEMA.md` plus `docs/AGENT_ABI_SCHEMA.md` |
+| Ongoing release/discovery/threat-model tightening as new flows are added | docs + exporter + release manifests | `docs/STDLIB_THREAT_MODEL_MATRIX.md` plus `docs/AGENT_NATIVE_STDLIB_2046.md` |
 
 ## A hard rule
 

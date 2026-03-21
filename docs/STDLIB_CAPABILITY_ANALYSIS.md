@@ -215,13 +215,13 @@ All previously missing contracts have been implemented:
 | `AuditorDisclosureBook` | `privacy` | **IMPLEMENTED** — structured auditor disclosure with snapshots |
 | `RecurringPayment` | `settlement` | **IMPLEMENTED** — subscription/recurring payment scheduler |
 
-### Remaining features in existing contracts
+### Capability status in existing contracts
 
 | Feature | Affected contract | Description |
 |---------|------------------|-------------|
 | ~~Milestone staged release~~ | `TaskSettlement` | **RESOLVED** — `openMilestoneTask` / `completeMilestone` / `milestoneStatusOf` |
-| Slash distribution | `TaskSettlement` | Dispute resolution exists but no configurable split/slash |
-| Auto-receipt emission | `ReceiptBook` | Receipts require explicit calls; not auto-bound to settlement |
+| ~~Slash distribution~~ | `TaskSettlement` | **RESOLVED** — `setSlashPolicy(...)` precommits the worker/poster split and enforces it at dispute resolution |
+| ~~Auto-receipt binding~~ | `TaskSettlement` + `ReceiptBook` | **RESOLVED** — settlement now opens/finalizes canonical receipts on approval, reject/dispute resolution, cancellation, reclaim, and final milestone completion |
 | ~~Invoice type~~ | `CommercialAgreement` | **RESOLVED** — `createInvoice` / `agreementTypeOf` |
 | ~~Per-role spend caps~~ | `PolicyAccount` | **RESOLVED** — `setDelegateCaps` / `delegateDailyRemaining`; enforced in execute path |
 | ~~Reputation writes~~ | `TrustRegistry` | **RESOLVED** — `updateReputation` / `setScorerCallback`; composes native + local |
@@ -280,6 +280,10 @@ That is what makes TOL commercially viable at scale.
 have package/artifact coverage.  The privacy family is now complete with 6
 contracts (ConfidentialVault, ConfidentialEscrow, ConfidentialPayment,
 ConfidentialTreasury, ConfidentialAllowance, AuditorDisclosureBook).  The
-settlement family has both TaskSettlement and RecurringPayment.  The
-remaining gaps are slash distribution, auto-receipt binding, stronger
-terminal/trust ergonomics, and higher-level composed privacy helper flows.
+settlement family has both TaskSettlement and RecurringPayment. The current
+stdlib closure wave also includes slash distribution, auto-receipt binding,
+named terminal/trust taxonomy, reusable step-up enforcement, v1 privacy
+composition helpers, and typed discovery normalization. The remaining work is
+longer-horizon evolution: broader privacy helper coverage, broader
+GTOS/OpenFox typed discovery consumption, and continued
+release/discovery/threat-model tightening.

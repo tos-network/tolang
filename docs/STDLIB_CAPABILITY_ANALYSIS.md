@@ -30,8 +30,9 @@ Remaining gaps:
    reputation writes/scorer callback
 2. **Missing compiler features**: `@requires(caller: Cap)` compiler-enforced
    capability syntax is not yet implemented
-3. **Missing privacy layers**: selective disclosure has only the
-   auditor-authorization layer (no ZK proof gate or decryption token layer)
+3. **Missing privacy ergonomics**: GTOS selective disclosure is resolved at the
+   protocol layer, but stdlib still lacks higher-level composed arbitrator /
+   regulator helper flows that package those primitives into one business API
 
 ---
 
@@ -94,7 +95,8 @@ subscription/periodic payment scheduling.
 **Wave status: ~80% implemented.** All privacy-family contracts now exist
 (ConfidentialVault, ConfidentialEscrow, ConfidentialPayment,
 ConfidentialTreasury, ConfidentialAllowance, AuditorDisclosureBook).
-Remaining gaps are ZK proof gates and structured discovery fields.
+Remaining gaps are structured discovery fields, reputation write paths, and
+some higher-level privacy ergonomics.
 
 | Scenario | With stdlib | Status |
 |----------|-------------|--------|
@@ -116,8 +118,10 @@ Remaining gaps are ZK proof gates and structured discovery fields.
   values must be written by external integration
 - **Discovery structure** — `ServiceDirectory` stores all metadata as bytes32
   references; no structured SLA duration, fee amount, or capability enum fields
-- **Selective disclosure layers** — only auditor-key authorization is
-  implemented; ZK proof gate and decryption token layers are not implemented
+- **Selective disclosure composition ergonomics** — GTOS now implements all
+  three protocol layers (DisclosureProof, DecryptionToken, AuditorKey), but
+  stdlib still exposes only contract-side management patterns rather than one
+  canonical arbitrator / regulator composed flow
 
 ---
 
@@ -131,7 +135,7 @@ Remaining gaps are ZK proof gates and structured discovery fields.
 | Proxy delegation | `approve()` + `transferFrom()` | `AuthorityBook.grant` / `.revoke` / `.consume` — capped, time-bounded, revocable | **~85%** |
 | Multi-terminal support | Not supported | `SessionBook.grantSession` with trust tier, budget, step-up threshold | **~70%** — trust tiers are u256 constants, not a formal 6x5 matrix |
 | Encrypted transfers | Not supported | `uno.transfer()` + `ConfidentialEscrow.openEscrow` / `.releaseEscrow` | **~90%** |
-| Selective disclosure | Not supported | GTOS: DisclosureProof (ZK/DLEQ) + DecryptionToken + AuditorKey (consensus); stdlib: `AuditorDisclosureBook` + `ConfidentialVault.authorizeAuditor` | **~90%** — all 3 protocol layers implemented in GTOS; stdlib provides contract-level management |
+| Selective disclosure | Not supported | GTOS: DisclosureProof (ZK/DLEQ) + DecryptionToken + AuditorKey (consensus); stdlib: `AuditorDisclosureBook` + `ConfidentialVault.authorizeAuditor` | **RESOLVED at protocol layer** — all 3 layers implemented in GTOS; stdlib provides contract-level management and can add better composed helpers later |
 | Task marketplace | ~200 lines hand-rolled state machine | `CommercialAgreement.createOffer` + `TaskSettlement.openTask` | **~90%** |
 | Gas sponsorship | ERC-4337 complex stack | `SponsorPolicyRelay.relay` — native sponsor binding + policy + budget | **~85%** |
 | Machine-readable audit | Optional event logs | `ReceiptBook.openReceipt` / `.finalizeSuccess` — structured evidence chain | **~80%** — requires explicit calls, not auto-emitted |
@@ -169,8 +173,10 @@ repeated differently in every contract, with different bugs each time.
 **Implementation note:** The end-to-end scenario above is partially
 demonstrated in `stdlib_composed_runtime_test.go` (`PolicySponsoredCheckout`,
 `PrivateServiceOrder`, `SponsoredPrivateEscrowCheckout`). The selective
-disclosure to arbitrator step is not yet covered — it requires the missing
-`AuditorDisclosureBook` contract and deeper privacy layer work.
+disclosure to arbitrator step is no longer blocked by missing protocol or
+contract primitives — GTOS now provides DisclosureProof, DecryptionToken, and
+AuditorKey, and stdlib includes `AuditorDisclosureBook`. What remains is a
+cleaner composed example and convenience surface.
 
 ---
 
@@ -189,7 +195,7 @@ disclosure to arbitrator step is not yet covered — it requires the missing
 | `evidence` | Oracle write-once guards, proof reference attachment | **~85%** — `EvidenceBook` with `openEvidence`, `fulfill`, `challenge`, `finalize` | — |
 | `receipt` | Receipt formatting, approval linkage, settlement traces | **~80%** — `ReceiptBook` with `openReceipt`, `finalizeSuccess`, `finalizeFailure` | Not auto-emitted; requires explicit caller integration |
 | `trust` | Reputation queries, stake checks, scorer integration | **~60%** — `TrustRegistry` with `depositBond`, `setTrustFloor`, `isEligible`, `snapshotReputationOf` | No reputation write/update; no scorer callback; no per-agreement stake lock |
-| `privacy` | UNO bridge wiring, disclosure flow setup, auditor view construction | **~85%** — `ConfidentialVault` (deposit/withdraw/auditor auth) + `ConfidentialEscrow` (escrow/release/refund) + `ConfidentialPayment` (batch/individual payments) + `ConfidentialTreasury` (multi-signer treasury) + `ConfidentialAllowance` (encrypted approve/transferFrom) + `AuditorDisclosureBook` (snapshot-based disclosure) | ZK proof gate and decryption token layers not yet built |
+| `privacy` | UNO bridge wiring, disclosure flow setup, auditor view construction | **~85%** — `ConfidentialVault` (deposit/withdraw/auditor auth) + `ConfidentialEscrow` (escrow/release/refund) + `ConfidentialPayment` (batch/individual payments) + `ConfidentialTreasury` (multi-signer treasury) + `ConfidentialAllowance` (encrypted approve/transferFrom) + `AuditorDisclosureBook` (snapshot-based disclosure) | GTOS selective disclosure stack is resolved; remaining work is higher-level composed helper flows |
 | `discovery` | Manifest construction, capability advertisement, version markers | **~70%** — `ServiceDirectory` with `registerService`, `updateManifest`, `updateQuote`, `deactivate` | All metadata stored as bytes32 refs; no structured SLA, fee, or capability fields |
 
 ---
@@ -227,6 +233,7 @@ All previously missing contracts have been implemented (2026-03-21):
 | `@requires(caller: Cap)` | Compiler-enforced capability-based access control syntax; currently hand-rolled `require(msg.sender == owner)` |
 | ~~Selective disclosure (ZK layer)~~ | **RESOLVED** — DisclosureProof (DLEQ Sigma) implemented in GTOS `crypto/priv/disclosure.go` |
 | ~~Selective disclosure (decryption token layer)~~ | **RESOLVED** — DecryptionToken implemented in GTOS `core/priv/decryption_token.go` |
+| ~~Selective disclosure (regulatory / auditor key layer)~~ | **RESOLVED** — AuditorKey consensus path implemented and documented in `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` |
 
 ### Document placement for the five strategic workstreams
 
@@ -239,7 +246,7 @@ and deeper design homes:
 | Workstream | This document tracks | Detailed design home |
 |------------|----------------------|----------------------|
 | Cross-contract atomicity | **RESOLVED** — `tos.multicall` implemented | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
-| Privacy family completion | **RESOLVED** — all 6 contracts implemented; ZK/token layers pending | `docs/PRIVACY_STDLIB_FAMILY.md` |
+| Privacy family completion | **RESOLVED** — all 6 contracts implemented; GTOS selective disclosure stack also resolved | `docs/PRIVACY_STDLIB_FAMILY.md` |
 | Recurring / subscription settlement | **RESOLVED** — `RecurringPayment` contract; protocol scheduler pending | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
 | `@requires(caller: Cap)` | compiler feature required for capability-complete stdlib ergonomics | `docs/CALLER_CAPABILITY_SYNTAX.md` |
 | Selective disclosure (`ZK + token`) | **RESOLVED** — all 3 layers in GTOS (DisclosureProof, DecryptionToken, AuditorKey) | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |

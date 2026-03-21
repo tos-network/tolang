@@ -1082,16 +1082,10 @@ These are the main remaining scale-out and privacy gaps:
   `ServiceDirectory` still stores service metadata as opaque `bytes32`
   references rather than structured SLA duration, fee amount, capability enum,
   and quote fields
-- selective disclosure ZK proof gate
-  auditor authorization exists, but there is not yet a proof-gated selective
-  disclosure layer
-- selective disclosure decryption token layer
-  there is still no canonical per-counterparty decryption token issuance or
-  disclosure-token flow
-- the composed "arbitrator selective disclosure" path is still not truly
-  closed
-  that scenario requires the missing `AuditorDisclosureBook` plus deeper
-  privacy-layer work
+- selective disclosure is now RESOLVED at the GTOS protocol layer
+  DisclosureProof, DecryptionToken, and AuditorKey are implemented in
+  `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md`; the remaining work is
+  stdlib-level convenience composition rather than missing protocol primitives
 
 ### Missing compiler and language features
 
@@ -1121,8 +1115,7 @@ is closed, the next implementation order should be:
 5. close market-scale semantics:
    reputation writes, scorer callbacks, stake locks, and structured discovery
    fields
-6. close privacy-proof and compiler semantics:
-   ZK selective disclosure gate, decryption token layer, and
+6. close compiler semantics:
    `@requires(caller: Cap)`
 
 ### Acceptance bar for capability-complete closure
@@ -1166,7 +1159,8 @@ current repo state, but their design homes remain stable:
 - privacy-family completion still belongs primarily to stdlib family design
 - recurring settlement still belongs primarily to scheduler + settlement design
 - caller capability syntax still belongs primarily to compiler design
-- selective disclosure still belongs primarily to privacy and protocol design
+- selective disclosure is now resolved at the GTOS privacy/protocol layer;
+  future work there is primarily ergonomic composition and documentation
 
 ## A hard rule
 

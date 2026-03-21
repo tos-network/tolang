@@ -12,35 +12,29 @@ func TestStdlibComposedExamplesCompile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
 	}
-	baseDir := filepath.Dir(repoRoot)
 
 	testCases := []struct {
 		file         string
-		compileName  string
 		contractName string
 		functions    []string
 	}{
 		{
 			file:         filepath.Join(repoRoot, "examples/stdlib_composed/PolicySponsoredCheckout.tol"),
-			compileName:  filepath.Join(baseDir, "PolicySponsoredCheckout.tol"),
 			contractName: "PolicySponsoredCheckout",
 			functions:    []string{"preauthorize", "executeCheckout", "dailyRemaining", "receiptStatus"},
 		},
 		{
 			file:         filepath.Join(repoRoot, "examples/stdlib_composed/PrivateServiceOrder.tol"),
-			compileName:  filepath.Join(baseDir, "PrivateServiceOrder.tol"),
 			contractName: "PrivateServiceOrder",
 			functions:    []string{"ready", "settleReadyOrder", "customerVaultBalance", "serviceManifest"},
 		},
 		{
 			file:         filepath.Join(repoRoot, "examples/stdlib_composed/PrivateEscrowCheckout.tol"),
-			compileName:  filepath.Join(baseDir, "PrivateEscrowCheckout.tol"),
 			contractName: "PrivateEscrowCheckout",
 			functions:    []string{"prepare", "settleAndRelease", "failAndRefund", "confidentialBalance", "receiptState"},
 		},
 		{
 			file:         filepath.Join(repoRoot, "examples/stdlib_composed/SponsoredPrivateEscrowCheckout.tol"),
-			compileName:  filepath.Join(baseDir, "SponsoredPrivateEscrowCheckout.tol"),
 			contractName: "SponsoredPrivateEscrowCheckout",
 			functions:    []string{"preflight", "executeSponsoredRelease", "abortSponsoredRefund", "sponsorRemaining", "receiptStatus", "confidentialBalance"},
 		},
@@ -53,11 +47,11 @@ func TestStdlibComposedExamplesCompile(t *testing.T) {
 				t.Fatalf("read example %s: %v", tc.file, err)
 			}
 
-			if _, err := BuildIRWithResolver(source, tc.compileName, NewOSFileResolver(baseDir)); err != nil {
+			if _, err := BuildIRWithResolver(source, tc.file, NewOSFileResolver(filepath.Dir(tc.file))); err != nil {
 				t.Fatalf("build IR %s: %v", tc.contractName, err)
 			}
 
-			artifactBytes, err := CompileArtifact(source, tc.compileName)
+			artifactBytes, err := CompileArtifact(source, tc.file)
 			if err != nil {
 				t.Fatalf("compile artifact %s: %v", tc.contractName, err)
 			}
@@ -69,7 +63,7 @@ func TestStdlibComposedExamplesCompile(t *testing.T) {
 				t.Fatalf("artifact contract mismatch: got=%q want=%q", artifact.ContractName, tc.contractName)
 			}
 
-			pkgBytes, err := CompilePackage(source, tc.compileName, &PackageOptions{
+			pkgBytes, err := CompilePackage(source, tc.file, &PackageOptions{
 				PackageName:    tc.contractName,
 				PackageVersion: "1.0.0",
 			})

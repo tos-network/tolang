@@ -10,9 +10,9 @@ import (
 	"github.com/tos-network/tolang/metadata"
 )
 
-// compileSourceAsAndExtract compiles source bytes using a synthetic compile path,
-// which lets package-style imports resolve from the repo parent directory.
-func compileSourceAsAndExtract(t *testing.T, sourcePath, compileName string) ([]byte, *lua.Artifact, *metadata.ContractMetadata) {
+// compileSourceAsAndExtract compiles source bytes using their real file path.
+// Package imports should resolve without synthetic parent-directory tricks.
+func compileSourceAsAndExtract(t *testing.T, sourcePath string) ([]byte, *lua.Artifact, *metadata.ContractMetadata) {
 	t.Helper()
 
 	source, err := os.ReadFile(sourcePath)
@@ -20,9 +20,9 @@ func compileSourceAsAndExtract(t *testing.T, sourcePath, compileName string) ([]
 		t.Fatalf("read %s: %v", sourcePath, err)
 	}
 
-	artBytes, err := lua.CompileArtifact(source, compileName)
+	artBytes, err := lua.CompileArtifact(source, sourcePath)
 	if err != nil {
-		t.Fatalf("CompileArtifact %s as %s: %v", sourcePath, compileName, err)
+		t.Fatalf("CompileArtifact %s: %v", sourcePath, err)
 	}
 
 	art, err := lua.DecodeArtifact(artBytes)
@@ -42,8 +42,6 @@ func compileSourceAsAndExtract(t *testing.T, sourcePath, compileName string) ([]
 
 func TestStdlibComposedExamplesMetadataAndDiscovery(t *testing.T) {
 	root := projectRoot(t)
-	baseDir := filepath.Dir(root)
-
 	testCases := []struct {
 		file         string
 		contractName string
@@ -79,9 +77,7 @@ func TestStdlibComposedExamplesMetadataAndDiscovery(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.contractName, func(t *testing.T) {
 			sourcePath := filepath.Join(root, "examples", "stdlib_composed", tc.file)
-			compileName := filepath.Join(baseDir, tc.file)
-
-			source, art, meta := compileSourceAsAndExtract(t, sourcePath, compileName)
+			source, art, meta := compileSourceAsAndExtract(t, sourcePath)
 
 			if art.ContractName != tc.contractName {
 				t.Fatalf("contract name: got %q want %q", art.ContractName, tc.contractName)

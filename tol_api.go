@@ -100,37 +100,31 @@ func isPackageStylePath(p string) bool {
 // name="AgentRegistry") by converting the dotted path to a directory and looking for
 // name.{tol,toi,toc,tor} under that directory.
 func (r *OSFileResolver) resolvePackagePath(importingFile, pkgPath, name string) ([]byte, string, error) {
-	base := r.BaseDir
-	if base == "" {
-		base = filepath.Dir(importingFile)
-	}
-	// Convert dotted package path to filesystem directory: "tolang.registry" → "tolang/registry"
-	dirPath := strings.ReplaceAll(pkgPath, ".", string(filepath.Separator))
-	dir := filepath.Join(base, dirPath)
-	// Try candidate filenames in preference order.
-	for _, ext := range []string{".tol", ".abi", ".toc", ".tor"} {
-		abs := filepath.Join(dir, name+ext)
-		raw, err := os.ReadFile(abs)
-		if err != nil {
-			continue
-		}
-		if IsArtifact(raw) {
-			src, err := artifactToTOLSource(raw, name)
+	for _, dir := range r.packageSearchDirs(importingFile, pkgPath) {
+		for _, ext := range []string{".tol", ".abi", ".toc", ".tor"} {
+			abs := filepath.Join(dir, name+ext)
+			raw, err := os.ReadFile(abs)
 			if err != nil {
-				return nil, "", fmt.Errorf("package import %q.%q: %w", pkgPath, name, err)
+				continue
 			}
-			return src, abs, nil
-		}
-		if IsPackage(raw) {
-			src, err := artifactToInterfaceSource(raw, name)
-			if err != nil {
-				return nil, "", fmt.Errorf("package import %q.%q: %w", pkgPath, name, err)
+			if IsArtifact(raw) {
+				src, err := artifactToTOLSource(raw, name)
+				if err != nil {
+					return nil, "", fmt.Errorf("package import %q.%q: %w", pkgPath, name, err)
+				}
+				return src, abs, nil
 			}
-			return src, abs, nil
+			if IsPackage(raw) {
+				src, err := artifactToInterfaceSource(raw, name)
+				if err != nil {
+					return nil, "", fmt.Errorf("package import %q.%q: %w", pkgPath, name, err)
+				}
+				return src, abs, nil
+			}
+			return raw, abs, nil
 		}
-		return raw, abs, nil
 	}
-	return nil, "", fmt.Errorf("package import %q.%q: no file found in %q (tried .tol/.abi/.toc/.tor)", pkgPath, name, dir)
+	return nil, "", fmt.Errorf("package import %q.%q: no file found in package search roots (tried .tol/.abi/.toc/.tor)", pkgPath, name)
 }
 
 // ListPackage implements sema.PackageLister.
@@ -139,36 +133,80 @@ func (r *OSFileResolver) resolvePackagePath(importingFile, pkgPath, name string)
 // Only files with recognised TOL extensions (.tol, .abi, .toc, .tor) are listed;
 // the extension is stripped to produce the bare contract name.
 func (r *OSFileResolver) ListPackage(pkgPath string) ([]string, error) {
-	base := r.BaseDir
-	if base == "" {
-		return nil, nil
-	}
-	dirPath := strings.ReplaceAll(pkgPath, ".", string(filepath.Separator))
-	dir := filepath.Join(base, dirPath)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		// Directory not found is not an error — tol.lang simply has no contracts here.
-		return nil, nil
-	}
 	var names []string
 	seen := make(map[string]bool)
-	for _, e := range entries {
-		if e.IsDir() {
+	for _, dir := range r.packageSearchDirs("", pkgPath) {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
 			continue
 		}
-		name := e.Name()
-		for _, ext := range []string{".tol", ".abi", ".toc", ".tor"} {
-			if strings.HasSuffix(strings.ToLower(name), ext) {
-				contractName := name[:len(name)-len(ext)]
-				if contractName != "" && !seen[contractName] {
-					names = append(names, contractName)
-					seen[contractName] = true
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			name := e.Name()
+			for _, ext := range []string{".tol", ".abi", ".toc", ".tor"} {
+				if strings.HasSuffix(strings.ToLower(name), ext) {
+					contractName := name[:len(name)-len(ext)]
+					if contractName != "" && !seen[contractName] {
+						names = append(names, contractName)
+						seen[contractName] = true
+					}
+					break
 				}
-				break
 			}
 		}
 	}
 	return names, nil
+}
+
+func (r *OSFileResolver) packageSearchDirs(importingFile, pkgPath string) []string {
+	base := r.BaseDir
+	if base == "" && importingFile != "" {
+		base = filepath.Dir(importingFile)
+	}
+	if base == "" {
+		return nil
+	}
+	segments := strings.Split(pkgPath, ".")
+	if len(segments) == 0 {
+		return nil
+	}
+	relAll := filepath.Join(segments...)
+	relWithinRoot := ""
+	if len(segments) > 1 {
+		relWithinRoot = filepath.Join(segments[1:]...)
+	}
+
+	var dirs []string
+	seen := make(map[string]bool)
+	addDir := func(dir string) {
+		dir = filepath.Clean(dir)
+		if dir == "." || dir == string(filepath.Separator) || seen[dir] {
+			return
+		}
+		seen[dir] = true
+		dirs = append(dirs, dir)
+	}
+
+	for cur := filepath.Clean(base); ; cur = filepath.Dir(cur) {
+		addDir(filepath.Join(cur, relAll))
+		if filepath.Base(cur) == segments[0] && relWithinRoot != "" {
+			addDir(filepath.Join(cur, relWithinRoot))
+		}
+		if len(segments) >= 2 && segments[0] == "tolang" && segments[1] == "stdlib" {
+			family := segments[len(segments)-1]
+			if filepath.Base(cur) == "tolang" {
+				addDir(filepath.Join(cur, "stdlib", "releases", family))
+			}
+			addDir(filepath.Join(cur, "tolang", "stdlib", "releases", family))
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			break
+		}
+	}
+	return dirs
 }
 
 // resolveGitHubImport fetches a file from GitHub using the raw content API.

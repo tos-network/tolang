@@ -101,7 +101,7 @@ What this revealed:
 
 ## Structural Shortcomings That Still Exist
 
-### 1. Package calls are compiler-real but runtime-dependent
+### 1. Package calls are compiler-real but runtime-dependent — PARTIALLY RESOLVED
 
 The lowering path can emit package-aware calls, but those calls still depend on
 the host exposing `tos.package_call`.
@@ -124,7 +124,7 @@ Diagnosis:
 - package composition currently sits in an uncomfortable middle state:
   language-supported, but not yet a deeply native runtime primitive
 
-### 2. External call semantics are still too thin
+### 2. External call semantics are still too thin — LARGELY RESOLVED
 
 The stdlib work pushed heavily on:
 
@@ -182,7 +182,7 @@ release escrow".
 `stdlib_composed_runtime_test.go` prove the semantics.  Full design in
 `/home/tomi/gtos/docs/Atomic-Execution-v1.md`.
 
-### 3. Agent-native annotations are ahead of protocol backing
+### 3. Agent-native annotations are ahead of protocol backing — IN PROGRESS
 
 The maturity matrix is already explicit about this.
 
@@ -237,11 +237,12 @@ Diagnosis:
 - Tolang package identity and package resolution still feel too source-tree
   dependent
 
-### 5. Namespace hygiene — resolved
+### 5. Namespace hygiene — RESOLVED (lexer unreserve + directory rename)
 
 Previously `stdlib/session` had to become `stdlib/session_book` because `session`
-was a parser reserved word. Fixed: `session` unreserved and package renamed back
-to `stdlib/session` (package `tolang.stdlib.session`).
+was a parser reserved word. Fixed: `session` was removed from the lexer's reserved
+word list and the package directory was renamed back from `stdlib/session_book` to
+`stdlib/session` (package `tolang.stdlib.session`).
 
 Why this matters:
 
@@ -250,7 +251,7 @@ Why this matters:
 - when reserved words leak into package naming, it signals that the language
   namespace model is still too brittle
 
-### 6. The ABI/discovery layer is still not unified enough for agents
+### 6. The ABI/discovery layer is still not unified enough for agents — PARTIALLY RESOLVED
 
 The stdlib effort made clear that agents do not consume source code first.
 They consume:
@@ -277,7 +278,7 @@ Diagnosis:
 - Tolang metadata is already one of its strengths, but it still needs a more
   unified, protocol-grade contract capability schema
 
-### 7. Core economic primitives are still too host-shaped
+### 7. Core economic primitives are still too host-shaped — IN PROGRESS
 
 To execute the stdlib meaningfully in tests, we had to supply a large host
 surface manually:
@@ -335,14 +336,29 @@ The priority order should be:
    atomicity via StateDB snapshot/revert; cross-contract atomicity via
    `tos.multicall`; 10 regression tests across both repos.
 2. Native, dependable runtime support for package calls and contract capability
-   routing.
+   routing. — `tos.package_call` exists in GTOS LVM and handles dispatch,
+   snapshot/revert, and gas caps, but is not yet protocol-native with package
+   identity validation (deployed `.tor` identity is not checked at the VM
+   level). Design doc: `/home/tomi/gtos/docs/LVM_NATIVE_ECONOMIC_PRIMITIVES.md`.
 3. Protocol-backed registries and enforcement for delegation, verification,
-   settlement, and agent identity semantics.
+   settlement, and agent identity semantics. — GTOS design doc
+   `GTOS_PROTOCOL_REGISTRIES.md` is ready (5 registries defined); LVM stubs
+   `tos.hasdelegation`, `tos.isverified`, and `tos.canpay` are registered in
+   `lvm.go` (currently return `true` unconditionally); regression tests in
+   `lvm_registry_stubs_test.go`; implementation underway.
 4. Stable package identity and import resolution independent of local source
-   layout.
-5. Unified ABI/discovery/capability schema designed explicitly for agents.
-6. Namespace cleanup so standard library naming is conceptually clean and not
-   parser-accidental.
+   layout. — GTOS design doc `PACKAGE_PUBLISHING_REGISTRY.md` is ready
+   (PackageIdentity, PublisherRecord, PackageRecord schemas defined); local
+   toolchain resolution still filesystem-based; protocol-grade registry not yet
+   implemented.
+5. Unified ABI/discovery/capability schema designed explicitly for agents. —
+   PARTIALLY DONE: `ServiceDirectory` has typed discovery fields (`fee`,
+   `sla_duration_ms`, capability/manifest/version refs);
+   `AgentContractProfile` design doc exists (`DISCOVERY_TYPED_SCHEMA.md`);
+   full typed routing schema not yet implemented on-chain.
+6. ~~Namespace cleanup so standard library naming is conceptually clean and not
+   parser-accidental.~~ — **RESOLVED**: `session` removed from lexer reserved
+   words; `stdlib/session_book` directory renamed to `stdlib/session`.
 
 ## Design homes for the five strategic follow-on gaps
 

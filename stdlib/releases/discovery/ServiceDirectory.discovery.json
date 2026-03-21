@@ -3,10 +3,10 @@
   "package_name": "tolang.stdlib.discovery",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0xa008b9f9d367002b95d990460182f480c7f8f32429e5930f6e9da13d466d8e4d",
-    "bytecode_hash": "0x2ab562ba2ec547caba5429c3b589e6b08c8ad320de910cb1babab1de5dd80045",
-    "source_hash": "0x27541af701b2055c2300a5a9b4b02dd9dd3a6bd6fa1b67d288b9c8ac07255b23",
-    "abi_hash": "0xc06779b25a4582c5932683878d9d64b4f05a3d7ea5365e28818afdec5280a207",
+    "package_hash": "0x484a548e1eaf18bb4792508eee48b0d8eda03185a96e2f01cf8ea25f9ed48f8c",
+    "bytecode_hash": "0x9e21cea6e19af24c83f58f37f7bc40319c26dd1e1fc76422c3e09e50be67d823",
+    "source_hash": "0xc489b34df8b30c7ce3b2e95352adb114b89c5576b65ab8fc174a3ca34d476fa0",
+    "abi_hash": "0x75942e59b5707d50647b16f828f84243bc36d03e4ddaddc76753a0e42a6785fb",
     "version": "1.0.0"
   },
   "contract_type": "custom",
@@ -119,6 +119,56 @@
     {
       "name": "isActive",
       "selector": "0x4f0c4a37",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "setServiceFee",
+      "selector": "0x9b5034ee",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "setServiceSLA",
+      "selector": "0x73338657",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "feeOf",
+      "selector": "0xefa6240a",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "slaOf",
+      "selector": "0x41d4b78f",
       "risk_level": "low",
       "payable": false,
       "delegated": false,

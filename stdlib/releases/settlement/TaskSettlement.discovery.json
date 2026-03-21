@@ -3,10 +3,10 @@
   "package_name": "tolang.stdlib.settlement",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0xea545f662a8b36e84a548887c609c3991965fa7378fdca1e6068676f660018bc",
-    "bytecode_hash": "0xc3ab67511720a976581c84e5f54f330f34ea5c2161c18ac4a87424e990fa0549",
-    "source_hash": "0xc932980b3dca2e60892534fa2845b0eb9a42763fc4fa44a6842938c640006a0f",
-    "abi_hash": "0x10f91585c51b7319c0093bcd2c2abeacc8661dc60d3827ab07dbd2e075bf6374",
+    "package_hash": "0x274cc7557586cddd45ec793c8aaf626d71defcc39ee5144ba6d9ccf6ee3140e3",
+    "bytecode_hash": "0xdd102b1b08acecdbf7782b2b785d29fd5b5ceb4db0e583465215133cc8ee691a",
+    "source_hash": "0x8f2d8f6790f4c76bc56b9c322066258a01e74dee40e3268ed71f777694030fa0",
+    "abi_hash": "0x506c9c8498e95aab8cfb8722f31ee79538fc18bee1c2a44b218dfe26a8733acd",
     "version": "1.0.0"
   },
   "contract_type": "custom",
@@ -190,6 +190,47 @@
     {
       "name": "proofRefOf",
       "selector": "0xac8b9f74",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "openMilestoneTask",
+      "selector": "0xf0452208",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "completeMilestone",
+      "selector": "0x88244822",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "milestoneStatusOf",
+      "selector": "0x3113af0b",
       "risk_level": "low",
       "payable": false,
       "delegated": false,

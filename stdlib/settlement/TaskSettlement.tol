@@ -31,8 +31,14 @@ interface ITaskSettlement {
     function cancelTask(u256 task_id) public;
     function reclaimExpired(u256 task_id) public;
 
+    function openMilestoneTask(bytes32 task_ref, u256 milestone_count, u256 deadline_ms, bytes32 receipt_ref) public payable returns (u256 task_id);
+    function completeMilestone(u256 task_id, u256 milestone_index, bytes32 proof_ref) public;
+
     @verifiable
     function statusOf(u256 task_id) public view returns (u256 status);
+
+    @verifiable
+    function milestoneStatusOf(u256 task_id, u256 milestone_index) public view returns (u256 status);
 
     @verifiable
     function rewardOf(u256 task_id) public view returns (u256 reward);
@@ -60,6 +66,7 @@ contract TaskSettlement is ITaskSettlement {
     u8 constant STATUS_DISPUTED = 6;
     u8 constant STATUS_RESOLVED = 7;
     u8 constant STATUS_CANCELLED = 8;
+    u8 constant STATUS_MILESTONE_PARTIAL = 9;
 
     agent resolver;
     u256 next_task_id;
@@ -75,6 +82,9 @@ contract TaskSettlement is ITaskSettlement {
     mapping(u256 => bytes32) task_settlement_ref;
     mapping(u256 => u256) task_dispute_bond;
     mapping(u256 => u8) task_status;
+    mapping(u256 => u256) task_milestone_count;
+    mapping(u256 => u256) task_milestone_done;
+    mapping(u256 => mapping(u256 => u256)) task_milestone_status;
 
     event TaskOpened(
         u256 indexed task_id,
@@ -91,6 +101,8 @@ contract TaskSettlement is ITaskSettlement {
     event TaskDisputed(u256 indexed task_id, agent indexed worker, bytes32 proof_ref, u256 bond)
     event TaskResolved(u256 indexed task_id, agent indexed winner, u256 payout, bytes32 settlement_ref)
     event TaskCancelled(u256 indexed task_id, agent indexed poster)
+    event MilestoneTaskOpened(u256 indexed task_id, agent indexed poster, u256 milestone_count, u256 reward, u256 deadline_ms)
+    event MilestoneCompleted(u256 indexed task_id, u256 indexed milestone_index, bytes32 proof_ref)
 
     constructor(agent _resolver) {
         require(_resolver != agent(0), "ZERO_RESOLVER");
@@ -230,6 +242,62 @@ contract TaskSettlement is ITaskSettlement {
     @verifiable
     function proofRefOf(u256 task_id) public view returns (bytes32 proof_ref) {
         return task_proof_ref[task_id];
+    }
+
+    function openMilestoneTask(bytes32 task_ref_value, u256 milestone_count, u256 deadline_ms, bytes32 receipt_ref) public payable returns (u256 task_id) {
+        require(msg.value > 0, "NO_REWARD");
+        require(milestone_count > 0, "NO_MILESTONES");
+        require(deadline_ms > block.timestamp_ms, "DEADLINE_PAST");
+
+        task_id = next_task_id;
+        set next_task_id = next_task_id + 1;
+
+        set task_poster[task_id] = msg.sender;
+        set task_reward[task_id] = msg.value;
+        set task_deadline_ms[task_id] = deadline_ms;
+        set task_ref[task_id] = task_ref_value;
+        set task_receipt_ref[task_id] = receipt_ref;
+        set task_status[task_id] = STATUS_OPEN;
+        set task_milestone_count[task_id] = milestone_count;
+        set task_milestone_done[task_id] = 0;
+
+        escrow(msg.sender, msg.value);
+        emit MilestoneTaskOpened(task_id, msg.sender, milestone_count, msg.value, deadline_ms);
+    }
+
+    function completeMilestone(u256 task_id, u256 milestone_index, bytes32 proof_ref) public {
+        require(msg.sender == task_poster[task_id], "NOT_POSTER");
+        u256 count = task_milestone_count[task_id];
+        require(count > 0, "NOT_MILESTONE_TASK");
+        require(milestone_index < count, "INDEX_OOB");
+        require(task_milestone_status[task_id][milestone_index] == 0, "ALREADY_DONE");
+
+        u8 status = task_status[task_id];
+        require(status == STATUS_OPEN || status == STATUS_ACCEPTED || status == STATUS_MILESTONE_PARTIAL, "WRONG_STATUS");
+
+        set task_milestone_status[task_id][milestone_index] = 1;
+        u256 done = task_milestone_done[task_id] + 1;
+        set task_milestone_done[task_id] = done;
+
+        u256 reward = task_reward[task_id];
+        u256 per_milestone = reward / count;
+        agent worker = task_worker[task_id];
+
+        if (done == count) {
+            set task_status[task_id] = STATUS_APPROVED;
+            release(worker, per_milestone);
+        }
+        if (done != count) {
+            set task_status[task_id] = STATUS_MILESTONE_PARTIAL;
+            release(worker, per_milestone);
+        }
+
+        emit MilestoneCompleted(task_id, milestone_index, proof_ref);
+    }
+
+    @verifiable
+    function milestoneStatusOf(u256 task_id, u256 milestone_index) public view returns (u256 status) {
+        return task_milestone_status[task_id][milestone_index];
     }
 
     receive() external payable {}

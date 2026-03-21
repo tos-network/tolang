@@ -12,11 +12,19 @@ interface ITrustRegistry {
     event BondDeposited(agent indexed subject, u256 amount)
     event BondWithdrawn(agent indexed subject, u256 amount)
     event OverrideSet(agent indexed subject, bool allowed)
+    event ReputationUpdated(agent indexed subject, i256 delta, bytes32 reason_ref)
+    event ScorerSet(agent indexed scorer)
+    event StakeLocked(agent indexed subject, bytes32 indexed agreement_ref, u256 amount)
+    event StakeUnlocked(agent indexed subject, bytes32 indexed agreement_ref, u256 amount)
 
     function setTrustFloor(u256 min_stake, i256 min_reputation) public;
     function depositBond() public payable;
     function withdrawBond(u256 amount) public;
     function setOverride(agent subject, bool allowed) public;
+    function updateReputation(agent subject, i256 delta, bytes32 reason_ref) public;
+    function setScorerCallback(agent scorer) public;
+    function lockStake(agent subject, bytes32 agreement_ref, u256 amount) public;
+    function unlockStake(agent subject, bytes32 agreement_ref) public;
 
     @verifiable
     function isEligible(agent subject) public view returns (bool ok);
@@ -29,6 +37,9 @@ interface ITrustRegistry {
 
     @verifiable
     function snapshotStakeOf(agent subject) public view returns (u256 amount);
+
+    @verifiable
+    function lockedStakeOf(agent subject, bytes32 agreement_ref) public view returns (u256 amount);
 }
 
 contract TrustRegistry is ITrustRegistry {
@@ -41,14 +52,21 @@ contract TrustRegistry is ITrustRegistry {
     agent owner;
     u256 min_required_stake;
     i256 min_required_reputation;
+    agent scorer;
 
     mapping(agent => u256) bonded_amount;
     mapping(agent => bool) manual_override;
+    mapping(agent => i256) reputation;
+    mapping(agent => mapping(bytes32 => u256)) locked_stake;
 
     event TrustFloorSet(u256 min_stake, i256 min_reputation)
     event BondDeposited(agent indexed subject, u256 amount)
     event BondWithdrawn(agent indexed subject, u256 amount)
     event OverrideSet(agent indexed subject, bool allowed)
+    event ReputationUpdated(agent indexed subject, i256 delta, bytes32 reason_ref)
+    event ScorerSet(agent indexed scorer)
+    event StakeLocked(agent indexed subject, bytes32 indexed agreement_ref, u256 amount)
+    event StakeUnlocked(agent indexed subject, bytes32 indexed agreement_ref, u256 amount)
 
     constructor(agent _owner, u256 _min_stake, i256 _min_reputation) {
         require(_owner != agent(0), "ZERO_OWNER");
@@ -116,5 +134,43 @@ contract TrustRegistry is ITrustRegistry {
     @verifiable
     function snapshotStakeOf(agent subject) public view returns (u256 amount) {
         return subject.stake;
+    }
+
+    function updateReputation(agent subject, i256 delta, bytes32 reason_ref) public {
+        require(msg.sender == owner || msg.sender == scorer, "NOT_AUTHORIZED");
+        require(subject != agent(0), "ZERO_SUBJECT");
+        set reputation[subject] = reputation[subject] + delta;
+        emit ReputationUpdated(subject, delta, reason_ref);
+    }
+
+    function setScorerCallback(agent scorer_addr) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        set scorer = scorer_addr;
+        emit ScorerSet(scorer_addr);
+    }
+
+    function lockStake(agent subject, bytes32 agreement_ref, u256 amount) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(subject != agent(0), "ZERO_SUBJECT");
+        require(amount > 0, "ZERO_AMOUNT");
+        require(bonded_amount[subject] >= amount, "INSUFFICIENT_BOND");
+        set bonded_amount[subject] = bonded_amount[subject] - amount;
+        set locked_stake[subject][agreement_ref] = locked_stake[subject][agreement_ref] + amount;
+        emit StakeLocked(subject, agreement_ref, amount);
+    }
+
+    function unlockStake(agent subject, bytes32 agreement_ref) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(subject != agent(0), "ZERO_SUBJECT");
+        u256 locked = locked_stake[subject][agreement_ref];
+        require(locked > 0, "NO_LOCKED_STAKE");
+        set locked_stake[subject][agreement_ref] = 0;
+        set bonded_amount[subject] = bonded_amount[subject] + locked;
+        emit StakeUnlocked(subject, agreement_ref, locked);
+    }
+
+    @verifiable
+    function lockedStakeOf(agent subject, bytes32 agreement_ref) public view returns (u256 amount) {
+        return locked_stake[subject][agreement_ref];
     }
 }

@@ -13,6 +13,8 @@ interface IPolicyAccount {
   function remainingDaily() public view returns (u256 remaining);
   function delegateRemaining(agent delegate) public view returns (u256 remaining);
   function isSuspended() public view returns (bool ok);
+  function setDelegateCaps(agent delegate, u256 _daily_limit, u256 _single_limit) public;
+  function delegateDailyRemaining(agent delegate) public view returns (u256 remaining);
   event SpendCapsSet(u256 daily_limit, u256 single_limit);
   event AllowlistModeSet(bool enabled);
   event AllowlistUpdated(agent target indexed, bool allowed);

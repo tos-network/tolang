@@ -35,8 +35,13 @@ interface ICommercialAgreement {
     function fulfill(u256 agreement_id, bytes32 settlement_ref) public;
     function expire(u256 agreement_id) public;
 
+    function createInvoice(agent payer, u256 amount, u256 due_ms, bytes32 terms_ref) public returns (u256 agreement_id);
+
     @verifiable
     function statusOf(u256 agreement_id) public view returns (u256 status);
+
+    @verifiable
+    function agreementTypeOf(u256 agreement_id) public view returns (u256 atype);
 
     @verifiable
     function quoteRefOf(u256 agreement_id) public view returns (bytes32 quote_ref);
@@ -62,6 +67,9 @@ contract CommercialAgreement is ICommercialAgreement {
     u8 constant STATUS_FULFILLED = 4;
     u8 constant STATUS_EXPIRED = 5;
 
+    u8 constant TYPE_OFFER = 1;
+    u8 constant TYPE_INVOICE = 2;
+
     u256 next_agreement_id;
 
     mapping(u256 => agent) agreement_creator;
@@ -73,6 +81,7 @@ contract CommercialAgreement is ICommercialAgreement {
     mapping(u256 => bytes32) agreement_acceptance_ref;
     mapping(u256 => bytes32) agreement_settlement_ref;
     mapping(u256 => u8) agreement_status;
+    mapping(u256 => u8) agreement_type;
 
     event OfferCreated(
         u256 indexed agreement_id,
@@ -87,6 +96,7 @@ contract CommercialAgreement is ICommercialAgreement {
     event OfferCancelled(u256 indexed agreement_id, bytes32 reason_ref)
     event OfferFulfilled(u256 indexed agreement_id, bytes32 settlement_ref)
     event OfferExpired(u256 indexed agreement_id)
+    event InvoiceCreated(u256 indexed agreement_id, agent indexed creator, agent indexed payer, u256 amount, u256 due_ms, bytes32 terms_ref)
 
     constructor() {
         set next_agreement_id = 1;
@@ -114,6 +124,7 @@ contract CommercialAgreement is ICommercialAgreement {
         set agreement_quote_ref[agreement_id] = quote_ref;
         set agreement_terms_ref[agreement_id] = terms_ref;
         set agreement_status[agreement_id] = STATUS_OPEN;
+        set agreement_type[agreement_id] = TYPE_OFFER;
 
         emit OfferCreated(agreement_id, msg.sender, counterparty, amount, expiry_ms, quote_ref, terms_ref);
     }
@@ -168,5 +179,30 @@ contract CommercialAgreement is ICommercialAgreement {
     @verifiable
     function settlementRefOf(u256 agreement_id) public view returns (bytes32 settlement_ref) {
         return agreement_settlement_ref[agreement_id];
+    }
+
+    function createInvoice(agent payer, u256 amount, u256 due_ms, bytes32 terms_ref) public returns (u256 agreement_id) {
+        require(payer != agent(0), "ZERO_PAYER");
+        require(payer != msg.sender, "SELF_PAYER");
+        require(amount > 0, "ZERO_AMOUNT");
+        require(due_ms > block.timestamp_ms, "DUE_PAST");
+
+        agreement_id = next_agreement_id;
+        set next_agreement_id = next_agreement_id + 1;
+
+        set agreement_creator[agreement_id] = msg.sender;
+        set agreement_counterparty[agreement_id] = payer;
+        set agreement_amount[agreement_id] = amount;
+        set agreement_expiry_ms[agreement_id] = due_ms;
+        set agreement_terms_ref[agreement_id] = terms_ref;
+        set agreement_status[agreement_id] = STATUS_OPEN;
+        set agreement_type[agreement_id] = TYPE_INVOICE;
+
+        emit InvoiceCreated(agreement_id, msg.sender, payer, amount, due_ms, terms_ref);
+    }
+
+    @verifiable
+    function agreementTypeOf(u256 agreement_id) public view returns (u256 atype) {
+        return u256(agreement_type[agreement_id]);
     }
 }

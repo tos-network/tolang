@@ -48,6 +48,9 @@ interface ISessionBook {
 
     @verifiable
     function remainingOf(bytes32 session_id) public view returns (u256 remaining);
+
+    @verifiable
+    function requireTerminal(bytes32 session_id, u256 amount) public view returns (bool ok);
 }
 
 contract SessionBook is ISessionBook {
@@ -197,5 +200,19 @@ contract SessionBook is ISessionBook {
             return 0;
         }
         return session_spend_limit[session_id] - session_spent[session_id];
+    }
+
+    @verifiable
+    function requireTerminal(bytes32 session_id, u256 amount) public view returns (bool ok) {
+        if (isActive(session_id) != true) {
+            return false;
+        }
+        if (requiresStepUp(session_id, amount) == true) {
+            return false;
+        }
+        if (remainingOf(session_id) < amount) {
+            return false;
+        }
+        return true;
     }
 }

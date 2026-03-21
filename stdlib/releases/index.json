@@ -12,8 +12,8 @@
       "tor_path": "stdlib/releases/account/PolicyAccount.tor",
       "discovery_path": "stdlib/releases/account/PolicyAccount.discovery.json",
       "agent_package_path": "stdlib/releases/account/PolicyAccount.agentpkg.json",
-      "bytecode_hash": "0x78b76f55aadb96c7935ada7bed99ada5f59d84c8f462a157e0ada967adf6d811",
-      "package_hash": "0x75164067c865b726a703b9b0bf6a3d70f04db0764192204c2789f362f14881ba"
+      "bytecode_hash": "0xbead2f5332545fa88e5135f4e089d32e9660ada1d7e6a8460747c6582695d0f5",
+      "package_hash": "0x17c5d0cc2838c036bee1181caa646622fee5a4fb481df73ec1451dd060ccaf0b"
     },
     {
       "family": "agreement",
@@ -26,8 +26,8 @@
       "tor_path": "stdlib/releases/agreement/CommercialAgreement.tor",
       "discovery_path": "stdlib/releases/agreement/CommercialAgreement.discovery.json",
       "agent_package_path": "stdlib/releases/agreement/CommercialAgreement.agentpkg.json",
-      "bytecode_hash": "0x9c217c8a3b9dba550e42a1e748bdd87396f4bd187c77e6a55c4eb3fd9d2946f7",
-      "package_hash": "0x3981e76425d55f0223dfe7f656fd8c4d9401f6460175fb3bf5c73af7d7e685f6"
+      "bytecode_hash": "0x92ecd820f369bdb8d0629c509262298726371de7d24ca173648aea0c92723b76",
+      "package_hash": "0x9d1ff47d28a001be9cfeb89195d646a2368dc823e95e1f189975b378bb865cdb"
     },
     {
       "family": "authority",
@@ -54,8 +54,8 @@
       "tor_path": "stdlib/releases/discovery/ServiceDirectory.tor",
       "discovery_path": "stdlib/releases/discovery/ServiceDirectory.discovery.json",
       "agent_package_path": "stdlib/releases/discovery/ServiceDirectory.agentpkg.json",
-      "bytecode_hash": "0x2ab562ba2ec547caba5429c3b589e6b08c8ad320de910cb1babab1de5dd80045",
-      "package_hash": "0xa008b9f9d367002b95d990460182f480c7f8f32429e5930f6e9da13d466d8e4d"
+      "bytecode_hash": "0x9e21cea6e19af24c83f58f37f7bc40319c26dd1e1fc76422c3e09e50be67d823",
+      "package_hash": "0x484a548e1eaf18bb4792508eee48b0d8eda03185a96e2f01cf8ea25f9ed48f8c"
     },
     {
       "family": "evidence",
@@ -151,8 +151,8 @@
       "tor_path": "stdlib/releases/session_book/SessionBook.tor",
       "discovery_path": "stdlib/releases/session_book/SessionBook.discovery.json",
       "agent_package_path": "stdlib/releases/session_book/SessionBook.agentpkg.json",
-      "bytecode_hash": "0x6a920f98e2f1853d426d35d7d198e28cf375ad49f0f967010c79f098fd5e3def",
-      "package_hash": "0xec25fc9fe772e5c80fc2722ffc33544fa30f73b1ac1022810a0f37d244bcab43"
+      "bytecode_hash": "0x79bddbada79e228cb8e3ddafc17a6c3ef7af47054bedf6ba14f49fb0f8da496a",
+      "package_hash": "0x5f12b613b11cd4fc4d4c7afa92f489f11e6be7f4e4c22d42e33fbb420670023a"
     },
     {
       "family": "settlement",
@@ -165,8 +165,8 @@
       "tor_path": "stdlib/releases/settlement/TaskSettlement.tor",
       "discovery_path": "stdlib/releases/settlement/TaskSettlement.discovery.json",
       "agent_package_path": "stdlib/releases/settlement/TaskSettlement.agentpkg.json",
-      "bytecode_hash": "0xc3ab67511720a976581c84e5f54f330f34ea5c2161c18ac4a87424e990fa0549",
-      "package_hash": "0xea545f662a8b36e84a548887c609c3991965fa7378fdca1e6068676f660018bc"
+      "bytecode_hash": "0xdd102b1b08acecdbf7782b2b785d29fd5b5ceb4db0e583465215133cc8ee691a",
+      "package_hash": "0x274cc7557586cddd45ec793c8aaf626d71defcc39ee5144ba6d9ccf6ee3140e3"
     },
     {
       "family": "sponsor",
@@ -193,8 +193,8 @@
       "tor_path": "stdlib/releases/trust/TrustRegistry.tor",
       "discovery_path": "stdlib/releases/trust/TrustRegistry.discovery.json",
       "agent_package_path": "stdlib/releases/trust/TrustRegistry.agentpkg.json",
-      "bytecode_hash": "0x59c6a0bdb1c8f0322be94aa0846e479d75f3ea34b8ccb9b1ff0340489b86a92e",
-      "package_hash": "0xdb5e91e2e9a69e039c452813c5017d6c09100e798a2fe09bd21232eb173ed9c7"
+      "bytecode_hash": "0xa12d8d1ebb7a9bcf8cabc9c285cc934aba12511cc941c915a6c9d02a8043ea2a",
+      "package_hash": "0xbb9465a4f0b75cd98a9c14a2fc42b75d023ac5b757b5b88df3774cff7b9c5892"
     }
   ],
   "bundles": [

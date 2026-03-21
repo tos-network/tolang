@@ -9,8 +9,17 @@ interface ITrustRegistry {
   function bondedAmountOf(agent subject) public view returns (u256 amount);
   function snapshotReputationOf(agent subject) public view returns (i256 score);
   function snapshotStakeOf(agent subject) public view returns (u256 amount);
+  function updateReputation(agent subject, i256 delta, bytes32 reason_ref) public;
+  function setScorerCallback(agent scorer_addr) public;
+  function lockStake(agent subject, bytes32 agreement_ref, u256 amount) public;
+  function unlockStake(agent subject, bytes32 agreement_ref) public;
+  function lockedStakeOf(agent subject, bytes32 agreement_ref) public view returns (u256 amount);
   event TrustFloorSet(u256 min_stake, i256 min_reputation);
   event BondDeposited(agent subject indexed, u256 amount);
   event BondWithdrawn(agent subject indexed, u256 amount);
   event OverrideSet(agent subject indexed, bool allowed);
+  event ReputationUpdated(agent subject indexed, i256 delta, bytes32 reason_ref);
+  event ScorerSet(agent scorer indexed);
+  event StakeLocked(agent subject indexed, bytes32 agreement_ref indexed, u256 amount);
+  event StakeUnlocked(agent subject indexed, bytes32 agreement_ref indexed, u256 amount);
 }

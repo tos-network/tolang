@@ -10,8 +10,14 @@ interface IServiceDirectory {
   function capabilityRefOf(u256 service_id) public view returns (bytes32 capability_ref);
   function quoteRefOf(u256 service_id) public view returns (bytes32 quote_ref);
   function isActive(u256 service_id) public view returns (bool ok);
+  function setServiceFee(u256 service_id, u256 fee_amount) public;
+  function setServiceSLA(u256 service_id, u256 sla_duration_ms) public;
+  function feeOf(u256 service_id) public view returns (u256 fee);
+  function slaOf(u256 service_id) public view returns (u256 sla_duration_ms);
   event ServiceRegistered(u256 service_id indexed, agent provider indexed, bytes32 manifest_ref, bytes32 capability_ref, bytes32 version_ref, bytes32 quote_ref);
   event ServiceManifestUpdated(u256 service_id indexed, bytes32 manifest_ref, bytes32 capability_ref, bytes32 version_ref);
   event ServiceQuoteUpdated(u256 service_id indexed, bytes32 quote_ref);
   event ServiceDeactivated(u256 service_id indexed);
+  event ServiceFeeUpdated(u256 service_id indexed, u256 fee_amount);
+  event ServiceSLAUpdated(u256 service_id indexed, u256 sla_duration_ms);
 }

@@ -27,6 +27,7 @@ interface IPolicyAccount {
     function suspend() public;
     function unsuspend() public;
     function execute(agent target, bytes data, u256 value) public returns (bool ok);
+    function setDelegateCaps(agent delegate, u256 daily_limit, u256 single_limit) public;
 
     @verifiable
     function remainingDaily() public view returns (u256 remaining);
@@ -36,6 +37,9 @@ interface IPolicyAccount {
 
     @verifiable
     function isSuspended() public view returns (bool ok);
+
+    @verifiable
+    function delegateDailyRemaining(agent delegate) public view returns (u256 remaining);
 }
 
 contract PolicyAccount is IPolicyAccount {
@@ -60,6 +64,10 @@ contract PolicyAccount is IPolicyAccount {
     mapping(agent => u256) delegate_allowance;
     mapping(agent => u256) delegate_used;
     mapping(agent => u256) delegate_expiry_ms;
+    mapping(agent => u256) delegate_daily_limit;
+    mapping(agent => u256) delegate_single_limit;
+    mapping(agent => u256) delegate_daily_spent;
+    mapping(agent => u256) delegate_spend_day;
 
     event SpendCapsSet(u256 daily_limit, u256 single_limit)
     event AllowlistModeSet(bool enabled)
@@ -226,5 +234,28 @@ contract PolicyAccount is IPolicyAccount {
     @verifiable
     function isSuspended() public view returns (bool ok) {
         return suspended;
+    }
+
+    function setDelegateCaps(agent delegate, u256 _daily_limit, u256 _single_limit) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(delegate != agent(0), "ZERO_DELEGATE");
+        set delegate_daily_limit[delegate] = _daily_limit;
+        set delegate_single_limit[delegate] = _single_limit;
+    }
+
+    @verifiable
+    function delegateDailyRemaining(agent delegate) public view returns (u256 remaining) {
+        u256 cap = delegate_daily_limit[delegate];
+        if (cap == 0) {
+            return 0;
+        }
+        u256 today = block.timestamp_ms / 86400000;
+        if (today != delegate_spend_day[delegate]) {
+            return cap;
+        }
+        if (delegate_daily_spent[delegate] >= cap) {
+            return 0;
+        }
+        return cap - delegate_daily_spent[delegate];
     }
 }

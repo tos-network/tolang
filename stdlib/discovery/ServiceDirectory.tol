@@ -56,6 +56,15 @@ interface IServiceDirectory {
 
     @verifiable
     function isActive(u256 service_id) public view returns (bool ok);
+
+    function setServiceFee(u256 service_id, u256 fee_amount) public;
+    function setServiceSLA(u256 service_id, u256 sla_duration_ms) public;
+
+    @verifiable
+    function feeOf(u256 service_id) public view returns (u256 fee);
+
+    @verifiable
+    function slaOf(u256 service_id) public view returns (u256 sla_duration_ms);
 }
 
 contract ServiceDirectory is IServiceDirectory {
@@ -73,6 +82,8 @@ contract ServiceDirectory is IServiceDirectory {
     mapping(u256 => bytes32) service_version_ref;
     mapping(u256 => bytes32) service_quote_ref;
     mapping(u256 => bool) service_active;
+    mapping(u256 => u256) service_fee;
+    mapping(u256 => u256) service_sla;
 
     event ServiceRegistered(
         u256 indexed service_id,
@@ -90,6 +101,8 @@ contract ServiceDirectory is IServiceDirectory {
     )
     event ServiceQuoteUpdated(u256 indexed service_id, bytes32 quote_ref)
     event ServiceDeactivated(u256 indexed service_id)
+    event ServiceFeeUpdated(u256 indexed service_id, u256 fee_amount)
+    event ServiceSLAUpdated(u256 indexed service_id, u256 sla_duration_ms)
 
     constructor() {
         set next_service_id = 1;
@@ -174,5 +187,29 @@ contract ServiceDirectory is IServiceDirectory {
     @verifiable
     function isActive(u256 service_id) public view returns (bool ok) {
         return service_active[service_id];
+    }
+
+    function setServiceFee(u256 service_id, u256 fee_amount) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        set service_fee[service_id] = fee_amount;
+        emit ServiceFeeUpdated(service_id, fee_amount);
+    }
+
+    function setServiceSLA(u256 service_id, u256 sla_duration_ms) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        set service_sla[service_id] = sla_duration_ms;
+        emit ServiceSLAUpdated(service_id, sla_duration_ms);
+    }
+
+    @verifiable
+    function feeOf(u256 service_id) public view returns (u256 fee) {
+        return service_fee[service_id];
+    }
+
+    @verifiable
+    function slaOf(u256 service_id) public view returns (u256 sla_duration_ms) {
+        return service_sla[service_id];
     }
 }

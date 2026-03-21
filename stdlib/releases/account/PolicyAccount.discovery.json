@@ -3,10 +3,10 @@
   "package_name": "tolang.stdlib.account",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x75164067c865b726a703b9b0bf6a3d70f04db0764192204c2789f362f14881ba",
-    "bytecode_hash": "0x78b76f55aadb96c7935ada7bed99ada5f59d84c8f462a157e0ada967adf6d811",
-    "source_hash": "0xaef65bab9828b38877c29d290bf4c711b0e08181cd3dcdd3f5532f9ecf0d7f52",
-    "abi_hash": "0x281dcd3a2e90457dc15799f2c02abd12c1beedbb9e7c0ab9b7c9c5cce07c72ec",
+    "package_hash": "0x17c5d0cc2838c036bee1181caa646622fee5a4fb481df73ec1451dd060ccaf0b",
+    "bytecode_hash": "0xbead2f5332545fa88e5135f4e089d32e9660ada1d7e6a8460747c6582695d0f5",
+    "source_hash": "0x78cd6bad21ebfeec9c3506a2a1632aea4319f9c55a3142ae6a013bf6d3b65dfa",
+    "abi_hash": "0xce7afd8ba3deec6785d98c3e3966feb8289a0552d061fa55a9b7968173e71c85",
     "version": "1.0.0"
   },
   "contract_type": "custom",
@@ -174,6 +174,31 @@
     {
       "name": "isSuspended",
       "selector": "0x1d130935",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "setDelegateCaps",
+      "selector": "0xa45bf8d6",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "delegateDailyRemaining",
+      "selector": "0x7544f618",
       "risk_level": "low",
       "payable": false,
       "delegated": false,

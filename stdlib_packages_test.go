@@ -53,7 +53,7 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			pkgName:       "tolang.stdlib.account",
 			contractName:  "PolicyAccount",
 			interfaceName: "IPolicyAccount",
-			functions:     []string{"validate", "setSpendCaps", "setAllowlistEnabled", "setAllowlisted", "authorizeDelegate", "revokeDelegate", "suspend", "unsuspend", "execute", "remainingDaily", "delegateRemaining", "isSuspended"},
+			functions:     []string{"validate", "setSpendCaps", "setAllowlistEnabled", "setAllowlisted", "authorizeDelegate", "revokeDelegate", "suspend", "unsuspend", "execute", "remainingDaily", "delegateRemaining", "isSuspended", "setDelegateCaps", "delegateDailyRemaining"},
 		},
 		{
 			relPath:       "stdlib/authority/AuthorityBook.tol",
@@ -74,7 +74,7 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			pkgName:       "tolang.stdlib.session_book",
 			contractName:  "SessionBook",
 			interfaceName: "ISessionBook",
-			functions:     []string{"grantSession", "revokeSession", "consume", "isActive", "requiresStepUp", "remainingOf"},
+			functions:     []string{"grantSession", "revokeSession", "consume", "isActive", "requiresStepUp", "remainingOf", "requireTerminal"},
 		},
 		{
 			relPath:       "stdlib/recovery/RecoveryController.tol",
@@ -95,14 +95,14 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			pkgName:       "tolang.stdlib.agreement",
 			contractName:  "CommercialAgreement",
 			interfaceName: "ICommercialAgreement",
-			functions:     []string{"createOffer", "accept", "cancel", "fulfill", "expire", "statusOf", "quoteRefOf", "counterpartyOf", "settlementRefOf"},
+			functions:     []string{"createOffer", "accept", "cancel", "fulfill", "expire", "createInvoice", "statusOf", "agreementTypeOf", "quoteRefOf", "counterpartyOf", "settlementRefOf"},
 		},
 		{
 			relPath:       "stdlib/settlement/TaskSettlement.tol",
 			pkgName:       "tolang.stdlib.settlement",
 			contractName:  "TaskSettlement",
 			interfaceName: "ITaskSettlement",
-			functions:     []string{"openTask", "acceptTask", "submitTask", "approveTask", "rejectTask", "disputeTask", "resolveDispute", "cancelTask", "reclaimExpired", "statusOf", "rewardOf", "receiptRefOf", "proofRefOf"},
+			functions:     []string{"openTask", "acceptTask", "submitTask", "approveTask", "rejectTask", "disputeTask", "resolveDispute", "cancelTask", "reclaimExpired", "openMilestoneTask", "completeMilestone", "statusOf", "rewardOf", "receiptRefOf", "proofRefOf", "milestoneStatusOf"},
 		},
 		{
 			relPath:       "stdlib/receipt/ReceiptBook.tol",
@@ -123,7 +123,7 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			pkgName:       "tolang.stdlib.trust",
 			contractName:  "TrustRegistry",
 			interfaceName: "ITrustRegistry",
-			functions:     []string{"setTrustFloor", "depositBond", "withdrawBond", "setOverride", "isEligible", "bondedAmountOf", "snapshotReputationOf", "snapshotStakeOf"},
+			functions:     []string{"setTrustFloor", "depositBond", "withdrawBond", "setOverride", "isEligible", "bondedAmountOf", "snapshotReputationOf", "snapshotStakeOf", "updateReputation", "setScorerCallback", "lockStake", "unlockStake", "lockedStakeOf"},
 		},
 		{
 			relPath:       "stdlib/privacy/ConfidentialVault.tol",
@@ -144,7 +144,7 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			pkgName:       "tolang.stdlib.discovery",
 			contractName:  "ServiceDirectory",
 			interfaceName: "IServiceDirectory",
-			functions:     []string{"registerService", "updateManifest", "updateQuote", "deactivate", "providerOf", "manifestRefOf", "capabilityRefOf", "quoteRefOf", "isActive"},
+			functions:     []string{"registerService", "updateManifest", "updateQuote", "deactivate", "providerOf", "manifestRefOf", "capabilityRefOf", "quoteRefOf", "isActive", "setServiceFee", "setServiceSLA", "feeOf", "slaOf"},
 		},
 		{
 			relPath:       "stdlib/privacy/ConfidentialPayment.tol",

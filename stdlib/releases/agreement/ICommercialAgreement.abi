@@ -10,9 +10,12 @@ interface ICommercialAgreement {
   function quoteRefOf(u256 agreement_id) public view returns (bytes32 quote_ref);
   function counterpartyOf(u256 agreement_id) public view returns (agent counterparty);
   function settlementRefOf(u256 agreement_id) public view returns (bytes32 settlement_ref);
+  function createInvoice(agent payer, u256 amount, u256 due_ms, bytes32 terms_ref) public returns (u256 agreement_id);
+  function agreementTypeOf(u256 agreement_id) public view returns (u256 atype);
   event OfferCreated(u256 agreement_id indexed, agent creator indexed, agent counterparty indexed, u256 amount, u256 expiry_ms, bytes32 quote_ref, bytes32 terms_ref);
   event OfferAccepted(u256 agreement_id indexed, agent counterparty indexed, bytes32 acceptance_ref);
   event OfferCancelled(u256 agreement_id indexed, bytes32 reason_ref);
   event OfferFulfilled(u256 agreement_id indexed, bytes32 settlement_ref);
   event OfferExpired(u256 agreement_id indexed);
+  event InvoiceCreated(u256 agreement_id indexed, agent creator indexed, agent payer indexed, u256 amount, u256 due_ms, bytes32 terms_ref);
 }

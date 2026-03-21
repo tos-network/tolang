@@ -110,10 +110,10 @@ Files changed: `stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`,
 
 ### Remaining unresolved protocol gaps
 
-1. **Cross-contract atomicity** — per-contract rollback now works, but
-   multi-contract atomic transactions (finalize receipt + release escrow as one
-   unit) require coordinator-level error handling or a future protocol-level
-   multi-call atomic primitive
+1. ~~**Cross-contract atomicity**~~ — **RESOLVED (2026-03-21):**
+   `tos.atomic_multicall` implemented in GTOS LVM — single outer StateDB
+   snapshot, N sequential child calls, all-or-nothing rollback.  7 GTOS tests
+   + 1 tolang composed test.  Design doc: `gtos/docs/Atomic-Execution-v1.md`
 2. ~~**Privacy family contracts**~~ — **RESOLVED (2026-03-21):** all 4 contracts
    implemented (`ConfidentialPayment`, `ConfidentialTreasury`,
    `ConfidentialAllowance`, `AuditorDisclosureBook`)

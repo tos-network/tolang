@@ -59,10 +59,11 @@ Per-contract atomicity is now guaranteed at both layers:
   `stdlib_composed_runtime_test.go` cover PolicyAccount, SponsorPolicyRelay,
   TaskSettlement, ReceiptBook, ConfidentialEscrow, and composed flows.
 
-**Remaining gap — cross-contract atomicity:** When a coordinator calls
-contract A (succeeds) then contract B (fails), contract A's mutations persist.
-This is consistent with EVM semantics.  Coordinators must check return values
-and handle partial failure explicitly.
+**Cross-contract atomicity — RESOLVED (2026-03-21):**
+`tos.atomic_multicall` now provides all-or-nothing semantics for multi-contract
+flows.  Coordinators can wrap sequential calls in a single atomic batch —
+if any child fails, all mutations (including earlier successful calls) are
+reverted.  See `/home/tomi/gtos/docs/Atomic-Execution-v1.md` for full design.
 
 ### 2. Receipt correctness is becoming a system invariant, not a helper feature
 

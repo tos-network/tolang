@@ -238,9 +238,9 @@ and deeper design homes:
 
 | Workstream | This document tracks | Detailed design home |
 |------------|----------------------|----------------------|
-| Cross-contract atomicity | impact on stdlib commercial closure | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
-| Privacy family completion | contract-family scope and remaining privacy semantics | `docs/PRIVACY_STDLIB_FAMILY.md` |
-| Recurring / subscription settlement | settlement-level capability expectations | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
+| Cross-contract atomicity | **RESOLVED** — `tos.atomic_multicall` implemented | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
+| Privacy family completion | **RESOLVED** — all 6 contracts implemented; ZK/token layers pending | `docs/PRIVACY_STDLIB_FAMILY.md` |
+| Recurring / subscription settlement | **RESOLVED** — `RecurringPayment` contract; protocol scheduler pending | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
 | `@requires(caller: Cap)` | compiler feature required for capability-complete stdlib ergonomics | `docs/CALLER_CAPABILITY_SYNTAX.md` |
 | Selective disclosure (`ZK + token`) | missing privacy capability layers | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |
 

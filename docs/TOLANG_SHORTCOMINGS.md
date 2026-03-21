@@ -170,15 +170,17 @@ Two layers of rollback are now in place:
    atomicity for PolicyAccount, SponsorPolicyRelay, TaskSettlement, ReceiptBook,
    ConfidentialEscrow, and a composed cross-contract scenario.
 
-**Remaining gap — cross-contract atomicity:**
+**Cross-contract atomicity — RESOLVED (2026-03-21):**
 
-Per-contract rollback is now guaranteed.  However, multi-contract atomic
-transactions (e.g. finalize receipt + release escrow as one unit) remain the
-coordinator's responsibility.  If a coordinator calls contract A successfully
-and then contract B fails, contract A's mutations persist.  This is consistent
-with EVM semantics and is by design — cross-contract atomicity requires either
-a coordinator-level error check or a future protocol-level multi-call atomic
-primitive.
+`tos.atomic_multicall` is now implemented in GTOS LVM (`core/vm/lvm.go`).
+It takes a single outer `stateDB.Snapshot()`, executes N child calls
+sequentially, and reverts ALL on any failure.  This provides all-or-nothing
+cross-contract atomicity for coordinator flows like "finalize receipt +
+release escrow".
+
+7 regression tests in `lvm_rollback_test.go` and 1 composed test in
+`stdlib_composed_runtime_test.go` prove the semantics.  Full design in
+`/home/tomi/gtos/docs/Atomic-Execution-v1.md`.
 
 ### 3. Agent-native annotations are ahead of protocol backing
 
@@ -350,9 +352,9 @@ The split should be:
 
 | Gap | Why it touches this document | Detailed design home |
 | --- | --- | --- |
-| Cross-contract atomicity | this is fundamentally a VM / protocol semantic issue | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
-| Privacy family completion | only insofar as privacy depends on runtime/protocol closure | `docs/PRIVACY_STDLIB_FAMILY.md` |
-| Recurring / subscription settlement | only insofar as scheduler/runtime semantics affect settlement guarantees | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
+| Cross-contract atomicity | **RESOLVED** — `tos.atomic_multicall` implemented | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
+| Privacy family completion | **RESOLVED** — all 6 contracts; ZK/token layers pending | `docs/PRIVACY_STDLIB_FAMILY.md` |
+| Recurring / subscription settlement | **RESOLVED** — `RecurringPayment` contract; protocol scheduler pending | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
 | `@requires(caller: Cap)` | this is a direct language/compiler shortcoming | `docs/CALLER_CAPABILITY_SYNTAX.md` |
 | Selective disclosure (`ZK + token`) | only insofar as protocol-backed proof systems are still ahead of runtime enforcement | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |
 

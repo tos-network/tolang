@@ -1148,7 +1148,7 @@ They should be documented as follows:
 
 | Gap | Nature | Primary summary document | Capability / shortcoming document | Detailed design home |
 | --- | --- | --- | --- | --- |
-| Cross-contract atomicity | VM / protocol — **RESOLVED**: `tos.atomic_multicall` implemented | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/TOLANG_SHORTCOMINGS.md` | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
+| Cross-contract atomicity | VM / protocol — **RESOLVED**: `tos.multicall` implemented | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/TOLANG_SHORTCOMINGS.md` | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
 | Privacy family completion | stdlib family — **RESOLVED**: all 6 contracts implemented | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `docs/PRIVACY_STDLIB_FAMILY.md` |
 | Recurring / subscription settlement | stdlib — **RESOLVED**: `RecurringPayment` contract; protocol scheduler pending | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
 | `@requires(caller: Cap)` | language / compiler | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/TOLANG_SHORTCOMINGS.md` | `docs/CALLER_CAPABILITY_SYNTAX.md` |

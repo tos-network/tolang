@@ -60,7 +60,7 @@ Per-contract atomicity is now guaranteed at both layers:
   TaskSettlement, ReceiptBook, ConfidentialEscrow, and composed flows.
 
 **Cross-contract atomicity — RESOLVED (2026-03-21):**
-`tos.atomic_multicall` now provides all-or-nothing semantics for multi-contract
+`tos.multicall` now provides all-or-nothing semantics for multi-contract
 flows.  Coordinators can wrap sequential calls in a single atomic batch —
 if any child fails, all mutations (including earlier successful calls) are
 reverted.  See `/home/tomi/gtos/docs/Atomic-Execution-v1.md` for full design.

@@ -85,6 +85,7 @@ func invokePackageContractCalldata(t *testing.T, dep *stdlibDeployedPackageContr
 
 	// Snapshot callee storage — simulates StateDB snapshot for package_call.
 	storageSnap, transientSnap := snapshotLuaStorage(dep.L)
+	hostSnap := snapshotRuntimeHost(dep.host)
 
 	base := dep.L.GetTop()
 	stdlibSetSender(dep.host, caller)
@@ -93,6 +94,7 @@ func invokePackageContractCalldata(t *testing.T, dep *stdlibDeployedPackageContr
 	dep.L.Push(LString(stdlibSelectorFromCalldata(calldata)))
 	if err := dep.L.PCall(1, MultRet, nil); err != nil {
 		revertLuaStorage(dep.L, storageSnap, transientSnap)
+		restoreRuntimeHost(dep.host, hostSnap)
 		t.Fatalf("package call %s failed: %v", dep.name, err)
 	}
 
@@ -102,6 +104,7 @@ func invokePackageContractCalldata(t *testing.T, dep *stdlibDeployedPackageContr
 		rets = append(rets, dep.L.Get(base+1+i))
 	}
 	dep.L.SetTop(base)
+	restoreRuntimeHostCallContext(dep.host, hostSnap)
 	return rets
 }
 
@@ -135,10 +138,10 @@ func invokeCallContractCalldata(t *testing.T, dep *stdlibDeployedPackageContract
 	// Snapshot callee storage — simulates the StateDB snapshot taken by
 	// tos.call before child execution.  Reverted on callee failure.
 	storageSnap, transientSnap := snapshotLuaStorage(dep.L)
+	hostSnap := snapshotRuntimeHost(dep.host)
 
 	base := dep.L.GetTop()
 	stdlibSetSender(dep.host, caller)
-	prevValue := dep.host.msgTable.RawGetString("value")
 	stdlibSetValueString(dep.host, value)
 	dep.host.tosTable.RawSetString("calldata", LString(calldata))
 	dep.L.Push(oninvoke)
@@ -146,12 +149,12 @@ func invokeCallContractCalldata(t *testing.T, dep *stdlibDeployedPackageContract
 	if err := dep.L.PCall(1, MultRet, nil); err != nil {
 		// Revert callee storage on failure — matches tos.call snapshot revert.
 		revertLuaStorage(dep.L, storageSnap, transientSnap)
-		dep.host.msgTable.RawSetString("value", prevValue)
+		restoreRuntimeHost(dep.host, hostSnap)
 		dep.L.SetTop(base)
-		return false, err.Error()
+		return false, extractApiRevertMsg(err)
 	}
-	dep.host.msgTable.RawSetString("value", prevValue)
 	dep.L.SetTop(base)
+	restoreRuntimeHostCallContext(dep.host, hostSnap)
 	return true, "0x"
 }
 
@@ -2035,21 +2038,21 @@ func TestPrivateServiceOrderRuntimeStatefulPackageFlow(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// atomic_multicall test helpers and tests
+// multicall test helpers and tests
 // ---------------------------------------------------------------------------
 
-type atomicMulticallEntry struct {
+type multicallEntry struct {
 	dep      *stdlibDeployedPackageContract
 	caller   string
 	value    string
 	calldata string
 }
 
-// invokeAtomicMulticall simulates tos.atomic_multicall for the off-chain test
+// invokeMulticall simulates tos.multicall for the off-chain test
 // harness.  It snapshots ALL involved LStates' __tol_storage before executing
 // any calls, then reverts ALL on any failure — providing cross-contract
 // all-or-nothing atomicity.
-func invokeAtomicMulticall(t *testing.T, calls []atomicMulticallEntry) (bool, []string) {
+func invokeMulticall(t *testing.T, calls []multicallEntry) (bool, []string, string) {
 	t.Helper()
 
 	// 1. Snapshot ALL involved LStates (dedup by pointer).
@@ -2069,6 +2072,19 @@ func invokeAtomicMulticall(t *testing.T, calls []atomicMulticallEntry) (bool, []
 		snaps = append(snaps, storageSnap{L: c.dep.L, storage: s, transient: tr})
 	}
 
+	// Snapshot involved hosts so native UNO balances, agent props, and call
+	// bookkeeping roll back together with contract storage.
+	hostSeen := map[*stdlibRuntimeHost]stdlibRuntimeHostSnapshot{}
+	for _, c := range calls {
+		if c.dep == nil || c.dep.host == nil {
+			continue
+		}
+		if _, ok := hostSeen[c.dep.host]; ok {
+			continue
+		}
+		hostSeen[c.dep.host] = snapshotRuntimeHost(c.dep.host)
+	}
+
 	// 2. Execute calls sequentially.
 	results := make([]string, 0, len(calls))
 	for _, c := range calls {
@@ -2078,17 +2094,20 @@ func invokeAtomicMulticall(t *testing.T, calls []atomicMulticallEntry) (bool, []
 			for _, s := range snaps {
 				revertLuaStorage(s.L, s.storage, s.transient)
 			}
-			return false, nil
+			for host, snap := range hostSeen {
+				restoreRuntimeHost(host, snap)
+			}
+			return false, nil, ret
 		}
 		results = append(results, ret)
 	}
 
-	return true, results
+	return true, results, ""
 }
 
-// TestAtomicMulticallReceiptEscrowAtomicity proves that invokeAtomicMulticall
+// TestMulticallReceiptEscrowAtomicity proves that invokeMulticall
 // rolls back ALL contracts' state when any call in the batch fails.
-func TestAtomicMulticallReceiptEscrowAtomicity(t *testing.T) {
+func TestMulticallReceiptEscrowAtomicity(t *testing.T) {
 	// Deploy two CallTargetRecorder instances.
 	targetAL, targetATOS, targetAHost := deployStdlibSourceContract(t, []byte(stdlibCallTargetSource), "<atomic-target-A>")
 	defer targetAL.Close()
@@ -2103,12 +2122,15 @@ func TestAtomicMulticallReceiptEscrowAtomicity(t *testing.T) {
 	// --- Scenario 1: B fails → both A and B rolled back ---
 	invokeStdlib(t, targetBL, targetBTOS, "setFailNext(bool)", LTrue)
 
-	ok, _ := invokeAtomicMulticall(t, []atomicMulticallEntry{
+	ok, _, revertMsg := invokeMulticall(t, []multicallEntry{
 		{dep: depA, caller: alice, value: "0", calldata: recordCalldata},
 		{dep: depB, caller: alice, value: "0", calldata: recordCalldata},
 	})
 	if ok {
-		t.Fatal("expected atomic_multicall to fail when B reverts")
+		t.Fatal("expected multicall to fail when B reverts")
+	}
+	if !strings.Contains(revertMsg, "FAIL_NEXT") {
+		t.Fatalf("expected revert message to propagate FAIL_NEXT, got %q", revertMsg)
 	}
 
 	// A must be rolled back (callCount == 0).
@@ -2125,12 +2147,18 @@ func TestAtomicMulticallReceiptEscrowAtomicity(t *testing.T) {
 	// --- Scenario 2: Both succeed → both mutations persist ---
 	invokeStdlib(t, targetBL, targetBTOS, "setFailNext(bool)", LFalse)
 
-	ok, _ = invokeAtomicMulticall(t, []atomicMulticallEntry{
+	ok, results, revertMsg := invokeMulticall(t, []multicallEntry{
 		{dep: depA, caller: alice, value: "0", calldata: recordCalldata},
 		{dep: depB, caller: alice, value: "0", calldata: recordCalldata},
 	})
 	if !ok {
-		t.Fatal("expected atomic_multicall to succeed when both calls succeed")
+		t.Fatal("expected multicall to succeed when both calls succeed")
+	}
+	if revertMsg != "" {
+		t.Fatalf("unexpected revert message on success: %q", revertMsg)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results on success, got %d", len(results))
 	}
 
 	countA = LVAsString(invokeStdlib(t, targetAL, targetATOS, "callCount()"))

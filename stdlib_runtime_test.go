@@ -50,6 +50,212 @@ type stdlibRuntimeHost struct {
 	lastUnoTransferAmount string
 }
 
+type stdlibRuntimeHostSnapshot struct {
+	agentProps        map[string]map[string]LValue
+	nativeUnoBalances map[string]*big.Int
+
+	callCount    int
+	lastCallAddr string
+	lastCallData string
+	lastCallCost string
+
+	escrowCount    int
+	lastEscrowAddr string
+	lastEscrowAmt  string
+	lastEscrowTag  string
+
+	releaseCount    int
+	lastReleaseAddr string
+	lastReleaseAmt  string
+	lastReleaseTag  string
+
+	packageCallCount        int
+	lastPackageAddr         string
+	lastPackageContractName string
+	lastPackageCalldata     string
+
+	unoTransferCount      int
+	lastUnoTransferAddr   string
+	lastUnoTransferAmount string
+
+	msgSender   LValue
+	msgValue    LValue
+	msgUno      LValue
+	tosCalldata LValue
+}
+
+func cloneLValueMap(src map[string]LValue) map[string]LValue {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]LValue, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
+}
+
+func cloneAgentProps(src map[string]map[string]LValue) map[string]map[string]LValue {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]map[string]LValue, len(src))
+	for addr, props := range src {
+		out[addr] = cloneLValueMap(props)
+	}
+	return out
+}
+
+func cloneNativeUnoBalances(src map[string]*big.Int) map[string]*big.Int {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]*big.Int, len(src))
+	for addr, bal := range src {
+		if bal == nil {
+			out[addr] = nil
+			continue
+		}
+		out[addr] = new(big.Int).Set(bal)
+	}
+	return out
+}
+
+func snapshotRuntimeHost(host *stdlibRuntimeHost) stdlibRuntimeHostSnapshot {
+	if host == nil {
+		return stdlibRuntimeHostSnapshot{}
+	}
+	snap := stdlibRuntimeHostSnapshot{
+		agentProps:              cloneAgentProps(host.agentProps),
+		nativeUnoBalances:       cloneNativeUnoBalances(host.nativeUnoBalances),
+		callCount:               host.callCount,
+		lastCallAddr:            host.lastCallAddr,
+		lastCallData:            host.lastCallData,
+		lastCallCost:            host.lastCallCost,
+		escrowCount:             host.escrowCount,
+		lastEscrowAddr:          host.lastEscrowAddr,
+		lastEscrowAmt:           host.lastEscrowAmt,
+		lastEscrowTag:           host.lastEscrowTag,
+		releaseCount:            host.releaseCount,
+		lastReleaseAddr:         host.lastReleaseAddr,
+		lastReleaseAmt:          host.lastReleaseAmt,
+		lastReleaseTag:          host.lastReleaseTag,
+		packageCallCount:        host.packageCallCount,
+		lastPackageAddr:         host.lastPackageAddr,
+		lastPackageContractName: host.lastPackageContractName,
+		lastPackageCalldata:     host.lastPackageCalldata,
+		unoTransferCount:        host.unoTransferCount,
+		lastUnoTransferAddr:     host.lastUnoTransferAddr,
+		lastUnoTransferAmount:   host.lastUnoTransferAmount,
+	}
+	if host.msgTable != nil {
+		snap.msgSender = host.msgTable.RawGetString("sender")
+		snap.msgValue = host.msgTable.RawGetString("value")
+		snap.msgUno = host.msgTable.RawGetString("uno_value")
+	}
+	if host.tosTable != nil {
+		snap.tosCalldata = host.tosTable.RawGetString("calldata")
+	}
+	return snap
+}
+
+func restoreRuntimeHost(host *stdlibRuntimeHost, snap stdlibRuntimeHostSnapshot) {
+	if host == nil {
+		return
+	}
+	host.agentProps = cloneAgentProps(snap.agentProps)
+	host.nativeUnoBalances = cloneNativeUnoBalances(snap.nativeUnoBalances)
+	host.callCount = snap.callCount
+	host.lastCallAddr = snap.lastCallAddr
+	host.lastCallData = snap.lastCallData
+	host.lastCallCost = snap.lastCallCost
+	host.escrowCount = snap.escrowCount
+	host.lastEscrowAddr = snap.lastEscrowAddr
+	host.lastEscrowAmt = snap.lastEscrowAmt
+	host.lastEscrowTag = snap.lastEscrowTag
+	host.releaseCount = snap.releaseCount
+	host.lastReleaseAddr = snap.lastReleaseAddr
+	host.lastReleaseAmt = snap.lastReleaseAmt
+	host.lastReleaseTag = snap.lastReleaseTag
+	host.packageCallCount = snap.packageCallCount
+	host.lastPackageAddr = snap.lastPackageAddr
+	host.lastPackageContractName = snap.lastPackageContractName
+	host.lastPackageCalldata = snap.lastPackageCalldata
+	host.unoTransferCount = snap.unoTransferCount
+	host.lastUnoTransferAddr = snap.lastUnoTransferAddr
+	host.lastUnoTransferAmount = snap.lastUnoTransferAmount
+	restoreRuntimeHostCallContext(host, snap)
+}
+
+func restoreRuntimeHostCallContext(host *stdlibRuntimeHost, snap stdlibRuntimeHostSnapshot) {
+	if host == nil {
+		return
+	}
+	if host.msgTable != nil {
+		host.msgTable.RawSetString("sender", snap.msgSender)
+		host.msgTable.RawSetString("value", snap.msgValue)
+		host.msgTable.RawSetString("uno_value", snap.msgUno)
+	}
+	if host.tosTable != nil {
+		host.tosTable.RawSetString("calldata", snap.tosCalldata)
+	}
+}
+
+func TestRuntimeHostSnapshotRestoresPersistentStateAndCallContext(t *testing.T) {
+	L := NewState()
+	defer L.Close()
+
+	host := installStdlibRuntimeHost(L)
+	stdlibSetSender(host, alice)
+	stdlibSetValue(host, 7)
+	stdlibSetUnoValue(host, stdlibUnoFromInt(3))
+	host.tosTable.RawSetString("calldata", LString("0x1234"))
+	stdlibSetNativeUnoBalance(host, alice, 11)
+	host.unoTransferCount = 1
+	host.lastUnoTransferAddr = alice
+	host.lastUnoTransferAmount = stdlibUnoStringFromBigInt(big.NewInt(11))
+	stdlibSetAgentProp(host, alice, "is_registered", LTrue)
+
+	snap := snapshotRuntimeHost(host)
+
+	stdlibSetSender(host, bob)
+	stdlibSetValue(host, 99)
+	stdlibSetUnoValue(host, stdlibUnoFromInt(25))
+	host.tosTable.RawSetString("calldata", LString("0xbeef"))
+	stdlibSetNativeUnoBalance(host, alice, 42)
+	host.unoTransferCount = 8
+	host.lastUnoTransferAddr = bob
+	host.lastUnoTransferAmount = stdlibUnoStringFromBigInt(big.NewInt(42))
+	stdlibSetAgentProp(host, bob, "is_registered", LTrue)
+
+	restoreRuntimeHost(host, snap)
+
+	if got := LVAsString(host.msgTable.RawGetString("sender")); got != alice {
+		t.Fatalf("sender after restore: got=%q want=%q", got, alice)
+	}
+	if got := LVAsString(host.msgTable.RawGetString("value")); got != LVAsString(lu256FromInt(7)) {
+		t.Fatalf("value after restore: got=%q want=%q", got, LVAsString(lu256FromInt(7)))
+	}
+	if got := LVAsString(host.msgTable.RawGetString("uno_value")); got != LVAsString(stdlibUnoFromInt(3)) {
+		t.Fatalf("uno_value after restore: got=%q want=%q", got, LVAsString(stdlibUnoFromInt(3)))
+	}
+	if got := LVAsString(host.tosTable.RawGetString("calldata")); got != "0x1234" {
+		t.Fatalf("calldata after restore: got=%q want=%q", got, "0x1234")
+	}
+	if got := stdlibNativeUnoBalance(host, alice); got.Cmp(big.NewInt(11)) != 0 {
+		t.Fatalf("native UNO balance after restore: got=%s want=11", got.String())
+	}
+	if _, ok := host.agentProps[bob]; ok {
+		t.Fatalf("agentProps for bob should have been rolled back")
+	}
+	if host.unoTransferCount != 1 {
+		t.Fatalf("unoTransferCount after restore: got=%d want=1", host.unoTransferCount)
+	}
+	if host.lastUnoTransferAddr != alice {
+		t.Fatalf("lastUnoTransferAddr after restore: got=%q want=%q", host.lastUnoTransferAddr, alice)
+	}
+}
+
 func stdlibBytes32(hexNibble string) string {
 	return "0x" + strings.Repeat(hexNibble, 64)
 }

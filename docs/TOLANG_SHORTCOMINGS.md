@@ -172,7 +172,7 @@ Two layers of rollback are now in place:
 
 **Cross-contract atomicity — RESOLVED (2026-03-21):**
 
-`tos.atomic_multicall` is now implemented in GTOS LVM (`core/vm/lvm.go`).
+`tos.multicall` is now implemented in GTOS LVM (`core/vm/lvm.go`).
 It takes a single outer `stateDB.Snapshot()`, executes N child calls
 sequentially, and reverts ALL on any failure.  This provides all-or-nothing
 cross-contract atomicity for coordinator flows like "finalize receipt +
@@ -352,7 +352,7 @@ The split should be:
 
 | Gap | Why it touches this document | Detailed design home |
 | --- | --- | --- |
-| Cross-contract atomicity | **RESOLVED** — `tos.atomic_multicall` implemented | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
+| Cross-contract atomicity | **RESOLVED** — `tos.multicall` implemented | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
 | Privacy family completion | **RESOLVED** — all 6 contracts; ZK/token layers pending | `docs/PRIVACY_STDLIB_FAMILY.md` |
 | Recurring / subscription settlement | **RESOLVED** — `RecurringPayment` contract; protocol scheduler pending | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
 | `@requires(caller: Cap)` | this is a direct language/compiler shortcoming | `docs/CALLER_CAPABILITY_SYNTAX.md` |

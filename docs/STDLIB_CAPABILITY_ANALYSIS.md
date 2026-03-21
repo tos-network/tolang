@@ -238,7 +238,7 @@ and deeper design homes:
 
 | Workstream | This document tracks | Detailed design home |
 |------------|----------------------|----------------------|
-| Cross-contract atomicity | **RESOLVED** — `tos.atomic_multicall` implemented | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
+| Cross-contract atomicity | **RESOLVED** — `tos.multicall` implemented | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
 | Privacy family completion | **RESOLVED** — all 6 contracts implemented; ZK/token layers pending | `docs/PRIVACY_STDLIB_FAMILY.md` |
 | Recurring / subscription settlement | **RESOLVED** — `RecurringPayment` contract; protocol scheduler pending | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
 | `@requires(caller: Cap)` | compiler feature required for capability-complete stdlib ergonomics | `docs/CALLER_CAPABILITY_SYNTAX.md` |

@@ -2033,3 +2033,112 @@ func TestPrivateServiceOrderRuntimeStatefulPackageFlow(t *testing.T) {
 		t.Fatalf("expected SERVICE_INACTIVE, got %q", errMsg)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// atomic_multicall test helpers and tests
+// ---------------------------------------------------------------------------
+
+type atomicMulticallEntry struct {
+	dep      *stdlibDeployedPackageContract
+	caller   string
+	value    string
+	calldata string
+}
+
+// invokeAtomicMulticall simulates tos.atomic_multicall for the off-chain test
+// harness.  It snapshots ALL involved LStates' __tol_storage before executing
+// any calls, then reverts ALL on any failure — providing cross-contract
+// all-or-nothing atomicity.
+func invokeAtomicMulticall(t *testing.T, calls []atomicMulticallEntry) (bool, []string) {
+	t.Helper()
+
+	// 1. Snapshot ALL involved LStates (dedup by pointer).
+	type storageSnap struct {
+		L         *LState
+		storage   map[string]LValue
+		transient map[string]LValue
+	}
+	seen := map[*LState]int{}
+	var snaps []storageSnap
+	for _, c := range calls {
+		if _, ok := seen[c.dep.L]; ok {
+			continue
+		}
+		s, tr := snapshotLuaStorage(c.dep.L)
+		seen[c.dep.L] = len(snaps)
+		snaps = append(snaps, storageSnap{L: c.dep.L, storage: s, transient: tr})
+	}
+
+	// 2. Execute calls sequentially.
+	results := make([]string, 0, len(calls))
+	for _, c := range calls {
+		ok, ret := invokeCallContractCalldata(t, c.dep, c.caller, c.value, c.calldata)
+		if !ok {
+			// Revert ALL LStates' storage (cross-contract rollback).
+			for _, s := range snaps {
+				revertLuaStorage(s.L, s.storage, s.transient)
+			}
+			return false, nil
+		}
+		results = append(results, ret)
+	}
+
+	return true, results
+}
+
+// TestAtomicMulticallReceiptEscrowAtomicity proves that invokeAtomicMulticall
+// rolls back ALL contracts' state when any call in the batch fails.
+func TestAtomicMulticallReceiptEscrowAtomicity(t *testing.T) {
+	// Deploy two CallTargetRecorder instances.
+	targetAL, targetATOS, targetAHost := deployStdlibSourceContract(t, []byte(stdlibCallTargetSource), "<atomic-target-A>")
+	defer targetAL.Close()
+	targetBL, targetBTOS, targetBHost := deployStdlibSourceContract(t, []byte(stdlibCallTargetSource), "<atomic-target-B>")
+	defer targetBL.Close()
+
+	depA := &stdlibDeployedPackageContract{name: "CallTargetRecorder", addr: stdlibBytes32("a1"), L: targetAL, tos: targetATOS, host: targetAHost}
+	depB := &stdlibDeployedPackageContract{name: "CallTargetRecorder", addr: stdlibBytes32("b2"), L: targetBL, tos: targetBTOS, host: targetBHost}
+
+	recordCalldata := stdlibEncodeStaticCalldata("record(bytes32,u256)", stdlibBytes32("1"), "c8")
+
+	// --- Scenario 1: B fails → both A and B rolled back ---
+	invokeStdlib(t, targetBL, targetBTOS, "setFailNext(bool)", LTrue)
+
+	ok, _ := invokeAtomicMulticall(t, []atomicMulticallEntry{
+		{dep: depA, caller: alice, value: "0", calldata: recordCalldata},
+		{dep: depB, caller: alice, value: "0", calldata: recordCalldata},
+	})
+	if ok {
+		t.Fatal("expected atomic_multicall to fail when B reverts")
+	}
+
+	// A must be rolled back (callCount == 0).
+	countA := LVAsString(invokeStdlib(t, targetAL, targetATOS, "callCount()"))
+	if countA != "0" {
+		t.Fatalf("ATOMIC ROLLBACK FAILURE: A.callCount should be 0 after atomic failure, got %s", countA)
+	}
+	// B must also be 0.
+	countB := LVAsString(invokeStdlib(t, targetBL, targetBTOS, "callCount()"))
+	if countB != "0" {
+		t.Fatalf("B.callCount should be 0 after atomic failure, got %s", countB)
+	}
+
+	// --- Scenario 2: Both succeed → both mutations persist ---
+	invokeStdlib(t, targetBL, targetBTOS, "setFailNext(bool)", LFalse)
+
+	ok, _ = invokeAtomicMulticall(t, []atomicMulticallEntry{
+		{dep: depA, caller: alice, value: "0", calldata: recordCalldata},
+		{dep: depB, caller: alice, value: "0", calldata: recordCalldata},
+	})
+	if !ok {
+		t.Fatal("expected atomic_multicall to succeed when both calls succeed")
+	}
+
+	countA = LVAsString(invokeStdlib(t, targetAL, targetATOS, "callCount()"))
+	if countA != "1" {
+		t.Fatalf("A.callCount should be 1 after atomic success, got %s", countA)
+	}
+	countB = LVAsString(invokeStdlib(t, targetBL, targetBTOS, "callCount()"))
+	if countB != "1" {
+		t.Fatalf("B.callCount should be 1 after atomic success, got %s", countB)
+	}
+}

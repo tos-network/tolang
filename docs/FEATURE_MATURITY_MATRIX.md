@@ -1,7 +1,7 @@
 # Feature Maturity Matrix
 ## Tolang Implementation Status
 
-**Status:** Updated 2026-03-15
+**Status:** Updated 2026-03-21
 **Version:** 0.2
 
 ## Purpose
@@ -36,7 +36,7 @@ This distinction is essential for technical credibility. Tolang already has a st
 | `@gas` metadata | ✅ | ✅ | ✅ | ✅ | — | Implemented Today / evolving |
 | `manifest {}` | ✅ | ✅ | ✅ | ✅ | — | Implemented Today |
 | `capability` declarations | ✅ | ✅ | ✅ | ✅ | partial | Compiler-Complete / Runtime-Dependent |
-| `@requires(...)` | ✅ | ✅ | ✅ | ✅ | partial | Compiler-Complete / Runtime-Dependent |
+| `@requires(...)` | ✅ | ✅ | ✅ | ✅ | ✅ | Implemented Today — full pipeline + `tos.hascapability` runtime preamble; 3 tests |
 | `agent` type | ✅ | ✅ | ✅ | partial | depends on registry | Compiler-Complete / Runtime-Dependent |
 | `oracle<T>` (removed) | — | — | — | — | — | Removed — use stdlib/Oracle.tol pattern |
 | `vote<T>` (removed) | — | — | — | — | — | Removed — use stdlib/Vote.tol pattern |

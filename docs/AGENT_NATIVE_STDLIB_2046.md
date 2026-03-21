@@ -1012,26 +1012,25 @@ A more aggressive execution posture is:
 ## Remaining capability backlog from the implementation audit
 
 The stdlib seeds, release artifacts, runtime coverage, and discovery surfaces
-are now substantially complete, but the capability audit in
-`docs/STDLIB_CAPABILITY_ANALYSIS.md` makes clear that several commercially
-important tasks are still not closed.
+are now substantially complete.  The five major follow-on gaps (cross-contract
+atomicity, privacy family completion, recurring payments, `@requires` syntax,
+and selective disclosure) are all resolved.  The capability audit in
+`docs/STDLIB_CAPABILITY_ANALYSIS.md` tracks remaining feature-level gaps
+(milestone release, slash distribution, structured discovery, per-role spend
+caps, reputation writes).
 
-These are not hypothetical future ideas.
+These remaining items are not hypothetical future ideas.
 They are the current remaining implementation backlog.
 
-### Missing contracts
+### Missing contracts — RESOLVED (2026-03-21)
 
-These contracts are described by the 2046 design but do not yet exist in
+All previously missing privacy-family contracts are now implemented in
 `stdlib/privacy/`:
 
-- `ConfidentialPayment`
-  batch and individual encrypted payment flows
-- `ConfidentialTreasury`
-  multi-owner confidential treasury with selective disclosure
-- `ConfidentialAllowance`
-  encrypted allowance and approval patterns
-- `AuditorDisclosureBook`
-  structured auditor disclosure with snapshot-oriented disclosure records
+- ~~`ConfidentialPayment`~~ — **IMPLEMENTED**: batch and individual encrypted payment flows
+- ~~`ConfidentialTreasury`~~ — **IMPLEMENTED**: multi-owner confidential treasury with selective disclosure
+- ~~`ConfidentialAllowance`~~ — **IMPLEMENTED**: encrypted allowance and approval patterns
+- ~~`AuditorDisclosureBook`~~ — **IMPLEMENTED**: structured auditor disclosure with snapshot-oriented disclosure records
 
 ### Missing control-plane capability features
 
@@ -1052,9 +1051,10 @@ These gaps exist even though the seed contracts compile and have runtime tests:
 
 These are the main remaining commercial-flow gaps:
 
-- recurring and subscription payments
-  no canonical `schedule(...)`, periodic debit, or subscription settlement
-  mechanism exists yet
+- ~~recurring and subscription payments~~ — **RESOLVED (2026-03-21)**:
+  `RecurringPayment` contract provides subscribe/execute/pause/resume/cancel
+  lifecycle; protocol-level native scheduler pending (see
+  `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md`)
 - milestone staged release
   `TaskSettlement` and `ConfidentialEscrow` still model single-release payout,
   not multi-milestone settlement
@@ -1087,36 +1087,33 @@ These are the main remaining scale-out and privacy gaps:
   `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md`; the remaining work is
   stdlib-level convenience composition rather than missing protocol primitives
 
-### Missing compiler and language features
+### Missing compiler and language features — RESOLVED (2026-03-21)
 
-The capability audit also identifies language-level gaps that should not remain
-hand-rolled forever:
+- ~~`@requires(caller: Cap)`~~ — **RESOLVED**: compiler pipeline implemented
+  and tested (parser/sema/lower/codegen/ABI); 3 tests; design doc at
+  `docs/CALLER_CAPABILITY_SYNTAX.md`
 
-- `@requires(caller: Cap)`
-  compiler-enforced capability-based access control syntax is still not
-  implemented, so access control remains manually written in seed contracts
+### Priority order for remaining gaps
 
-### Priority order after nested-call rollback
+The following items have been resolved:
 
-Once the current VM and protocol frontier on nested-call rollback and atomicity
-is closed, the next implementation order should be:
+- ~~close the privacy-family contract gap~~ — **RESOLVED**: all 6 implemented
+- ~~close recurring settlement~~ — **RESOLVED**: `RecurringPayment` implemented
+- ~~close compiler semantics: `@requires(caller: Cap)`~~ — **RESOLVED**: pipeline implemented + tested
 
-1. close the privacy-family contract gap:
-   `ConfidentialPayment`, `ConfidentialTreasury`,
-   `ConfidentialAllowance`, `AuditorDisclosureBook`
-2. close recurring and staged settlement:
-   subscription payments, milestone release, slash distribution,
+Remaining implementation order:
+
+1. close staged settlement:
+   milestone release, slash distribution,
    invoice/subscription agreement forms
-3. close receipt automation:
+2. close receipt automation:
    canonical auto-receipt binding between settlement and `ReceiptBook`
-4. close policy and session ergonomics:
+3. close policy and session ergonomics:
    per-role spend caps, named terminal/trust taxonomy, stronger step-up and
    `require_terminal(...)` style APIs
-5. close market-scale semantics:
+4. close market-scale semantics:
    reputation writes, scorer callbacks, stake locks, and structured discovery
    fields
-6. close compiler semantics:
-   `@requires(caller: Cap)`
 
 ### Acceptance bar for capability-complete closure
 
@@ -1149,18 +1146,14 @@ They should be documented as follows:
 
 ### Status note
 
-The five items above should be treated as strategic workstreams, not as one
-flat backlog.
+All five items above are now resolved (2026-03-21).  Their design homes remain
+stable for future evolution:
 
-Some of them may already have partial or substantial implementation in the
-current repo state, but their design homes remain stable:
-
-- atomicity still belongs primarily to GTOS / LVM design
-- privacy-family completion still belongs primarily to stdlib family design
-- recurring settlement still belongs primarily to scheduler + settlement design
-- caller capability syntax still belongs primarily to compiler design
-- selective disclosure is now resolved at the GTOS privacy/protocol layer;
-  future work there is primarily ergonomic composition and documentation
+- atomicity — **RESOLVED** (`tos.multicall`); design home: GTOS / LVM
+- privacy-family completion — **RESOLVED** (all 6 contracts); design home: stdlib family
+- recurring settlement — **RESOLVED** (`RecurringPayment`); design home: scheduler + settlement
+- caller capability syntax — **RESOLVED** (compiler pipeline + tests); design home: compiler
+- selective disclosure — **RESOLVED** (all 3 GTOS layers); design home: GTOS privacy/protocol
 
 ## A hard rule
 

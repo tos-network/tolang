@@ -21,16 +21,14 @@ for every package (`stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`).
 Core lifecycles (grant/revoke, escrow/release, recovery, receipts) are
 functionally closed.
 
-**Overall implementation: ~85%.**
+**Overall implementation: ~90%.**
 
 Remaining gaps:
 
 1. **Missing features in existing contracts**: milestone staged release, slash
    distribution, structured SLA/quote fields in discovery, per-role spend caps,
    reputation writes/scorer callback
-2. **Missing compiler features**: `@requires(caller: Cap)` compiler-enforced
-   capability syntax is not yet implemented
-3. **Missing privacy ergonomics**: GTOS selective disclosure is resolved at the
+2. **Missing privacy ergonomics**: GTOS selective disclosure is resolved at the
    protocol layer, but stdlib still lacks higher-level composed arbitrator /
    regulator helper flows that package those primitives into one business API
 
@@ -77,8 +75,8 @@ subscription/periodic payment scheduling.
 | Quote → offer → acceptance → invoice lifecycle | `CommercialAgreement.createOffer(counterparty, amount, expiry_ms, quote_ref, terms_ref)` → `accept` → `fulfill` | **~85%** — offer/accept/fulfill/cancel/expire lifecycle exists; no explicit invoice sub-type |
 
 **Gaps:**
-- **Recurring/subscription payments** — no `schedule` or periodic debit mechanism
-  in any settlement contract
+- ~~**Recurring/subscription payments**~~ — **RESOLVED**: `RecurringPayment`
+  contract provides subscribe/execute/pause/resume/cancel lifecycle
 - **Milestone staged release** — `ConfidentialEscrow` and `TaskSettlement`
   support only single-release, not multi-milestone payout
 - **Slash distribution** — `TaskSettlement` has dispute resolution but no
@@ -108,11 +106,9 @@ some higher-level privacy ergonomics.
 | Stake-backed service guarantee | `TrustRegistry.depositBond()` / `setTrustFloor(min_stake, min_reputation)` / `isEligible(subject)` | **~70%** — bond deposit and eligibility floor exist; no per-service-agreement stake lock |
 
 **Gaps:**
-- **Missing contracts** (from `AGENT_NATIVE_STDLIB_2046.md` §privacy):
-  - `ConfidentialPayment` — batch/individual encrypted payments
-  - `ConfidentialTreasury` — multi-owner confidential treasury with disclosure
-  - `ConfidentialAllowance` — encrypted allowance/approval patterns
-  - `AuditorDisclosureBook` — structured auditor disclosure with snapshots
+- ~~**Missing contracts**~~ — **RESOLVED**: all 6 privacy-family contracts
+  implemented (ConfidentialVault, ConfidentialEscrow, ConfidentialPayment,
+  ConfidentialTreasury, ConfidentialAllowance, AuditorDisclosureBook)
 - **Reputation writes** — `TrustRegistry` can read snapshots and check
   eligibility but has no `updateReputation` or scorer callback; reputation
   values must be written by external integration
@@ -131,7 +127,7 @@ some higher-level privacy ergonomics.
 |------------|----------------------|--------------|----------------------|
 | Safe value transfer | `SafeERC20.safeTransfer()` library | `TaskSettlement.openTask` / `ConfidentialEscrow.openEscrow` — escrow-native | **~90%** |
 | Reentrancy protection | `ReentrancyGuard` modifier | Compiler-enforced `@effects` + `set` keyword — no library needed | **~90%** — compiler-level |
-| Access control | `Ownable` / `AccessControl` | `@requires(caller: Cap)` compiler-enforced + `tos.hascapability()` runtime check | **~85%** — compiler pipeline implemented; stdlib contracts can migrate from hand-rolled checks |
+| Access control | `Ownable` / `AccessControl` | `@requires(caller: Cap)` compiler-enforced + `tos.hascapability()` runtime check | **~90%** — compiler pipeline implemented + tested (parser/sema/lower/codegen/ABI); stdlib contracts can migrate from hand-rolled checks |
 | Proxy delegation | `approve()` + `transferFrom()` | `AuthorityBook.grant` / `.revoke` / `.consume` — capped, time-bounded, revocable | **~85%** |
 | Multi-terminal support | Not supported | `SessionBook.grantSession` with trust tier, budget, step-up threshold | **~70%** — trust tiers are u256 constants, not a formal 6x5 matrix |
 | Encrypted transfers | Not supported | `uno.transfer()` + `ConfidentialEscrow.openEscrow` / `.releaseEscrow` | **~90%** |
@@ -144,7 +140,7 @@ some higher-level privacy ergonomics.
 | Terminal-scoped policy | Not supported | `SessionBook` + `PolicyAccount` — per-session trust tier and budget | **~70%** — requires manual composition of two contracts |
 | Guardian recovery | ~150 lines hand-rolled | `RecoveryController.startRecovery` → `approveRecovery` → `executeRecovery` — timelocked, cancellable | **~90%** |
 | Discovery metadata | No standard | `ServiceDirectory.registerService(manifest_ref, capability_ref, version_ref, quote_ref)` | **~70%** — bytes32 references only, no structured SLA/quote fields |
-| Confidential DeFi | Not supported | `ConfidentialEscrow` + `ConfidentialVault` — deposit/withdraw/escrow on UNO rails | **~50%** — single-escrow works; no treasury, allowance, or multi-milestone confidential settlement |
+| Confidential DeFi | Not supported | `ConfidentialEscrow` + `ConfidentialVault` + `ConfidentialPayment` + `ConfidentialTreasury` + `ConfidentialAllowance` + `AuditorDisclosureBook` — full privacy family on UNO rails | **~85%** — all 6 contracts implemented; remaining gap is multi-milestone confidential settlement |
 
 ---
 
@@ -202,9 +198,9 @@ cleaner composed example and convenience surface.
 
 ## Consolidated Gap List
 
-### Missing contracts (described in `AGENT_NATIVE_STDLIB_2046.md` but not implemented)
+### Missing contracts — RESOLVED (2026-03-21)
 
-All previously missing contracts have been implemented (2026-03-21):
+All previously missing contracts have been implemented:
 
 | Contract | Package | Status |
 |----------|---------|--------|

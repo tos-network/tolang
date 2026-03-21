@@ -114,8 +114,9 @@ Files changed: `stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`,
    `tos.multicall` implemented in GTOS LVM — single outer StateDB
    snapshot, N sequential child calls, all-or-nothing rollback.  7 GTOS tests
    + 1 tolang composed test.  Design doc: `gtos/docs/Atomic-Execution-v1.md`
-2. ~~**Privacy family contracts**~~ — **RESOLVED (2026-03-21):** all 4 contracts
-   implemented (`ConfidentialPayment`, `ConfidentialTreasury`,
+2. ~~**Privacy family contracts**~~ — **RESOLVED (2026-03-21):** all 6 contracts
+   implemented (`ConfidentialVault`, `ConfidentialEscrow`,
+   `ConfidentialPayment`, `ConfidentialTreasury`,
    `ConfidentialAllowance`, `AuditorDisclosureBook`)
 3. ~~**Recurring/subscription payments**~~ — **RESOLVED (2026-03-21):**
    `RecurringPayment` contract added to `stdlib/settlement/`

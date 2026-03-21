@@ -114,6 +114,9 @@ Before calling a stdlib family "commercially ready", the minimum bar should be:
 4. at least one composed-flow test exists if the family is intended for orchestration
 5. the family's trust boundary and failure posture are documented here
 
-That bar is now substantially met for the current first-wave stdlib set, but
-runtime rollback semantics and protocol backing remain the main blockers for a
-true "production-complete" claim.
+That bar is now substantially met for the current first-wave stdlib set.
+Runtime rollback semantics are now resolved (per-contract atomicity via
+StateDB snapshot/revert, cross-contract atomicity via `tos.multicall`).
+The main remaining blockers for a true "production-complete" claim are
+protocol-backed registries for delegation, verification, and agent identity
+semantics.

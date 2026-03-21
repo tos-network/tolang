@@ -192,16 +192,19 @@ Evidence:
 
 Features such as:
 
-- `capability`
-- `@requires(...)`
+- `capability` — compiler-complete; runtime via `tos.hascapability`
+- `@requires(...)` — **RESOLVED (2026-03-21)**: full compiler pipeline
+  implemented and tested (parser/sema/lower/codegen/ABI); emits runtime
+  preamble calling `tos.hascapability`; 3 tests; design doc at
+  `docs/CALLER_CAPABILITY_SYNTAX.md`
 - `agent`
 - `@delegated`
 - `@verifiable`
 - `@pay`
 
-are implemented strongly at parser/sema/lowering/artifact level, but still
+are implemented strongly at parser/sema/lowering/artifact level, but some still
 depend on runtime registries, delegation infrastructure, proof systems, or
-settlement rules.
+settlement rules (note: `@requires` is now fully implemented end-to-end).
 
 Why this matters:
 
@@ -331,8 +334,10 @@ execution.
 
 The priority order should be:
 
-1. Runtime/LVM transaction semantics for nested calls, package calls, and
-   atomic multi-contract execution.
+1. ~~Runtime/LVM transaction semantics for nested calls, package calls, and
+   atomic multi-contract execution.~~ — **RESOLVED (2026-03-21)**: per-contract
+   atomicity via StateDB snapshot/revert; cross-contract atomicity via
+   `tos.multicall`; 10 regression tests across both repos.
 2. Native, dependable runtime support for package calls and contract capability
    routing.
 3. Protocol-backed registries and enforcement for delegation, verification,

@@ -829,6 +829,308 @@ Concretely, that means:
   primitives
 - from examples to importable, versioned, documented protocol packages
 
+## Current execution frontier
+
+The stdlib and release pipeline are no longer the main unfinished layer.
+
+The current highest-value remaining task is:
+
+`Finish the deepest remaining VM/protocol gap for Tolang/GTOS: nested-call rollback and atomic execution semantics across LVM, with cross-stack tests and docs.`
+
+This is not a greenfield task.
+The stdlib and release pipeline are already substantially complete.
+
+### Current context
+
+- The guiding design is this document:
+  `docs/AGENT_NATIVE_STDLIB_2046.md`
+- The threat model is:
+  `docs/STDLIB_THREAT_MODEL_MATRIX.md`
+- The exposed framework/runtime gaps are tracked in:
+  `docs/TOLANG_SHORTCOMINGS.md`
+- Stdlib families, release artifacts, discovery metadata, agent package
+  metadata, GTOS package target validation, explicit gas caps, typed custom
+  reverts, and deployed TOL metadata RPC are already implemented
+- The highest-value unresolved gap is nested call rollback and atomicity across
+  account, sponsor, settlement, and package-call flows
+
+### Mission
+
+Implement and harden nested-call rollback semantics and atomic execution
+behavior in GTOS/LVM, then prove it with cross-stack tests in both repos.
+
+### Definition of done
+
+- Failed child calls do not leave half-committed upstream state
+- Value transfer, storage mutation, receipt state, sponsor/account budget
+  state, and settlement state obey clear rollback semantics
+- Revert data still propagates correctly
+- Raw Lua compatibility is preserved
+- TOL's 32-byte agent normalization boundary is preserved
+- Existing stdlib, runtime, and release behavior is not broken
+- New tests exist and pass
+
+### Important constraints
+
+- Do not add new stdlib families
+- Do not broaden scope into unrelated protocol systems
+- Do not revert unrelated changes
+- Keep changes minimal and defensible
+- Prefer primary fixes in GTOS/LVM and only add TOL changes when needed for
+  tests or clear contract-boundary correctness
+- Preserve existing behavior for explicit gas caps, typed custom errors,
+  package target validation, and deployed metadata RPC
+
+### Required reading before implementation
+
+- `/home/tomi/tolang/docs/AGENT_NATIVE_STDLIB_2046.md`
+- `/home/tomi/tolang/docs/STDLIB_THREAT_MODEL_MATRIX.md`
+- `/home/tomi/tolang/docs/TOLANG_SHORTCOMINGS.md`
+- `/home/tomi/gtos/core/vm/lvm.go`
+- `/home/tomi/tolang/stdlib_runtime_test.go`
+- `/home/tomi/tolang/stdlib_composed_runtime_test.go`
+- `/home/tomi/gtos/core/lvm_tol_e2e_test.go`
+- `/home/tomi/gtos/core/lvm_tol_stdlib_e2e_test.go`
+
+### Parallel execution plan
+
+The work should be split across four agents with disjoint ownership.
+
+#### Agent 1: Rollback semantics analysis
+
+Ownership:
+
+- read-only analysis across `/home/tomi/gtos/core/vm/lvm.go` and relevant
+  tests
+
+Task:
+
+- map current snapshot/revert behavior for `call`, `staticcall`,
+  `delegatecall`, `package_call`, and `create` paths
+- identify exactly where atomicity is incomplete or ambiguous
+- produce a short actionable implementation note for the main agent
+- do not edit files unless explicitly necessary
+
+#### Agent 2: GTOS VM implementation
+
+Ownership:
+
+- `/home/tomi/gtos/core/vm/lvm.go`
+- small helper additions in the same VM area if needed
+
+Task:
+
+- implement the rollback/atomicity fix
+- ensure nested child failure restores the correct state boundary
+- preserve revert-data propagation
+- preserve raw Lua behavior
+- do not touch `tosapi` or unrelated subsystems unless required
+
+#### Agent 3: GTOS regression and end-to-end tests
+
+Ownership:
+
+- `/home/tomi/gtos/core/*test.go`
+- `/home/tomi/gtos/internal/tosapi/*test.go` only if required
+
+Task:
+
+- add focused regression tests covering:
+  - nested call storage rollback
+  - nested call value rollback
+  - `package_call` rollback
+  - sponsor/account path rollback
+  - structured custom revert propagation through failed nested execution
+- prefer minimal, direct tests that fail before the fix and pass after
+
+#### Agent 4: Tolang stdlib and composed-flow regressions
+
+Ownership:
+
+- `/home/tomi/tolang/stdlib_runtime_test.go`
+- `/home/tomi/tolang/stdlib_composed_runtime_test.go`
+- `/home/tomi/tolang/e2e/*` only if needed
+- `/home/tomi/tolang/docs/TOLANG_SHORTCOMINGS.md` and
+  `/home/tomi/tolang/docs/STDLIB_THREAT_MODEL_MATRIX.md` if semantics change
+  materially
+
+Task:
+
+- add cross-stack regression tests proving that failed composed flows do not
+  leave half-committed state in:
+  - `PolicyAccount`
+  - `SponsorPolicyRelay`
+  - `TaskSettlement`
+  - `ReceiptBook`
+  - `ConfidentialEscrow` where relevant
+- update docs only if the implemented rollback semantics materially clarify a
+  previously open shortcoming
+
+### Coordination rules
+
+- The main agent integrates results
+- Agents must not overwrite each other's files
+- Trust the analysis agent's codepath mapping unless there is hard evidence it
+  is wrong
+- Do not duplicate work
+- Keep the critical path moving
+
+### Acceptance criteria
+
+- `/home/tomi/gtos`: `go test ./core/...`
+- `/home/tomi/gtos`: `go test ./internal/tosapi`
+- `/home/tomi/gtos`: `go test -cover ./core/... ./internal/tosapi`
+- `/home/tomi/tolang`: `go test ./...`
+- If any stdlib release artifact or metadata output changes:
+  - `/home/tomi/tolang`: `go run ./cmd/stdlib-export`
+  - `/home/tomi/tolang`: `go test -run 'TestStdlibReleaseArtifactsAreCurrent' -v .`
+- Final report must state:
+  - exact rollback semantics now guaranteed
+  - files changed
+  - tests added
+  - remaining unresolved protocol gaps after this task
+
+### Delegation packet form
+
+If this work is delegated to a parallel coding system such as Claude Code, the
+kickoff prompt should be:
+
+`Start the 4 agents now. Prioritize nested-call rollback and atomicity. Do not expand scope into new stdlib families.`
+
+A more aggressive execution posture is:
+
+`Do not stop at analysis. Carry the fix through implementation, regression tests, full verification, and final integration in both repos.`
+
+## Remaining capability backlog from the implementation audit
+
+The stdlib seeds, release artifacts, runtime coverage, and discovery surfaces
+are now substantially complete, but the capability audit in
+`docs/STDLIB_CAPABILITY_ANALYSIS.md` makes clear that several commercially
+important tasks are still not closed.
+
+These are not hypothetical future ideas.
+They are the current remaining implementation backlog.
+
+### Missing contracts
+
+These contracts are described by the 2046 design but do not yet exist in
+`stdlib/privacy/`:
+
+- `ConfidentialPayment`
+  batch and individual encrypted payment flows
+- `ConfidentialTreasury`
+  multi-owner confidential treasury with selective disclosure
+- `ConfidentialAllowance`
+  encrypted allowance and approval patterns
+- `AuditorDisclosureBook`
+  structured auditor disclosure with snapshot-oriented disclosure records
+
+### Missing control-plane capability features
+
+These gaps exist even though the seed contracts compile and have runtime tests:
+
+- `PolicyAccount` still lacks per-role or per-employee spend caps
+  `setSpendCaps(...)` is currently owner-scoped rather than delegate- or
+  employee-scoped
+- `SessionBook` and related flows still lack single-call convenience APIs such
+  as `require_terminal(...)`
+- terminal and trust modeling is still represented as raw `u256` constants
+  rather than a named `6 terminal types x 5 trust tiers` semantic matrix
+- step-up logic is still too query-oriented
+  the stdlib has `requiresStepUp(...)`, but not a stronger canonical
+  enforcement layer that downstream packages can reuse directly
+
+### Missing execution-plane capability features
+
+These are the main remaining commercial-flow gaps:
+
+- recurring and subscription payments
+  no canonical `schedule(...)`, periodic debit, or subscription settlement
+  mechanism exists yet
+- milestone staged release
+  `TaskSettlement` and `ConfidentialEscrow` still model single-release payout,
+  not multi-milestone settlement
+- slash distribution
+  dispute resolution exists, but there is no configurable slash or split
+  distribution model
+- auto-receipt binding
+  `ReceiptBook` exists, but settlement does not yet auto-bind receipt creation
+  and finalization
+- invoice and subscription agreement sub-types
+  `CommercialAgreement` models offer/accept/fulfill/cancel/expire, but not a
+  distinct invoice or subscription state model
+
+### Missing market-plane capability features
+
+These are the main remaining scale-out and privacy gaps:
+
+- reputation writes and scorer callbacks
+  `TrustRegistry` can read eligibility and reputation snapshots, but it still
+  lacks canonical `updateReputation(...)` or scorer callback flows
+- per-agreement or per-service stake lock semantics
+  bond deposit exists, but there is no stronger agreement-bound stake lock
+  model
+- structured discovery fields
+  `ServiceDirectory` still stores service metadata as opaque `bytes32`
+  references rather than structured SLA duration, fee amount, capability enum,
+  and quote fields
+- selective disclosure ZK proof gate
+  auditor authorization exists, but there is not yet a proof-gated selective
+  disclosure layer
+- selective disclosure decryption token layer
+  there is still no canonical per-counterparty decryption token issuance or
+  disclosure-token flow
+- the composed "arbitrator selective disclosure" path is still not truly
+  closed
+  that scenario requires the missing `AuditorDisclosureBook` plus deeper
+  privacy-layer work
+
+### Missing compiler and language features
+
+The capability audit also identifies language-level gaps that should not remain
+hand-rolled forever:
+
+- `@requires(caller: Cap)`
+  compiler-enforced capability-based access control syntax is still not
+  implemented, so access control remains manually written in seed contracts
+
+### Priority order after nested-call rollback
+
+Once the current VM and protocol frontier on nested-call rollback and atomicity
+is closed, the next implementation order should be:
+
+1. close the privacy-family contract gap:
+   `ConfidentialPayment`, `ConfidentialTreasury`,
+   `ConfidentialAllowance`, `AuditorDisclosureBook`
+2. close recurring and staged settlement:
+   subscription payments, milestone release, slash distribution,
+   invoice/subscription agreement forms
+3. close receipt automation:
+   canonical auto-receipt binding between settlement and `ReceiptBook`
+4. close policy and session ergonomics:
+   per-role spend caps, named terminal/trust taxonomy, stronger step-up and
+   `require_terminal(...)` style APIs
+5. close market-scale semantics:
+   reputation writes, scorer callbacks, stake locks, and structured discovery
+   fields
+6. close privacy-proof and compiler semantics:
+   ZK selective disclosure gate, decryption token layer, and
+   `@requires(caller: Cap)`
+
+### Acceptance bar for capability-complete closure
+
+These backlog items should not be considered closed merely because a seed
+contract exists.
+
+For each remaining item, the closure bar should be:
+
+- implementation exists in stdlib or compiler
+- compile/import coverage exists
+- runtime or composed-flow tests exist where applicable
+- release metadata and discovery semantics are updated when applicable
+- the threat-model implications are reflected in
+  `docs/STDLIB_THREAT_MODEL_MATRIX.md` when materially changed
+
 ## A hard rule
 
 TOL stdlib should standardize economic flows, not only safety helpers.

@@ -10,9 +10,12 @@ import (
 // This is an internal type used only for parsing; consumers should use the stable
 // metadata types defined in metadata.go.
 type internalABI struct {
+	ABIVersion      string             `json:"abi_version,omitempty"`
+	Kind            string             `json:"kind,omitempty"`
 	GasModel        internalGasModel   `json:"gas_model"`
 	Functions       []internalFunction `json:"functions"`
 	Events          []internalEvent    `json:"events"`
+	Errors          []internalError    `json:"errors,omitempty"`
 	Manifest        *internalManifest  `json:"manifest,omitempty"`
 	AccountContract bool               `json:"account_contract,omitempty"`
 }
@@ -47,11 +50,26 @@ type internalFunction struct {
 	VerifiableStub     bool                 `json:"verifiable_stub,omitempty"`
 }
 
+type internalError struct {
+	Name        string               `json:"name"`
+	Kind        string               `json:"kind,omitempty"`
+	Selector    string               `json:"selector"`
+	Params      []string             `json:"params,omitempty"`
+	NamedParams []internalNamedParam `json:"named_params,omitempty"`
+}
+
 type internalDoc struct {
 	Notice        string           `json:"notice,omitempty"`
 	Effects       *internalEffects `json:"effects,omitempty"`
 	GasUpper      uint64           `json:"gas_upper,omitempty"`
 	NonComposable bool             `json:"non_composable,omitempty"`
+	RevertSchema  []internalRevert `json:"revert_schema,omitempty"`
+}
+
+type internalRevert struct {
+	Name     string `json:"name,omitempty"`
+	Kind     string `json:"kind,omitempty"`
+	Selector string `json:"selector"`
 }
 
 type internalEffects struct {
@@ -158,6 +176,13 @@ func ExtractFromABI(abiJSON []byte) (*ContractMetadata, error) {
 			if fn.Doc.Effects != nil {
 				fm.Effects = convertEffects(fn.Doc.Effects)
 			}
+			for _, rv := range fn.Doc.RevertSchema {
+				fm.FailureModes = append(fm.FailureModes, FailureMode{
+					Name:     rv.Name,
+					Kind:     rv.Kind,
+					Selector: rv.Selector,
+				})
+			}
 		}
 		fm.RiskLevel = DeriveRiskLevel(fm)
 		meta.Functions = append(meta.Functions, fm)
@@ -171,6 +196,15 @@ func ExtractFromABI(abiJSON []byte) (*ContractMetadata, error) {
 		meta.Events = append(meta.Events, EventMeta{
 			Name:   ev.Name,
 			Params: extractParams(ev.NamedParams, ev.Params),
+		})
+	}
+
+	for _, er := range raw.Errors {
+		meta.Errors = append(meta.Errors, ErrorMeta{
+			Name:     er.Name,
+			Kind:     er.Kind,
+			Selector: er.Selector,
+			Params:   extractParams(er.NamedParams, er.Params),
 		})
 	}
 

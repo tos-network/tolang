@@ -3,10 +3,10 @@
   "package_name": "tolang.stdlib.recovery",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x0caf063293008e3fb89f5806dc4a52e09a628beeeb0221f7d8a1dbc595ff2208",
-    "bytecode_hash": "0xbccab4cf7e612cb4e455226ea8ab49cf5db2c592df6b0dc61fe1911eeb698a18",
+    "package_hash": "0xc4e60856737f6054ae3f166ac32197da02db6a3ed5886a82eea09e450196f22f",
+    "bytecode_hash": "0xb288ed5c0c5cd91246d753c3ebbce01cc5bb48437ad0deab5df039acadae12aa",
     "source_hash": "0xadcaa604e1e804d271d93b025793c30009e7971141e5184648ce897717cd1657",
-    "abi_hash": "0xc60addfd50eb09036472cd6a9d95e6bde952086883dd2d17d0311aed1bb78fac",
+    "abi_hash": "0x4196a1fceef4e6be19507accfbfe17233a6a891925ca628015b2d500c1c9a167",
     "version": "1.0.0"
   },
   "contract_type": "custom",

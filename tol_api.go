@@ -600,7 +600,7 @@ func CompileAllArtifacts(source []byte, name string, opts *CompileOptions) ([]*A
 			return nil, fmt.Errorf("contract %s: encode bytecode: %w", c.Name, err)
 		}
 
-		contractName, abiJSON, storageJSON, err := buildArtifactMetadataForContract(c)
+		contractName, abiJSON, storageJSON, err := buildArtifactMetadataForContract(mod, c)
 		if err != nil {
 			return nil, fmt.Errorf("contract %s: build metadata: %w", c.Name, err)
 		}

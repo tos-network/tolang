@@ -298,7 +298,7 @@ func compileContractToArtifact(source []byte, name string, c *tolast.ContractDec
 	if err != nil {
 		return nil, err
 	}
-	contractName, abiJSON, storageJSON, err := buildArtifactMetadataForContract(mod.Contract)
+	contractName, abiJSON, storageJSON, err := buildArtifactMetadataForContract(mod, mod.Contract)
 	if err != nil {
 		return nil, err
 	}

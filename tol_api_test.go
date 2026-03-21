@@ -6948,6 +6948,7 @@ contract TryCatchSuccessDemo {
 	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
 	msg := L.NewTable()
 	L.SetField(msg, "sender", LString("0x0000000000000000000000000000000000000001"))
+	L.SetField(msg, "data", LString("0x1"))
 	L.SetGlobal("msg", msg)
 
 	if err := L.DoString(string(bc)); err != nil {
@@ -7138,6 +7139,246 @@ contract PanicDemo {
 	// caught_panic was never set, so it should be 0 (or nil/default).
 	if panicResult == "1" {
 		t.Fatalf("expected caught_panic=0 (Panic clause should not run for string error), got '%s'", panicResult)
+	}
+}
+
+func TestTryCatchErrorClauseRuntime(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract ErrorCatchDemo {
+  u256 caught_error;
+  u256 caught_bare;
+  function do_revert() public {
+    revert "typed_error";
+  }
+  function safe() public {
+    try do_revert() {
+    } catch Error(reason: string) {
+      if (reason == "typed_error") {
+        set caught_error = 1;
+      }
+    } catch {
+      set caught_bare = 1;
+    }
+    return;
+  }
+  function get_caught_error() public returns (u256 v) {
+    return caught_error;
+  }
+  function get_caught_bare() public returns (u256 v) {
+    return caught_bare;
+  }
+  fallback { revert "UNKNOWN_SELECTOR"; }
+}
+`)
+	bc, err := CompileBytecode(src, "ErrorCatchDemo")
+	if err != nil {
+		t.Fatalf("compile error: %v", err)
+	}
+	L := NewState()
+	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
+	msg := L.NewTable()
+	L.SetField(msg, "sender", LString("0x0000000000000000000000000000000000000001"))
+	L.SetGlobal("msg", msg)
+	if err := L.DoString(string(bc)); err != nil {
+		t.Fatalf("load error: %v", err)
+	}
+	tos := L.GetGlobal("tos")
+	invoke := func(sig string) error {
+		h := selectorHexFromSignature(sig)
+		oninvoke := L.GetField(tos, "oninvoke")
+		L.Push(oninvoke)
+		L.Push(LString(h))
+		return L.PCall(1, MultRet, nil)
+	}
+	if err := invoke("safe()"); err != nil {
+		t.Fatalf("safe() returned error: %v", err)
+	}
+	oninvoke := L.GetField(tos, "oninvoke")
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("get_caught_error()")))
+	if err := L.PCall(1, MultRet, nil); err != nil {
+		t.Fatalf("get_caught_error() error: %v", err)
+	}
+	if got := fmt.Sprintf("%v", L.Get(L.GetTop())); got != "1" {
+		t.Fatalf("expected caught_error=1, got %q", got)
+	}
+	L.SetTop(0)
+	oninvoke = L.GetField(tos, "oninvoke")
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("get_caught_bare()")))
+	if err := L.PCall(1, MultRet, nil); err != nil {
+		t.Fatalf("get_caught_bare() error: %v", err)
+	}
+	if got := fmt.Sprintf("%v", L.Get(L.GetTop())); got == "1" {
+		t.Fatalf("expected bare catch not to run, got %q", got)
+	}
+}
+
+func TestTryCatchPanicClauseRuntime(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract PanicCatchDemo {
+  u256 caught_panic;
+  u256 caught_bare;
+  function do_panic() public {
+    assert(false);
+  }
+  function safe() public {
+    try do_panic() {
+    } catch Panic(code: u256) {
+      if (code == 1) {
+        set caught_panic = 1;
+      }
+    } catch {
+      set caught_bare = 1;
+    }
+    return;
+  }
+  function get_caught_panic() public returns (u256 v) {
+    return caught_panic;
+  }
+  function get_caught_bare() public returns (u256 v) {
+    return caught_bare;
+  }
+  fallback { revert "UNKNOWN_SELECTOR"; }
+}
+`)
+	bc, err := CompileBytecode(src, "PanicCatchDemo")
+	if err != nil {
+		t.Fatalf("compile error: %v", err)
+	}
+	L := NewState()
+	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
+	msg := L.NewTable()
+	L.SetField(msg, "sender", LString("0x0000000000000000000000000000000000000001"))
+	L.SetGlobal("msg", msg)
+	if err := L.DoString(string(bc)); err != nil {
+		t.Fatalf("load error: %v", err)
+	}
+	tos := L.GetGlobal("tos")
+	invoke := func(sig string) error {
+		h := selectorHexFromSignature(sig)
+		oninvoke := L.GetField(tos, "oninvoke")
+		L.Push(oninvoke)
+		L.Push(LString(h))
+		return L.PCall(1, MultRet, nil)
+	}
+	if err := invoke("safe()"); err != nil {
+		t.Fatalf("safe() returned error: %v", err)
+	}
+	oninvoke := L.GetField(tos, "oninvoke")
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("get_caught_panic()")))
+	if err := L.PCall(1, MultRet, nil); err != nil {
+		t.Fatalf("get_caught_panic() error: %v", err)
+	}
+	if got := fmt.Sprintf("%v", L.Get(L.GetTop())); got != "1" {
+		t.Fatalf("expected caught_panic=1, got %q", got)
+	}
+	L.SetTop(0)
+	oninvoke = L.GetField(tos, "oninvoke")
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("get_caught_bare()")))
+	if err := L.PCall(1, MultRet, nil); err != nil {
+		t.Fatalf("get_caught_bare() error: %v", err)
+	}
+	if got := fmt.Sprintf("%v", L.Get(L.GetTop())); got == "1" {
+		t.Fatalf("expected bare catch not to run, got %q", got)
+	}
+}
+
+func TestTryCatchBytesClauseCustomErrorRuntime(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract BytesCatchDemo {
+  error Unauthorized(agent caller);
+  u256 caught_bytes;
+  function do_custom() public {
+    revert Unauthorized(msg.sender);
+  }
+  function safe() public {
+    try do_custom() {
+    } catch (bytes memory data) {
+      set caught_bytes = 1;
+    }
+    return;
+  }
+  function get_caught_bytes() public returns (u256 v) {
+    return caught_bytes;
+  }
+  fallback { revert "UNKNOWN_SELECTOR"; }
+}
+`)
+	bc, err := CompileBytecode(src, "BytesCatchDemo")
+	if err != nil {
+		t.Fatalf("compile error: %v", err)
+	}
+	L := NewState()
+	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
+	msg := L.NewTable()
+	L.SetField(msg, "sender", LString("0x0000000000000000000000000000000000000001"))
+	L.SetGlobal("msg", msg)
+	if err := L.DoString(string(bc)); err != nil {
+		t.Fatalf("load error: %v", err)
+	}
+	tos := L.GetGlobal("tos")
+	oninvoke := L.GetField(tos, "oninvoke")
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("safe()")))
+	if err := L.PCall(1, MultRet, nil); err != nil {
+		t.Fatalf("safe() returned error: %v", err)
+	}
+	L.SetTop(0)
+	oninvoke = L.GetField(tos, "oninvoke")
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("get_caught_bytes()")))
+	if err := L.PCall(1, MultRet, nil); err != nil {
+		t.Fatalf("get_caught_bytes() error: %v", err)
+	}
+	if got := fmt.Sprintf("%v", L.Get(L.GetTop())); got != "1" {
+		t.Fatalf("expected caught_bytes=1, got %q", got)
+	}
+}
+
+func TestTryCatchBareDoesNotCatchUnstructuredRuntimeError(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract RawErrorDemo {
+  u256 caught_bare;
+  function do_raw_error() public {
+    bytes bad = msg.data;
+    u256 x = abi.decode(bad);
+    set caught_bare = x;
+    return;
+  }
+  function safe() public {
+    try do_raw_error() {
+    } catch {
+      set caught_bare = 1;
+    }
+    return;
+  }
+}
+`)
+	bc, err := CompileBytecode(src, "RawErrorDemo")
+	if err != nil {
+		t.Fatalf("compile error: %v", err)
+	}
+	L := NewState()
+	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
+	msg := L.NewTable()
+	L.SetField(msg, "sender", LString("0x0000000000000000000000000000000000000001"))
+	L.SetGlobal("msg", msg)
+	if err := L.DoString(string(bc)); err != nil {
+		t.Fatalf("load error: %v", err)
+	}
+	tos := L.GetGlobal("tos")
+	oninvoke := L.GetField(tos, "oninvoke")
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature("safe()")))
+	if err := L.PCall(1, MultRet, nil); err == nil {
+		t.Fatalf("expected safe() to rethrow unstructured runtime error")
 	}
 }
 

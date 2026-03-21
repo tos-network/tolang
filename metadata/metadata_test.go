@@ -32,7 +32,11 @@ const sampleABI = `{
           "calls": [{"cap": "token", "iface": "ITRC20", "selector": "0x12345678", "max_gas": 50000}]
         },
         "gas_upper": 65000,
-        "non_composable": false
+        "non_composable": false,
+        "revert_schema": [
+          {"name": "Error", "kind": "error", "selector": "0x08c379a0"},
+          {"name": "InsufficientBalance", "kind": "custom", "selector": "0xcf479181"}
+        ]
       },
       "requires_capability": "token_send",
       "pay_amount_tomi": "1000000",
@@ -73,6 +77,15 @@ const sampleABI = `{
       "named_params": [{"name": "from", "type": "address"}, {"name": "to", "type": "address"}, {"name": "value", "type": "uint256"}]
     }
   ],
+  "errors": [
+    {
+      "name": "InsufficientBalance",
+      "kind": "custom",
+      "selector": "0xcf479181",
+      "params": ["uint256", "uint256"],
+      "named_params": [{"name": "available", "type": "uint256"}, {"name": "required", "type": "uint256"}]
+    }
+  ],
   "manifest": {
     "name": "TestToken",
     "version": "1.0.0",
@@ -107,7 +120,10 @@ const sampleABILegacy = `{
           "writes": ["balances"],
           "emits": ["Transfer"]
         },
-        "gas_upper": 65000
+        "gas_upper": 65000,
+        "revert_schema": [
+          {"name": "Error", "kind": "error", "selector": "0x08c379a0"}
+        ]
       },
       "pay_amount_tomi": "1000000",
       "verifiable": false,
@@ -164,6 +180,15 @@ func TestExtractFromABI(t *testing.T) {
 	if xfer.GasUpper != 65000 {
 		t.Errorf("functions[0].gas_upper = %d, want 65000", xfer.GasUpper)
 	}
+	if len(xfer.FailureModes) != 2 {
+		t.Fatalf("functions[0].failure_modes length = %d, want 2", len(xfer.FailureModes))
+	}
+	if xfer.FailureModes[0].Selector != "0x08c379a0" {
+		t.Errorf("functions[0].failure_modes[0].selector = %q, want 0x08c379a0", xfer.FailureModes[0].Selector)
+	}
+	if xfer.FailureModes[1].Selector != "0xcf479181" {
+		t.Errorf("functions[0].failure_modes[1].selector = %q, want 0xcf479181", xfer.FailureModes[1].Selector)
+	}
 	if !xfer.Verifiable {
 		t.Error("functions[0].verifiable should be true")
 	}
@@ -214,6 +239,12 @@ func TestExtractFromABI(t *testing.T) {
 	if len(meta.Events) != 1 || meta.Events[0].Name != "Transfer" {
 		t.Errorf("events = %v, want [{Transfer ...}]", meta.Events)
 	}
+	if len(meta.Errors) != 1 || meta.Errors[0].Name != "InsufficientBalance" {
+		t.Fatalf("errors = %+v, want one InsufficientBalance entry", meta.Errors)
+	}
+	if meta.Errors[0].Selector != "0xcf479181" {
+		t.Errorf("errors[0].selector = %q, want 0xcf479181", meta.Errors[0].Selector)
+	}
 	if len(meta.Events[0].Params) != 3 {
 		t.Errorf("events[0].params length = %d, want 3", len(meta.Events[0].Params))
 	}
@@ -256,6 +287,9 @@ func TestExtractFromABI_LegacyABI(t *testing.T) {
 	xfer := meta.Functions[0]
 	if xfer.Mutability != "payable" {
 		t.Errorf("legacy transfer mutability = %q, want %q (heuristic from pay_amount_tomi)", xfer.Mutability, "payable")
+	}
+	if len(xfer.FailureModes) != 1 || xfer.FailureModes[0].Selector != "0x08c379a0" {
+		t.Errorf("legacy transfer failure_modes = %+v, want one Error(string) mode", xfer.FailureModes)
 	}
 	bal := meta.Functions[1]
 	if bal.Mutability != "view" {

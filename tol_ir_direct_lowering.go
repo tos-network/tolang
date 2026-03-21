@@ -1251,6 +1251,34 @@ function __tol_abi_encode_with_selector_v2(sel, ...)
   return "0x" .. string.sub(sel, 3) .. string.sub(payload, 3)
 end
 
+function __tol_is_structured_error(err)
+  return type(err) == "table" and type(err.selector) == "string"
+end
+
+function __tol_error_selector(err)
+  if not __tol_is_structured_error(err) then
+    return nil
+  end
+  return string.lower(err.selector)
+end
+
+function __tol_error_bytes(err)
+  local sel = __tol_error_selector(err)
+  if sel == nil then
+    return nil
+  end
+  if sel == "custom" then
+    return err.data
+  end
+  if sel == "0x08c379a0" then
+    return __tol_abi_encode_with_selector_v2("0x08c379a0", err.msg or "", "string")
+  end
+  if sel == "0x4e487b71" then
+    return __tol_abi_encode_with_selector_v2("0x4e487b71", err.code or 0, "uint256")
+  end
+  return nil
+end
+
 function abi.decode(data)
   return data
 end
@@ -3886,13 +3914,6 @@ func tolStmtsToLuaWithCtx(ctx *loweringCtx, in []tolast.Statement) ([]luast.Stmt
 //	else
 //	    <catch_body>  -- with param bound to __tol_try_result_N if applicable
 //	end
-//
-// LIMITATION: pcall catches ALL Lua errors indiscriminately, including Lua
-// runtime panics (stack overflow, OOM, type errors). Ideally catch should
-// only intercept typed contract errors (tables with a "selector" field from
-// require/assert/revert) and let Lua runtime panics propagate uncaught.
-// This would require replacing pcall with a filtered error handler, which
-// is deferred to a future change.
 func lowerTryCatchStmt(ctx *loweringCtx, stmt tolast.Statement) (luast.Stmt, error) {
 	ctx.trySeq++
 	n := ctx.trySeq
@@ -3942,11 +3963,36 @@ func lowerTryCatchStmt(ctx *loweringCtx, stmt tolast.Statement) (luast.Stmt, err
 		return nil, err
 	}
 
-	// Build: if okVar then <success> else <catch> end
+	// Only structured contract errors enter catch dispatch. Unstructured Lua
+	// runtime errors are rethrown so try/catch does not swallow VM panics.
+	structuredCheck := withLineExpr(&luast.FuncCallExpr{
+		Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_is_structured_error"}),
+		Args:      []luast.Expr{withLineExpr(&luast.IdentExpr{Value: resultVar})},
+		AdjustRet: true,
+	})
+	rethrowStmts := []luast.Stmt{
+		withLineStmt(&luast.FuncCallStmt{Expr: withLineExpr(&luast.FuncCallExpr{
+			Func: withLineExpr(&luast.IdentExpr{Value: "error"}),
+			Args: []luast.Expr{
+				withLineExpr(&luast.IdentExpr{Value: resultVar}),
+				withLineExpr(&luast.NumberExpr{Value: "0"}),
+			},
+			AdjustRet: true,
+		})}, stmt.Line),
+	}
+	catchDispatch := []luast.Stmt{
+		withLineStmt(&luast.IfStmt{
+			Condition: structuredCheck,
+			Then:      elseStmts,
+			Else:      rethrowStmts,
+		}, stmt.Line),
+	}
+
+	// Build: if okVar then <success> else <typed-catch-or-rethrow> end
 	ifStmt := withLineStmt(&luast.IfStmt{
 		Condition: withLineExpr(&luast.IdentExpr{Value: okVar}),
 		Then:      successStmts,
-		Else:      elseStmts,
+		Else:      catchDispatch,
 	}, stmt.Line)
 
 	// Wrap both statements in a do-block for scoping.
@@ -3961,63 +4007,46 @@ func lowerTryCatchStmt(ctx *loweringCtx, stmt tolast.Statement) (luast.Stmt, err
 // If there are multiple clauses, they are chained with type-checks.
 func lowerCatchClauses(ctx *loweringCtx, catches []tolast.CatchClause, resultVar string, line int) ([]luast.Stmt, error) {
 	if len(catches) == 0 {
-		return []luast.Stmt{}, nil
+		return []luast.Stmt{
+			withLineStmt(&luast.FuncCallStmt{Expr: withLineExpr(&luast.FuncCallExpr{
+				Func: withLineExpr(&luast.IdentExpr{Value: "error"}),
+				Args: []luast.Expr{
+					withLineExpr(&luast.IdentExpr{Value: resultVar}),
+					withLineExpr(&luast.NumberExpr{Value: "0"}),
+				},
+				AdjustRet: true,
+			})}, line),
+		}, nil
 	}
 
-	if len(catches) == 1 {
-		return lowerSingleCatchClause(ctx, catches[0], resultVar, line)
+	currentElse := []luast.Stmt{
+		withLineStmt(&luast.FuncCallStmt{Expr: withLineExpr(&luast.FuncCallExpr{
+			Func: withLineExpr(&luast.IdentExpr{Value: "error"}),
+			Args: []luast.Expr{
+				withLineExpr(&luast.IdentExpr{Value: resultVar}),
+				withLineExpr(&luast.NumberExpr{Value: "0"}),
+			},
+			AdjustRet: true,
+		})}, line),
 	}
 
-	// Multiple clauses: separate Error/bytes clauses from bare clause.
-	// Build chained if/else based on type check.
-	// Strategy: check type of resultVar to dispatch.
-	// For now, handle up to one typed clause + one bare clause.
-	var typedClauses []tolast.CatchClause
-	var bareClauses []tolast.CatchClause
-	for _, c := range catches {
-		if c.Kind == "" {
-			bareClauses = append(bareClauses, c)
-		} else {
-			typedClauses = append(typedClauses, c)
-		}
-	}
-
-	// Build the else chain from back to front.
-	// Start with the bare clause body (or empty).
-	currentElse := []luast.Stmt{}
-	if len(bareClauses) > 0 {
-		var err error
-		currentElse, err = lowerSingleCatchClause(ctx, bareClauses[0], resultVar, line)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Wrap each typed clause in a type check.
-	for i := len(typedClauses) - 1; i >= 0; i-- {
-		clause := typedClauses[i]
+	for i := len(catches) - 1; i >= 0; i-- {
+		clause := catches[i]
 		clauseBody, err := lowerSingleCatchClause(ctx, clause, resultVar, line)
 		if err != nil {
 			return nil, err
 		}
-		// Panic clauses match numeric errors: type(resultVar) == "number".
-		// Error/bytes clauses match string errors: type(resultVar) == "string".
-		luaTypeName := "string"
-		if clause.Kind == "Panic" {
-			luaTypeName = "uint256"
+		matchExpr, err := lowerCatchClauseMatchExpr(clause, resultVar)
+		if err != nil {
+			return nil, err
 		}
-		typeCheckExpr := withLineExpr(&luast.RelationalOpExpr{
-			Operator: "==",
-			Lhs: withLineExpr(&luast.FuncCallExpr{
-				Func:      withLineExpr(&luast.IdentExpr{Value: "type"}),
-				Args:      []luast.Expr{withLineExpr(&luast.IdentExpr{Value: resultVar})},
-				AdjustRet: true,
-			}),
-			Rhs: withLineExpr(&luast.StringExpr{Value: luaTypeName}),
-		})
+		if matchExpr == nil {
+			currentElse = clauseBody
+			continue
+		}
 		currentElse = []luast.Stmt{
 			withLineStmt(&luast.IfStmt{
-				Condition: typeCheckExpr,
+				Condition: matchExpr,
 				Then:      clauseBody,
 				Else:      currentElse,
 			}, line),
@@ -4033,12 +4062,16 @@ func lowerSingleCatchClause(ctx *loweringCtx, clause tolast.CatchClause, resultV
 
 	// If the clause has a parameter, bind it as a local.
 	if clause.ParamName != "" {
+		bindingExpr, err := lowerCatchClauseBindingExpr(clause, resultVar)
+		if err != nil {
+			return nil, err
+		}
 		ctx.pushScope()
 		defer ctx.popScope()
 		ctx.declareLocalWithType(clause.ParamName, clause.ParamType)
 		stmts = append(stmts, withLineStmt(&luast.LocalAssignStmt{
 			Names: []string{clause.ParamName},
-			Exprs: []luast.Expr{withLineExpr(&luast.IdentExpr{Value: resultVar})},
+			Exprs: []luast.Expr{bindingExpr},
 		}, line))
 	}
 
@@ -4048,6 +4081,65 @@ func lowerSingleCatchClause(ctx *loweringCtx, clause tolast.CatchClause, resultV
 	}
 	stmts = append(stmts, bodyStmts...)
 	return stmts, nil
+}
+
+func lowerCatchClauseMatchExpr(clause tolast.CatchClause, resultVar string) (luast.Expr, error) {
+	selectorCall := withLineExpr(&luast.FuncCallExpr{
+		Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_error_selector"}),
+		Args:      []luast.Expr{withLineExpr(&luast.IdentExpr{Value: resultVar})},
+		AdjustRet: true,
+	})
+	switch clause.Kind {
+	case "":
+		return nil, nil
+	case "Error":
+		return withLineExpr(&luast.RelationalOpExpr{
+			Operator: "==",
+			Lhs:      selectorCall,
+			Rhs:      withLineExpr(&luast.StringExpr{Value: "0x08c379a0"}),
+		}), nil
+	case "Panic":
+		return withLineExpr(&luast.RelationalOpExpr{
+			Operator: "==",
+			Lhs:      selectorCall,
+			Rhs:      withLineExpr(&luast.StringExpr{Value: "0x4e487b71"}),
+		}), nil
+	case "bytes":
+		return withLineExpr(&luast.RelationalOpExpr{
+			Operator: "~=",
+			Lhs: withLineExpr(&luast.FuncCallExpr{
+				Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_error_bytes"}),
+				Args:      []luast.Expr{withLineExpr(&luast.IdentExpr{Value: resultVar})},
+				AdjustRet: true,
+			}),
+			Rhs: withLineExpr(&luast.NilExpr{}),
+		}), nil
+	default:
+		return nil, fmt.Errorf("[%s] unsupported catch clause kind '%s'", diag.CodeLowerUnsupportedFeature, clause.Kind)
+	}
+}
+
+func lowerCatchClauseBindingExpr(clause tolast.CatchClause, resultVar string) (luast.Expr, error) {
+	switch clause.Kind {
+	case "Error":
+		return withLineExpr(&luast.AttrGetExpr{
+			Object: withLineExpr(&luast.IdentExpr{Value: resultVar}),
+			Key:    withLineExpr(&luast.StringExpr{Value: "msg"}),
+		}), nil
+	case "Panic":
+		return withLineExpr(&luast.AttrGetExpr{
+			Object: withLineExpr(&luast.IdentExpr{Value: resultVar}),
+			Key:    withLineExpr(&luast.StringExpr{Value: "code"}),
+		}), nil
+	case "bytes":
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_error_bytes"}),
+			Args:      []luast.Expr{withLineExpr(&luast.IdentExpr{Value: resultVar})},
+			AdjustRet: true,
+		}), nil
+	default:
+		return withLineExpr(&luast.IdentExpr{Value: resultVar}), nil
+	}
 }
 
 func tolExprStmtToLua(ctx *loweringCtx, e *tolast.Expr, line int) (luast.Stmt, error) {

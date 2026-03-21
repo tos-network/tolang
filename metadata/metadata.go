@@ -14,6 +14,7 @@ type ContractMetadata struct {
 	Contract      ContractInfo   `json:"contract"`
 	Functions     []FunctionMeta `json:"functions"`
 	Events        []EventMeta    `json:"events"`
+	Errors        []ErrorMeta    `json:"errors,omitempty"`
 	Manifest      *ManifestMeta  `json:"manifest,omitempty"`
 	GasModel      GasModelMeta   `json:"gas_model"`
 	Capabilities  []string       `json:"capabilities,omitempty"`
@@ -23,11 +24,11 @@ type ContractMetadata struct {
 
 // ArtifactRef is the canonical artifact identity for cross-system references.
 type ArtifactRef struct {
-	PackageHash  string `json:"package_hash"`            // keccak256 of .tor
-	BytecodeHash string `json:"bytecode_hash"`           // keccak256 of bytecode
-	SourceHash   string `json:"source_hash,omitempty"`   // keccak256 of source
-	ABIHash      string `json:"abi_hash"`                // keccak256 of ABI JSON
-	Version      string `json:"version,omitempty"`       // from manifest
+	PackageHash  string `json:"package_hash"`          // keccak256 of .tor
+	BytecodeHash string `json:"bytecode_hash"`         // keccak256 of bytecode
+	SourceHash   string `json:"source_hash,omitempty"` // keccak256 of source
+	ABIHash      string `json:"abi_hash"`              // keccak256 of ABI JSON
+	Version      string `json:"version,omitempty"`     // from manifest
 }
 
 // ContractInfo contains contract-level metadata.
@@ -41,19 +42,20 @@ type ContractInfo struct {
 // FunctionMeta is the per-function metadata used by OpenFox for intent routing
 // and approval UX.
 type FunctionMeta struct {
-	Name               string       `json:"name"`
-	Selector           string       `json:"selector"`
-	Visibility         string       `json:"visibility"`
-	Mutability         string       `json:"mutability"`                    // "pure", "view", "payable", "nonpayable"
-	Params             []ParamMeta  `json:"params"`
-	Returns            []ParamMeta  `json:"returns,omitempty"`
-	RequiresCapability []string     `json:"requires_capability,omitempty"`
-	Effects            *EffectsMeta `json:"effects,omitempty"`
-	GasUpper           uint64       `json:"gas_upper,omitempty"`
-	Verifiable         bool         `json:"verifiable"`
-	Delegated          bool         `json:"delegated"`
-	NonComposable      bool         `json:"non_composable"`
-	RiskLevel          string       `json:"risk_level,omitempty"` // "low", "medium", "high" - derived from effects
+	Name               string        `json:"name"`
+	Selector           string        `json:"selector"`
+	Visibility         string        `json:"visibility"`
+	Mutability         string        `json:"mutability"` // "pure", "view", "payable", "nonpayable"
+	Params             []ParamMeta   `json:"params"`
+	Returns            []ParamMeta   `json:"returns,omitempty"`
+	RequiresCapability []string      `json:"requires_capability,omitempty"`
+	Effects            *EffectsMeta  `json:"effects,omitempty"`
+	GasUpper           uint64        `json:"gas_upper,omitempty"`
+	Verifiable         bool          `json:"verifiable"`
+	Delegated          bool          `json:"delegated"`
+	NonComposable      bool          `json:"non_composable"`
+	FailureModes       []FailureMode `json:"failure_modes,omitempty"`
+	RiskLevel          string        `json:"risk_level,omitempty"` // "low", "medium", "high" - derived from effects
 }
 
 // ParamMeta describes a single function parameter or return value.
@@ -82,6 +84,21 @@ type CallMeta struct {
 type EventMeta struct {
 	Name   string      `json:"name"`
 	Params []ParamMeta `json:"params"`
+}
+
+// ErrorMeta describes one declared custom error in the contract ABI.
+type ErrorMeta struct {
+	Name     string      `json:"name"`
+	Kind     string      `json:"kind,omitempty"`
+	Selector string      `json:"selector"`
+	Params   []ParamMeta `json:"params,omitempty"`
+}
+
+// FailureMode describes one structured revert path a function may produce.
+type FailureMode struct {
+	Name     string `json:"name,omitempty"`
+	Kind     string `json:"kind,omitempty"`
+	Selector string `json:"selector"`
 }
 
 // ManifestMeta holds metadata from the manifest block.

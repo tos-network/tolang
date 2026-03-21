@@ -3,10 +3,10 @@
   "package_name": "tolang.stdlib.agreement",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x9f7968419086973b7d2885aa1e14087e6a8bb92df20a1b2140611ede4e06692b",
-    "bytecode_hash": "0x2e04ba57c0ac896ce0b6fc6a51bbc7cd99efd8015a66ac4c05849c595e728fb4",
+    "package_hash": "0x3981e76425d55f0223dfe7f656fd8c4d9401f6460175fb3bf5c73af7d7e685f6",
+    "bytecode_hash": "0x9c217c8a3b9dba550e42a1e748bdd87396f4bd187c77e6a55c4eb3fd9d2946f7",
     "source_hash": "0xe855ea469ca82000366861330165b80fa2541d7d3fe3f6097ee4327ae21f4d86",
-    "abi_hash": "0x9630a5a068001708b0f8aaae7f8e23fcfda3e3bd7d14ebc0bd798b5b30301b8e",
+    "abi_hash": "0xab0f1b5245f2b9ea985bdbf521f6050882f1c464adb9cd0b08cab3f2ce0ed0cd",
     "version": "1.0.0"
   },
   "contract_type": "custom",

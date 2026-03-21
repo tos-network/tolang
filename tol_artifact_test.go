@@ -49,12 +49,20 @@ contract Demo {
 	}
 
 	var abi struct {
-		Functions []struct {
+		ABIVersion string `json:"abi_version"`
+		Kind       string `json:"kind"`
+		Functions  []struct {
 			Name       string   `json:"name"`
 			Visibility string   `json:"visibility"`
 			Selector   string   `json:"selector"`
 			Params     []string `json:"params"`
 		} `json:"functions"`
+		Errors []struct {
+			Name     string   `json:"name"`
+			Kind     string   `json:"kind"`
+			Selector string   `json:"selector"`
+			Params   []string `json:"params"`
+		} `json:"errors"`
 		Events []struct {
 			Name string `json:"name"`
 		} `json:"events"`
@@ -65,6 +73,12 @@ contract Demo {
 	if len(abi.Functions) != 1 {
 		t.Fatalf("unexpected abi function count: %d", len(abi.Functions))
 	}
+	if abi.ABIVersion != "1.0" {
+		t.Fatalf("unexpected abi_version: got=%q want=1.0", abi.ABIVersion)
+	}
+	if abi.Kind != "contract" {
+		t.Fatalf("unexpected kind: got=%q want=contract", abi.Kind)
+	}
 	if abi.Functions[0].Name != "ping" {
 		t.Fatalf("unexpected function name: %q", abi.Functions[0].Name)
 	}
@@ -74,6 +88,9 @@ contract Demo {
 	}
 	if len(abi.Events) != 1 || abi.Events[0].Name != "Tick" {
 		t.Fatalf("unexpected abi events: %+v", abi.Events)
+	}
+	if len(abi.Errors) != 0 {
+		t.Fatalf("unexpected abi errors: %+v", abi.Errors)
 	}
 
 	var storage struct {
@@ -433,5 +450,65 @@ contract GasModelTest {
 	}
 	if abi.GasModel.LogBase != gasModelLogBase {
 		t.Errorf("gas_model.log_base: got=%d want=%d", abi.GasModel.LogBase, gasModelLogBase)
+	}
+}
+
+func TestArtifactABIIncludesErrorsAndRevertSchema(t *testing.T) {
+	src := []byte(`
+pragma tolang 0.2.0;
+contract ErrorDemo {
+  error Unauthorized(agent caller);
+
+  function guarded(agent caller) public {
+    require(caller != agent(0), "ZERO");
+    revert Unauthorized(caller);
+  }
+}
+`)
+	artifactBytes, err := CompileArtifact(src, "<tol>")
+	if err != nil {
+		t.Fatalf("unexpected compile error: %v", err)
+	}
+	art, err := DecodeArtifact(artifactBytes)
+	if err != nil {
+		t.Fatalf("unexpected decode error: %v", err)
+	}
+
+	var abi struct {
+		Errors []struct {
+			Name     string   `json:"name"`
+			Kind     string   `json:"kind"`
+			Selector string   `json:"selector"`
+			Params   []string `json:"params"`
+		} `json:"errors"`
+		Functions []struct {
+			Name string `json:"name"`
+			Doc  struct {
+				RevertSchema []struct {
+					Name     string `json:"name"`
+					Kind     string `json:"kind"`
+					Selector string `json:"selector"`
+				} `json:"revert_schema"`
+			} `json:"doc"`
+		} `json:"functions"`
+	}
+	if err := json.Unmarshal(art.ABIJSON, &abi); err != nil {
+		t.Fatalf("failed to parse ABI JSON: %v", err)
+	}
+	if len(abi.Errors) != 1 {
+		t.Fatalf("errors length = %d, want 1", len(abi.Errors))
+	}
+	if abi.Errors[0].Name != "Unauthorized" || abi.Errors[0].Kind != "custom" {
+		t.Fatalf("unexpected error entry: %+v", abi.Errors[0])
+	}
+	wantSel := selectorHexFromSignature("Unauthorized(agent)")
+	if abi.Errors[0].Selector != wantSel {
+		t.Fatalf("error selector = %q, want %q", abi.Errors[0].Selector, wantSel)
+	}
+	if len(abi.Functions) != 1 {
+		t.Fatalf("functions length = %d, want 1", len(abi.Functions))
+	}
+	if len(abi.Functions[0].Doc.RevertSchema) != 2 {
+		t.Fatalf("revert_schema length = %d, want 2", len(abi.Functions[0].Doc.RevertSchema))
 	}
 }

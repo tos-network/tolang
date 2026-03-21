@@ -75,17 +75,13 @@ type tocABIManifest struct {
 	Extra       map[string]string `json:"extra,omitempty"`
 }
 
-// tocABI is the emitted ABI object. As of ABI spec 1.0 (docs/ABI_SPEC.md),
-// this struct should be extended to include:
-//   - ABIVersion string field (must emit "1.0")
-//   - Errors []tocABIError field for the Error Model (spec section 12)
-//   - Top-level "kind" field ("contract" or "interface")
-//
-// TODO(ABI-1.0): add ABIVersion, Errors, Kind fields and validate on encode.
 type tocABI struct {
+	ABIVersion      string           `json:"abi_version,omitempty"`
+	Kind            string           `json:"kind,omitempty"`
 	GasModel        tocABIGasModel   `json:"gas_model"`
 	Functions       []tocABIFunction `json:"functions"`
 	Events          []tocABIEvent    `json:"events"`
+	Errors          []tocABIError    `json:"errors,omitempty"`
 	Manifest        *tocABIManifest  `json:"manifest,omitempty"`
 	AccountContract bool             `json:"account_contract,omitempty"`
 }
@@ -95,6 +91,14 @@ type tocABI struct {
 type tocABIParam struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
+}
+
+type tocABIError struct {
+	Name        string        `json:"name"`
+	Kind        string        `json:"kind,omitempty"`
+	Selector    string        `json:"selector"`
+	Params      []string      `json:"params,omitempty"`
+	NamedParams []tocABIParam `json:"named_params,omitempty"`
 }
 
 type tocABIFunction struct {
@@ -136,15 +140,19 @@ type tocABIEvent struct {
 	NamedParams []tocABIParam `json:"named_params,omitempty"`
 }
 
-// tocABIDoc is the optional doc metadata emitted per function in the ABI JSON.
-// TODO(ABI-1.0): add RevertSchema field per spec section 7.9 for structured
-// revert descriptors referencing custom error types.
 type tocABIDoc struct {
 	Notice        string         `json:"notice,omitempty"`
 	Effects       *tocABIEffects `json:"effects,omitempty"`
 	Bounds        []string       `json:"bounds,omitempty"`
 	GasUpper      uint64         `json:"gas_upper,omitempty"`
 	NonComposable bool           `json:"non_composable,omitempty"`
+	RevertSchema  []tocABIRevert `json:"revert_schema,omitempty"`
+}
+
+type tocABIRevert struct {
+	Name     string `json:"name,omitempty"`
+	Kind     string `json:"kind,omitempty"`
+	Selector string `json:"selector"`
 }
 
 // tocABIEffects holds the @effects sub-object in ABI JSON.
@@ -512,8 +520,125 @@ func docMetaToABI(meta *tolast.DocMeta) *tocABIDoc {
 	return doc
 }
 
+func normalizeABIFieldDecls(fields []tolast.FieldDecl) ([]string, []tocABIParam) {
+	types := make([]string, 0, len(fields))
+	named := make([]tocABIParam, 0, len(fields))
+	for _, f := range fields {
+		t := normalizeABIType(f.Type)
+		types = append(types, t)
+		named = append(named, tocABIParam{Name: f.Name, Type: t})
+	}
+	return types, named
+}
+
+func builtinErrorRevert() tocABIRevert {
+	return tocABIRevert{Name: "Error", Kind: "error", Selector: "0x08c379a0"}
+}
+
+func builtinPanicRevert() tocABIRevert {
+	return tocABIRevert{Name: "Panic", Kind: "panic", Selector: "0x4e487b71"}
+}
+
+func customErrorABIEntry(ed tolast.ErrorDecl) tocABIError {
+	paramTypes, namedParams := normalizeABIFieldDecls(ed.Params)
+	sig := fmt.Sprintf("%s(%s)", strings.TrimSpace(ed.Name), strings.Join(paramTypes, ","))
+	return tocABIError{
+		Name:        strings.TrimSpace(ed.Name),
+		Kind:        "custom",
+		Selector:    selectorHexFromSignature(sig),
+		Params:      paramTypes,
+		NamedParams: namedParams,
+	}
+}
+
+func appendUniqueABIError(out []tocABIError, entry tocABIError) []tocABIError {
+	for _, existing := range out {
+		if existing.Selector == entry.Selector {
+			return out
+		}
+	}
+	return append(out, entry)
+}
+
+func appendUniqueABIRevert(out []tocABIRevert, entry tocABIRevert) []tocABIRevert {
+	for _, existing := range out {
+		if existing.Selector == entry.Selector {
+			return out
+		}
+	}
+	return append(out, entry)
+}
+
+func customErrorCallNameForABI(e *tolast.Expr) (string, bool) {
+	root := e
+	for root != nil && root.Kind == "paren" {
+		root = root.Left
+	}
+	if root == nil || root.Kind != "call" || root.Callee == nil {
+		return "", false
+	}
+	callee := root.Callee
+	for callee != nil && callee.Kind == "paren" {
+		callee = callee.Left
+	}
+	if callee == nil || callee.Kind != "ident" {
+		return "", false
+	}
+	name := strings.TrimSpace(callee.Value)
+	if name == "" || name == "selector" {
+		return "", false
+	}
+	return name, true
+}
+
+func collectFunctionRevertSchema(stmts []tolast.Statement, declared map[string]tocABIError) []tocABIRevert {
+	out := make([]tocABIRevert, 0)
+	var walk func([]tolast.Statement)
+	walk = func(block []tolast.Statement) {
+		for _, s := range block {
+			switch s.Kind {
+			case "require":
+				out = appendUniqueABIRevert(out, builtinErrorRevert())
+			case "assert":
+				out = appendUniqueABIRevert(out, builtinPanicRevert())
+			case "revert":
+				if s.Expr == nil {
+					out = appendUniqueABIRevert(out, builtinErrorRevert())
+				} else if name, ok := customErrorCallNameForABI(s.Expr); ok {
+					if decl, exists := declared[name]; exists {
+						out = appendUniqueABIRevert(out, tocABIRevert{
+							Name:     decl.Name,
+							Kind:     decl.Kind,
+							Selector: decl.Selector,
+						})
+					} else {
+						out = appendUniqueABIRevert(out, builtinErrorRevert())
+					}
+				} else {
+					out = appendUniqueABIRevert(out, builtinErrorRevert())
+				}
+			case "try":
+				walk(s.Body)
+				for _, c := range s.Catches {
+					walk(c.Body)
+				}
+			}
+			if s.Init != nil {
+				walk([]tolast.Statement{*s.Init})
+			}
+			walk(s.Then)
+			walk(s.Else)
+			if s.Kind != "try" {
+				walk(s.Body)
+			}
+		}
+	}
+	walk(stmts)
+	return out
+}
+
 // buildArtifactMetadataForContract builds ABI and storage-layout JSON for a specific contract.
-func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, []byte, error) {
+func buildArtifactMetadataForContract(mod *tolast.Module, c *tolast.ContractDecl) (string, []byte, []byte, error) {
 	if c == nil {
 		return "", nil, nil, fmt.Errorf("artifact metadata requires a contract")
 	}
@@ -523,6 +648,8 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 	}
 
 	abi := tocABI{
+		ABIVersion: "1.0",
+		Kind:       "contract",
 		GasModel: tocABIGasModel{
 			Version: gasModelVersion,
 			Sload:   gasModelSload,
@@ -531,7 +658,21 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 		},
 		Functions:       make([]tocABIFunction, 0, len(c.Functions)),
 		Events:          make([]tocABIEvent, 0, len(c.Events)),
+		Errors:          make([]tocABIError, 0, len(c.Errors)),
 		AccountContract: c.IsAccount,
+	}
+	declaredErrors := make(map[string]tocABIError, len(c.Errors)+len(mod.Errors))
+	if mod != nil {
+		for _, ed := range mod.Errors {
+			entry := customErrorABIEntry(ed)
+			declaredErrors[entry.Name] = entry
+			abi.Errors = appendUniqueABIError(abi.Errors, entry)
+		}
+	}
+	for _, ed := range c.Errors {
+		entry := customErrorABIEntry(ed)
+		declaredErrors[entry.Name] = entry
+		abi.Errors = appendUniqueABIError(abi.Errors, entry)
 	}
 	for _, fn := range c.Functions {
 		vis := functionVisibilityFromModifiers(fn.Modifiers)
@@ -606,6 +747,13 @@ func buildArtifactMetadataForContract(c *tolast.ContractDecl) (string, []byte, [
 			if fn.Doc.TotalCostMax != "" {
 				abiFn.DeclaredTotalCostMax = fn.Doc.TotalCostMax
 			}
+		}
+		revertSchema := collectFunctionRevertSchema(fn.Body, declaredErrors)
+		if len(revertSchema) > 0 {
+			if abiFn.Doc == nil {
+				abiFn.Doc = &tocABIDoc{}
+			}
+			abiFn.Doc.RevertSchema = revertSchema
 		}
 		abi.Functions = append(abi.Functions, abiFn)
 	}
@@ -738,7 +886,7 @@ func buildArtifactMetadata(mod *tolast.Module) (string, []byte, []byte, error) {
 	if c == nil {
 		return "", nil, nil, fmt.Errorf("artifact metadata requires contract module with at least one contract")
 	}
-	return buildArtifactMetadataForContract(c)
+	return buildArtifactMetadataForContract(mod, c)
 }
 
 // deriveFunctionMutability computes the Solidity-style mutability string from

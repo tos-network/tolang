@@ -21,16 +21,18 @@ for every package (`stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`).
 Core lifecycles (grant/revoke, escrow/release, recovery, receipts) are
 functionally closed.
 
-**Overall implementation: ~90%.**
+**Overall implementation: ~92%.**
 
 Remaining gaps:
 
-1. **Missing features in existing contracts**: milestone staged release, slash
-   distribution, structured SLA/quote fields in discovery, per-role spend caps,
-   reputation writes/scorer callback
-2. **Missing privacy ergonomics**: GTOS selective disclosure is resolved at the
-   protocol layer, but stdlib still lacks higher-level composed arbitrator /
-   regulator helper flows that package those primitives into one business API
+1. **Settlement refinements**: slash distribution and canonical auto-receipt
+   binding are still not built into the settlement path
+2. **Control-plane ergonomics**: terminal/trust modeling is still raw `u256`,
+   and step-up remains too query-oriented rather than a reusable enforcement
+   surface
+3. **Higher-level privacy/discovery ergonomics**: GTOS selective disclosure is
+   resolved at the protocol layer, but stdlib still lacks cleaner composed
+   arbitrator / regulator helper flows and richer typed discovery semantics
 
 ---
 
@@ -38,29 +40,29 @@ Remaining gaps:
 
 ### Wave 1: Control Plane — Making Agents Safe to Use
 
-**Wave status: ~85% implemented.** All 5 seed contracts exist with runtime
-tests. Gaps are convenience wrappers and per-role spend cap granularity.
+**Wave status: ~90% implemented.** All 5 seed contracts exist with runtime
+tests. The main remaining gaps are named terminal/trust taxonomy and stronger
+step-up ergonomics.
 
 | Scenario | Without stdlib | With stdlib | Status |
 |----------|--------------|-------------|--------|
-| Employee agent daily spend cap of 1000 TOS | Hand-rolled storage + time-window arithmetic | `PolicyAccount.setSpendCaps(daily_limit, single_limit)` | **~80%** — function exists but sets owner-level caps, not per-employee caps |
-| NFC card limited to 100 TOS at POS terminals | Hand-rolled terminal type check + amount guard | `SessionBook.grantSession(session_id, terminal, scope, trust_tier, budget, ...)` | **~70%** — session grant with trust tier and budget exists; no single-call `require_terminal` convenience API |
+| Employee agent daily spend cap of 1000 TOS | Hand-rolled storage + time-window arithmetic | `PolicyAccount.setSpendCaps(daily_limit, single_limit)` + `setDelegateCaps(delegate, daily_limit, single_limit)` | **~90%** — owner caps plus enforced per-delegate daily/single caps |
+| NFC card limited to 100 TOS at POS terminals | Hand-rolled terminal type check + amount guard | `SessionBook.grantSession(session_id, terminal, scope, trust_tier, budget, ...)` + `requireTerminal(session_id, amount)` | **~80%** — session grant, trust tier, budget, and convenience guard exist; terminal/trust taxonomy remains raw `u256` |
 | Guardian recovers a compromised account | Hand-rolled timelock + challenge period + ownership transfer | `RecoveryController.startRecovery(new_owner)` → `approveRecovery()` → `executeRecovery()` | **~90%** — full lifecycle with timelock, cancel, freeze; multi-step rather than single-call |
 | AI agent delegated with revocable authority | Hand-rolled delegation map + expiry + revocation | `AuthorityBook.grant(operator, scope, budget, expiry_ms, policy_hash, nonce_floor)` / `PolicyAccount.authorizeDelegate(delegate, allowance, expiry_ms)` | **~85%** — capped, time-bounded, revocable delegation in both contracts |
 | Off-chain approval bound to on-chain execution | Hand-rolled nonce + policy hash + replay guard | `ExecutionBindingBook.approve(binding_id, principal, executor, expiry_ms, nonce, policy_hash, ...)` | **~85%** — full binding with nonce, policy hash, expiry, proof ref |
 
 **Gaps:**
-- No per-employee / per-role spend cap — `PolicyAccount.setSpendCaps` is owner-scoped
-- No single-call convenience APIs (e.g. `require_terminal`) — consumers must
-  call lower-level contract functions directly
 - `SessionBook` models trust tiers as u256 constants, not a named enum of 6
   terminal types x 5 trust tiers
+- step-up remains query-oriented; stdlib still lacks a stronger canonical
+  enforcement layer that downstream packages can reuse directly
 
 ---
 
 ### Wave 2: Execution Plane — Making Agents Commercially Productive
 
-**Wave status: ~85% implemented.** Core task escrow, agreement, sponsor relay,
+**Wave status: ~90% implemented.** Core task escrow, agreement, sponsor relay,
 evidence, and receipt contracts exist. `RecurringPayment` now provides
 subscription/periodic payment scheduling.
 
@@ -71,8 +73,8 @@ subscription/periodic payment scheduling.
 | Merchant POS payment, sponsor pays gas | `SponsorPolicyRelay.relay(target, data, user, cost, policy_hash, binding_ref, receipt_ref)` | **~70%** — relay with policy + budget exists; no `sponsored_payment` convenience wrapper |
 | Monthly subscription auto-debit | `RecurringPayment.subscribe(subscription_id, provider, amount, interval_ms, max_cycles, agreement_ref)` + `executePayment(subscription_id, receipt_ref)` | **~85%** — coordinator-triggered periodic payments with pause/resume/cancel |
 | Every settlement auto-generates audit receipt | `ReceiptBook.openReceipt(...)` → `finalizeSuccess(receipt_id, result_ref, settlement_ref)` | **~80%** — receipt creation is manual (caller must invoke), not auto-generated by settlement |
-| Confidential escrow with milestone release | `ConfidentialEscrow.openEscrow(escrow_id, payee, expiry_ms, receipt_ref)` → `releaseEscrow(escrow_id, settlement_ref)` | **~70%** — single-release escrow works; milestone staged release NOT IMPLEMENTED |
-| Quote → offer → acceptance → invoice lifecycle | `CommercialAgreement.createOffer(counterparty, amount, expiry_ms, quote_ref, terms_ref)` → `accept` → `fulfill` | **~85%** — offer/accept/fulfill/cancel/expire lifecycle exists; no explicit invoice sub-type |
+| Milestone task payout with staged release | `TaskSettlement.openMilestoneTask(task_ref, milestone_count, deadline_ms, receipt_ref)` → `acceptTask` → `completeMilestone` | **~90%** — staged release exists with milestone status, partial reclaim, and final remainder handling |
+| Quote → offer → acceptance → invoice lifecycle | `CommercialAgreement.createOffer(counterparty, amount, expiry_ms, quote_ref, terms_ref)` / `createInvoice(payer, amount, due_ms, terms_ref)` → `accept` → `fulfill` | **~90%** — offer/accept/fulfill/cancel/expire lifecycle plus explicit invoice subtype |
 
 **Gaps:**
 - ~~**Recurring/subscription payments**~~ — **RESOLVED**: `RecurringPayment`
@@ -90,20 +92,20 @@ subscription/periodic payment scheduling.
 
 ### Wave 3: Market Plane — Making Agent Economies Scale
 
-**Wave status: ~80% implemented.** All privacy-family contracts now exist
+**Wave status: ~85% implemented.** All privacy-family contracts now exist
 (ConfidentialVault, ConfidentialEscrow, ConfidentialPayment,
 ConfidentialTreasury, ConfidentialAllowance, AuditorDisclosureBook).
-Remaining gaps are structured discovery fields, reputation write paths, and
-some higher-level privacy ergonomics.
+Remaining gaps are higher-level privacy ergonomics and richer typed discovery
+semantics beyond the current reference-based fields.
 
 | Scenario | With stdlib | Status |
 |----------|-------------|--------|
 | Encrypted payroll: employees see amounts, not each other | `ConfidentialPayment.batchPay(batch_id, receipt_ref)` + `addPayee(batch_id, payee, amount)` + `releaseBatch(batch_id, settlement_ref)` | **~85%** — batch payment with per-payee amounts implemented |
 | Auditor verifies financials without seeing individual txs | `AuditorDisclosureBook.publishSnapshot(snapshot_id, data_ref, proof_ref, period_start, period_end)` + `authorizeAuditor(auditor, scope_ref, expiry_ms)` | **~85%** — snapshot-based disclosure with auditor authorization and finalization |
-| Agent filters counterparties by reputation | `TrustRegistry.isEligible(subject)` / `snapshotReputationOf(subject)` | **~60%** — read-only eligibility check exists; no reputation write/update function (depends on external scorer) |
-| New agent advertises translation capability | `ServiceDirectory.registerService(manifest_ref, capability_ref, version_ref, quote_ref)` | **~70%** — registration exists with bytes32 references; no structured SLA or fee fields |
+| Agent filters counterparties by reputation | `TrustRegistry.isEligible(subject)` / `snapshotReputationOf(subject)` / `updateReputation(subject, delta, reason_ref)` | **~85%** — eligibility composes native reputation baseline with local deltas; scorer callback exists |
+| New agent advertises translation capability | `ServiceDirectory.registerService(manifest_ref, capability_ref, version_ref, quote_ref)` + `setServiceFee(service_id, fee)` + `setServiceSLA(service_id, sla_duration_ms)` | **~80%** — registration plus structured fee/SLA fields exist; capability metadata is still reference-based |
 | Confidential treasury with selective disclosure | `ConfidentialTreasury.deposit()` + `authorizeSpend(spend_id, recipient, amount, purpose_ref)` + `executeSpend(spend_id, settlement_ref)` + `authorizeAuditor(auditor, disclosure_ref)` | **~85%** — multi-signer treasury with auditor disclosure |
-| Stake-backed service guarantee | `TrustRegistry.depositBond()` / `setTrustFloor(min_stake, min_reputation)` / `isEligible(subject)` | **~70%** — bond deposit and eligibility floor exist; no per-service-agreement stake lock |
+| Stake-backed service guarantee | `TrustRegistry.depositBond()` / `setTrustFloor(min_stake, min_reputation)` / `lockStake(subject, agreement_ref, amount)` / `unlockStake(subject, agreement_ref)` | **~80%** — bond floor plus per-agreement stake lock exists |
 
 **Gaps:**
 - ~~**Missing contracts**~~ — **RESOLVED**: all 6 privacy-family contracts
@@ -138,8 +140,8 @@ some higher-level privacy ergonomics.
 | Gas bounds | Guessed or empirical | `@gas(upper: N)` verified by compiler, bound-checked | **~90%** — compiler-level |
 | Terminal-scoped policy | Not supported | `SessionBook` + `PolicyAccount` — per-session trust tier and budget | **~70%** — requires manual composition of two contracts |
 | Guardian recovery | ~150 lines hand-rolled | `RecoveryController.startRecovery` → `approveRecovery` → `executeRecovery` — timelocked, cancellable | **~90%** |
-| Discovery metadata | No standard | `ServiceDirectory.registerService(manifest_ref, capability_ref, version_ref, quote_ref)` | **~70%** — bytes32 references only, no structured SLA/quote fields |
-| Confidential DeFi | Not supported | `ConfidentialEscrow` + `ConfidentialVault` + `ConfidentialPayment` + `ConfidentialTreasury` + `ConfidentialAllowance` + `AuditorDisclosureBook` — full privacy family on UNO rails | **~85%** — all 6 contracts implemented; remaining gap is multi-milestone confidential settlement |
+| Discovery metadata | No standard | `ServiceDirectory.registerService(manifest_ref, capability_ref, version_ref, quote_ref)` + `setServiceFee` + `setServiceSLA` | **~80%** — fee and SLA are structured fields; capability metadata remains reference-based |
+| Confidential DeFi | Not supported | `ConfidentialEscrow` + `ConfidentialVault` + `ConfidentialPayment` + `ConfidentialTreasury` + `ConfidentialAllowance` + `AuditorDisclosureBook` — full privacy family on UNO rails | **~85%** — all 6 contracts implemented; remaining gap is higher-level composed privacy ergonomics |
 
 ---
 
@@ -184,14 +186,14 @@ cleaner composed example and convenience surface.
 | `execution_binding` | Nonce management, policy hash binding, replay guards | **~90%** — `ExecutionBindingBook` with `approve`, `cancel`, `consume`, nonce+expiry+policy_hash | — |
 | `session` | Terminal type discrimination, trust tier checks, step-up logic | **~80%** — `SessionBook` with `grantSession`, `consume`, `requiresStepUp`, `requireTerminal` | `requireTerminal` provides convenience enforcement; trust tiers are raw u256 |
 | `recovery` | Timelock arithmetic, challenge periods, ownership transfer | **~90%** — `RecoveryController` with `startRecovery`, `approveRecovery`, `executeRecovery`, `freeze` | — |
-| `agreement` | Quote/offer/acceptance state machines | **~90%** — `CommercialAgreement` with `createOffer`, `createInvoice`, `accept`, `cancel`, `fulfill`, `expire`, `agreementTypeOf` | Invoice subtype implemented |
+| `agreement` | Quote/offer/acceptance state machines | **~90%** — `CommercialAgreement` with `createOffer`, `createInvoice`, `accept`, `cancel`, `fulfill`, `expire`, `agreementTypeOf` | Invoice subtype implemented; subscription state remains externalized to `RecurringPayment` |
 | `settlement` | Escrow state machines, milestone tracking, slash distribution | **~90%** — `TaskSettlement` with full task lifecycle + dispute + milestone staged release; `RecurringPayment` with subscribe/execute/cancel/pause/resume | No configurable slash distribution |
 | `sponsor` | Sponsor authorization, budget tracking, attribution records | **~85%** — `SponsorPolicyRelay` with `authorizeRelayer`, `relay`, budget tracking | — |
 | `evidence` | Oracle write-once guards, proof reference attachment | **~85%** — `EvidenceBook` with `openEvidence`, `fulfill`, `challenge`, `finalize` | — |
 | `receipt` | Receipt formatting, approval linkage, settlement traces | **~80%** — `ReceiptBook` with `openReceipt`, `finalizeSuccess`, `finalizeFailure` | Not auto-emitted; requires explicit caller integration |
 | `trust` | Reputation queries, stake checks, scorer integration | **~85%** — `TrustRegistry` with `depositBond`, `setTrustFloor`, `isEligible`, `snapshotReputationOf`, `updateReputation`, `setScorerCallback`, `lockStake`, `unlockStake`, `lockedStakeOf` | Reputation writes affect eligibility; per-agreement stake locks implemented |
 | `privacy` | UNO bridge wiring, disclosure flow setup, auditor view construction | **~85%** — `ConfidentialVault` (deposit/withdraw/auditor auth) + `ConfidentialEscrow` (escrow/release/refund) + `ConfidentialPayment` (batch/individual payments) + `ConfidentialTreasury` (multi-signer treasury) + `ConfidentialAllowance` (encrypted approve/transferFrom) + `AuditorDisclosureBook` (snapshot-based disclosure) | GTOS selective disclosure stack is resolved; remaining work is higher-level composed helper flows |
-| `discovery` | Manifest construction, capability advertisement, version markers | **~80%** — `ServiceDirectory` with `registerService`, `updateManifest`, `updateQuote`, `deactivate`, `setServiceFee`, `setServiceSLA`, `feeOf`, `slaOf` | Fee and SLA are structured u256 fields; capability still bytes32 ref |
+| `discovery` | Manifest construction, capability advertisement, version markers | **~80%** — `ServiceDirectory` with `registerService`, `updateManifest`, `updateQuote`, `deactivate`, `setServiceFee`, `setServiceSLA`, `feeOf`, `slaOf` | Fee and SLA are structured u256 fields; capability metadata is still reference-based |
 
 ---
 
@@ -209,14 +211,14 @@ All previously missing contracts have been implemented:
 | `AuditorDisclosureBook` | `privacy` | **IMPLEMENTED** — structured auditor disclosure with snapshots |
 | `RecurringPayment` | `settlement` | **IMPLEMENTED** — subscription/recurring payment scheduler |
 
-### Missing features in existing contracts
+### Remaining features in existing contracts
 
 | Feature | Affected contract | Description |
 |---------|------------------|-------------|
 | ~~Milestone staged release~~ | `TaskSettlement` | **RESOLVED** — `openMilestoneTask` / `completeMilestone` / `milestoneStatusOf` |
 | Slash distribution | `TaskSettlement` | Dispute resolution exists but no configurable split/slash |
 | Auto-receipt emission | `ReceiptBook` | Receipts require explicit calls; not auto-bound to settlement |
-| ~~Invoice/subscription agreement types~~ | `CommercialAgreement` | **RESOLVED** — `createInvoice` / `agreementTypeOf` |
+| ~~Invoice type~~ | `CommercialAgreement` | **RESOLVED** — `createInvoice` / `agreementTypeOf` |
 | ~~Per-role spend caps~~ | `PolicyAccount` | **RESOLVED** — `setDelegateCaps` / `delegateDailyRemaining`; enforced in execute path |
 | ~~Reputation writes~~ | `TrustRegistry` | **RESOLVED** — `updateReputation` / `setScorerCallback`; composes native + local |
 | ~~Structured discovery fields~~ | `ServiceDirectory` | **RESOLVED** — `setServiceFee` / `setServiceSLA` / `feeOf` / `slaOf` |
@@ -275,5 +277,5 @@ have package/artifact coverage.  The privacy family is now complete with 6
 contracts (ConfidentialVault, ConfidentialEscrow, ConfidentialPayment,
 ConfidentialTreasury, ConfidentialAllowance, AuditorDisclosureBook).  The
 settlement family has both TaskSettlement and RecurringPayment.  The
-remaining gaps are milestone staged release, slash distribution, ZK proof
-gates, and structured discovery fields.
+remaining gaps are slash distribution, auto-receipt binding, stronger
+terminal/trust ergonomics, and higher-level composed privacy helper flows.

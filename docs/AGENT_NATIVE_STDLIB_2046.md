@@ -1015,9 +1015,9 @@ The stdlib seeds, release artifacts, runtime coverage, and discovery surfaces
 are now substantially complete.  The five major follow-on gaps (cross-contract
 atomicity, privacy family completion, recurring payments, `@requires` syntax,
 and selective disclosure) are all resolved.  The capability audit in
-`docs/STDLIB_CAPABILITY_ANALYSIS.md` tracks remaining feature-level gaps
-(milestone release, slash distribution, structured discovery, per-role spend
-caps, reputation writes).
+`docs/STDLIB_CAPABILITY_ANALYSIS.md` now tracks the remaining feature-level
+gaps: slash distribution, auto-receipt binding, named terminal/trust taxonomy,
+stronger step-up ergonomics, and higher-level privacy composition helpers.
 
 These remaining items are not hypothetical future ideas.
 They are the current remaining implementation backlog.
@@ -1036,11 +1036,12 @@ All previously missing privacy-family contracts are now implemented in
 
 These gaps exist even though the seed contracts compile and have runtime tests:
 
-- `PolicyAccount` still lacks per-role or per-employee spend caps
-  `setSpendCaps(...)` is currently owner-scoped rather than delegate- or
-  employee-scoped
-- `SessionBook` and related flows still lack single-call convenience APIs such
-  as `require_terminal(...)`
+- ~~`PolicyAccount` still lacks per-role or per-employee spend caps~~ —
+  **RESOLVED (2026-03-21)**: `setDelegateCaps(...)` and execute-path
+  enforcement now provide delegate-scoped daily/single caps
+- ~~`SessionBook` and related flows still lack single-call convenience APIs such
+  as `require_terminal(...)`~~ — **RESOLVED (2026-03-21)**:
+  `requireTerminal(...)` exists as a convenience enforcement wrapper
 - terminal and trust modeling is still represented as raw `u256` constants
   rather than a named `6 terminal types x 5 trust tiers` semantic matrix
 - step-up logic is still too query-oriented
@@ -1064,9 +1065,11 @@ These are the main remaining commercial-flow gaps:
 - auto-receipt binding
   `ReceiptBook` exists, but settlement does not yet auto-bind receipt creation
   and finalization
-- ~~invoice and subscription agreement sub-types~~ — **RESOLVED (2026-03-21)**:
+- ~~invoice sub-type~~ — **RESOLVED (2026-03-21)**:
   `CommercialAgreement.createInvoice` / `agreementTypeOf` (TYPE_OFFER=1,
   TYPE_INVOICE=2)
+- subscription lifecycle is handled by `RecurringPayment`
+  it is not modeled as a separate `CommercialAgreement` sub-type
 
 ### Missing market-plane capability features
 
@@ -1100,17 +1103,21 @@ The following items have been resolved:
 
 Remaining implementation order:
 
-1. close staged settlement:
-   milestone release, slash distribution,
-   invoice/subscription agreement forms
-2. close receipt automation:
-   canonical auto-receipt binding between settlement and `ReceiptBook`
-3. close policy and session ergonomics:
-   per-role spend caps, named terminal/trust taxonomy, stronger step-up and
-   `require_terminal(...)` style APIs
-4. close market-scale semantics:
-   reputation writes, scorer callbacks, stake locks, and structured discovery
-   fields
+1. close settlement automation:
+   slash distribution and canonical auto-receipt binding between settlement and
+   `ReceiptBook`
+2. close policy and session ergonomics:
+   named terminal/trust taxonomy and stronger reusable step-up enforcement
+3. close market/privacy ergonomics:
+   richer composed disclosure/arbitrator/regulator helper flows and discovery
+   schema normalization beyond reference-only capability metadata
+
+Detailed design homes for item 3:
+
+- privacy composition helpers:
+  `docs/PRIVACY_COMPOSITION_HELPERS.md`
+- typed discovery / capability schema normalization:
+  `docs/DISCOVERY_TYPED_SCHEMA.md`
 
 ### Acceptance bar for capability-complete closure
 
@@ -1151,6 +1158,20 @@ stable for future evolution:
 - recurring settlement — **RESOLVED** (`RecurringPayment`); design home: scheduler + settlement
 - caller capability syntax — **RESOLVED** (compiler pipeline + tests); design home: compiler
 - selective disclosure — **RESOLVED** (all 3 GTOS layers); design home: GTOS privacy/protocol
+
+### Design homes for the current remaining backlog
+
+The remaining backlog is smaller and should now use the following focused design
+homes:
+
+| Remaining item | Primary implementation surface | Detailed design home |
+| --- | --- | --- |
+| Slash distribution | `stdlib/settlement/TaskSettlement.tol` | `docs/AGENT_NATIVE_STDLIB_2046.md` plus `docs/STDLIB_CAPABILITY_ANALYSIS.md` |
+| Auto-receipt binding | `stdlib/settlement` + `stdlib/receipt` | `docs/AGENT_NATIVE_STDLIB_2046.md` plus `docs/STDLIB_CAPABILITY_ANALYSIS.md` |
+| Named terminal/trust taxonomy | `stdlib/session_book/SessionBook.tol` | `docs/AGENT_NATIVE_STDLIB_2046.md` plus `docs/STDLIB_CAPABILITY_ANALYSIS.md` |
+| Stronger reusable step-up enforcement | `stdlib/session_book/SessionBook.tol` | `docs/AGENT_NATIVE_STDLIB_2046.md` plus `docs/STDLIB_CAPABILITY_ANALYSIS.md` |
+| Higher-level privacy composition helpers | `stdlib/privacy` + composed examples | `docs/PRIVACY_COMPOSITION_HELPERS.md` |
+| Typed discovery / capability schema normalization | `stdlib/discovery` + exporter + metadata | `docs/DISCOVERY_TYPED_SCHEMA.md` plus `docs/AGENT_ABI_SCHEMA.md` |
 
 ## A hard rule
 

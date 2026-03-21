@@ -179,15 +179,15 @@ Repo:
 - /home/tomi/tolang
 
 Open targets:
-- TrustRegistry reputation writes / scorer callback
-- per-agreement or per-service stake lock semantics
-- structured discovery fields in ServiceDirectory
 - higher-level composed privacy ergonomics on top of already-resolved GTOS selective disclosure
+- typed discovery / capability schema normalization on top of the current `ServiceDirectory`
 
 Read first:
 - /home/tomi/tolang/docs/AGENT_NATIVE_STDLIB_2046.md
 - /home/tomi/tolang/docs/STDLIB_CAPABILITY_ANALYSIS.md
 - /home/tomi/tolang/docs/PRIVACY_STDLIB_FAMILY.md
+- /home/tomi/tolang/docs/PRIVACY_COMPOSITION_HELPERS.md
+- /home/tomi/tolang/docs/DISCOVERY_TYPED_SCHEMA.md
 - /home/tomi/tolang/stdlib/trust/TrustRegistry.tol
 - /home/tomi/tolang/stdlib/discovery/ServiceDirectory.tol
 - /home/tomi/tolang/stdlib/privacy/
@@ -204,6 +204,8 @@ Instructions:
 - Agent 4 owns tests and doc sync.
 - Do not re-implement GTOS selective disclosure cryptography in Tolang.
 - Build stdlib convenience flows on top of what GTOS already provides.
+- Follow `PRIVACY_COMPOSITION_HELPERS.md` for helper contracts/examples.
+- Follow `DISCOVERY_TYPED_SCHEMA.md` for typed discovery fields, enums, and export shape.
 
 Deliverables:
 - trust/discovery/privacy code updates
@@ -241,6 +243,7 @@ Read first:
 - /home/tomi/tolang/docs/TOLANG_SHORTCOMINGS.md
 - /home/tomi/tolang/docs/AGENT_NATIVE_STDLIB_2046.md
 - /home/tomi/tolang/docs/STDLIB_CAPABILITY_ANALYSIS.md
+- /home/tomi/tolang/docs/DISCOVERY_TYPED_SCHEMA.md
 - /home/tomi/tolang/docs/CALLER_CAPABILITY_SYNTAX.md
 - /home/tomi/gtos/docs/Atomic-Execution-v1.md
 - /home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md
@@ -253,6 +256,9 @@ Instructions:
 - Agent 4: VM-native economic primitive roadmap
 - Main agent integrates into a coherent design pack.
 - Do not do speculative coding unless a small code spike is necessary to validate a design claim.
+- Treat `DISCOVERY_TYPED_SCHEMA.md` as the immediate concrete design home for the
+  discovery/capability normalization subtask, and align it with
+  `AGENT_ABI_SCHEMA.md`.
 
 Expected outputs:
 - 3 to 4 new design docs or major doc expansions

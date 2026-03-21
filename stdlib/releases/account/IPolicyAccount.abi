@@ -1,0 +1,24 @@
+pragma tolang 0.4.0;
+
+interface IPolicyAccount {
+  function validate(bytes32 tx_hash, bytes sig) public returns (bool ok);
+  function setSpendCaps(u256 _daily_limit, u256 _single_limit) public;
+  function setAllowlistEnabled(bool enabled) public;
+  function setAllowlisted(agent target, bool allowed) public;
+  function authorizeDelegate(agent delegate, u256 allowance, u256 expiry_ms) public;
+  function revokeDelegate(agent delegate) public;
+  function suspend() public;
+  function unsuspend() public;
+  function execute(agent target, bytes data, u256 value) public returns (bool ok);
+  function remainingDaily() public view returns (u256 remaining);
+  function delegateRemaining(agent delegate) public view returns (u256 remaining);
+  function isSuspended() public view returns (bool ok);
+  event SpendCapsSet(u256 daily_limit, u256 single_limit);
+  event AllowlistModeSet(bool enabled);
+  event AllowlistUpdated(agent target indexed, bool allowed);
+  event DelegateAuthorized(agent delegate indexed, u256 allowance, u256 expiry_ms);
+  event DelegateRevoked(agent delegate indexed);
+  event Suspended(agent by indexed);
+  event Unsuspended(agent by indexed);
+  event Executed(agent actor indexed, agent target indexed, u256 value, u256 daily_remaining);
+}

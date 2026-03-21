@@ -1,0 +1,13 @@
+pragma tolang 0.4.0;
+
+interface IReceiptBook {
+  function openReceipt(bytes32 receipt_id, agent principal, agent actor, agent sponsor, agent target, u256 value, bytes32 policy_hash, bytes32 binding_ref, bytes32 proof_ref, bytes32 external_ref) public;
+  function finalizeSuccess(bytes32 receipt_id, bytes32 result_ref, bytes32 settlement_ref) public;
+  function finalizeFailure(bytes32 receipt_id, bytes32 result_ref) public;
+  function statusOf(bytes32 receipt_id) public view returns (u256 status);
+  function bindingRefOf(bytes32 receipt_id) public view returns (bytes32 binding_ref);
+  function proofRefOf(bytes32 receipt_id) public view returns (bytes32 proof_ref);
+  function isFinalized(bytes32 receipt_id) public view returns (bool ok);
+  event ReceiptOpened(bytes32 receipt_id indexed, agent principal indexed, agent actor indexed, agent sponsor, agent target, u256 value, bytes32 policy_hash, bytes32 binding_ref, bytes32 proof_ref, bytes32 external_ref);
+  event ReceiptFinalized(bytes32 receipt_id indexed, u8 status, bytes32 result_ref, bytes32 settlement_ref);
+}

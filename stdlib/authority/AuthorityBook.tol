@@ -1,0 +1,193 @@
+pragma tolang 0.4.0;
+
+package tolang.stdlib.authority;
+
+// AuthorityBook — bounded authority surface for one principal.
+//
+// The contract models the minimum agent-native authority record:
+// operator + scope + budget + expiry + nonce floor + policy snapshot.
+
+interface IAuthorityBook {
+    event AuthorityGranted(
+        agent indexed principal,
+        agent indexed operator,
+        bytes32 indexed scope,
+        u256 budget,
+        u256 expiry_ms,
+        bytes32 policy_hash,
+        u256 nonce_floor
+    )
+    event AuthorityConsumed(
+        agent indexed principal,
+        agent indexed operator,
+        bytes32 indexed scope,
+        u256 amount,
+        u256 nonce,
+        bytes32 binding_ref,
+        u256 remaining
+    )
+    event AuthorityRevoked(agent indexed principal, agent indexed operator, bytes32 indexed scope)
+
+    function grant(
+        agent operator,
+        bytes32 scope,
+        u256 budget,
+        u256 expiry_ms,
+        bytes32 policy_hash,
+        u256 nonce_floor
+    ) public;
+
+    function revoke(agent operator, bytes32 scope) public;
+
+    function consume(
+        agent operator,
+        bytes32 scope,
+        u256 amount,
+        u256 nonce,
+        bytes32 binding_ref
+    ) public returns (bool ok);
+
+    @verifiable
+    function remainingOf(agent operator, bytes32 scope) public view returns (u256 remaining);
+
+    @verifiable
+    function isActive(agent operator, bytes32 scope) public view returns (bool ok);
+
+    @verifiable
+    function policyHashOf(agent operator, bytes32 scope) public view returns (bytes32 policy_hash);
+}
+
+contract AuthorityBook is IAuthorityBook {
+    manifest {
+        name: "AuthorityBook";
+        version: "1.0.0";
+        description: "Scoped authority grants with budget, expiry, nonce floor, and policy hash";
+    }
+
+    agent principal;
+
+    mapping(agent => mapping(bytes32 => u256)) authority_budget;
+    mapping(agent => mapping(bytes32 => u256)) authority_used;
+    mapping(agent => mapping(bytes32 => u256)) authority_expiry;
+    mapping(agent => mapping(bytes32 => u256)) authority_nonce_floor;
+    mapping(agent => mapping(bytes32 => u256)) authority_last_nonce;
+    mapping(agent => mapping(bytes32 => bytes32)) authority_policy_hash;
+    mapping(agent => mapping(bytes32 => bool)) authority_active;
+
+    event AuthorityGranted(
+        agent indexed principal,
+        agent indexed operator,
+        bytes32 indexed scope,
+        u256 budget,
+        u256 expiry_ms,
+        bytes32 policy_hash,
+        u256 nonce_floor
+    )
+    event AuthorityConsumed(
+        agent indexed principal,
+        agent indexed operator,
+        bytes32 indexed scope,
+        u256 amount,
+        u256 nonce,
+        bytes32 binding_ref,
+        u256 remaining
+    )
+    event AuthorityRevoked(agent indexed principal, agent indexed operator, bytes32 indexed scope)
+
+    constructor(agent _principal) {
+        require(_principal != agent(0), "ZERO_PRINCIPAL");
+        set principal = _principal;
+    }
+
+    function grant(
+        agent operator,
+        bytes32 scope,
+        u256 budget,
+        u256 expiry_ms,
+        bytes32 policy_hash,
+        u256 nonce_floor
+    ) public {
+        require(msg.sender == principal, "NOT_PRINCIPAL");
+        require(operator != agent(0), "ZERO_OPERATOR");
+        require(budget > 0, "ZERO_BUDGET");
+        require(scope != bytes32(0), "ZERO_SCOPE");
+        set authority_budget[operator][scope] = budget;
+        set authority_used[operator][scope] = 0;
+        set authority_expiry[operator][scope] = expiry_ms;
+        set authority_nonce_floor[operator][scope] = nonce_floor;
+        set authority_last_nonce[operator][scope] = 0;
+        set authority_policy_hash[operator][scope] = policy_hash;
+        set authority_active[operator][scope] = true;
+        emit AuthorityGranted(principal, operator, scope, budget, expiry_ms, policy_hash, nonce_floor);
+    }
+
+    function revoke(agent operator, bytes32 scope) public {
+        require(msg.sender == principal, "NOT_PRINCIPAL");
+        set authority_active[operator][scope] = false;
+        emit AuthorityRevoked(principal, operator, scope);
+    }
+
+    function consume(
+        agent operator,
+        bytes32 scope,
+        u256 amount,
+        u256 nonce,
+        bytes32 binding_ref
+    ) public returns (bool ok) {
+        require(msg.sender == principal || msg.sender == operator, "NOT_AUTHORIZED");
+        require(authority_active[operator][scope] == true, "NOT_ACTIVE");
+        require(amount > 0, "ZERO_AMOUNT");
+
+        u256 expiry_ms = authority_expiry[operator][scope];
+        if (expiry_ms > 0) {
+            require(block.timestamp_ms < expiry_ms, "AUTHORITY_EXPIRED");
+        }
+
+        require(nonce >= authority_nonce_floor[operator][scope], "NONCE_BELOW_FLOOR");
+        require(nonce > authority_last_nonce[operator][scope], "NONCE_REPLAY");
+        require(authority_used[operator][scope] + amount <= authority_budget[operator][scope], "OVER_BUDGET");
+
+        set authority_used[operator][scope] = authority_used[operator][scope] + amount;
+        set authority_last_nonce[operator][scope] = nonce;
+
+        emit AuthorityConsumed(
+            principal,
+            operator,
+            scope,
+            amount,
+            nonce,
+            binding_ref,
+            authority_budget[operator][scope] - authority_used[operator][scope]
+        );
+        return true;
+    }
+
+    @verifiable
+    function remainingOf(agent operator, bytes32 scope) public view returns (u256 remaining) {
+        if (authority_active[operator][scope] != true) {
+            return 0;
+        }
+        u256 expiry_ms = authority_expiry[operator][scope];
+        if (expiry_ms > 0 && block.timestamp_ms >= expiry_ms) {
+            return 0;
+        }
+        return authority_budget[operator][scope] - authority_used[operator][scope];
+    }
+
+    @verifiable
+    function isActive(agent operator, bytes32 scope) public view returns (bool ok) {
+        if (authority_active[operator][scope] != true) {
+            return false;
+        }
+        u256 expiry_ms = authority_expiry[operator][scope];
+        if (expiry_ms > 0 && block.timestamp_ms >= expiry_ms) {
+            return false;
+        }
+        return true;
+    }
+
+    @verifiable
+    function policyHashOf(agent operator, bytes32 scope) public view returns (bytes32 policy_hash) {
+        return authority_policy_hash[operator][scope];
+    }
+}

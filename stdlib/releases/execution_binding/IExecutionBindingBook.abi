@@ -1,0 +1,14 @@
+pragma tolang 0.4.0;
+
+interface IExecutionBindingBook {
+  function approve(bytes32 binding_id, agent executor, agent target, u256 value_limit, u256 expiry_ms, bytes32 policy_hash, bytes32 sponsor_policy_hash, bytes32 proof_ref, bytes32 intent_ref) public;
+  function cancel(bytes32 binding_id) public;
+  function consume(bytes32 binding_id, u256 value_used, bytes32 receipt_ref) public returns (bool ok);
+  function isConsumable(bytes32 binding_id) public view returns (bool ok);
+  function executorOf(bytes32 binding_id) public view returns (agent executor);
+  function policyHashOf(bytes32 binding_id) public view returns (bytes32 policy_hash);
+  function proofRefOf(bytes32 binding_id) public view returns (bytes32 proof_ref);
+  event BindingApproved(bytes32 binding_id indexed, agent approver indexed, agent executor indexed, agent target, u256 value_limit, u256 expiry_ms, bytes32 policy_hash, bytes32 sponsor_policy_hash, bytes32 proof_ref, bytes32 intent_ref);
+  event BindingConsumed(bytes32 binding_id indexed, agent consumer indexed, u256 value_used, bytes32 receipt_ref);
+  event BindingCancelled(bytes32 binding_id indexed, agent canceller indexed);
+}

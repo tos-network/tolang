@@ -1,0 +1,18 @@
+pragma tolang 0.4.0;
+
+interface IEvidenceBook {
+  function setAttester(agent attester, bool enabled) public;
+  function openEvidence(bytes32 evidence_id, bytes32 claim_ref, agent attester, u256 expiry_ms, u256 challenge_window_ms) public;
+  function fulfill(bytes32 evidence_id, u256 value, bytes32 proof_ref) public;
+  function challenge(bytes32 evidence_id, bytes32 challenge_ref) public;
+  function finalize(bytes32 evidence_id) public;
+  function readValue(bytes32 evidence_id) public view returns (u256 value);
+  function statusOf(bytes32 evidence_id) public view returns (u256 status);
+  function proofRefOf(bytes32 evidence_id) public view returns (bytes32 proof_ref);
+  function isFinalized(bytes32 evidence_id) public view returns (bool ok);
+  event AttesterAuthorized(agent attester indexed, bool enabled);
+  event EvidenceOpened(bytes32 evidence_id indexed, bytes32 claim_ref indexed, agent attester indexed, u256 expiry_ms, u256 challenge_window_ms);
+  event EvidenceFulfilled(bytes32 evidence_id indexed, u256 value, bytes32 proof_ref);
+  event EvidenceChallenged(bytes32 evidence_id indexed, bytes32 challenge_ref);
+  event EvidenceFinalized(bytes32 evidence_id indexed);
+}

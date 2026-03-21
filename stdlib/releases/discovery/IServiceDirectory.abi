@@ -1,0 +1,17 @@
+pragma tolang 0.4.0;
+
+interface IServiceDirectory {
+  function registerService(bytes32 manifest_ref, bytes32 capability_ref, bytes32 version_ref, bytes32 quote_ref) public returns (u256 service_id);
+  function updateManifest(u256 service_id, bytes32 manifest_ref, bytes32 capability_ref, bytes32 version_ref) public;
+  function updateQuote(u256 service_id, bytes32 quote_ref) public;
+  function deactivate(u256 service_id) public;
+  function providerOf(u256 service_id) public view returns (agent provider);
+  function manifestRefOf(u256 service_id) public view returns (bytes32 manifest_ref);
+  function capabilityRefOf(u256 service_id) public view returns (bytes32 capability_ref);
+  function quoteRefOf(u256 service_id) public view returns (bytes32 quote_ref);
+  function isActive(u256 service_id) public view returns (bool ok);
+  event ServiceRegistered(u256 service_id indexed, agent provider indexed, bytes32 manifest_ref, bytes32 capability_ref, bytes32 version_ref, bytes32 quote_ref);
+  event ServiceManifestUpdated(u256 service_id indexed, bytes32 manifest_ref, bytes32 capability_ref, bytes32 version_ref);
+  event ServiceQuoteUpdated(u256 service_id indexed, bytes32 quote_ref);
+  event ServiceDeactivated(u256 service_id indexed);
+}

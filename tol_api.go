@@ -496,7 +496,7 @@ func CompileInitBytecode(source []byte, name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	typed, diags := sema.CheckWithResolver(name, mod, nil)
+	typed, diags := sema.CheckWithResolver(name, mod, NewOSFileResolver(filepath.Dir(name)))
 	if diags.HasErrors() {
 		return nil, diags
 	}

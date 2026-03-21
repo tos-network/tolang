@@ -1,0 +1,167 @@
+pragma tolang 0.4.0;
+
+import tolang.stdlib.account.PolicyAccount;
+import tolang.stdlib.authority.AuthorityBook;
+import tolang.stdlib.execution_binding.ExecutionBindingBook;
+import tolang.stdlib.session_book.SessionBook;
+import tolang.stdlib.sponsor.SponsorPolicyRelay;
+import tolang.stdlib.receipt.ReceiptBook;
+
+// PolicySponsoredCheckout — weak-terminal checkout coordinator.
+//
+// This example shows the 2046 control plane in one place:
+// policy account + bounded authority + execution binding + terminal session
+// + sponsor relay + receipt surface.
+
+contract PolicySponsoredCheckout {
+    manifest {
+        name: "PolicySponsoredCheckout";
+        version: "1.0.0";
+        description: "Composed checkout flow over policy account, authority, execution binding, session, sponsor, and receipt stdlib packages";
+    }
+
+    agent owner;
+    agent account_addr;
+    agent authority_addr;
+    agent binding_addr;
+    agent session_addr;
+    agent sponsor_addr;
+    agent receipt_addr;
+
+    event CheckoutAuthorized(
+        agent indexed actor,
+        bytes32 indexed binding_id,
+        bytes32 indexed receipt_id,
+        u256 amount
+    )
+    event CheckoutCommitted(
+        agent indexed actor,
+        bytes32 indexed binding_id,
+        bytes32 indexed receipt_id,
+        agent target,
+        u256 amount
+    )
+
+    constructor(
+        agent _owner,
+        agent _account_addr,
+        agent _authority_addr,
+        agent _binding_addr,
+        agent _session_addr,
+        agent _sponsor_addr,
+        agent _receipt_addr
+    ) {
+        require(_owner != agent(0), "ZERO_OWNER");
+        require(_account_addr != agent(0), "ZERO_ACCOUNT");
+        require(_authority_addr != agent(0), "ZERO_AUTHORITY");
+        require(_binding_addr != agent(0), "ZERO_BINDING");
+        require(_session_addr != agent(0), "ZERO_SESSION");
+        require(_sponsor_addr != agent(0), "ZERO_SPONSOR");
+        require(_receipt_addr != agent(0), "ZERO_RECEIPT");
+
+        set owner = _owner;
+        set account_addr = _account_addr;
+        set authority_addr = _authority_addr;
+        set binding_addr = _binding_addr;
+        set session_addr = _session_addr;
+        set sponsor_addr = _sponsor_addr;
+        set receipt_addr = _receipt_addr;
+    }
+
+    function preauthorize(
+        agent operator,
+        agent relayer,
+        bytes32 scope,
+        bytes32 binding_id,
+        bytes32 session_id,
+        bytes32 receipt_id,
+        u256 amount
+    ) external returns (bool ok) {
+        PolicyAccount account = PolicyAccount(account_addr);
+        AuthorityBook authority = AuthorityBook(authority_addr);
+        ExecutionBindingBook binding = ExecutionBindingBook(binding_addr);
+        SessionBook session_book = SessionBook(session_addr);
+        SponsorPolicyRelay sponsor = SponsorPolicyRelay(sponsor_addr);
+        ReceiptBook receipt = ReceiptBook(receipt_addr);
+
+        require(account.isSuspended() != true, "ACCOUNT_SUSPENDED");
+        require(authority.isActive(operator, scope) == true, "AUTHORITY_INACTIVE");
+        require(authority.remainingOf(operator, scope) >= amount, "AUTHORITY_SHORT");
+        require(binding.isConsumable(binding_id) == true, "BINDING_INACTIVE");
+        require(session_book.isActive(session_id) == true, "SESSION_INACTIVE");
+        require(session_book.requiresStepUp(session_id, amount) != true, "STEP_UP_REQUIRED");
+        require(sponsor.isRelayerActive(relayer) == true, "RELAYER_INACTIVE");
+        require(receipt.isFinalized(receipt_id) != true, "RECEIPT_FINAL");
+
+        emit CheckoutAuthorized(operator, binding_id, receipt_id, amount);
+        return true;
+    }
+
+    function executeCheckout(
+        agent operator,
+        agent relayer,
+        agent target,
+        bytes data,
+        bytes32 scope,
+        bytes32 binding_id,
+        bytes32 session_id,
+        bytes32 receipt_id,
+        bytes32 external_ref,
+        u256 amount,
+        u256 authority_nonce,
+        bool step_up_completed,
+        bytes32 result_ref,
+        bytes32 settlement_ref
+    ) external returns (bool ok) {
+        PolicyAccount account = PolicyAccount(account_addr);
+        AuthorityBook authority = AuthorityBook(authority_addr);
+        ExecutionBindingBook binding = ExecutionBindingBook(binding_addr);
+        SessionBook session_book = SessionBook(session_addr);
+        SponsorPolicyRelay sponsor = SponsorPolicyRelay(sponsor_addr);
+        ReceiptBook receipt = ReceiptBook(receipt_addr);
+
+        require(target != agent(0), "ZERO_TARGET");
+        require(account.isSuspended() != true, "ACCOUNT_SUSPENDED");
+        require(authority.isActive(operator, scope) == true, "AUTHORITY_INACTIVE");
+        require(authority.remainingOf(operator, scope) >= amount, "AUTHORITY_SHORT");
+        require(binding.isConsumable(binding_id) == true, "BINDING_INACTIVE");
+        require(session_book.isActive(session_id) == true, "SESSION_INACTIVE");
+        require(step_up_completed == true || session_book.requiresStepUp(session_id, amount) != true, "STEP_UP_REQUIRED");
+        require(sponsor.isRelayerActive(relayer) == true, "RELAYER_INACTIVE");
+        require(receipt.isFinalized(receipt_id) != true, "RECEIPT_FINAL");
+
+        bytes32 policy_hash = binding.policyHashOf(binding_id);
+        bytes32 proof_ref = binding.proofRefOf(binding_id);
+
+        receipt.openReceipt(
+            receipt_id,
+            owner,
+            operator,
+            relayer,
+            target,
+            amount,
+            policy_hash,
+            binding_id,
+            proof_ref,
+            external_ref
+        );
+        require(authority.consume(operator, scope, amount, authority_nonce, binding_id) == true, "AUTHORITY_CONSUME_FAILED");
+        require(session_book.consume(session_id, amount, step_up_completed) == true, "SESSION_CONSUME_FAILED");
+        require(binding.consume(binding_id, amount, receipt_id) == true, "BINDING_CONSUME_FAILED");
+        require(account.execute(target, data, amount) == true, "ACCOUNT_EXECUTE_FAILED");
+        receipt.finalizeSuccess(receipt_id, result_ref, settlement_ref);
+
+        emit CheckoutCommitted(operator, binding_id, receipt_id, target, amount);
+        return true;
+    }
+
+    function dailyRemaining() public view returns (u256 remaining) {
+        PolicyAccount account = PolicyAccount(account_addr);
+        return account.remainingDaily();
+    }
+
+    function receiptStatus(bytes32 receipt_id) public view returns (u256 status) {
+        ReceiptBook receipt = ReceiptBook(receipt_addr);
+        return receipt.statusOf(receipt_id);
+    }
+}

@@ -1,0 +1,230 @@
+pragma tolang 0.4.0;
+
+package tolang.stdlib.account;
+
+// PolicyAccount — policy-bound programmable account seed.
+//
+// This contract exposes the minimal account-native control plane:
+// spend caps, allowlist gating, delegate authority, suspension, and
+// policy-checked outbound execution.
+
+interface IPolicyAccount {
+    event SpendCapsSet(u256 daily_limit, u256 single_limit)
+    event AllowlistModeSet(bool enabled)
+    event AllowlistUpdated(agent indexed target, bool allowed)
+    event DelegateAuthorized(agent indexed delegate, u256 allowance, u256 expiry_ms)
+    event DelegateRevoked(agent indexed delegate)
+    event Suspended(agent indexed by)
+    event Unsuspended(agent indexed by)
+    event Executed(agent indexed actor, agent indexed target, u256 value, u256 daily_remaining)
+
+    function validate(bytes32 tx_hash, bytes sig) public returns (bool ok);
+    function setSpendCaps(u256 daily_limit, u256 single_limit) public;
+    function setAllowlistEnabled(bool enabled) public;
+    function setAllowlisted(agent target, bool allowed) public;
+    function authorizeDelegate(agent delegate, u256 allowance, u256 expiry_ms) public;
+    function revokeDelegate(agent delegate) public;
+    function suspend() public;
+    function unsuspend() public;
+    function execute(agent target, bytes data, u256 value) public returns (bool ok);
+
+    @verifiable
+    function remainingDaily() public view returns (u256 remaining);
+
+    @verifiable
+    function delegateRemaining(agent delegate) public view returns (u256 remaining);
+
+    @verifiable
+    function isSuspended() public view returns (bool ok);
+}
+
+contract PolicyAccount is IPolicyAccount {
+    manifest {
+        name: "PolicyAccount";
+        version: "1.0.0";
+        description: "Policy-bound account with spend caps, allowlist gate, delegate authority, suspension, and outbound execution";
+    }
+
+    agent owner;
+    agent guardian;
+
+    u256 daily_limit;
+    u256 single_limit;
+    u256 daily_spent;
+    u256 spend_day;
+
+    bool allowlist_enabled;
+    bool suspended;
+
+    mapping(agent => bool) allowlist;
+    mapping(agent => u256) delegate_allowance;
+    mapping(agent => u256) delegate_used;
+    mapping(agent => u256) delegate_expiry_ms;
+
+    event SpendCapsSet(u256 daily_limit, u256 single_limit)
+    event AllowlistModeSet(bool enabled)
+    event AllowlistUpdated(agent indexed target, bool allowed)
+    event DelegateAuthorized(agent indexed delegate, u256 allowance, u256 expiry_ms)
+    event DelegateRevoked(agent indexed delegate)
+    event Suspended(agent indexed by)
+    event Unsuspended(agent indexed by)
+    event Executed(agent indexed actor, agent indexed target, u256 value, u256 daily_remaining)
+
+    constructor(agent _owner, agent _guardian, u256 _daily_limit, u256 _single_limit) {
+        require(_owner != agent(0), "ZERO_OWNER");
+        require(_guardian != agent(0), "ZERO_GUARDIAN");
+        require(_owner != _guardian, "OWNER_GUARDIAN");
+        set owner = _owner;
+        set guardian = _guardian;
+        set daily_limit = _daily_limit;
+        set single_limit = _single_limit;
+        set allowlist_enabled = false;
+        set suspended = false;
+    }
+
+    function validate(bytes32 tx_hash, bytes sig) public returns (bool ok) {
+        if (suspended == true) {
+            return false;
+        }
+        if (msg.sender == owner) {
+            return true;
+        }
+        u256 allowance = delegate_allowance[msg.sender];
+        if (allowance == 0) {
+            return false;
+        }
+        u256 expiry_ms = delegate_expiry_ms[msg.sender];
+        if (expiry_ms > 0 && block.timestamp_ms >= expiry_ms) {
+            return false;
+        }
+        if (delegate_used[msg.sender] >= allowance) {
+            return false;
+        }
+        return true;
+    }
+
+    function setSpendCaps(u256 _daily_limit, u256 _single_limit) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        set daily_limit = _daily_limit;
+        set single_limit = _single_limit;
+        emit SpendCapsSet(_daily_limit, _single_limit);
+    }
+
+    function setAllowlistEnabled(bool enabled) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        set allowlist_enabled = enabled;
+        emit AllowlistModeSet(enabled);
+    }
+
+    function setAllowlisted(agent target, bool allowed) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(target != agent(0), "ZERO_TARGET");
+        set allowlist[target] = allowed;
+        emit AllowlistUpdated(target, allowed);
+    }
+
+    function authorizeDelegate(agent delegate, u256 allowance, u256 expiry_ms) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(delegate != agent(0), "ZERO_DELEGATE");
+        require(delegate != owner, "DELEGATE_OWNER");
+        require(allowance > 0, "ZERO_ALLOWANCE");
+        set delegate_allowance[delegate] = allowance;
+        set delegate_used[delegate] = 0;
+        set delegate_expiry_ms[delegate] = expiry_ms;
+        emit DelegateAuthorized(delegate, allowance, expiry_ms);
+    }
+
+    function revokeDelegate(agent delegate) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        set delegate_allowance[delegate] = 0;
+        set delegate_used[delegate] = 0;
+        set delegate_expiry_ms[delegate] = 0;
+        emit DelegateRevoked(delegate);
+    }
+
+    function suspend() public {
+        require(msg.sender == owner || msg.sender == guardian, "NOT_AUTHORIZED");
+        set suspended = true;
+        emit Suspended(msg.sender);
+    }
+
+    function unsuspend() public {
+        require(msg.sender == owner, "NOT_OWNER");
+        set suspended = false;
+        emit Unsuspended(msg.sender);
+    }
+
+    function execute(agent target, bytes data, u256 value) public returns (bool ok) {
+        require(suspended != true, "SUSPENDED");
+        require(target != agent(0), "ZERO_TARGET");
+
+        if (msg.sender != owner) {
+            u256 allowance = delegate_allowance[msg.sender];
+            require(allowance > 0, "NOT_AUTHORIZED");
+            u256 expiry_ms = delegate_expiry_ms[msg.sender];
+            if (expiry_ms > 0) {
+                require(block.timestamp_ms < expiry_ms, "DELEGATE_EXPIRED");
+            }
+            require(delegate_used[msg.sender] < allowance, "ALLOWANCE_SPENT");
+        }
+
+        if (allowlist_enabled == true) {
+            require(allowlist[target] == true, "TARGET_NOT_ALLOWED");
+        }
+
+        if (value > 0) {
+            require(value <= single_limit, "OVER_SINGLE");
+
+            u256 today = block.timestamp_ms / 86400000;
+            if (today != spend_day) {
+                set daily_spent = 0;
+                set spend_day = today;
+            }
+            require(daily_spent + value <= daily_limit, "OVER_DAILY");
+            set daily_spent = daily_spent + value;
+
+            if (msg.sender != owner) {
+                require(delegate_used[msg.sender] + value <= delegate_allowance[msg.sender], "OVER_ALLOWANCE");
+                set delegate_used[msg.sender] = delegate_used[msg.sender] + value;
+            }
+        }
+
+        ok = target.call(data);
+        require(ok, "CALL_FAILED");
+        emit Executed(msg.sender, target, value, remainingDaily());
+        return true;
+    }
+
+    @verifiable
+    function remainingDaily() public view returns (u256 remaining) {
+        u256 today = block.timestamp_ms / 86400000;
+        if (today != spend_day) {
+            return daily_limit;
+        }
+        if (daily_spent >= daily_limit) {
+            return 0;
+        }
+        return daily_limit - daily_spent;
+    }
+
+    @verifiable
+    function delegateRemaining(agent delegate) public view returns (u256 remaining) {
+        u256 allowance = delegate_allowance[delegate];
+        if (allowance == 0) {
+            return 0;
+        }
+        u256 expiry_ms = delegate_expiry_ms[delegate];
+        if (expiry_ms > 0 && block.timestamp_ms >= expiry_ms) {
+            return 0;
+        }
+        if (delegate_used[delegate] >= allowance) {
+            return 0;
+        }
+        return allowance - delegate_used[delegate];
+    }
+
+    @verifiable
+    function isSuspended() public view returns (bool ok) {
+        return suspended;
+    }
+}

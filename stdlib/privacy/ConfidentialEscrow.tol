@@ -1,0 +1,170 @@
+pragma tolang 0.4.0;
+
+package tolang.stdlib.privacy;
+
+// ConfidentialEscrow — confidential reserve/release/refund primitive on UNO rails.
+//
+// This package wraps a common confidential commerce pattern:
+// one party locks encrypted value, and later a payer or resolver decides
+// whether to release it to the beneficiary or refund it to the payer.
+
+interface IConfidentialEscrow {
+    event EscrowOpened(
+        bytes32 indexed escrow_id,
+        agent indexed payer,
+        agent indexed payee,
+        bytes32 receipt_ref,
+        u256 expiry_ms
+    )
+    event EscrowReleased(bytes32 indexed escrow_id, agent indexed releaser, bytes32 settlement_ref)
+    event EscrowRefunded(bytes32 indexed escrow_id, agent indexed refunder, bytes32 reason_ref)
+
+    function openEscrow(bytes32 escrow_id, agent payee, u256 expiry_ms, bytes32 receipt_ref) public payable(uno);
+    function releaseEscrow(bytes32 escrow_id, bytes32 settlement_ref) public;
+    function refundEscrow(bytes32 escrow_id, bytes32 reason_ref) public;
+    function reclaimExpired(bytes32 escrow_id) public;
+
+    @verifiable
+    function statusOf(bytes32 escrow_id) public view returns (u256 status);
+
+    @verifiable
+    function amountOf(bytes32 escrow_id) public view returns (uno amount);
+
+    @verifiable
+    function payerOf(bytes32 escrow_id) public view returns (agent payer);
+
+    @verifiable
+    function payeeOf(bytes32 escrow_id) public view returns (agent payee);
+
+    @verifiable
+    function receiptRefOf(bytes32 escrow_id) public view returns (bytes32 receipt_ref);
+
+    @verifiable
+    function nativeBalance(agent account) public view returns (uno balance);
+}
+
+contract ConfidentialEscrow is IConfidentialEscrow {
+    manifest {
+        name: "ConfidentialEscrow";
+        version: "1.0.0";
+        description: "Confidential reserve, release, refund, and expiry-reclaim primitive over UNO rails";
+    }
+
+    u8 constant STATUS_NONE = 0;
+    u8 constant STATUS_OPEN = 1;
+    u8 constant STATUS_RELEASED = 2;
+    u8 constant STATUS_REFUNDED = 3;
+
+    agent resolver;
+
+    mapping(bytes32 => u8) escrow_status;
+    mapping(bytes32 => agent) escrow_payer;
+    mapping(bytes32 => agent) escrow_payee;
+    mapping(bytes32 => uno) escrow_amount;
+    mapping(bytes32 => u256) escrow_expiry_ms;
+    mapping(bytes32 => bytes32) escrow_receipt_ref;
+    mapping(bytes32 => bytes32) escrow_settlement_ref;
+    mapping(bytes32 => bytes32) escrow_reason_ref;
+
+    event EscrowOpened(
+        bytes32 indexed escrow_id,
+        agent indexed payer,
+        agent indexed payee,
+        bytes32 receipt_ref,
+        u256 expiry_ms
+    )
+    event EscrowReleased(bytes32 indexed escrow_id, agent indexed releaser, bytes32 settlement_ref)
+    event EscrowRefunded(bytes32 indexed escrow_id, agent indexed refunder, bytes32 reason_ref)
+
+    constructor(agent _resolver) {
+        require(_resolver != agent(0), "ZERO_RESOLVER");
+        set resolver = _resolver;
+    }
+
+    function openEscrow(bytes32 escrow_id, agent payee, u256 expiry_ms, bytes32 receipt_ref) public payable(uno) {
+        require(escrow_id != bytes32(0), "ZERO_ESCROW");
+        require(payee != agent(0), "ZERO_PAYEE");
+        require(payee != msg.sender, "SELF_PAYEE");
+        require(escrow_status[escrow_id] == STATUS_NONE, "ESCROW_EXISTS");
+        require(msg.uno_value.gt(uno.zero()), "ZERO_AMOUNT");
+        if (expiry_ms > 0) {
+            require(expiry_ms > block.timestamp_ms, "EXPIRY_PAST");
+        }
+
+        set escrow_status[escrow_id] = STATUS_OPEN;
+        set escrow_payer[escrow_id] = msg.sender;
+        set escrow_payee[escrow_id] = payee;
+        set escrow_amount[escrow_id] = msg.uno_value;
+        set escrow_expiry_ms[escrow_id] = expiry_ms;
+        set escrow_receipt_ref[escrow_id] = receipt_ref;
+
+        emit EscrowOpened(escrow_id, msg.sender, payee, receipt_ref, expiry_ms);
+    }
+
+    function releaseEscrow(bytes32 escrow_id, bytes32 settlement_ref) public {
+        require(escrow_status[escrow_id] == STATUS_OPEN, "NOT_OPEN");
+        require(msg.sender == escrow_payer[escrow_id] || msg.sender == resolver, "NOT_AUTHORIZED");
+
+        set escrow_status[escrow_id] = STATUS_RELEASED;
+        set escrow_settlement_ref[escrow_id] = settlement_ref;
+        uno.transfer(escrow_payee[escrow_id], escrow_amount[escrow_id]);
+
+        emit EscrowReleased(escrow_id, msg.sender, settlement_ref);
+    }
+
+    function refundEscrow(bytes32 escrow_id, bytes32 reason_ref) public {
+        require(escrow_status[escrow_id] == STATUS_OPEN, "NOT_OPEN");
+        require(msg.sender == escrow_payer[escrow_id] || msg.sender == resolver, "NOT_AUTHORIZED");
+
+        set escrow_status[escrow_id] = STATUS_REFUNDED;
+        set escrow_reason_ref[escrow_id] = reason_ref;
+        uno.transfer(escrow_payer[escrow_id], escrow_amount[escrow_id]);
+
+        emit EscrowRefunded(escrow_id, msg.sender, reason_ref);
+    }
+
+    function reclaimExpired(bytes32 escrow_id) public {
+        require(escrow_status[escrow_id] == STATUS_OPEN, "NOT_OPEN");
+        require(msg.sender == escrow_payer[escrow_id], "NOT_PAYER");
+
+        u256 expiry_ms = escrow_expiry_ms[escrow_id];
+        require(expiry_ms > 0, "NO_EXPIRY");
+        require(block.timestamp_ms >= expiry_ms, "NOT_EXPIRED");
+
+        set escrow_status[escrow_id] = STATUS_REFUNDED;
+        set escrow_reason_ref[escrow_id] = bytes32(0);
+        uno.transfer(escrow_payer[escrow_id], escrow_amount[escrow_id]);
+
+        emit EscrowRefunded(escrow_id, msg.sender, bytes32(0));
+    }
+
+    @verifiable
+    function statusOf(bytes32 escrow_id) public view returns (u256 status) {
+        return u256(escrow_status[escrow_id]);
+    }
+
+    @verifiable
+    function amountOf(bytes32 escrow_id) public view returns (uno amount) {
+        return escrow_amount[escrow_id];
+    }
+
+    @verifiable
+    function payerOf(bytes32 escrow_id) public view returns (agent payer) {
+        return escrow_payer[escrow_id];
+    }
+
+    @verifiable
+    function payeeOf(bytes32 escrow_id) public view returns (agent payee) {
+        return escrow_payee[escrow_id];
+    }
+
+    @verifiable
+    function receiptRefOf(bytes32 escrow_id) public view returns (bytes32 receipt_ref) {
+        return escrow_receipt_ref[escrow_id];
+    }
+
+    @verifiable
+    function nativeBalance(agent account) public view returns (uno balance) {
+        return uno.balance(account);
+    }
+}

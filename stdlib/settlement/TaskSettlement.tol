@@ -1,0 +1,236 @@
+pragma tolang 0.4.0;
+
+package tolang.stdlib.settlement;
+
+// TaskSettlement — reference task escrow / dispute / payout settlement package.
+
+interface ITaskSettlement {
+    event TaskOpened(
+        u256 indexed task_id,
+        agent indexed poster,
+        u256 reward,
+        u256 deadline_ms,
+        bytes32 task_ref,
+        bytes32 receipt_ref
+    )
+    event TaskAccepted(u256 indexed task_id, agent indexed worker)
+    event TaskSubmitted(u256 indexed task_id, agent indexed worker, bytes32 result_ref, bytes32 proof_ref)
+    event TaskApproved(u256 indexed task_id, agent indexed poster, agent indexed worker, u256 reward, bytes32 settlement_ref)
+    event TaskRejected(u256 indexed task_id, agent indexed poster, bytes32 reason_ref)
+    event TaskDisputed(u256 indexed task_id, agent indexed worker, bytes32 proof_ref, u256 bond)
+    event TaskResolved(u256 indexed task_id, agent indexed winner, u256 payout, bytes32 settlement_ref)
+    event TaskCancelled(u256 indexed task_id, agent indexed poster)
+
+    function openTask(bytes32 task_ref, u256 deadline_ms, bytes32 receipt_ref) public payable returns (u256 task_id);
+    function acceptTask(u256 task_id) public;
+    function submitTask(u256 task_id, bytes32 result_ref, bytes32 proof_ref) public;
+    function approveTask(u256 task_id, bytes32 settlement_ref) public;
+    function rejectTask(u256 task_id, bytes32 reason_ref) public;
+    function disputeTask(u256 task_id, bytes32 proof_ref) public payable;
+    function resolveDispute(u256 task_id, bool worker_wins, bytes32 settlement_ref) public;
+    function cancelTask(u256 task_id) public;
+    function reclaimExpired(u256 task_id) public;
+
+    @verifiable
+    function statusOf(u256 task_id) public view returns (u256 status);
+
+    @verifiable
+    function rewardOf(u256 task_id) public view returns (u256 reward);
+
+    @verifiable
+    function receiptRefOf(u256 task_id) public view returns (bytes32 receipt_ref);
+
+    @verifiable
+    function proofRefOf(u256 task_id) public view returns (bytes32 proof_ref);
+}
+
+contract TaskSettlement is ITaskSettlement {
+    manifest {
+        name: "TaskSettlement";
+        version: "1.0.0";
+        description: "Task escrow settlement with receipt refs, proof refs, dispute bonds, and resolver-mediated payout";
+    }
+
+    u8 constant STATUS_NONE = 0;
+    u8 constant STATUS_OPEN = 1;
+    u8 constant STATUS_ACCEPTED = 2;
+    u8 constant STATUS_SUBMITTED = 3;
+    u8 constant STATUS_APPROVED = 4;
+    u8 constant STATUS_REJECTED = 5;
+    u8 constant STATUS_DISPUTED = 6;
+    u8 constant STATUS_RESOLVED = 7;
+    u8 constant STATUS_CANCELLED = 8;
+
+    agent resolver;
+    u256 next_task_id;
+
+    mapping(u256 => agent) task_poster;
+    mapping(u256 => agent) task_worker;
+    mapping(u256 => u256) task_reward;
+    mapping(u256 => u256) task_deadline_ms;
+    mapping(u256 => bytes32) task_ref;
+    mapping(u256 => bytes32) task_result_ref;
+    mapping(u256 => bytes32) task_receipt_ref;
+    mapping(u256 => bytes32) task_proof_ref;
+    mapping(u256 => bytes32) task_settlement_ref;
+    mapping(u256 => u256) task_dispute_bond;
+    mapping(u256 => u8) task_status;
+
+    event TaskOpened(
+        u256 indexed task_id,
+        agent indexed poster,
+        u256 reward,
+        u256 deadline_ms,
+        bytes32 task_ref,
+        bytes32 receipt_ref
+    )
+    event TaskAccepted(u256 indexed task_id, agent indexed worker)
+    event TaskSubmitted(u256 indexed task_id, agent indexed worker, bytes32 result_ref, bytes32 proof_ref)
+    event TaskApproved(u256 indexed task_id, agent indexed poster, agent indexed worker, u256 reward, bytes32 settlement_ref)
+    event TaskRejected(u256 indexed task_id, agent indexed poster, bytes32 reason_ref)
+    event TaskDisputed(u256 indexed task_id, agent indexed worker, bytes32 proof_ref, u256 bond)
+    event TaskResolved(u256 indexed task_id, agent indexed winner, u256 payout, bytes32 settlement_ref)
+    event TaskCancelled(u256 indexed task_id, agent indexed poster)
+
+    constructor(agent _resolver) {
+        require(_resolver != agent(0), "ZERO_RESOLVER");
+        set resolver = _resolver;
+        set next_task_id = 1;
+    }
+
+    function openTask(bytes32 task_ref_value, u256 deadline_ms, bytes32 receipt_ref) public payable returns (u256 task_id) {
+        require(msg.value > 0, "NO_REWARD");
+        require(deadline_ms > block.timestamp_ms, "DEADLINE_PAST");
+
+        task_id = next_task_id;
+        set next_task_id = next_task_id + 1;
+
+        set task_poster[task_id] = msg.sender;
+        set task_reward[task_id] = msg.value;
+        set task_deadline_ms[task_id] = deadline_ms;
+        set task_ref[task_id] = task_ref_value;
+        set task_receipt_ref[task_id] = receipt_ref;
+        set task_status[task_id] = STATUS_OPEN;
+
+        escrow(msg.sender, msg.value);
+        emit TaskOpened(task_id, msg.sender, msg.value, deadline_ms, task_ref_value, receipt_ref);
+    }
+
+    function acceptTask(u256 task_id) public {
+        require(task_status[task_id] == STATUS_OPEN, "NOT_OPEN");
+        require(block.timestamp_ms < task_deadline_ms[task_id], "EXPIRED");
+        require(msg.sender != task_poster[task_id], "POSTER_ACCEPT");
+
+        set task_worker[task_id] = msg.sender;
+        set task_status[task_id] = STATUS_ACCEPTED;
+        emit TaskAccepted(task_id, msg.sender);
+    }
+
+    function submitTask(u256 task_id, bytes32 result_ref, bytes32 proof_ref) public {
+        require(task_status[task_id] == STATUS_ACCEPTED, "NOT_ACCEPTED");
+        require(msg.sender == task_worker[task_id], "NOT_WORKER");
+
+        set task_result_ref[task_id] = result_ref;
+        set task_proof_ref[task_id] = proof_ref;
+        set task_status[task_id] = STATUS_SUBMITTED;
+        emit TaskSubmitted(task_id, msg.sender, result_ref, proof_ref);
+    }
+
+    function approveTask(u256 task_id, bytes32 settlement_ref) public {
+        require(task_status[task_id] == STATUS_SUBMITTED, "NOT_SUBMITTED");
+        require(msg.sender == task_poster[task_id], "NOT_POSTER");
+
+        agent worker = task_worker[task_id];
+        u256 reward = task_reward[task_id];
+
+        set task_status[task_id] = STATUS_APPROVED;
+        set task_settlement_ref[task_id] = settlement_ref;
+        release(worker, reward);
+
+        emit TaskApproved(task_id, msg.sender, worker, reward, settlement_ref);
+    }
+
+    function rejectTask(u256 task_id, bytes32 reason_ref) public {
+        require(task_status[task_id] == STATUS_SUBMITTED, "NOT_SUBMITTED");
+        require(msg.sender == task_poster[task_id], "NOT_POSTER");
+        set task_status[task_id] = STATUS_REJECTED;
+        emit TaskRejected(task_id, msg.sender, reason_ref);
+    }
+
+    function disputeTask(u256 task_id, bytes32 proof_ref) public payable {
+        require(task_status[task_id] == STATUS_REJECTED, "NOT_REJECTED");
+        require(msg.sender == task_worker[task_id], "NOT_WORKER");
+        require(msg.value > 0, "NO_BOND");
+
+        set task_status[task_id] = STATUS_DISPUTED;
+        set task_proof_ref[task_id] = proof_ref;
+        set task_dispute_bond[task_id] = msg.value;
+        escrow(msg.sender, msg.value);
+
+        emit TaskDisputed(task_id, msg.sender, proof_ref, msg.value);
+    }
+
+    function resolveDispute(u256 task_id, bool worker_wins, bytes32 settlement_ref) public {
+        require(task_status[task_id] == STATUS_DISPUTED, "NOT_DISPUTED");
+        require(msg.sender == resolver, "NOT_RESOLVER");
+
+        agent poster = task_poster[task_id];
+        agent worker = task_worker[task_id];
+        u256 reward = task_reward[task_id];
+        u256 bond = task_dispute_bond[task_id];
+
+        set task_status[task_id] = STATUS_RESOLVED;
+        set task_settlement_ref[task_id] = settlement_ref;
+
+        if (worker_wins) {
+            release(worker, reward + bond);
+            emit TaskResolved(task_id, worker, reward + bond, settlement_ref);
+        }
+        if (worker_wins != true) {
+            release(poster, reward + bond);
+            emit TaskResolved(task_id, poster, reward + bond, settlement_ref);
+        }
+    }
+
+    function cancelTask(u256 task_id) public {
+        require(task_status[task_id] == STATUS_OPEN, "NOT_OPEN");
+        require(msg.sender == task_poster[task_id], "NOT_POSTER");
+
+        set task_status[task_id] = STATUS_CANCELLED;
+        release(msg.sender, task_reward[task_id]);
+        emit TaskCancelled(task_id, msg.sender);
+    }
+
+    function reclaimExpired(u256 task_id) public {
+        u8 status = task_status[task_id];
+        require(status == STATUS_OPEN || status == STATUS_ACCEPTED, "WRONG_STATUS");
+        require(block.timestamp_ms >= task_deadline_ms[task_id], "NOT_EXPIRED");
+        require(msg.sender == task_poster[task_id], "NOT_POSTER");
+
+        set task_status[task_id] = STATUS_CANCELLED;
+        release(msg.sender, task_reward[task_id]);
+        emit TaskCancelled(task_id, msg.sender);
+    }
+
+    @verifiable
+    function statusOf(u256 task_id) public view returns (u256 status) {
+        return u256(task_status[task_id]);
+    }
+
+    @verifiable
+    function rewardOf(u256 task_id) public view returns (u256 reward) {
+        return task_reward[task_id];
+    }
+
+    @verifiable
+    function receiptRefOf(u256 task_id) public view returns (bytes32 receipt_ref) {
+        return task_receipt_ref[task_id];
+    }
+
+    @verifiable
+    function proofRefOf(u256 task_id) public view returns (bytes32 proof_ref) {
+        return task_proof_ref[task_id];
+    }
+
+    receive() external payable {}
+}

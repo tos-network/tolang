@@ -1,0 +1,18 @@
+pragma tolang 0.4.0;
+
+interface ICommercialAgreement {
+  function createOffer(agent counterparty, u256 amount, u256 expiry_ms, bytes32 quote_ref, bytes32 terms_ref) public returns (u256 agreement_id);
+  function accept(u256 agreement_id, bytes32 acceptance_ref) public;
+  function cancel(u256 agreement_id, bytes32 reason_ref) public;
+  function fulfill(u256 agreement_id, bytes32 settlement_ref) public;
+  function expire(u256 agreement_id) public;
+  function statusOf(u256 agreement_id) public view returns (u256 status);
+  function quoteRefOf(u256 agreement_id) public view returns (bytes32 quote_ref);
+  function counterpartyOf(u256 agreement_id) public view returns (agent counterparty);
+  function settlementRefOf(u256 agreement_id) public view returns (bytes32 settlement_ref);
+  event OfferCreated(u256 agreement_id indexed, agent creator indexed, agent counterparty indexed, u256 amount, u256 expiry_ms, bytes32 quote_ref, bytes32 terms_ref);
+  event OfferAccepted(u256 agreement_id indexed, agent counterparty indexed, bytes32 acceptance_ref);
+  event OfferCancelled(u256 agreement_id indexed, bytes32 reason_ref);
+  event OfferFulfilled(u256 agreement_id indexed, bytes32 settlement_ref);
+  event OfferExpired(u256 agreement_id indexed);
+}

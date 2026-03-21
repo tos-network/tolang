@@ -312,7 +312,55 @@ usable confidential commerce standard library."
 If the semantic kernel above is correct, then the TOL stdlib should be organized
 around package families that correspond to recurring economic roles.
 
+## Current implementation status
+
+As of the current repo state, the package map below is no longer purely
+aspirational.
+
+- ✅ Implemented package seeds in `stdlib/`:
+  `account`, `authority`, `execution_binding`, `session`, `agreement`,
+  `settlement`, `sponsor`, `evidence`, `receipt`, `trust`, `privacy`,
+  `recovery`, `discovery`
+- ✅ Compile/import coverage for every package seed plus composed example
+  coverage in `stdlib_packages_test.go`, `stdlib_composition_test.go`, and
+  `stdlib_examples_test.go`
+- ✅ Metadata, human-readable summary, discovery-manifest, and agent-package
+  end-to-end coverage for composed examples in `e2e/stdlib_examples_e2e_test.go`
+- ✅ Runtime execution coverage for core stdlib packages in
+  `stdlib_runtime_test.go`, including authority, execution binding, session,
+  receipt, sponsor, evidence, recovery, trust, discovery, agreement,
+  account, settlement, and privacy/UNO flows
+- ✅ Composed runtime package-call coverage for `PolicySponsoredCheckout` and
+  `PrivateServiceOrder` in `stdlib_composed_runtime_test.go`
+- ✅ Stateful composed runtime flows with real downstream stdlib contract state
+  in `stdlib_composed_runtime_test.go`
+- ✅ Stateful composed runtime write flows now mutate downstream stdlib state
+  through the coordinators themselves, including receipt finalization and
+  agreement/settlement completion in `stdlib_composed_runtime_test.go`
+- ✅ Confidential escrow + receipt composed example coverage now exists in
+  `examples/stdlib_composed/PrivateEscrowCheckout.tol`,
+  `stdlib_examples_test.go`, `e2e/stdlib_examples_e2e_test.go`, and
+  `stdlib_composed_runtime_test.go`
+- ✅ Sponsored confidential checkout coverage now exists in
+  `examples/stdlib_composed/SponsoredPrivateEscrowCheckout.tol`, combining
+  execution binding, sponsor relay, receipt finalization, confidential escrow,
+  and real downstream call execution in `stdlib_composed_runtime_test.go`
+- ✅ Deterministic stdlib release artifacts now exist under `stdlib/releases/`,
+  produced by `cmd/stdlib-export` and locked by `stdlib_release_test.go`
+- ✅ A first-pass stdlib threat model baseline now exists in
+  `docs/STDLIB_THREAT_MODEL_MATRIX.md`
+- ✅ Low-level external-call runtime coverage now executes real target contracts
+  behind `target.call(data)` for sponsor/account paths, not just host stubs, in
+  `stdlib_runtime_test.go` and `stdlib_composed_runtime_test.go`
+- ✅ Confidential escrow seed and UNO runtime coverage are now implemented in
+  `stdlib/privacy/ConfidentialEscrow.tol` and `stdlib_runtime_test.go`
+- ✅ Direct `msg.uno_value.*` UNO method-call runtime coverage now has a focused
+  regression test in `tol_ir_direct_lowering_uno_test.go`, closing an env-member
+  type-inference/lowering gap exposed by stdlib privacy flows
+
 ### `stdlib/account`
+
+Status: ✅ implemented seed in `stdlib/account/PolicyAccount.tol`
 
 Derived from:
 
@@ -341,6 +389,8 @@ Current seeds:
 
 ### `stdlib/authority`
 
+Status: ✅ implemented seed in `stdlib/authority/AuthorityBook.tol`
+
 Derived from:
 
 - authority source and scope
@@ -360,6 +410,8 @@ What it standardizes:
 This package is the canonical surface for bounded authority, not "ownership."
 
 ### `stdlib/execution_binding`
+
+Status: ✅ implemented seed in `stdlib/execution_binding/ExecutionBindingBook.tol`
 
 Derived from:
 
@@ -397,6 +449,11 @@ systems safely anchor approval and settlement to chain execution.
 
 ### `stdlib/session`
 
+Status: ✅ implemented seed in `stdlib/session_book/SessionBook.tol`
+
+Note: the concrete import namespace uses `session_book` instead of `session`
+because `session` currently collides with a parser keyword.
+
 Derived from:
 
 - session and terminal context
@@ -414,6 +471,8 @@ What it standardizes:
 - degraded-mode authority limits
 
 ### `stdlib/agreement`
+
+Status: ✅ implemented seed in `stdlib/agreement/CommercialAgreement.tol`
 
 Derived from:
 
@@ -435,6 +494,8 @@ This package is where TOL stops looking like a raw contract language and starts
 looking like a language of machine commerce.
 
 ### `stdlib/settlement`
+
+Status: ✅ implemented seed in `stdlib/settlement/TaskSettlement.tol`
 
 Derived from:
 
@@ -469,6 +530,8 @@ Current seeds:
 
 ### `stdlib/sponsor`
 
+Status: ✅ implemented seed in `stdlib/sponsor/SponsorPolicyRelay.tol`
+
 Derived from:
 
 - routing and sponsorship
@@ -489,6 +552,8 @@ Current seeds:
 - `examples/agent_economy/SponsorRelay.tol`
 
 ### `stdlib/evidence`
+
+Status: ✅ implemented seed in `stdlib/evidence/EvidenceBook.tol`
 
 Derived from:
 
@@ -511,6 +576,8 @@ Current seeds:
 - `examples/agent_economy/OracleResolver.tol`
 
 ### `stdlib/receipt`
+
+Status: ✅ implemented seed in `stdlib/receipt/ReceiptBook.tol`
 
 Derived from:
 
@@ -535,6 +602,8 @@ transaction internals.
 
 ### `stdlib/trust`
 
+Status: ✅ implemented seed in `stdlib/trust/TrustRegistry.tol`
+
 Derived from:
 
 - counterparty admissibility
@@ -554,6 +623,9 @@ This package converts reputation and stake from ambient chain data into
 commercially reusable contract semantics.
 
 ### `stdlib/privacy`
+
+Status: ✅ implemented seeds in `stdlib/privacy/ConfidentialVault.tol` and
+`stdlib/privacy/ConfidentialEscrow.tol`
 
 Derived from:
 
@@ -601,7 +673,14 @@ These should let authors write business logic in terms of:
 
 rather than directly wiring low-level UNO bridge calls each time.
 
+Current seeds:
+
+- `stdlib/privacy/ConfidentialVault.tol`
+- `stdlib/privacy/ConfidentialEscrow.tol`
+
 ### `stdlib/recovery`
+
+Status: ✅ implemented seed in `stdlib/recovery/RecoveryController.tol`
 
 Derived from:
 
@@ -622,6 +701,8 @@ Some implementations will live near `account` and `authority`, but the semantic
 surface is important enough to justify its own package family.
 
 ### `stdlib/discovery`
+
+Status: ✅ implemented seed in `stdlib/discovery/ServiceDirectory.tol`
 
 Derived from:
 
@@ -672,11 +753,11 @@ safely in production.
 
 These packages define who may act, under what policy, from which surface:
 
-1. `account`
-2. `authority`
-3. `execution_binding`
-4. `session`
-5. `recovery`
+1. `account` ✅
+2. `authority` ✅
+3. `execution_binding` ✅
+4. `session` ✅
+5. `recovery` ✅
 
 Without this wave, TOL cannot safely support multi-terminal, delegated,
 sponsored consumer finance.
@@ -686,11 +767,11 @@ sponsored consumer finance.
 These packages define how commercial actions actually commit, settle, and get
 recorded:
 
-1. `agreement`
-2. `settlement`
-3. `sponsor`
-4. `evidence`
-5. `receipt`
+1. `agreement` ✅
+2. `settlement` ✅
+3. `sponsor` ✅
+4. `evidence` ✅
+5. `receipt` ✅
 
 Without this wave, there is no canonical machine-commerce layer.
 
@@ -699,9 +780,9 @@ Without this wave, there is no canonical machine-commerce layer.
 These packages define how agents choose counterparties, protect private state,
 and reason about trust:
 
-1. `trust`
-2. `privacy`
-3. `discovery`
+1. `trust` ✅
+2. `privacy` ✅
+3. `discovery` ✅
 
 Without this wave, there is no scalable marketplace for autonomous services.
 

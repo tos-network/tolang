@@ -1,0 +1,17 @@
+pragma tolang 0.4.0;
+
+interface ISponsorPolicyRelay {
+  function deposit() public payable;
+  function withdraw(u256 amount) public;
+  function authorizeRelayer(agent relayer, u256 budget, u256 expiry_ms, bytes32 policy_hash) public;
+  function revokeRelayer(agent relayer) public;
+  function relay(agent target, bytes data, agent user, u256 cost, bytes32 policy_hash, bytes32 binding_ref, bytes32 receipt_ref) public returns (bool ok);
+  function remainingOf(agent relayer) public view returns (u256 remaining);
+  function policyHashOf(agent relayer) public view returns (bytes32 policy_hash);
+  function isRelayerActive(agent relayer) public view returns (bool ok);
+  event SponsorDeposited(agent sponsor indexed, u256 amount);
+  event SponsorWithdrawn(agent sponsor indexed, u256 amount);
+  event RelayerAuthorized(agent relayer indexed, u256 budget, u256 expiry_ms, bytes32 policy_hash);
+  event RelayerRevoked(agent relayer indexed);
+  event RouteConsumed(agent relayer indexed, agent user indexed, agent target indexed, u256 cost, bytes32 policy_hash, bytes32 binding_ref, bytes32 receipt_ref);
+}

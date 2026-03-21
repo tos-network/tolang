@@ -1,0 +1,24 @@
+pragma tolang 0.4.0;
+
+interface IRecoveryController {
+  function addGuardian(agent guardian) public;
+  function removeGuardian(agent guardian) public;
+  function startRecovery(agent new_controller) public;
+  function approveRecovery() public;
+  function executeRecovery() public;
+  function cancelRecovery() public;
+  function freeze(bytes32 reason_ref) public;
+  function unfreeze() public;
+  function currentController() public view returns (agent current);
+  function isFrozen() public view returns (bool ok);
+  function isRecoveryActive() public view returns (bool ok);
+  function approvalCount() public view returns (u256 count);
+  event GuardianAdded(agent guardian indexed, u256 index);
+  event GuardianRemoved(agent guardian indexed);
+  event RecoveryStarted(agent proposed_controller indexed, u256 completes_at);
+  event RecoveryApproved(agent guardian indexed, u256 approval_count);
+  event RecoveryCancelled();
+  event RecoveryExecuted(agent old_controller indexed, agent new_controller indexed);
+  event Frozen(bytes32 reason_ref);
+  event Unfrozen();
+}

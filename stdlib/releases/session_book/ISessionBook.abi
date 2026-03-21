@@ -1,0 +1,13 @@
+pragma tolang 0.4.0;
+
+interface ISessionBook {
+  function grantSession(bytes32 session_id, agent operator, bytes32 terminal_id, u256 terminal_class, u256 trust_tier, u256 expiry_ms, u256 spend_limit, u256 step_up_limit, bool degraded_mode) public;
+  function revokeSession(bytes32 session_id) public;
+  function consume(bytes32 session_id, u256 amount, bool step_up_completed) public returns (bool ok);
+  function isActive(bytes32 session_id) public view returns (bool ok);
+  function requiresStepUp(bytes32 session_id, u256 amount) public view returns (bool ok);
+  function remainingOf(bytes32 session_id) public view returns (u256 remaining);
+  event SessionGranted(bytes32 session_id indexed, agent operator indexed, bytes32 terminal_id indexed, u256 terminal_class, u256 trust_tier, u256 expiry_ms, u256 spend_limit, u256 step_up_limit, bool degraded_mode);
+  event SessionConsumed(bytes32 session_id indexed, u256 amount, u256 remaining);
+  event SessionRevoked(bytes32 session_id indexed);
+}

@@ -1,0 +1,16 @@
+pragma tolang 0.4.0;
+
+interface ITrustRegistry {
+  function setTrustFloor(u256 min_stake, i256 min_reputation) public;
+  function depositBond() public payable;
+  function withdrawBond(u256 amount) public;
+  function setOverride(agent subject, bool allowed) public;
+  function isEligible(agent subject) public view returns (bool ok);
+  function bondedAmountOf(agent subject) public view returns (u256 amount);
+  function snapshotReputationOf(agent subject) public view returns (i256 score);
+  function snapshotStakeOf(agent subject) public view returns (u256 amount);
+  event TrustFloorSet(u256 min_stake, i256 min_reputation);
+  event BondDeposited(agent subject indexed, u256 amount);
+  event BondWithdrawn(agent subject indexed, u256 amount);
+  event OverrideSet(agent subject indexed, bool allowed);
+}

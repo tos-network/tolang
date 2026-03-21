@@ -1,0 +1,178 @@
+pragma tolang 0.4.0;
+
+package tolang.stdlib.discovery;
+
+// ServiceDirectory — discovery-facing registry for machine commerce endpoints.
+//
+// It standardizes provider identity, manifest references, capability references,
+// compatibility markers, and quote references in one machine-readable directory.
+
+interface IServiceDirectory {
+    event ServiceRegistered(
+        u256 indexed service_id,
+        agent indexed provider,
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref,
+        bytes32 quote_ref
+    )
+    event ServiceManifestUpdated(
+        u256 indexed service_id,
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref
+    )
+    event ServiceQuoteUpdated(u256 indexed service_id, bytes32 quote_ref)
+    event ServiceDeactivated(u256 indexed service_id)
+
+    function registerService(
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref,
+        bytes32 quote_ref
+    ) public returns (u256 service_id);
+
+    function updateManifest(
+        u256 service_id,
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref
+    ) public;
+
+    function updateQuote(u256 service_id, bytes32 quote_ref) public;
+    function deactivate(u256 service_id) public;
+
+    @verifiable
+    function providerOf(u256 service_id) public view returns (agent provider);
+
+    @verifiable
+    function manifestRefOf(u256 service_id) public view returns (bytes32 manifest_ref);
+
+    @verifiable
+    function capabilityRefOf(u256 service_id) public view returns (bytes32 capability_ref);
+
+    @verifiable
+    function quoteRefOf(u256 service_id) public view returns (bytes32 quote_ref);
+
+    @verifiable
+    function isActive(u256 service_id) public view returns (bool ok);
+}
+
+contract ServiceDirectory is IServiceDirectory {
+    manifest {
+        name: "ServiceDirectory";
+        version: "1.0.0";
+        description: "Discovery registry for provider identity, manifest refs, capability refs, compatibility markers, and quote refs";
+    }
+
+    u256 next_service_id;
+
+    mapping(u256 => agent) service_provider;
+    mapping(u256 => bytes32) service_manifest_ref;
+    mapping(u256 => bytes32) service_capability_ref;
+    mapping(u256 => bytes32) service_version_ref;
+    mapping(u256 => bytes32) service_quote_ref;
+    mapping(u256 => bool) service_active;
+
+    event ServiceRegistered(
+        u256 indexed service_id,
+        agent indexed provider,
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref,
+        bytes32 quote_ref
+    )
+    event ServiceManifestUpdated(
+        u256 indexed service_id,
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref
+    )
+    event ServiceQuoteUpdated(u256 indexed service_id, bytes32 quote_ref)
+    event ServiceDeactivated(u256 indexed service_id)
+
+    constructor() {
+        set next_service_id = 1;
+    }
+
+    function registerService(
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref,
+        bytes32 quote_ref
+    ) public returns (u256 service_id) {
+        require(manifest_ref != bytes32(0), "ZERO_MANIFEST");
+        require(capability_ref != bytes32(0), "ZERO_CAPABILITIES");
+        require(version_ref != bytes32(0), "ZERO_VERSION");
+
+        service_id = next_service_id;
+        set next_service_id = next_service_id + 1;
+
+        set service_provider[service_id] = msg.sender;
+        set service_manifest_ref[service_id] = manifest_ref;
+        set service_capability_ref[service_id] = capability_ref;
+        set service_version_ref[service_id] = version_ref;
+        set service_quote_ref[service_id] = quote_ref;
+        set service_active[service_id] = true;
+
+        emit ServiceRegistered(service_id, msg.sender, manifest_ref, capability_ref, version_ref, quote_ref);
+    }
+
+    function updateManifest(
+        u256 service_id,
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref
+    ) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        require(manifest_ref != bytes32(0), "ZERO_MANIFEST");
+        require(capability_ref != bytes32(0), "ZERO_CAPABILITIES");
+        require(version_ref != bytes32(0), "ZERO_VERSION");
+
+        set service_manifest_ref[service_id] = manifest_ref;
+        set service_capability_ref[service_id] = capability_ref;
+        set service_version_ref[service_id] = version_ref;
+
+        emit ServiceManifestUpdated(service_id, manifest_ref, capability_ref, version_ref);
+    }
+
+    function updateQuote(u256 service_id, bytes32 quote_ref) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        set service_quote_ref[service_id] = quote_ref;
+        emit ServiceQuoteUpdated(service_id, quote_ref);
+    }
+
+    function deactivate(u256 service_id) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        set service_active[service_id] = false;
+        emit ServiceDeactivated(service_id);
+    }
+
+    @verifiable
+    function providerOf(u256 service_id) public view returns (agent provider) {
+        return service_provider[service_id];
+    }
+
+    @verifiable
+    function manifestRefOf(u256 service_id) public view returns (bytes32 manifest_ref) {
+        return service_manifest_ref[service_id];
+    }
+
+    @verifiable
+    function capabilityRefOf(u256 service_id) public view returns (bytes32 capability_ref) {
+        return service_capability_ref[service_id];
+    }
+
+    @verifiable
+    function quoteRefOf(u256 service_id) public view returns (bytes32 quote_ref) {
+        return service_quote_ref[service_id];
+    }
+
+    @verifiable
+    function isActive(u256 service_id) public view returns (bool ok) {
+        return service_active[service_id];
+    }
+}

@@ -1,0 +1,13 @@
+pragma tolang 0.4.0;
+
+interface IAuthorityBook {
+  function grant(agent operator, bytes32 scope, u256 budget, u256 expiry_ms, bytes32 policy_hash, u256 nonce_floor) public;
+  function revoke(agent operator, bytes32 scope) public;
+  function consume(agent operator, bytes32 scope, u256 amount, u256 nonce, bytes32 binding_ref) public returns (bool ok);
+  function remainingOf(agent operator, bytes32 scope) public view returns (u256 remaining);
+  function isActive(agent operator, bytes32 scope) public view returns (bool ok);
+  function policyHashOf(agent operator, bytes32 scope) public view returns (bytes32 policy_hash);
+  event AuthorityGranted(agent principal indexed, agent operator indexed, bytes32 scope indexed, u256 budget, u256 expiry_ms, bytes32 policy_hash, u256 nonce_floor);
+  event AuthorityConsumed(agent principal indexed, agent operator indexed, bytes32 scope indexed, u256 amount, u256 nonce, bytes32 binding_ref, u256 remaining);
+  event AuthorityRevoked(agent principal indexed, agent operator indexed, bytes32 scope indexed);
+}

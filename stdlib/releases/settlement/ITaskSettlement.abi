@@ -1,0 +1,25 @@
+pragma tolang 0.4.0;
+
+interface ITaskSettlement {
+  function openTask(bytes32 task_ref_value, u256 deadline_ms, bytes32 receipt_ref) public payable returns (u256 task_id);
+  function acceptTask(u256 task_id) public;
+  function submitTask(u256 task_id, bytes32 result_ref, bytes32 proof_ref) public;
+  function approveTask(u256 task_id, bytes32 settlement_ref) public;
+  function rejectTask(u256 task_id, bytes32 reason_ref) public;
+  function disputeTask(u256 task_id, bytes32 proof_ref) public payable;
+  function resolveDispute(u256 task_id, bool worker_wins, bytes32 settlement_ref) public;
+  function cancelTask(u256 task_id) public;
+  function reclaimExpired(u256 task_id) public;
+  function statusOf(u256 task_id) public view returns (u256 status);
+  function rewardOf(u256 task_id) public view returns (u256 reward);
+  function receiptRefOf(u256 task_id) public view returns (bytes32 receipt_ref);
+  function proofRefOf(u256 task_id) public view returns (bytes32 proof_ref);
+  event TaskOpened(u256 task_id indexed, agent poster indexed, u256 reward, u256 deadline_ms, bytes32 task_ref, bytes32 receipt_ref);
+  event TaskAccepted(u256 task_id indexed, agent worker indexed);
+  event TaskSubmitted(u256 task_id indexed, agent worker indexed, bytes32 result_ref, bytes32 proof_ref);
+  event TaskApproved(u256 task_id indexed, agent poster indexed, agent worker indexed, u256 reward, bytes32 settlement_ref);
+  event TaskRejected(u256 task_id indexed, agent poster indexed, bytes32 reason_ref);
+  event TaskDisputed(u256 task_id indexed, agent worker indexed, bytes32 proof_ref, u256 bond);
+  event TaskResolved(u256 task_id indexed, agent winner indexed, u256 payout, bytes32 settlement_ref);
+  event TaskCancelled(u256 task_id indexed, agent poster indexed);
+}

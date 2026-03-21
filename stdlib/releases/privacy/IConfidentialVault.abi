@@ -1,0 +1,18 @@
+pragma tolang 0.4.0;
+
+interface IConfidentialVault {
+  function registerPublicKey(bytes32 pubkey) public;
+  function deposit() public payable;
+  function withdraw(uno amount) public;
+  function authorizeAuditor(agent auditor, bytes32 disclosure_ref) public;
+  function revokeAuditor(agent auditor) public;
+  function balanceOf(agent account) public view returns (uno balance);
+  function nativeBalance(agent account) public view returns (uno balance);
+  function canAudit(agent owner, agent auditor) public view returns (bool ok);
+  function disclosureRefOf(agent owner, agent auditor) public view returns (bytes32 disclosure_ref);
+  event PublicKeyRegistered(agent account indexed, bytes32 pubkey);
+  event ConfidentialDeposited(agent account indexed);
+  event ConfidentialWithdrawn(agent account indexed);
+  event DisclosureAuthorized(agent owner indexed, agent auditor indexed, bytes32 disclosure_ref);
+  event DisclosureRevoked(agent owner indexed, agent auditor indexed);
+}

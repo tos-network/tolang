@@ -1,0 +1,120 @@
+pragma tolang 0.4.0;
+
+package tolang.stdlib.trust;
+
+// TrustRegistry — trust-floor and bond surface over native agent properties.
+//
+// It converts ambient chain properties such as `agent.stake`, `agent.reputation`,
+// and `agent.is_active` into reusable contract semantics.
+
+interface ITrustRegistry {
+    event TrustFloorSet(u256 min_stake, i256 min_reputation)
+    event BondDeposited(agent indexed subject, u256 amount)
+    event BondWithdrawn(agent indexed subject, u256 amount)
+    event OverrideSet(agent indexed subject, bool allowed)
+
+    function setTrustFloor(u256 min_stake, i256 min_reputation) public;
+    function depositBond() public payable;
+    function withdrawBond(u256 amount) public;
+    function setOverride(agent subject, bool allowed) public;
+
+    @verifiable
+    function isEligible(agent subject) public view returns (bool ok);
+
+    @verifiable
+    function bondedAmountOf(agent subject) public view returns (u256 amount);
+
+    @verifiable
+    function snapshotReputationOf(agent subject) public view returns (i256 score);
+
+    @verifiable
+    function snapshotStakeOf(agent subject) public view returns (u256 amount);
+}
+
+contract TrustRegistry is ITrustRegistry {
+    manifest {
+        name: "TrustRegistry";
+        version: "1.0.0";
+        description: "Trust floors and bond records over native agent stake, reputation, and activity properties";
+    }
+
+    agent owner;
+    u256 min_required_stake;
+    i256 min_required_reputation;
+
+    mapping(agent => u256) bonded_amount;
+    mapping(agent => bool) manual_override;
+
+    event TrustFloorSet(u256 min_stake, i256 min_reputation)
+    event BondDeposited(agent indexed subject, u256 amount)
+    event BondWithdrawn(agent indexed subject, u256 amount)
+    event OverrideSet(agent indexed subject, bool allowed)
+
+    constructor(agent _owner, u256 _min_stake, i256 _min_reputation) {
+        require(_owner != agent(0), "ZERO_OWNER");
+        set owner = _owner;
+        set min_required_stake = _min_stake;
+        set min_required_reputation = _min_reputation;
+    }
+
+    function setTrustFloor(u256 min_stake, i256 min_reputation) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        set min_required_stake = min_stake;
+        set min_required_reputation = min_reputation;
+        emit TrustFloorSet(min_stake, min_reputation);
+    }
+
+    function depositBond() public payable {
+        require(msg.value > 0, "ZERO_VALUE");
+        escrow(msg.sender, msg.value);
+        set bonded_amount[msg.sender] = bonded_amount[msg.sender] + msg.value;
+        emit BondDeposited(msg.sender, msg.value);
+    }
+
+    function withdrawBond(u256 amount) public {
+        require(amount > 0, "ZERO_AMOUNT");
+        require(bonded_amount[msg.sender] >= amount, "INSUFFICIENT_BOND");
+        set bonded_amount[msg.sender] = bonded_amount[msg.sender] - amount;
+        release(msg.sender, amount);
+        emit BondWithdrawn(msg.sender, amount);
+    }
+
+    function setOverride(agent subject, bool allowed) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(subject != agent(0), "ZERO_SUBJECT");
+        set manual_override[subject] = allowed;
+        emit OverrideSet(subject, allowed);
+    }
+
+    @verifiable
+    function isEligible(agent subject) public view returns (bool ok) {
+        if (manual_override[subject] == true) {
+            return true;
+        }
+        if (subject.is_active != true) {
+            return false;
+        }
+        if (subject.stake < min_required_stake) {
+            return false;
+        }
+        if (subject.reputation < min_required_reputation) {
+            return false;
+        }
+        return true;
+    }
+
+    @verifiable
+    function bondedAmountOf(agent subject) public view returns (u256 amount) {
+        return bonded_amount[subject];
+    }
+
+    @verifiable
+    function snapshotReputationOf(agent subject) public view returns (i256 score) {
+        return subject.reputation;
+    }
+
+    @verifiable
+    function snapshotStakeOf(agent subject) public view returns (u256 amount) {
+        return subject.stake;
+    }
+}

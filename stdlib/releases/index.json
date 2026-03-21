@@ -1,0 +1,172 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {
+      "family": "account",
+      "contract": "PolicyAccount",
+      "source_path": "stdlib/account/PolicyAccount.tol",
+      "release_package_name": "tolang.stdlib.account",
+      "toc_path": "stdlib/releases/account/PolicyAccount.toc",
+      "abi_path": "stdlib/releases/account/IPolicyAccount.abi",
+      "init_path": "stdlib/releases/account/PolicyAccount_init.toc",
+      "tor_path": "stdlib/releases/account/PolicyAccount.tor",
+      "bytecode_hash": "0x46aa0ee910dff8acf28dd5bbb2983c5f2136b4c02f42bb5c6ce2c7c34524961d",
+      "package_hash": "0x4fdc871a0ba9b5f219e6db0ad30f229a39fdbd9111a2efcf607fba85da441e99"
+    },
+    {
+      "family": "agreement",
+      "contract": "CommercialAgreement",
+      "source_path": "stdlib/agreement/CommercialAgreement.tol",
+      "release_package_name": "tolang.stdlib.agreement",
+      "toc_path": "stdlib/releases/agreement/CommercialAgreement.toc",
+      "abi_path": "stdlib/releases/agreement/ICommercialAgreement.abi",
+      "init_path": "stdlib/releases/agreement/CommercialAgreement_init.toc",
+      "tor_path": "stdlib/releases/agreement/CommercialAgreement.tor",
+      "bytecode_hash": "0x0206602ca011bfd01c173cd0b53a8aa611e6976aa8ccbc751e49655199a3822d",
+      "package_hash": "0x613ba6f32a7f91224457a4d12b4a5f9b2c428b42d4dd6a9f404f93218ea4d981"
+    },
+    {
+      "family": "authority",
+      "contract": "AuthorityBook",
+      "source_path": "stdlib/authority/AuthorityBook.tol",
+      "release_package_name": "tolang.stdlib.authority",
+      "toc_path": "stdlib/releases/authority/AuthorityBook.toc",
+      "abi_path": "stdlib/releases/authority/IAuthorityBook.abi",
+      "init_path": "stdlib/releases/authority/AuthorityBook_init.toc",
+      "tor_path": "stdlib/releases/authority/AuthorityBook.tor",
+      "bytecode_hash": "0x08ff142798a49a20d09432ab5fdb53b626f3aaa92e05315d9f942a352fb2cc1c",
+      "package_hash": "0x3142beea8ab75c7e59ced27b90f7e4f3df8aa1bc6109bd30553e08b5c2e8c100"
+    },
+    {
+      "family": "discovery",
+      "contract": "ServiceDirectory",
+      "source_path": "stdlib/discovery/ServiceDirectory.tol",
+      "release_package_name": "tolang.stdlib.discovery",
+      "toc_path": "stdlib/releases/discovery/ServiceDirectory.toc",
+      "abi_path": "stdlib/releases/discovery/IServiceDirectory.abi",
+      "init_path": "stdlib/releases/discovery/ServiceDirectory_init.toc",
+      "tor_path": "stdlib/releases/discovery/ServiceDirectory.tor",
+      "bytecode_hash": "0x660defbfe68e549f74730d855b8e7a340b70732e479ab4d591ede4dc179ae16c",
+      "package_hash": "0x9cc5d6818f6d1d6effa45567b194a675ef8931a7396ba93dddf16b5acf7b4be7"
+    },
+    {
+      "family": "evidence",
+      "contract": "EvidenceBook",
+      "source_path": "stdlib/evidence/EvidenceBook.tol",
+      "release_package_name": "tolang.stdlib.evidence",
+      "toc_path": "stdlib/releases/evidence/EvidenceBook.toc",
+      "abi_path": "stdlib/releases/evidence/IEvidenceBook.abi",
+      "init_path": "stdlib/releases/evidence/EvidenceBook_init.toc",
+      "tor_path": "stdlib/releases/evidence/EvidenceBook.tor",
+      "bytecode_hash": "0x97a843c2a8ec7c01f389e9241ed1e032297cf646d3dced9545fa3b25919fb50a",
+      "package_hash": "0x9df6ced51580b32140a3539b362be0a6226c415cdead7a62be4709f841cd418e"
+    },
+    {
+      "family": "execution_binding",
+      "contract": "ExecutionBindingBook",
+      "source_path": "stdlib/execution_binding/ExecutionBindingBook.tol",
+      "release_package_name": "tolang.stdlib.execution_binding",
+      "toc_path": "stdlib/releases/execution_binding/ExecutionBindingBook.toc",
+      "abi_path": "stdlib/releases/execution_binding/IExecutionBindingBook.abi",
+      "init_path": "stdlib/releases/execution_binding/ExecutionBindingBook_init.toc",
+      "tor_path": "stdlib/releases/execution_binding/ExecutionBindingBook.tor",
+      "bytecode_hash": "0xd70a9fb009aa6f885ca949fae3d4a73e1b66e5d9bdeaa6a85d03329c0e2360f5",
+      "package_hash": "0x24b52127abb6d41cf4388b73226418edc4613f2f065c27ffce1cb544f03b5355"
+    },
+    {
+      "family": "privacy",
+      "contract": "ConfidentialEscrow",
+      "source_path": "stdlib/privacy/ConfidentialEscrow.tol",
+      "release_package_name": "tolang.stdlib.privacy.confidential_escrow",
+      "toc_path": "stdlib/releases/privacy/ConfidentialEscrow.toc",
+      "abi_path": "stdlib/releases/privacy/IConfidentialEscrow.abi",
+      "init_path": "stdlib/releases/privacy/ConfidentialEscrow_init.toc",
+      "tor_path": "stdlib/releases/privacy/ConfidentialEscrow.tor",
+      "bytecode_hash": "0x2d09323ba33221ddd6cac8ce1765a59e667ed3b8fc2c307f21137d2a3d15a159",
+      "package_hash": "0x1609904c4be27b380f084c22c4ac4c5b71b6d289b14b6342e1222c33f68d4ff9"
+    },
+    {
+      "family": "privacy",
+      "contract": "ConfidentialVault",
+      "source_path": "stdlib/privacy/ConfidentialVault.tol",
+      "release_package_name": "tolang.stdlib.privacy.confidential_vault",
+      "toc_path": "stdlib/releases/privacy/ConfidentialVault.toc",
+      "abi_path": "stdlib/releases/privacy/IConfidentialVault.abi",
+      "tor_path": "stdlib/releases/privacy/ConfidentialVault.tor",
+      "bytecode_hash": "0x94088fc99ca97517dbe7cca71a95adb06cb3dac55dfd8d595a5f250fe95c944c",
+      "package_hash": "0x004681ae6cbcc4d27211f3de3b2238968a4fa68103c2c3ece9520b25783833fd"
+    },
+    {
+      "family": "receipt",
+      "contract": "ReceiptBook",
+      "source_path": "stdlib/receipt/ReceiptBook.tol",
+      "release_package_name": "tolang.stdlib.receipt",
+      "toc_path": "stdlib/releases/receipt/ReceiptBook.toc",
+      "abi_path": "stdlib/releases/receipt/IReceiptBook.abi",
+      "init_path": "stdlib/releases/receipt/ReceiptBook_init.toc",
+      "tor_path": "stdlib/releases/receipt/ReceiptBook.tor",
+      "bytecode_hash": "0x87be13bed792e282aaf3c76c9e7698558d566fcb7ce0b78e606e74481f69e34b",
+      "package_hash": "0xba2d9e4002ad176dab592b630745e1561e2581a984cc225948d94ec9bcfb100c"
+    },
+    {
+      "family": "recovery",
+      "contract": "RecoveryController",
+      "source_path": "stdlib/recovery/RecoveryController.tol",
+      "release_package_name": "tolang.stdlib.recovery",
+      "toc_path": "stdlib/releases/recovery/RecoveryController.toc",
+      "abi_path": "stdlib/releases/recovery/IRecoveryController.abi",
+      "init_path": "stdlib/releases/recovery/RecoveryController_init.toc",
+      "tor_path": "stdlib/releases/recovery/RecoveryController.tor",
+      "bytecode_hash": "0xbd1996f5cdda38b4f3f01703766a742a0ab1eafb952a3eb5e0327982da637c15",
+      "package_hash": "0xd4d45562a2205fbf265d0aac6cf3e789a9dea27805685f5a94865ae5a2867cef"
+    },
+    {
+      "family": "session_book",
+      "contract": "SessionBook",
+      "source_path": "stdlib/session_book/SessionBook.tol",
+      "release_package_name": "tolang.stdlib.session_book",
+      "toc_path": "stdlib/releases/session_book/SessionBook.toc",
+      "abi_path": "stdlib/releases/session_book/ISessionBook.abi",
+      "init_path": "stdlib/releases/session_book/SessionBook_init.toc",
+      "tor_path": "stdlib/releases/session_book/SessionBook.tor",
+      "bytecode_hash": "0x49d0c22c89da8e11b87823ddd99c365eb334ab5926ff5baf58be7cd0ba3cd878",
+      "package_hash": "0x58b39a30b4e2cacfa834d9d169e0fb28d40abbc5820c78ce100f80d18fa5c04e"
+    },
+    {
+      "family": "settlement",
+      "contract": "TaskSettlement",
+      "source_path": "stdlib/settlement/TaskSettlement.tol",
+      "release_package_name": "tolang.stdlib.settlement",
+      "toc_path": "stdlib/releases/settlement/TaskSettlement.toc",
+      "abi_path": "stdlib/releases/settlement/ITaskSettlement.abi",
+      "init_path": "stdlib/releases/settlement/TaskSettlement_init.toc",
+      "tor_path": "stdlib/releases/settlement/TaskSettlement.tor",
+      "bytecode_hash": "0xa5e01481b48de31ee94863c9d0ab52c673378cd1e6a7e107a30777d7f7f44773",
+      "package_hash": "0xaf77b51924bc7ca5569020116c90122f1f77d1688c92fe5f86b331beb10b515b"
+    },
+    {
+      "family": "sponsor",
+      "contract": "SponsorPolicyRelay",
+      "source_path": "stdlib/sponsor/SponsorPolicyRelay.tol",
+      "release_package_name": "tolang.stdlib.sponsor",
+      "toc_path": "stdlib/releases/sponsor/SponsorPolicyRelay.toc",
+      "abi_path": "stdlib/releases/sponsor/ISponsorPolicyRelay.abi",
+      "init_path": "stdlib/releases/sponsor/SponsorPolicyRelay_init.toc",
+      "tor_path": "stdlib/releases/sponsor/SponsorPolicyRelay.tor",
+      "bytecode_hash": "0x0a8f51e9582de85e5fde7944a14c4d3aff56c0801b24660bd3af964eb4eefef2",
+      "package_hash": "0xec923c0b78d8099650c92dbb95d7a052ce5cb7086f1382336dc3c13da53731ac"
+    },
+    {
+      "family": "trust",
+      "contract": "TrustRegistry",
+      "source_path": "stdlib/trust/TrustRegistry.tol",
+      "release_package_name": "tolang.stdlib.trust",
+      "toc_path": "stdlib/releases/trust/TrustRegistry.toc",
+      "abi_path": "stdlib/releases/trust/ITrustRegistry.abi",
+      "init_path": "stdlib/releases/trust/TrustRegistry_init.toc",
+      "tor_path": "stdlib/releases/trust/TrustRegistry.tor",
+      "bytecode_hash": "0x8de05925724a2ba55c6eac01159f825f33c09097e2ca5667d46639c8ae6032ab",
+      "package_hash": "0xa6f5e68e387ee92916e1ba7a8bae513b91af1967a98a47c0fe954e813f52ad2a"
+    }
+  ]
+}

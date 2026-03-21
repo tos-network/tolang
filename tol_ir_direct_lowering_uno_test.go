@@ -394,3 +394,28 @@ contract ConfidentialVault {
 		t.Fatal("bytecode is empty")
 	}
 }
+
+// TestPayableUnoEnvMemberMethodRuntime verifies that direct UNO method calls on
+// msg.uno_value lower through tos.ciphertext rather than falling back to raw
+// Lua member dispatch.
+func TestPayableUnoEnvMemberMethodRuntime(t *testing.T) {
+	src := []byte(`pragma tolang 0.4.0;
+contract PayableUnoEnvMethodTest {
+  function hasValue() public payable(uno) returns (bool ok) {
+    return msg.uno_value.gt(uno.zero());
+  }
+}
+`)
+	L, tos, host := deployStdlibSourceContract(t, src, "PayableUnoEnvMethodTest")
+	defer L.Close()
+
+	stdlibSetUnoValue(host, stdlibUnoFromInt(7))
+	if got := invokeStdlib(t, L, tos, "hasValue()"); !LVAsBool(got) {
+		t.Fatal("expected positive uno_value to be greater than zero")
+	}
+
+	stdlibSetUnoValue(host, stdlibUnoFromInt(0))
+	if got := invokeStdlib(t, L, tos, "hasValue()"); LVAsBool(got) {
+		t.Fatal("expected zero uno_value to not be greater than zero")
+	}
+}

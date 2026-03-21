@@ -4184,6 +4184,20 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 			}
 			return unsignedExpr, nil
 		}
+		// Intercept fixed-bytes casts: bytesN(expr) → "0x" .. __tol_abi_slot_static(expr, "bytesN")
+		if fixedBytesExpr, ok, err := lowerFixedBytesTypeCastExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return fixedBytesExpr, nil
+		}
+		// Intercept imported contract/interface casts: PolicyAccount(addr) → addr.
+		if ifaceCastExpr, ok, err := lowerInterfaceTypeCastExpr(ctx, e); ok || err != nil {
+			if err != nil {
+				return nil, err
+			}
+			return ifaceCastExpr, nil
+		}
 		// Intercept payable(expr): identity cast — just return the argument as-is.
 		if e.Callee != nil && e.Callee.Kind == "ident" && strings.TrimSpace(e.Callee.Value) == "payable" {
 			if len(e.Args) == 1 {
@@ -4783,9 +4797,14 @@ func lowerCallWithOptionsExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 	return nil, false, nil
 }
 
-// lowerAgentTransferSendCallExpr handles addr.transfer(amount) and addr.send(amount),
-// lowering them to __tol_host_transfer(addr, amount) and __tol_host_send(addr, amount).
-// The sema pass (TOL2085) already guarantees addr is agent payable; this handles lowering.
+// lowerAgentTransferSendCallExpr handles agent low-level member calls:
+//   - addr.call(data)         → __tol_host_call(addr, 0, data)
+//   - addr.staticcall(data)   → __tol_host_staticcall(addr, data)
+//   - addr.delegatecall(data) → __tol_host_delegatecall(addr, data)
+//   - addr.transfer(amount)   → __tol_host_transfer(addr, amount)
+//   - addr.send(amount)       → __tol_host_send(addr, amount)
+//
+// The sema pass already guarantees addr.transfer/send() receivers are payable.
 func lowerAgentTransferSendCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
 	if e == nil || e.Kind != "call" {
 		return nil, false, nil
@@ -4795,29 +4814,74 @@ func lowerAgentTransferSendCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Exp
 		return nil, false, nil
 	}
 	member := strings.TrimSpace(callee.Member)
-	if member != "transfer" && member != "send" {
+	if member != "call" && member != "staticcall" && member != "delegatecall" && member != "transfer" && member != "send" {
 		return nil, false, nil
-	}
-	if len(e.Args) != 1 {
-		return nil, true, fmt.Errorf("[%s] .%s() requires exactly 1 argument", diag.CodeLowerUnsupportedFeature, member)
-	}
-	hostFn := "__tol_host_transfer"
-	if member == "send" {
-		hostFn = "__tol_host_send"
 	}
 	addrExpr, err := tolExprToLua(ctx, callee.Object)
 	if err != nil {
 		return nil, true, err
 	}
-	amountExpr, err := tolExprToLua(ctx, e.Args[0])
-	if err != nil {
-		return nil, true, err
+
+	switch member {
+	case "call":
+		if len(e.Args) != 1 {
+			return nil, true, fmt.Errorf("[%s] .call() requires exactly 1 data argument", diag.CodeLowerUnsupportedFeature)
+		}
+		dataExpr, err := tolExprToLua(ctx, e.Args[0])
+		if err != nil {
+			return nil, true, err
+		}
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_host_call"}),
+			Args:      []luast.Expr{addrExpr, withLineExpr(&luast.NumberExpr{Value: "0"}), dataExpr},
+			AdjustRet: true,
+		}), true, nil
+	case "staticcall":
+		if len(e.Args) != 1 {
+			return nil, true, fmt.Errorf("[%s] .staticcall() requires exactly 1 data argument", diag.CodeLowerUnsupportedFeature)
+		}
+		dataExpr, err := tolExprToLua(ctx, e.Args[0])
+		if err != nil {
+			return nil, true, err
+		}
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_host_staticcall"}),
+			Args:      []luast.Expr{addrExpr, dataExpr},
+			AdjustRet: true,
+		}), true, nil
+	case "delegatecall":
+		if len(e.Args) != 1 {
+			return nil, true, fmt.Errorf("[%s] .delegatecall() requires exactly 1 data argument", diag.CodeLowerUnsupportedFeature)
+		}
+		dataExpr, err := tolExprToLua(ctx, e.Args[0])
+		if err != nil {
+			return nil, true, err
+		}
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_host_delegatecall"}),
+			Args:      []luast.Expr{addrExpr, dataExpr},
+			AdjustRet: true,
+		}), true, nil
+	case "transfer", "send":
+		if len(e.Args) != 1 {
+			return nil, true, fmt.Errorf("[%s] .%s() requires exactly 1 argument", diag.CodeLowerUnsupportedFeature, member)
+		}
+		hostFn := "__tol_host_transfer"
+		if member == "send" {
+			hostFn = "__tol_host_send"
+		}
+		amountExpr, err := tolExprToLua(ctx, e.Args[0])
+		if err != nil {
+			return nil, true, err
+		}
+		return withLineExpr(&luast.FuncCallExpr{
+			Func:      withLineExpr(&luast.IdentExpr{Value: hostFn}),
+			Args:      []luast.Expr{addrExpr, amountExpr},
+			AdjustRet: true,
+		}), true, nil
+	default:
+		return nil, false, nil
 	}
-	return withLineExpr(&luast.FuncCallExpr{
-		Func:      withLineExpr(&luast.IdentExpr{Value: hostFn}),
-		Args:      []luast.Expr{addrExpr, amountExpr},
-		AdjustRet: true,
-	}), true, nil
 }
 
 func lowerHostBuiltinCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
@@ -6877,6 +6941,32 @@ func inferExprType(ctx *loweringCtx, e *tolast.Expr) string {
 		}
 		return ""
 	case "member":
+		obj := stripTolParens(e.Object)
+		if obj != nil && obj.Kind == "ident" {
+			scope := strings.TrimSpace(obj.Value)
+			member := strings.TrimSpace(e.Member)
+			switch scope {
+			case "msg":
+				switch member {
+				case "sender":
+					return "agent"
+				case "value":
+					return "u256"
+				case "uno_value":
+					return "uno"
+				}
+			case "tx":
+				switch member {
+				case "origin":
+					return "agent"
+				}
+			case "block":
+				switch member {
+				case "number", "timestamp", "timestamp_ms":
+					return "u256"
+				}
+			}
+		}
 		// type(T).min / type(T).max: infer type as T.
 		bound := strings.TrimSpace(e.Member)
 		if bound == "min" || bound == "max" {
@@ -7165,6 +7255,86 @@ func lowerUintTypeCastExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, 
 		Args:      []luast.Expr{inner, makeSignedBitsExpr(bits)},
 		AdjustRet: true,
 	}), true, nil
+}
+
+// lowerFixedBytesTypeCastExpr handles fixed-bytes casts: bytesN(expr), where N is 1..32.
+// The runtime representation is a "0x" prefixed hex string with exactly 2*N bytes,
+// left-aligned within a 32-byte slot for compatibility with ABI/static-slot encoding.
+func lowerFixedBytesTypeCastExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
+	if e == nil || e.Kind != "call" {
+		return nil, false, nil
+	}
+	callee := stripTolParens(e.Callee)
+	if callee == nil || callee.Kind != "ident" {
+		return nil, false, nil
+	}
+	name := strings.TrimSpace(callee.Value)
+	if !strings.HasPrefix(name, "bytes") || len(name) <= len("bytes") {
+		return nil, false, nil
+	}
+	n, err := strconv.Atoi(name[len("bytes"):])
+	if err != nil || n < 1 || n > 32 {
+		return nil, false, nil
+	}
+	if ctx != nil && ctx.env != nil {
+		if _, exists := ctx.env.functionByName[name]; exists {
+			return nil, false, nil
+		}
+	}
+	if len(e.Args) != 1 {
+		return nil, true, fmt.Errorf("[%s] type cast %s(...) requires exactly 1 argument", diag.CodeLowerUnsupportedFeature, name)
+	}
+	inner, err := tolExprToLua(ctx, e.Args[0])
+	if err != nil {
+		return nil, true, err
+	}
+	slotExpr := withLineExpr(&luast.FuncCallExpr{
+		Func: withLineExpr(&luast.IdentExpr{Value: "__tol_abi_slot_static"}),
+		Args: []luast.Expr{
+			inner,
+			withLineExpr(&luast.StringExpr{Value: name}),
+		},
+		AdjustRet: true,
+	})
+	return withLineExpr(&luast.StringConcatOpExpr{
+		Lhs: withLineExpr(&luast.StringExpr{Value: "0x"}),
+		Rhs: slotExpr,
+	}), true, nil
+}
+
+// lowerInterfaceTypeCastExpr handles imported contract/interface casts:
+//
+//	PolicyAccount(addr) -> addr
+//	tolang.stdlib.account.PolicyAccount(addr) -> addr
+//
+// These casts are runtime no-ops; they annotate an agent address with an imported
+// interface/contract type so that subsequent scoped calls can route through
+// package_call / iface_call lowering.
+func lowerInterfaceTypeCastExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, error) {
+	if e == nil || e.Kind != "call" || ctx == nil || ctx.env == nil || e.Callee == nil || e.Callee.Kind != "ident" {
+		return nil, false, nil
+	}
+
+	typeName := strings.TrimSpace(e.Callee.Value)
+	if typeName == "" {
+		return nil, false, nil
+	}
+
+	lookupName := typeName
+	if idx := strings.LastIndex(lookupName, "."); idx > 0 {
+		lookupName = lookupName[idx+1:]
+	}
+	if _, ok := ctx.env.interfaceByName[lookupName]; !ok {
+		return nil, false, nil
+	}
+	if len(e.Args) != 1 {
+		return nil, true, fmt.Errorf("[%s] interface/contract cast %s(...) requires exactly 1 argument", diag.CodeLowerUnsupportedFeature, typeName)
+	}
+	argExpr, err := tolExprToLua(ctx, e.Args[0])
+	if err != nil {
+		return nil, true, err
+	}
+	return argExpr, true, nil
 }
 
 // lowerSignedUnaryNeg handles unary negation on a signed integer type: -expr.

@@ -1,0 +1,201 @@
+pragma tolang 0.4.0;
+
+package tolang.stdlib.session_book;
+
+// SessionBook — bounded terminal/session grants for one controller.
+//
+// A session grant binds operator, terminal identity, trust tier, expiry,
+// spending limit, and a step-up threshold. This lets a policy account expose a
+// machine-readable session surface instead of burying session checks in ad hoc
+// business logic.
+
+interface ISessionBook {
+    event SessionGranted(
+        bytes32 indexed session_id,
+        agent indexed operator,
+        bytes32 indexed terminal_id,
+        u256 terminal_class,
+        u256 trust_tier,
+        u256 expiry_ms,
+        u256 spend_limit,
+        u256 step_up_limit,
+        bool degraded_mode
+    )
+    event SessionConsumed(bytes32 indexed session_id, u256 amount, u256 remaining)
+    event SessionRevoked(bytes32 indexed session_id)
+
+    function grantSession(
+        bytes32 session_id,
+        agent operator,
+        bytes32 terminal_id,
+        u256 terminal_class,
+        u256 trust_tier,
+        u256 expiry_ms,
+        u256 spend_limit,
+        u256 step_up_limit,
+        bool degraded_mode
+    ) public;
+
+    function revokeSession(bytes32 session_id) public;
+
+    function consume(bytes32 session_id, u256 amount, bool step_up_completed) public returns (bool ok);
+
+    @verifiable
+    function isActive(bytes32 session_id) public view returns (bool ok);
+
+    @verifiable
+    function requiresStepUp(bytes32 session_id, u256 amount) public view returns (bool ok);
+
+    @verifiable
+    function remainingOf(bytes32 session_id) public view returns (u256 remaining);
+}
+
+contract SessionBook is ISessionBook {
+    manifest {
+        name: "SessionBook";
+        version: "1.0.0";
+        description: "Session grants with terminal identity, trust tier, expiry, spend limit, and step-up threshold";
+    }
+
+    agent controller;
+
+    mapping(bytes32 => bool) session_exists;
+    mapping(bytes32 => bool) session_active;
+    mapping(bytes32 => agent) session_operator;
+    mapping(bytes32 => bytes32) session_terminal_id;
+    mapping(bytes32 => u256) session_terminal_class;
+    mapping(bytes32 => u256) session_trust_tier;
+    mapping(bytes32 => u256) session_expiry_ms;
+    mapping(bytes32 => u256) session_spend_limit;
+    mapping(bytes32 => u256) session_spent;
+    mapping(bytes32 => u256) session_step_up_limit;
+    mapping(bytes32 => bool) session_degraded_mode;
+
+    event SessionGranted(
+        bytes32 indexed session_id,
+        agent indexed operator,
+        bytes32 indexed terminal_id,
+        u256 terminal_class,
+        u256 trust_tier,
+        u256 expiry_ms,
+        u256 spend_limit,
+        u256 step_up_limit,
+        bool degraded_mode
+    )
+    event SessionConsumed(bytes32 indexed session_id, u256 amount, u256 remaining)
+    event SessionRevoked(bytes32 indexed session_id)
+
+    constructor(agent _controller) {
+        require(_controller != agent(0), "ZERO_CONTROLLER");
+        set controller = _controller;
+    }
+
+    function grantSession(
+        bytes32 session_id,
+        agent operator,
+        bytes32 terminal_id,
+        u256 terminal_class,
+        u256 trust_tier,
+        u256 expiry_ms,
+        u256 spend_limit,
+        u256 step_up_limit,
+        bool degraded_mode
+    ) public {
+        require(msg.sender == controller, "NOT_CONTROLLER");
+        require(session_exists[session_id] != true, "SESSION_EXISTS");
+        require(session_id != bytes32(0), "ZERO_SESSION");
+        require(operator != agent(0), "ZERO_OPERATOR");
+        require(terminal_id != bytes32(0), "ZERO_TERMINAL");
+        require(spend_limit > 0, "ZERO_LIMIT");
+        require(step_up_limit <= spend_limit, "STEP_UP_LIMIT");
+
+        set session_exists[session_id] = true;
+        set session_active[session_id] = true;
+        set session_operator[session_id] = operator;
+        set session_terminal_id[session_id] = terminal_id;
+        set session_terminal_class[session_id] = terminal_class;
+        set session_trust_tier[session_id] = trust_tier;
+        set session_expiry_ms[session_id] = expiry_ms;
+        set session_spend_limit[session_id] = spend_limit;
+        set session_spent[session_id] = 0;
+        set session_step_up_limit[session_id] = step_up_limit;
+        set session_degraded_mode[session_id] = degraded_mode;
+
+        emit SessionGranted(
+            session_id,
+            operator,
+            terminal_id,
+            terminal_class,
+            trust_tier,
+            expiry_ms,
+            spend_limit,
+            step_up_limit,
+            degraded_mode
+        );
+    }
+
+    function revokeSession(bytes32 session_id) public {
+        require(msg.sender == controller, "NOT_CONTROLLER");
+        require(session_exists[session_id] == true, "UNKNOWN_SESSION");
+        set session_active[session_id] = false;
+        emit SessionRevoked(session_id);
+    }
+
+    function consume(bytes32 session_id, u256 amount, bool step_up_completed) public returns (bool ok) {
+        require(session_exists[session_id] == true, "UNKNOWN_SESSION");
+        require(session_active[session_id] == true, "SESSION_INACTIVE");
+        require(msg.sender == controller || msg.sender == session_operator[session_id], "NOT_OPERATOR");
+        require(amount > 0, "ZERO_AMOUNT");
+
+        u256 expiry_ms = session_expiry_ms[session_id];
+        if (expiry_ms > 0) {
+            require(block.timestamp_ms < expiry_ms, "SESSION_EXPIRED");
+        }
+
+        require(session_spent[session_id] + amount <= session_spend_limit[session_id], "OVER_LIMIT");
+
+        bool needs_step_up = amount > session_step_up_limit[session_id];
+        if (session_degraded_mode[session_id] == true && amount > 0) {
+            set needs_step_up = true;
+        }
+        require(step_up_completed == true || needs_step_up != true, "STEP_UP_REQUIRED");
+
+        set session_spent[session_id] = session_spent[session_id] + amount;
+        emit SessionConsumed(session_id, amount, session_spend_limit[session_id] - session_spent[session_id]);
+        return true;
+    }
+
+    @verifiable
+    function isActive(bytes32 session_id) public view returns (bool ok) {
+        if (session_exists[session_id] != true) {
+            return false;
+        }
+        if (session_active[session_id] != true) {
+            return false;
+        }
+        u256 expiry_ms = session_expiry_ms[session_id];
+        if (expiry_ms > 0 && block.timestamp_ms >= expiry_ms) {
+            return false;
+        }
+        return true;
+    }
+
+    @verifiable
+    function requiresStepUp(bytes32 session_id, u256 amount) public view returns (bool ok) {
+        if (isActive(session_id) != true) {
+            return false;
+        }
+        if (session_degraded_mode[session_id] == true && amount > 0) {
+            return true;
+        }
+        return amount > session_step_up_limit[session_id];
+    }
+
+    @verifiable
+    function remainingOf(bytes32 session_id) public view returns (u256 remaining) {
+        if (isActive(session_id) != true) {
+            return 0;
+        }
+        return session_spend_limit[session_id] - session_spent[session_id];
+    }
+}

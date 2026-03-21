@@ -121,8 +121,10 @@ Files changed: `stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`,
    `RecurringPayment` contract added to `stdlib/settlement/`
 4. **`@requires(caller: Cap)`** — compiler-enforced capability syntax not yet
    implemented
-5. **Selective disclosure** — only auditor-key authorization layer implemented;
-   ZK proof gate and decryption token layers not yet built
+5. ~~**Selective disclosure**~~ — **RESOLVED:** all three layers implemented
+   in GTOS: DisclosureProof (ZK/DLEQ), DecryptionToken (per-ciphertext),
+   AuditorKey (consensus-enforced).  See `gtos/docs/SELECTIVE-DISCLOSURE.md`.
+   Stdlib `AuditorDisclosureBook` complements at contract level.
 
 ---
 

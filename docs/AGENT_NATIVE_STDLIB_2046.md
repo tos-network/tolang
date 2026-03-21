@@ -1152,7 +1152,7 @@ They should be documented as follows:
 | Privacy family completion | stdlib family — **RESOLVED**: all 6 contracts implemented | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `docs/PRIVACY_STDLIB_FAMILY.md` |
 | Recurring / subscription settlement | stdlib — **RESOLVED**: `RecurringPayment` contract; protocol scheduler pending | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
 | `@requires(caller: Cap)` | language / compiler | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/TOLANG_SHORTCOMINGS.md` | `docs/CALLER_CAPABILITY_SYNTAX.md` |
-| Selective disclosure (`ZK + token`) | privacy / protocol / cryptography | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |
+| Selective disclosure (`ZK + token`) | privacy / protocol — **RESOLVED**: all 3 layers in GTOS | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |
 
 ### Status note
 

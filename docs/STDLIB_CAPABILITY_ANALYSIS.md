@@ -131,7 +131,7 @@ Remaining gaps are ZK proof gates and structured discovery fields.
 | Proxy delegation | `approve()` + `transferFrom()` | `AuthorityBook.grant` / `.revoke` / `.consume` — capped, time-bounded, revocable | **~85%** |
 | Multi-terminal support | Not supported | `SessionBook.grantSession` with trust tier, budget, step-up threshold | **~70%** — trust tiers are u256 constants, not a formal 6x5 matrix |
 | Encrypted transfers | Not supported | `uno.transfer()` + `ConfidentialEscrow.openEscrow` / `.releaseEscrow` | **~90%** |
-| Selective disclosure | Not supported | `ConfidentialVault.authorizeAuditor` / `.revokeAuditor` — auditor layer only | **~30%** — ZK proof gate and decryption token layers NOT IMPLEMENTED |
+| Selective disclosure | Not supported | GTOS: DisclosureProof (ZK/DLEQ) + DecryptionToken + AuditorKey (consensus); stdlib: `AuditorDisclosureBook` + `ConfidentialVault.authorizeAuditor` | **~90%** — all 3 protocol layers implemented in GTOS; stdlib provides contract-level management |
 | Task marketplace | ~200 lines hand-rolled state machine | `CommercialAgreement.createOffer` + `TaskSettlement.openTask` | **~90%** |
 | Gas sponsorship | ERC-4337 complex stack | `SponsorPolicyRelay.relay` — native sponsor binding + policy + budget | **~85%** |
 | Machine-readable audit | Optional event logs | `ReceiptBook.openReceipt` / `.finalizeSuccess` — structured evidence chain | **~80%** — requires explicit calls, not auto-emitted |
@@ -225,8 +225,8 @@ All previously missing contracts have been implemented (2026-03-21):
 | Feature | Description |
 |---------|-------------|
 | `@requires(caller: Cap)` | Compiler-enforced capability-based access control syntax; currently hand-rolled `require(msg.sender == owner)` |
-| Selective disclosure (ZK layer) | ZK proof gate for privacy-preserving verification |
-| Selective disclosure (decryption token layer) | Per-counterparty decryption token issuance |
+| ~~Selective disclosure (ZK layer)~~ | **RESOLVED** — DisclosureProof (DLEQ Sigma) implemented in GTOS `crypto/priv/disclosure.go` |
+| ~~Selective disclosure (decryption token layer)~~ | **RESOLVED** — DecryptionToken implemented in GTOS `core/priv/decryption_token.go` |
 
 ### Document placement for the five strategic workstreams
 
@@ -242,7 +242,7 @@ and deeper design homes:
 | Privacy family completion | **RESOLVED** — all 6 contracts implemented; ZK/token layers pending | `docs/PRIVACY_STDLIB_FAMILY.md` |
 | Recurring / subscription settlement | **RESOLVED** — `RecurringPayment` contract; protocol scheduler pending | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
 | `@requires(caller: Cap)` | compiler feature required for capability-complete stdlib ergonomics | `docs/CALLER_CAPABILITY_SYNTAX.md` |
-| Selective disclosure (`ZK + token`) | missing privacy capability layers | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |
+| Selective disclosure (`ZK + token`) | **RESOLVED** — all 3 layers in GTOS (DisclosureProof, DecryptionToken, AuditorKey) | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |
 
 Status guidance:
 

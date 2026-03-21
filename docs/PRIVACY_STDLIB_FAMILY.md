@@ -51,13 +51,17 @@ implemented, compile, and have package/artifact coverage:
 | `ConfidentialAllowance` | Encrypted approve/transferFrom with expiry | Yes | Seed + compile test |
 | `AuditorDisclosureBook` | Snapshot-based auditor disclosure management | No | Seed + compile test |
 
-**Protocol layer: INCOMPLETE.** Remaining frontier areas:
+**Protocol layer: COMPLETE (verified 2026-03-21).** All three selective
+disclosure layers are implemented in GTOS (`docs/SELECTIVE-DISCLOSURE.md`):
+
+- Layer 1: **DisclosureProof** — DLEQ Sigma protocol for ZK amount/range proofs
+- Layer 2: **DecryptionToken** — per-ciphertext audit tokens with DLEQ honesty proof
+- Layer 3: **AuditorKey** — consensus-enforced regulatory disclosure via PolicyWallet
+
+Remaining frontier areas (contract-level, not protocol-blocking):
 
 - milestone-based confidential release
 - privacy-aware receipt automation
-- arbitrator / auditor selective disclosure flows
-- proof-gated disclosure paths (ZK layer — requires GTOS protocol support)
-- decryption-token issuance and lifecycle (token layer — requires GTOS protocol support)
 - tighter integration with trust, sponsor, and settlement flows
 
 ## Core questions this document must answer

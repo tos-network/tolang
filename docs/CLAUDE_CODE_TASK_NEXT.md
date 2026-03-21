@@ -114,11 +114,11 @@ Files changed: `stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`,
    multi-contract atomic transactions (finalize receipt + release escrow as one
    unit) require coordinator-level error handling or a future protocol-level
    multi-call atomic primitive
-2. **Privacy family contracts** — 4 contracts still missing
-   (`ConfidentialPayment`, `ConfidentialTreasury`, `ConfidentialAllowance`,
-   `AuditorDisclosureBook`)
-3. **Recurring/subscription payments** — no `schedule` mechanism in
-   `TaskSettlement`
+2. ~~**Privacy family contracts**~~ — **RESOLVED (2026-03-21):** all 4 contracts
+   implemented (`ConfidentialPayment`, `ConfidentialTreasury`,
+   `ConfidentialAllowance`, `AuditorDisclosureBook`)
+3. ~~**Recurring/subscription payments**~~ — **RESOLVED (2026-03-21):**
+   `RecurringPayment` contract added to `stdlib/settlement/`
 4. **`@requires(caller: Cap)`** — compiler-enforced capability syntax not yet
    implemented
 5. **Selective disclosure** — only auditor-key authorization layer implemented;

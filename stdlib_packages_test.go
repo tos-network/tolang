@@ -146,6 +146,41 @@ func TestAgentStdlibPackagesCompile(t *testing.T) {
 			interfaceName: "IServiceDirectory",
 			functions:     []string{"registerService", "updateManifest", "updateQuote", "deactivate", "providerOf", "manifestRefOf", "capabilityRefOf", "quoteRefOf", "isActive"},
 		},
+		{
+			relPath:       "stdlib/privacy/ConfidentialPayment.tol",
+			pkgName:       "tolang.stdlib.privacy",
+			contractName:  "ConfidentialPayment",
+			interfaceName: "IConfidentialPayment",
+			functions:     []string{"pay", "batchPay", "addPayee", "releaseBatch", "refund", "refundBatch", "statusOf", "batchStatusOf", "payerOf", "payeeOf", "receiptRefOf", "nativeBalance"},
+		},
+		{
+			relPath:       "stdlib/privacy/ConfidentialTreasury.tol",
+			pkgName:       "tolang.stdlib.privacy",
+			contractName:  "ConfidentialTreasury",
+			interfaceName: "IConfidentialTreasury",
+			functions:     []string{"deposit", "withdraw", "addSigner", "removeSigner", "authorizeSpend", "executeSpend", "cancelSpend", "authorizeAuditor", "revokeAuditor", "totalBalance", "nativeBalance", "isSigner", "spendStatusOf", "canAudit", "disclosureRefOf"},
+		},
+		{
+			relPath:       "stdlib/privacy/ConfidentialAllowance.tol",
+			pkgName:       "tolang.stdlib.privacy",
+			contractName:  "ConfidentialAllowance",
+			interfaceName: "IConfidentialAllowance",
+			functions:     []string{"deposit", "withdraw", "approve", "revokeApproval", "transferFrom", "balanceOf", "allowanceOf", "isApproved", "expiryOf", "nativeBalance"},
+		},
+		{
+			relPath:       "stdlib/privacy/AuditorDisclosureBook.tol",
+			pkgName:       "tolang.stdlib.privacy",
+			contractName:  "AuditorDisclosureBook",
+			interfaceName: "IAuditorDisclosureBook",
+			functions:     []string{"authorizeAuditor", "revokeAuditor", "publishSnapshot", "finalizeSnapshot", "attachProof", "isAuthorized", "scopeRefOf", "expiryOf", "snapshotStatusOf", "dataRefOf", "proofRefOf", "isFinalized", "snapshotCount"},
+		},
+		{
+			relPath:       "stdlib/settlement/RecurringPayment.tol",
+			pkgName:       "tolang.stdlib.settlement",
+			contractName:  "RecurringPayment",
+			interfaceName: "IRecurringPayment",
+			functions:     []string{"subscribe", "executePayment", "cancel", "pause", "resume", "statusOf", "cyclesCompleted", "nextPaymentAfter", "remainingBalance", "providerOf", "subscriberOf", "agreementRefOf"},
+		},
 	}
 
 	for _, tc := range testCases {

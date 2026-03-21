@@ -1,0 +1,218 @@
+pragma tolang 0.4.0;
+
+package tolang.stdlib.settlement;
+
+// RecurringPayment — recurring / subscription payment scheduler.
+//
+// Allows a subscriber to authorize periodic payments to a provider,
+// with configurable interval, amount, and max cycles.
+
+interface IRecurringPayment {
+    event SubscriptionCreated(
+        bytes32 indexed subscription_id,
+        agent indexed subscriber,
+        agent indexed provider,
+        u256 amount,
+        u256 interval_ms,
+        u256 max_cycles,
+        bytes32 agreement_ref
+    )
+    event PaymentExecuted(bytes32 indexed subscription_id, agent indexed provider, u256 cycle, bytes32 receipt_ref)
+    event SubscriptionCancelled(bytes32 indexed subscription_id, agent indexed subscriber, bytes32 reason_ref)
+    event SubscriptionPaused(bytes32 indexed subscription_id, agent indexed subscriber)
+    event SubscriptionResumed(bytes32 indexed subscription_id, agent indexed subscriber)
+    event SubscriptionCompleted(bytes32 indexed subscription_id, agent indexed provider, u256 total_paid)
+
+    function subscribe(bytes32 subscription_id, agent provider, u256 amount, u256 interval_ms, u256 max_cycles, bytes32 agreement_ref) public payable;
+    function executePayment(bytes32 subscription_id, bytes32 receipt_ref) public;
+    function cancel(bytes32 subscription_id, bytes32 reason_ref) public;
+    function pause(bytes32 subscription_id) public;
+    function resume(bytes32 subscription_id) public;
+
+    @verifiable
+    function statusOf(bytes32 subscription_id) public view returns (u256 status);
+
+    @verifiable
+    function cyclesCompleted(bytes32 subscription_id) public view returns (u256 cycles);
+
+    @verifiable
+    function nextPaymentAfter(bytes32 subscription_id) public view returns (u256 timestamp_ms);
+
+    @verifiable
+    function remainingBalance(bytes32 subscription_id) public view returns (u256 balance);
+
+    @verifiable
+    function providerOf(bytes32 subscription_id) public view returns (agent provider);
+
+    @verifiable
+    function subscriberOf(bytes32 subscription_id) public view returns (agent subscriber);
+
+    @verifiable
+    function agreementRefOf(bytes32 subscription_id) public view returns (bytes32 agreement_ref);
+}
+
+contract RecurringPayment is IRecurringPayment {
+    manifest {
+        name: "RecurringPayment";
+        version: "1.0.0";
+        description: "Recurring subscription payment scheduler with configurable interval, amount, and max cycles";
+    }
+
+    u8 constant STATUS_NONE = 0;
+    u8 constant STATUS_ACTIVE = 1;
+    u8 constant STATUS_PAUSED = 2;
+    u8 constant STATUS_CANCELLED = 3;
+    u8 constant STATUS_COMPLETED = 4;
+
+    agent coordinator;
+
+    mapping(bytes32 => u8) sub_status;
+    mapping(bytes32 => agent) sub_subscriber;
+    mapping(bytes32 => agent) sub_provider;
+    mapping(bytes32 => u256) sub_amount;
+    mapping(bytes32 => u256) sub_interval_ms;
+    mapping(bytes32 => u256) sub_max_cycles;
+    mapping(bytes32 => u256) sub_cycles_done;
+    mapping(bytes32 => u256) sub_last_payment_ms;
+    mapping(bytes32 => u256) sub_deposit;
+    mapping(bytes32 => bytes32) sub_agreement_ref;
+    mapping(bytes32 => bool) sub_paused;
+
+    event SubscriptionCreated(
+        bytes32 indexed subscription_id,
+        agent indexed subscriber,
+        agent indexed provider,
+        u256 amount,
+        u256 interval_ms,
+        u256 max_cycles,
+        bytes32 agreement_ref
+    )
+    event PaymentExecuted(bytes32 indexed subscription_id, agent indexed provider, u256 cycle, bytes32 receipt_ref)
+    event SubscriptionCancelled(bytes32 indexed subscription_id, agent indexed subscriber, bytes32 reason_ref)
+    event SubscriptionPaused(bytes32 indexed subscription_id, agent indexed subscriber)
+    event SubscriptionResumed(bytes32 indexed subscription_id, agent indexed subscriber)
+    event SubscriptionCompleted(bytes32 indexed subscription_id, agent indexed provider, u256 total_paid)
+
+    constructor(agent _coordinator) {
+        require(_coordinator != agent(0), "ZERO_COORDINATOR");
+        set coordinator = _coordinator;
+    }
+
+    function subscribe(bytes32 subscription_id, agent provider, u256 amount, u256 interval_ms, u256 max_cycles, bytes32 agreement_ref) public payable {
+        require(sub_status[subscription_id] == STATUS_NONE, "ALREADY_EXISTS");
+        require(provider != agent(0), "ZERO_PROVIDER");
+        require(amount > 0, "ZERO_AMOUNT");
+        require(interval_ms > 0, "ZERO_INTERVAL");
+        require(max_cycles > 0, "ZERO_CYCLES");
+        require(msg.value == amount * max_cycles, "WRONG_DEPOSIT");
+
+        set sub_status[subscription_id] = STATUS_ACTIVE;
+        set sub_subscriber[subscription_id] = msg.sender;
+        set sub_provider[subscription_id] = provider;
+        set sub_amount[subscription_id] = amount;
+        set sub_interval_ms[subscription_id] = interval_ms;
+        set sub_max_cycles[subscription_id] = max_cycles;
+        set sub_cycles_done[subscription_id] = 0;
+        set sub_last_payment_ms[subscription_id] = block.timestamp_ms;
+        set sub_deposit[subscription_id] = msg.value;
+        set sub_agreement_ref[subscription_id] = agreement_ref;
+        set sub_paused[subscription_id] = false;
+
+        escrow(msg.sender, msg.value);
+        emit SubscriptionCreated(subscription_id, msg.sender, provider, amount, interval_ms, max_cycles, agreement_ref);
+    }
+
+    function executePayment(bytes32 subscription_id, bytes32 receipt_ref) public {
+        require(msg.sender == coordinator, "NOT_COORDINATOR");
+        require(sub_status[subscription_id] == STATUS_ACTIVE, "NOT_ACTIVE");
+        require(sub_paused[subscription_id] != true, "PAUSED");
+        require(block.timestamp_ms >= sub_last_payment_ms[subscription_id] + sub_interval_ms[subscription_id], "INTERVAL_NOT_ELAPSED");
+        require(sub_cycles_done[subscription_id] < sub_max_cycles[subscription_id], "ALL_CYCLES_DONE");
+
+        u256 amount = sub_amount[subscription_id];
+        agent provider = sub_provider[subscription_id];
+        u256 cycles_done = sub_cycles_done[subscription_id] + 1;
+
+        set sub_cycles_done[subscription_id] = cycles_done;
+        set sub_last_payment_ms[subscription_id] = block.timestamp_ms;
+        set sub_deposit[subscription_id] = sub_deposit[subscription_id] - amount;
+
+        release(provider, amount);
+        emit PaymentExecuted(subscription_id, provider, cycles_done, receipt_ref);
+
+        if (cycles_done == sub_max_cycles[subscription_id]) {
+            set sub_status[subscription_id] = STATUS_COMPLETED;
+            emit SubscriptionCompleted(subscription_id, provider, amount * cycles_done);
+        }
+    }
+
+    function cancel(bytes32 subscription_id, bytes32 reason_ref) public {
+        require(sub_status[subscription_id] == STATUS_ACTIVE || sub_status[subscription_id] == STATUS_PAUSED, "NOT_CANCELLABLE");
+        require(msg.sender == sub_subscriber[subscription_id], "NOT_SUBSCRIBER");
+
+        u256 remaining = sub_deposit[subscription_id];
+        set sub_status[subscription_id] = STATUS_CANCELLED;
+        set sub_deposit[subscription_id] = 0;
+
+        if (remaining > 0) {
+            release(msg.sender, remaining);
+        }
+
+        emit SubscriptionCancelled(subscription_id, msg.sender, reason_ref);
+    }
+
+    function pause(bytes32 subscription_id) public {
+        require(sub_status[subscription_id] == STATUS_ACTIVE, "NOT_ACTIVE");
+        require(msg.sender == sub_subscriber[subscription_id], "NOT_SUBSCRIBER");
+        require(sub_paused[subscription_id] != true, "ALREADY_PAUSED");
+
+        set sub_paused[subscription_id] = true;
+        emit SubscriptionPaused(subscription_id, msg.sender);
+    }
+
+    function resume(bytes32 subscription_id) public {
+        require(sub_status[subscription_id] == STATUS_ACTIVE, "NOT_ACTIVE");
+        require(msg.sender == sub_subscriber[subscription_id], "NOT_SUBSCRIBER");
+        require(sub_paused[subscription_id] == true, "NOT_PAUSED");
+
+        set sub_paused[subscription_id] = false;
+        emit SubscriptionResumed(subscription_id, msg.sender);
+    }
+
+    @verifiable
+    function statusOf(bytes32 subscription_id) public view returns (u256 status) {
+        return u256(sub_status[subscription_id]);
+    }
+
+    @verifiable
+    function cyclesCompleted(bytes32 subscription_id) public view returns (u256 cycles) {
+        return sub_cycles_done[subscription_id];
+    }
+
+    @verifiable
+    function nextPaymentAfter(bytes32 subscription_id) public view returns (u256 timestamp_ms) {
+        return sub_last_payment_ms[subscription_id] + sub_interval_ms[subscription_id];
+    }
+
+    @verifiable
+    function remainingBalance(bytes32 subscription_id) public view returns (u256 balance) {
+        return sub_deposit[subscription_id];
+    }
+
+    @verifiable
+    function providerOf(bytes32 subscription_id) public view returns (agent provider) {
+        return sub_provider[subscription_id];
+    }
+
+    @verifiable
+    function subscriberOf(bytes32 subscription_id) public view returns (agent subscriber) {
+        return sub_subscriber[subscription_id];
+    }
+
+    @verifiable
+    function agreementRefOf(bytes32 subscription_id) public view returns (bytes32 agreement_ref) {
+        return sub_agreement_ref[subscription_id];
+    }
+
+    receive() external payable {}
+}

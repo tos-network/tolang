@@ -12,8 +12,8 @@ appeared in ABI metadata, but lacked protocol-level runtime registries to
 enforce their semantics end-to-end.
 
 That v1 closure is now implemented. The remaining work is no longer "add any
-runtime backing at all", but "deepen the protocol hooks for proofs, settlement,
-and richer governance."
+runtime backing at all", but "deepen the protocol hooks for proofs and
+settlement."
 
 | Annotation | Compiler status | Runtime status |
 |------------|----------------|----------------|
@@ -36,7 +36,7 @@ about richer proof artifacts and a native settlement bus.
 **Implemented**: GTOS capability registry state and LVM lookup back the Tolang
 `@requires(caller: Cap)` preamble directly.
 
-**Remaining**: governance, namespacing, and richer registry metadata.
+**Remaining**: richer registry metadata and broader consumer surfaces.
 
 ### 2. `@delegated` / delegation registry
 
@@ -48,7 +48,7 @@ from `tx.origin`, delegate from `msg.sender`, and scope from a canonical
 `tos.hasdelegation(principal, delegate, scope_ref)` with grant/revoke/expiry
 checks.
 
-**Remaining**: richer delegation budgets/sub-scopes and governance workflows.
+**Remaining**: richer delegation budgets/sub-scopes.
 
 ### 3. `@verifiable` / proof verification hook
 
@@ -86,7 +86,8 @@ allow execution paths for a real `@pay` contract under the live VM.
    payload generation for `@verifiable`
 2. **Settlement bus** -- canonical settlement routing with receipt binding for
    `@pay`
-3. **Registry governance** -- revocation, namespacing, and policy evolution
+3. **Release/discovery/profile tightening** -- keep agent-facing exports
+   aligned as deeper proof/settlement protocol hooks land
 
 ---
 

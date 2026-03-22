@@ -3,6 +3,10 @@ package metadata
 // AgentProfileSchemaVersion is the schema version for AgentContractProfile.
 const AgentProfileSchemaVersion = "0.2.0"
 
+// AgentBundleProfileSchemaVersion is the schema version for family-level bundle
+// profiles exported from release bundles.
+const AgentBundleProfileSchemaVersion = "0.1.0"
+
 // AgentContractProfile is the unified, agent-facing profile for a single contract.
 // It consolidates identity, capabilities, functions, events, errors, discovery,
 // and human-readable metadata into one structure that agent runtimes can consume
@@ -20,6 +24,18 @@ type AgentContractProfile struct {
 	GasModel          *GasModelMeta          `json:"gas_model,omitempty"`
 	TypedDiscovery    *TypedDiscoveryProfile `json:"typed_discovery,omitempty"`
 	ProtocolAlignment *ProtocolAlignment     `json:"protocol_alignment,omitempty"`
+}
+
+// AgentBundleProfile is the family-level agent-facing profile for a multi-
+// contract release bundle.
+type AgentBundleProfile struct {
+	SchemaVersion     string                  `json:"schema_version"`
+	Family            string                  `json:"family"`
+	PackageName       string                  `json:"package_name"`
+	PackageVersion    string                  `json:"package_version,omitempty"`
+	Contracts         []*AgentContractProfile `json:"contracts"`
+	ProtocolAlignment *ProtocolAlignment      `json:"protocol_alignment,omitempty"`
+	HumanSummary      string                  `json:"human_summary,omitempty"`
 }
 
 // ProfileIdentity captures artifact identity and content hashes for an agent profile.
@@ -115,4 +131,53 @@ func BuildAgentProfile(cm *ContractMetadata, packageName ...string) *AgentContra
 	p.ProtocolAlignment = BuildProtocolAlignment(cm, pkgName)
 
 	return p
+}
+
+// BuildAgentBundleProfile constructs the family-level agent profile for a
+// multi-contract release bundle.
+func BuildAgentBundleProfile(family, packageName, packageVersion string, contracts []*AgentContractProfile) *AgentBundleProfile {
+	bundle := &AgentBundleProfile{
+		SchemaVersion:  AgentBundleProfileSchemaVersion,
+		Family:         family,
+		PackageName:    packageName,
+		PackageVersion: packageVersion,
+		Contracts:      contracts,
+	}
+	bundle.ProtocolAlignment = mergeProtocolAlignmentsFromProfiles(contracts)
+
+	names := make([]string, 0, len(contracts))
+	for _, contract := range contracts {
+		if contract == nil || contract.Contract.Name == "" {
+			continue
+		}
+		names = append(names, contract.Contract.Name)
+	}
+	if len(names) > 0 {
+		bundle.HumanSummary = "Bundle profile for " + packageName + " with contracts: " + joinNames(names)
+	} else {
+		bundle.HumanSummary = "Bundle profile for " + packageName
+	}
+
+	return bundle
+}
+
+func mergeProtocolAlignmentsFromProfiles(contracts []*AgentContractProfile) *ProtocolAlignment {
+	alignments := make([]*ProtocolAlignment, 0, len(contracts))
+	for _, contract := range contracts {
+		if contract != nil {
+			alignments = append(alignments, contract.ProtocolAlignment)
+		}
+	}
+	return BuildBundleProtocolAlignment(alignments...)
+}
+
+func joinNames(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	out := names[0]
+	for i := 1; i < len(names); i++ {
+		out += ", " + names[i]
+	}
+	return out
 }

@@ -432,7 +432,10 @@
     "release_artifacts": [
       "profile_json",
       "discovery_json",
-      "agent_package_json"
+      "agent_package_json",
+      "bundle_profile_json",
+      "bundle_discovery_json",
+      "bundle_agent_package_json"
     ]
   },
   "human_summary": "Agent package bundle for tolang.openlib.privacy with contracts: ConfidentialEscrow, ConfidentialVault"

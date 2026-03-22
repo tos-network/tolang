@@ -244,3 +244,56 @@ func TestBuildAgentProfile_PackageGovernanceAlignment(t *testing.T) {
 		t.Error("expected settlement-bus alignment for settlement contract")
 	}
 }
+
+func TestBuildAgentBundleProfile(t *testing.T) {
+	contracts := []*AgentContractProfile{
+		{
+			SchemaVersion: AgentProfileSchemaVersion,
+			Contract:      ProfileContract{Name: "ConfidentialEscrow", Type: "payment"},
+			ProtocolAlignment: &ProtocolAlignment{
+				SchemaVersion:     ProtocolAlignmentSchemaVersion,
+				SettlementBus:     true,
+				PackageGovernance: true,
+				ReleaseArtifacts:  []string{"profile_json", "discovery_json"},
+			},
+		},
+		{
+			SchemaVersion: AgentProfileSchemaVersion,
+			Contract:      ProfileContract{Name: "ConfidentialVault", Type: "custom"},
+			ProtocolAlignment: &ProtocolAlignment{
+				SchemaVersion:      ProtocolAlignmentSchemaVersion,
+				RegistryGovernance: true,
+				PackageGovernance:  true,
+				ReleaseArtifacts:   []string{"agent_package_json"},
+			},
+		},
+	}
+
+	bundle := BuildAgentBundleProfile("privacy", "tolang.openlib.privacy", "1.0.0", contracts)
+	if bundle == nil {
+		t.Fatal("expected non-nil bundle profile")
+	}
+	if bundle.SchemaVersion != AgentBundleProfileSchemaVersion {
+		t.Fatalf("SchemaVersion = %q, want %q", bundle.SchemaVersion, AgentBundleProfileSchemaVersion)
+	}
+	if bundle.Family != "privacy" || bundle.PackageName != "tolang.openlib.privacy" || bundle.PackageVersion != "1.0.0" {
+		t.Fatalf("unexpected bundle identity %+v", bundle)
+	}
+	if len(bundle.Contracts) != 2 {
+		t.Fatalf("len(Contracts) = %d, want 2", len(bundle.Contracts))
+	}
+	if bundle.ProtocolAlignment == nil {
+		t.Fatal("expected merged protocol alignment")
+	}
+	if !bundle.ProtocolAlignment.SettlementBus || !bundle.ProtocolAlignment.RegistryGovernance || !bundle.ProtocolAlignment.PackageGovernance {
+		t.Fatalf("unexpected merged protocol alignment %+v", bundle.ProtocolAlignment)
+	}
+	for _, want := range []string{"bundle_profile_json", "bundle_discovery_json", "bundle_agent_package_json"} {
+		if !containsString(bundle.ProtocolAlignment.ReleaseArtifacts, want) {
+			t.Fatalf("expected bundle release artifact %q in %v", want, bundle.ProtocolAlignment.ReleaseArtifacts)
+		}
+	}
+	if bundle.HumanSummary == "" {
+		t.Fatal("expected non-empty human summary")
+	}
+}

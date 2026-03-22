@@ -40,6 +40,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 		CatalogPath       string   `json:"catalog_path"`
 		DiscoveryPath     string   `json:"discovery_path"`
 		AgentPackagePath  string   `json:"agent_package_path"`
+		ProfilePath       string   `json:"profile_path"`
 		PackageHash       string   `json:"package_hash"`
 	}
 	type releaseBundleCatalogContract struct {
@@ -87,6 +88,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 		ProtocolAlignment *metadata.ProtocolAlignment  `json:"protocol_alignment,omitempty"`
 		HumanSummary      string                       `json:"human_summary"`
 	}
+	type releaseBundleProfile = metadata.AgentBundleProfile
 	var index struct {
 		Version string               `json:"version"`
 		Entries []releaseIndexEntry  `json:"entries"`
@@ -115,6 +117,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 	indexEntriesByFamily := map[string][]releaseIndexEntry{}
 	discoveryByContract := map[string]*metadata.DiscoveryManifest{}
 	agentPkgByContract := map[string]*metadata.AgentPackageInfo{}
+	profileByContract := map[string]*metadata.AgentContractProfile{}
 	for _, entry := range catalog {
 		byContract[entry.Contract] = entry
 		byFamily[entry.Family] = append(byFamily[entry.Family], entry)
@@ -225,6 +228,9 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 			t.Fatalf("stale agent package json for %s; rerun openlib exporter", entry.Contract)
 		}
 		agentPkgByContract[entry.Contract] = metadata.BuildAgentPackageInfo(meta, entry.ReleasePackageName)
+		profile := metadata.BuildAgentProfile(meta, entry.ReleasePackageName)
+		profile.Identity.PackageName = entry.ReleasePackageName
+		profileByContract[entry.Contract] = profile
 		indexEntriesByFamily[idxEntry.Family] = append(indexEntriesByFamily[idxEntry.Family], idxEntry)
 	}
 
@@ -380,6 +386,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 		tags := []string{}
 		discoveryContracts := make([]*metadata.DiscoveryManifest, 0, len(contractEntries))
 		agentContracts := make([]*metadata.AgentPackageInfo, 0, len(contractEntries))
+		profileContracts := make([]*metadata.AgentContractProfile, 0, len(contractEntries))
 		for _, idxEntry := range contractEntries {
 			if disc := discoveryByContract[idxEntry.Contract]; disc != nil {
 				discoveryContracts = append(discoveryContracts, disc)
@@ -389,6 +396,9 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 			}
 			if pkg := agentPkgByContract[idxEntry.Contract]; pkg != nil {
 				agentContracts = append(agentContracts, pkg)
+			}
+			if profile := profileByContract[idxEntry.Contract]; profile != nil {
+				profileContracts = append(profileContracts, profile)
 			}
 		}
 
@@ -403,7 +413,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 			Capabilities:      bundleDedupStrings(capabilities),
 			Tags:              bundleDedupStrings(tags),
 			Contracts:         discoveryContracts,
-			ProtocolAlignment: metadata.MergeProtocolAlignments(bundleProtocolAlignmentsFromDiscovery(discoveryContracts)...),
+			ProtocolAlignment: metadata.BuildBundleProtocolAlignment(bundleProtocolAlignmentsFromDiscovery(discoveryContracts)...),
 			HumanSummary:      "Family bundle for " + bundle.SourcePackagePath + " with contracts: " + strings.Join(wantContracts, ", "),
 		}
 		discoveryWantBytes, err := json.MarshalIndent(discoveryWantStruct, "", "  ")
@@ -425,7 +435,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 			TORPath:           bundle.TORPath,
 			PackageHash:       bundle.PackageHash,
 			Contracts:         agentContracts,
-			ProtocolAlignment: metadata.MergeProtocolAlignments(bundleProtocolAlignmentsFromAgentPackages(agentContracts)...),
+			ProtocolAlignment: metadata.BuildBundleProtocolAlignment(bundleProtocolAlignmentsFromAgentPackages(agentContracts)...),
 			HumanSummary:      "Agent package bundle for " + bundle.SourcePackagePath + " with contracts: " + strings.Join(wantContracts, ", "),
 		}
 		agentWantBytes, err := json.MarshalIndent(agentWantStruct, "", "  ")
@@ -438,6 +448,19 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 		}
 		if string(agentGotBytes) != string(agentWantBytes) {
 			t.Fatalf("stale family bundle agent package for %s; rerun openlib exporter", family)
+		}
+
+		profileWantStruct := metadata.BuildAgentBundleProfile(family, bundle.SourcePackagePath, index.Version, profileContracts)
+		profileWantBytes, err := json.MarshalIndent(profileWantStruct, "", "  ")
+		if err != nil {
+			t.Fatalf("marshal family bundle profile %s: %v", family, err)
+		}
+		profileGotBytes, err := os.ReadFile(filepath.Join(repoRoot, bundle.ProfilePath))
+		if err != nil {
+			t.Fatalf("read %s: %v", bundle.ProfilePath, err)
+		}
+		if string(profileGotBytes) != string(profileWantBytes) {
+			t.Fatalf("stale family bundle profile for %s; rerun openlib exporter", family)
 		}
 	}
 }

@@ -5,6 +5,9 @@ import "strings"
 // ProtocolAlignmentSchemaVersion labels the additive next-wave alignment schema.
 const ProtocolAlignmentSchemaVersion = "0.1.0"
 
+var contractReleaseArtifacts = []string{"profile_json", "discovery_json", "agent_package_json"}
+var bundleReleaseArtifacts = []string{"bundle_profile_json", "bundle_discovery_json", "bundle_agent_package_json"}
+
 // ProtocolAlignment describes how an agent-facing artifact aligns with the next
 // GTOS protocol wave. It is additive and optional: existing consumers can ignore
 // it, while newer runtimes can use it to route work toward settlement, registry,
@@ -29,7 +32,7 @@ func BuildProtocolAlignment(meta *ContractMetadata, packageName string) *Protoco
 
 	align := &ProtocolAlignment{
 		SchemaVersion:    ProtocolAlignmentSchemaVersion,
-		ReleaseArtifacts: []string{"profile_json", "discovery_json", "agent_package_json"},
+		ReleaseArtifacts: append([]string(nil), contractReleaseArtifacts...),
 	}
 
 	names := collectFunctionNames(meta)
@@ -104,10 +107,34 @@ func MergeProtocolAlignments(alignments ...*ProtocolAlignment) *ProtocolAlignmen
 	}
 
 	if len(merged.ReleaseArtifacts) == 0 {
-		merged.ReleaseArtifacts = []string{"profile_json", "discovery_json", "agent_package_json"}
+		merged.ReleaseArtifacts = append([]string(nil), contractReleaseArtifacts...)
 	}
 	if !merged.SettlementBus && !merged.RegistryGovernance && !merged.PackageGovernance {
 		merged.Notes = append(merged.Notes, "release_alignment_ready")
 	}
 	return merged
+}
+
+// BuildBundleProtocolAlignment merges contract-level alignments into a family-
+// level release alignment and marks the bundle-specific release artifacts.
+func BuildBundleProtocolAlignment(alignments ...*ProtocolAlignment) *ProtocolAlignment {
+	merged := MergeProtocolAlignments(alignments...)
+	if merged == nil {
+		return nil
+	}
+	for _, art := range bundleReleaseArtifacts {
+		if !containsString(merged.ReleaseArtifacts, art) {
+			merged.ReleaseArtifacts = append(merged.ReleaseArtifacts, art)
+		}
+	}
+	return merged
+}
+
+func containsString(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+	return false
 }

@@ -36,6 +36,7 @@ type releaseIndexBundle struct {
 	CatalogPath       string   `json:"catalog_path"`
 	DiscoveryPath     string   `json:"discovery_path"`
 	AgentPackagePath  string   `json:"agent_package_path"`
+	ProfilePath       string   `json:"profile_path"`
 	PackageHash       string   `json:"package_hash"`
 }
 
@@ -88,6 +89,8 @@ type releaseBundleAgentPackage struct {
 	HumanSummary      string                       `json:"human_summary"`
 }
 
+type releaseBundleProfile = metadata.AgentBundleProfile
+
 type releaseIndex struct {
 	Version string               `json:"version"`
 	Entries []releaseIndexEntry  `json:"entries"`
@@ -118,6 +121,7 @@ func main() {
 	familyReleaseEntries := make(map[string][]releaseIndexEntry)
 	contractDiscovery := make(map[string]*metadata.DiscoveryManifest, len(entries))
 	contractAgentPackages := make(map[string]*metadata.AgentPackageInfo, len(entries))
+	contractProfiles := make(map[string]*metadata.AgentContractProfile, len(entries))
 	for _, entry := range entries {
 		sourcePath := filepath.Join(repoRoot, entry.SourcePath)
 		source := sources[entry.SourcePath]
@@ -190,6 +194,7 @@ func main() {
 		}
 		profile := metadata.BuildAgentProfile(meta, entry.ReleasePackageName)
 		profile.Identity.PackageName = entry.ReleasePackageName
+		contractProfiles[entry.Contract] = profile
 		profileBytes, err := json.MarshalIndent(profile, "", "  ")
 		if err != nil {
 			fatalf("marshal profile %s: %v", entry.Contract, err)
@@ -279,11 +284,13 @@ func main() {
 		}
 		bundleDiscoveryRel := filepath.ToSlash(filepath.Join("openlib", "releases", family, family+".bundle.discovery.json"))
 		bundleAgentPkgRel := filepath.ToSlash(filepath.Join("openlib", "releases", family, family+".bundle.agentpkg.json"))
+		bundleProfileRel := filepath.ToSlash(filepath.Join("openlib", "releases", family, family+".bundle.profile.json"))
 		serviceKinds := []string{}
 		capabilities := []string{}
 		tags := []string{}
 		discoveryContracts := make([]*metadata.DiscoveryManifest, 0, len(contractEntries))
 		agentContracts := make([]*metadata.AgentPackageInfo, 0, len(contractEntries))
+		profileContracts := make([]*metadata.AgentContractProfile, 0, len(contractEntries))
 		contractNames := make([]string, 0, len(contractEntries))
 		for _, idxEntry := range contractEntries {
 			contractNames = append(contractNames, idxEntry.Contract)
@@ -295,6 +302,9 @@ func main() {
 			}
 			if pkg := contractAgentPackages[idxEntry.Contract]; pkg != nil {
 				agentContracts = append(agentContracts, pkg)
+			}
+			if profile := contractProfiles[idxEntry.Contract]; profile != nil {
+				profileContracts = append(profileContracts, profile)
 			}
 		}
 		bundleDiscovery := releaseBundleDiscovery{
@@ -308,7 +318,7 @@ func main() {
 			Capabilities:      dedupStrings(capabilities),
 			Tags:              dedupStrings(tags),
 			Contracts:         discoveryContracts,
-			ProtocolAlignment: metadata.MergeProtocolAlignments(protocolAlignmentsFromDiscovery(discoveryContracts)...),
+			ProtocolAlignment: metadata.BuildBundleProtocolAlignment(protocolAlignmentsFromDiscovery(discoveryContracts)...),
 			HumanSummary:      fmt.Sprintf("Family bundle for %s with contracts: %s", entries[0].SourcePackagePath, strings.Join(contractNames, ", ")),
 		}
 		bundleDiscoveryBytes, err := json.MarshalIndent(bundleDiscovery, "", "  ")
@@ -325,7 +335,7 @@ func main() {
 			TORPath:           bundleRel,
 			PackageHash:       lua.PackageHash(bundleBytes),
 			Contracts:         agentContracts,
-			ProtocolAlignment: metadata.MergeProtocolAlignments(protocolAlignmentsFromAgentPackages(agentContracts)...),
+			ProtocolAlignment: metadata.BuildBundleProtocolAlignment(protocolAlignmentsFromAgentPackages(agentContracts)...),
 			HumanSummary:      fmt.Sprintf("Agent package bundle for %s with contracts: %s", entries[0].SourcePackagePath, strings.Join(contractNames, ", ")),
 		}
 		bundleAgentPkgBytes, err := json.MarshalIndent(bundleAgentPkg, "", "  ")
@@ -335,6 +345,14 @@ func main() {
 		if err := os.WriteFile(filepath.Join(repoRoot, bundleAgentPkgRel), bundleAgentPkgBytes, 0o644); err != nil {
 			fatalf("write %s: %v", bundleAgentPkgRel, err)
 		}
+		bundleProfile := metadata.BuildAgentBundleProfile(family, entries[0].SourcePackagePath, index.Version, profileContracts)
+		bundleProfileBytes, err := json.MarshalIndent(bundleProfile, "", "  ")
+		if err != nil {
+			fatalf("marshal family bundle profile %s: %v", family, err)
+		}
+		if err := os.WriteFile(filepath.Join(repoRoot, bundleProfileRel), bundleProfileBytes, 0o644); err != nil {
+			fatalf("write %s: %v", bundleProfileRel, err)
+		}
 		index.Bundles = append(index.Bundles, releaseIndexBundle{
 			Family:            family,
 			SourcePackagePath: entries[0].SourcePackagePath,
@@ -343,6 +361,7 @@ func main() {
 			CatalogPath:       bundleCatalogRel,
 			DiscoveryPath:     bundleDiscoveryRel,
 			AgentPackagePath:  bundleAgentPkgRel,
+			ProfilePath:       bundleProfileRel,
 			PackageHash:       lua.PackageHash(bundleBytes),
 		})
 	}

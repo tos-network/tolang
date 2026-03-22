@@ -26,8 +26,6 @@ That first-wave closure work is now done. The remaining work is no longer a
 "shortcomings cleanup" list. It is the next GTOS-owned protocol agenda:
 
 - settlement bus + receipt hooks
-- registry governance + revocation workflows
-- package namespace + publisher governance
 - ongoing release/discovery/profile tightening
 
 ## Problems The Openlib Work Exposed And Already Forced Us To Fix
@@ -314,13 +312,7 @@ beyond the first closure wave."
 
 The next-stage items are:
 
-1. `GTOS settlement bus + receipt hooks`
-   Design home: `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md`
-2. `Registry governance + revocation workflows`
-   Design home: `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md`
-3. `Package namespace + publisher governance`
-   Design home: `/home/tomi/gtos/docs/PACKAGE_PUBLISHING_REGISTRY.md`
-4. `Release/discovery/profile tightening as those protocol surfaces land`
+1. `Release/discovery/profile tightening as those protocol surfaces land`
    Design homes:
    - `/home/tomi/tolang/docs/AGENT_NATIVE_STDLIB_2046.md`
    - `/home/tomi/tolang/docs/STDLIB_THREAT_MODEL_MATRIX.md`
@@ -368,10 +360,7 @@ The priority order should be:
 
 That closure sequence is now complete. The next execution order should be:
 
-1. settlement bus + receipt hooks
-2. registry governance + revocation workflows
-3. package namespace + publisher governance
-4. release/discovery/profile tightening
+1. release/discovery/profile tightening
 
 ## Design homes for the five strategic follow-on gaps
 

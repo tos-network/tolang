@@ -1111,14 +1111,7 @@ The first openlib closure wave is now complete.
 
 Next evolution order:
 
-1. implement the GTOS-native settlement bus and receipt hooks so value
-   movement, escrow release, sponsor payout, refund, and receipt finalization
-   become one atomic runtime system
-2. add network-grade governance and revocation workflows on top of the GTOS
-   protocol registries that already exist in v1
-3. strengthen publisher governance and namespace control on top of the package
-   publishing registry that already exists in v1
-4. keep tightening release/discovery/threat-model documentation and exporter
+1. keep tightening release/discovery/threat-model documentation and exporter
    surfaces as the GTOS-native protocol layers above land
 
 ### Acceptance bar for capability-complete closure
@@ -1171,7 +1164,6 @@ present openlib codebase.
 | --- | --- | --- |
 | GTOS-native settlement bus and receipt hooks | GTOS VM/runtime + system receipt surface | `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md` |
 | Registry governance and revocation workflows | GTOS protocol registries + sysactions + RPC inspection | `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md` |
-| Publisher governance and namespace control | GTOS package/publisher registry + deployment trust joins | `/home/tomi/gtos/docs/PACKAGE_PUBLISHING_REGISTRY.md` |
 | Ongoing release/discovery/threat-model tightening as the protocol layer grows | Tolang docs + exporter + release/profile manifests | `docs/STDLIB_THREAT_MODEL_MATRIX.md` plus `docs/AGENT_NATIVE_STDLIB_2046.md` |
 
 The Tolang release/export layer now also emits an additive
@@ -1184,6 +1176,13 @@ The Tolang release/export layer now also emits an additive
 
 This is preparatory metadata only. It does not depend on the GTOS runtime
 surfacing those features yet.
+
+The release/export surface has now tightened one step further:
+
+- per-contract `.profile.json` remains the canonical agent-facing contract view
+- family bundles now also emit `.bundle.profile.json`
+- legacy `.discovery.json` / `.agentpkg.json` bundle artifacts remain for
+  compatibility while consumers migrate
 
 ### GTOS protocol design homes for the next stage
 
@@ -1211,12 +1210,24 @@ Current GTOS implementation status (2026-03-22):
 - protocol registries now have a concrete v1:
   capability, delegation, verification, pay-policy, package, publisher, and
   agent-identity query surfaces are implemented in GTOS
+- registry governance and revocation workflows are now implemented on top of
+  registry v1: capability records have explicit owners; delegation
+  grant/revoke is scoped to the principal with governor override; verifier and
+  pay-policy records now support owner/controller-aware revocation with
+  governor override; capability, delegation, verifier, verification-claim,
+  and pay-policy RPC responses now expose lifecycle metadata
+  (`created_at`, `updated_at`) and controller/owner fields where applicable
 - LVM now consumes protocol-backed capability / delegation / verification /
   pay-policy state instead of leaving those surfaces as permissive stubs
 - package publishing is no longer design-only: GTOS now has package/publisher
   state, sysactions, RPC lookup by name/version/hash, latest-by-channel
   indexes, and deployed metadata joins that expose published package identity
   plus publisher trust
+- package namespace + publisher governance is now resolved on top of that v1:
+  package/publisher registry v1.3 records lifecycle timestamps
+  (`created_at`, `updated_at`), enforces controller-or-governor authorization
+  for publisher/package lifecycle changes, models publisher suspension/resume,
+  and exposes those governance facts through package/publisher RPC payloads
 - LVM now also exposes runtime-backed inspection primitives over GTOS protocol
   state: `tos.agentinfo(...)`, `tos.packageinfo(...)`,
   `tos.packagelatest(...)`, and `tos.publisherinfo(...)`
@@ -1241,9 +1252,6 @@ Current GTOS implementation status (2026-03-22):
 What remains for the next GTOS-owned wave is no longer "make openlib work."
 It is:
 
-- add real governance/revocation workflows on top of the registry v1
-- add namespace and publisher-governance control on top of the publishing
-  registry v1
 - keep the agent-facing profile/discovery/release surface aligned with those
   protocol changes
 

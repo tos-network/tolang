@@ -223,6 +223,7 @@
       "catalog_path": "openlib/releases/privacy/privacy.bundle.json",
       "discovery_path": "openlib/releases/privacy/privacy.bundle.discovery.json",
       "agent_package_path": "openlib/releases/privacy/privacy.bundle.agentpkg.json",
+      "profile_path": "openlib/releases/privacy/privacy.bundle.profile.json",
       "package_hash": "0x42da21b2d1c6a2487f4fc80789c5ff516b40e4b22f1eaad7e8f1944a9ac45296"
     }
   ]

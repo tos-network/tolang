@@ -107,6 +107,13 @@ AgentBundleProfile {
 
 This replaces `.bundle.agentpkg.json` and `.bundle.discovery.json`.
 
+Status note:
+
+- per-contract `.profile.json` is implemented
+- family-level `.bundle.profile.json` is now emitted by the release exporter
+- legacy `.discovery.json` / `.agentpkg.json` bundle artifacts are still emitted
+  for compatibility during the transition
+
 ### Protocol alignment layer
 
 The unified profile now also carries an additive `protocol_alignment` section.
@@ -135,6 +142,13 @@ Example:
 }
 ```
 
+For family-level bundle artifacts, the merged `protocol_alignment.release_artifacts`
+also includes:
+
+- `bundle_profile_json`
+- `bundle_discovery_json`
+- `bundle_agent_package_json`
+
 ### Migration path
 
 1. Add `AgentContractProfile` to `metadata/metadata.go`
@@ -157,9 +171,9 @@ Example:
 ## Acceptance Criteria
 
 - [ ] `AgentContractProfile` struct defined in `metadata/metadata.go`
-- [ ] `BuildAgentProfile` produces identical information to current `.discovery.json` + `.agentpkg.json`
-- [ ] Single `.profile.json` file per contract replaces two separate files
-- [ ] Bundle `.profile.json` replaces `.bundle.discovery.json` + `.bundle.agentpkg.json`
+- [x] `BuildAgentProfile` produces identical information to current `.discovery.json` + `.agentpkg.json`
+- [x] Single `.profile.json` file per contract is emitted alongside the legacy files
+- [x] Bundle `.profile.json` is emitted alongside `.bundle.discovery.json` + `.bundle.agentpkg.json`
 - [ ] No information loss compared to current artifacts
 - [ ] `risk_level`, `failure_modes`, `requires_capability`, `verifiable`, `delegated` all present in one document
 - [ ] GTOS `tos_getContractMetadata` returns the unified profile

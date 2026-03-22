@@ -179,8 +179,8 @@
       "tor_path": "stdlib/releases/sponsor/SponsorPolicyRelay.tor",
       "discovery_path": "stdlib/releases/sponsor/SponsorPolicyRelay.discovery.json",
       "agent_package_path": "stdlib/releases/sponsor/SponsorPolicyRelay.agentpkg.json",
-      "bytecode_hash": "0xb36b41cd8ad09b1eb06bfe7fb225e5e82cb81e7feecb4449b947b43157f19bf8",
-      "package_hash": "0xf19237908fc7a98ef6612e91051d987fb3f8ec8455e481e0e8f3689cd8e1772b"
+      "bytecode_hash": "0x7a4b8e214a85156bee69bbd30f9de66652a341a742ecb4ff8ee42565e7bcecd2",
+      "package_hash": "0xefc17aaa8c209f3e48a3665a0283b66b794a7d7c44fe2a518d00049b23fe8be7"
     },
     {
       "family": "trust",

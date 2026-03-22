@@ -2958,6 +2958,35 @@ func buildRequiresCapPreamble(caps []string) ([]luast.Stmt, error) {
 	return stmts, nil
 }
 
+// buildDelegatedPreamble emits Lua guard statements for @delegated annotations.
+// Unlike @requires which always blocks, @delegated is backward-compatible: the function
+// is still callable by anyone if no delegation infrastructure (tos.hasdelegation) exists.
+// When the infrastructure IS present, the caller must have delegation for the function scope.
+//
+// Emitted preamble:
+//
+//	local __tol_fn_scope_<FnName> = keccak256("<FnName>")
+//	if tos and type(tos.hasdelegation) == "function" then
+//	    if not tos.hasdelegation(msg.sender, __tol_fn_scope_<FnName>) then
+//	        error("DelegationDenied:<FnName>")
+//	    end
+//	end
+func buildDelegatedPreamble(fnName string) ([]luast.Stmt, error) {
+	scopeVar := "__tol_fn_scope_" + fnName
+	scopeHash := keccak256Hex([]byte(fnName))
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("local %s = %q\n", scopeVar, scopeHash))
+	sb.WriteString(fmt.Sprintf(
+		"if tos ~= nil and type(tos.hasdelegation)==\"function\" then if not tos.hasdelegation(msg.sender, %s) then error(%q) end end\n",
+		scopeVar, "DelegationDenied:"+fnName,
+	))
+	stmts, err := parse.Parse(bytes.NewReader([]byte(sb.String())), "<tol-delegated-preamble>")
+	if err != nil {
+		return nil, fmt.Errorf("[%s] failed to build @delegated preamble: %w", diag.CodeLowerUnsupportedFeature, err)
+	}
+	return stmts, nil
+}
+
 // buildQuotaPreamble emits Lua guard statements for @quota(calls: N, price: M) annotations.
 // The quota ledger uses per-caller/per-function storage slots. Each call decrements the caller's
 // quota balance. When the balance is zero, the call reverts with "QuotaExhausted".
@@ -3071,6 +3100,15 @@ func lowerFunctionToLua(fn lower.Function, env *loweringEnv) (luast.Stmt, error)
 			return nil, qErr
 		}
 		body = append(quotaPreamble, body...)
+	}
+
+	// Inject @delegated preamble (delegation scope check, backward-compatible).
+	if fn.Doc != nil && fn.Doc.Delegated {
+		delegatedPreamble, dErr := buildDelegatedPreamble(fn.Name)
+		if dErr != nil {
+			return nil, dErr
+		}
+		body = append(delegatedPreamble, body...)
 	}
 
 	nameExpr := withLineExpr(&luast.IdentExpr{Value: luaFuncName})

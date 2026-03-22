@@ -3318,3 +3318,56 @@ func TestTaskSettlementDisputeFinalizesFailureReceipt(t *testing.T) {
 		t.Fatal("expected SettlementReceipt event on dispute resolution")
 	}
 }
+
+func TestDelegatedPreambleEnforced(t *testing.T) {
+	source := []byte(`pragma tolang 0.4.0;
+contract DelegatedContract {
+    /// @delegated
+    function restricted() public view returns (u256 result) {
+        return 42;
+    }
+    function open() public view returns (u256 result) {
+        return 1;
+    }
+}
+`)
+	L, tos, host := deployStdlibSourceContract(t, source, "<DelegatedContract.tol>")
+	defer L.Close()
+
+	// open() should succeed without any delegation hook.
+	if got := LVAsString(invokeStdlib(t, L, tos, "open()")); got != "1" {
+		t.Fatalf("open(): got=%s want=1", got)
+	}
+
+	// restricted() should also succeed when no tos.hasdelegation exists
+	// (backward-compatible — the function is callable by anyone).
+	if got := LVAsString(invokeStdlib(t, L, tos, "restricted()")); got != "42" {
+		t.Fatalf("restricted() without hook: got=%s want=42", got)
+	}
+
+	// Install tos.hasdelegation that returns false → restricted() should fail.
+	L.SetField(host.tosTable, "hasdelegation", L.NewFunction(func(L *LState) int {
+		L.Push(LFalse)
+		return 1
+	}))
+
+	errMsg := invokeStdlibErr(t, L, tos, "restricted()")
+	if !strings.Contains(errMsg, "DelegationDenied") {
+		t.Fatalf("restricted() with deny hook: expected DelegationDenied, got: %s", errMsg)
+	}
+
+	// open() should still succeed (no @delegated annotation).
+	if got := LVAsString(invokeStdlib(t, L, tos, "open()")); got != "1" {
+		t.Fatalf("open() after deny hook: got=%s want=1", got)
+	}
+
+	// Change hook to return true → restricted() should succeed.
+	L.SetField(host.tosTable, "hasdelegation", L.NewFunction(func(L *LState) int {
+		L.Push(LTrue)
+		return 1
+	}))
+
+	if got := LVAsString(invokeStdlib(t, L, tos, "restricted()")); got != "42" {
+		t.Fatalf("restricted() with grant hook: got=%s want=42", got)
+	}
+}

@@ -174,7 +174,7 @@ release escrow".
 `stdlib_composed_runtime_test.go` prove the semantics.  Full design in
 `/home/tomi/gtos/docs/Atomic-Execution-v1.md`.
 
-### 3. Agent-native annotations are ahead of protocol backing — IN PROGRESS
+### 3. Agent-native annotations are ahead of protocol backing — RESOLVED
 
 The maturity matrix is already explicit about this.
 
@@ -184,29 +184,19 @@ Evidence:
 
 Features such as:
 
-- `capability` — compiler-complete; runtime via `tos.hascapability`
-- `@requires(...)` — **RESOLVED (2026-03-21)**: full compiler pipeline
-  implemented and tested (parser/sema/lower/codegen/ABI); emits runtime
-  preamble calling `tos.hascapability`; 3 tests; design doc at
-  `docs/CALLER_CAPABILITY_SYNTAX.md`
-- `agent`
-- `@delegated`
-- `@verifiable`
-- `@pay`
+All agent-native annotations now have protocol-level backing:
 
-are implemented strongly at parser/sema/lowering/artifact level, but some still
-depend on runtime registries, delegation infrastructure, proof systems, or
-settlement rules (note: `@requires` is now fully implemented end-to-end).
-
-Why this matters:
-
-- the compiler can describe agent-native semantics
-- the protocol/runtime cannot yet always enforce them end-to-end
-
-Diagnosis:
-
-- Tolang is currently stronger as an expressive language and artifact system
-  than as a fully protocol-backed execution environment
+- `capability` + `@requires(...)` — **RESOLVED (2026-03-21)**: compiler
+  pipeline + `tos.hascapability` registry-backed lookup
+- `@delegated` — **RESOLVED (2026-03-22)**: compiler emits
+  `buildDelegatedPreamble` calling `tos.hasdelegation`; GTOS `registry/`
+  DelegationRecord with grant/revoke/expiry; backward-compatible (no hook =
+  unrestricted)
+- `@verifiable` — **RESOLVED**: off-chain verification by design; GTOS
+  `verifyregistry/` provides `tos.isverified` for protocol-backed attestation
+- `@pay` — **RESOLVED (2026-03-22)**: compiler emits `buildPayPreamble`
+  calling `__tol_host_transfer`; GTOS `tos.host_transfer` implemented;
+  `paypolicy/` provides `tos.canpay` for policy-backed validation
 
 ### 4. Package resolution still depends too much on filesystem layout
 
@@ -331,12 +321,13 @@ The priority order should be:
    routing.~~ — **RESOLVED (2026-03-22)**: `tos.package_call` now validates
    deployed package identity via `pkgregistry.ReadPackageByHash`; revoked
    packages/publishers are blocked; 4 tests in `lvm_pkgreg_test.go`.
-3. Protocol-backed registries and enforcement for delegation, verification,
-   settlement, and agent identity semantics. — GTOS design doc
-   `GTOS_PROTOCOL_REGISTRIES.md` is ready (5 registries defined); LVM stubs
-   `tos.hasdelegation`, `tos.isverified`, and `tos.canpay` are registered in
-   `lvm.go` (currently return `true` unconditionally); regression tests in
-   `lvm_registry_stubs_test.go`; implementation underway.
+3. ~~Protocol-backed registries and enforcement for delegation, verification,
+   settlement, and agent identity semantics.~~ — **RESOLVED (2026-03-22)**:
+   GTOS `registry/` (Capability + Delegation), `verifyregistry/` (Verification),
+   `paypolicy/` (Settlement/Pay) all implemented with real state-backed CRUD.
+   LVM host functions `tos.hascapability`, `tos.hasdelegation`, `tos.isverified`,
+   `tos.canpay` are registry-backed. `tos.host_transfer` wired for @pay.
+   Compiler emits preambles for `@requires`, `@delegated`, `@pay`.
 4. Stable package identity and import resolution independent of local source
    layout. — GTOS design doc `PACKAGE_PUBLISHING_REGISTRY.md` is ready
    (PackageIdentity, PublisherRecord, PackageRecord schemas defined); local

@@ -1205,6 +1205,9 @@ Current GTOS implementation status (2026-03-22):
   state, sysactions, RPC lookup by name/version/hash, latest-by-channel
   indexes, and deployed metadata joins that expose published package identity
   plus publisher trust
+- LVM now also exposes runtime-backed inspection primitives over GTOS protocol
+  state: `tos.agentinfo(...)`, `tos.packageinfo(...)`,
+  `tos.packagelatest(...)`, and `tos.publisherinfo(...)`
 
 Execution prompt for this GTOS-owned wave:
 

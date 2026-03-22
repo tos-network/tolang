@@ -1374,6 +1374,25 @@ The next post-closure wave is now:
    across the package/publisher query surfaces. The same operator-facing
    lifecycle facts now also extend across capability, delegation, verifier,
    verification-claim, and pay-policy registry projections.
+5. `Runtime settlement inspection surfaces` — **RESOLVED (2026-03-22)**
+   the settlement bus is now consumable as a first-class client/runtime
+   surface, not only as raw VM hooks: GTOS `tosclient` now exposes typed
+   `settlement_getRuntimeReceipt` / `settlement_getSettlementEffect`
+   wrappers, `gtosclient` now joins those records into
+   `GetRuntimeReceiptSurface(...)` / `GetSettlementEffectSurface(...)`
+   together with sender/recipient deployed metadata, and `tosdk` now exposes
+   `inspectRuntimeReceipt(...)` / `inspectSettlementEffect(...)` so SDK
+   consumers can inspect canonical runtime receipts/effects without
+   hand-assembling settlement RPC joins.
+6. `OpenFox runtime settlement inspection UX` — **RESOLVED (2026-03-22)**
+   OpenFox now consumes those same GTOS runtime settlement records directly
+   through `src/settlement/runtime.ts`, exposes
+   `openfox settlement runtime-receipt --receipt-ref ...` and
+   `openfox settlement runtime-effect --settlement-ref ...`, and serves
+   matching operator API endpoints at `/operator/settlement/runtime-receipt`
+   and `/operator/settlement/runtime-effect`, so operators can inspect
+   canonical runtime receipts/effects without conflating them with the older
+   local `receiptId` anchor model used by OpenFox settlement publishing.
 
 Execution prompt for this GTOS-owned wave:
 

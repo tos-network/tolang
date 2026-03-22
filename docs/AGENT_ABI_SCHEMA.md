@@ -157,6 +157,22 @@ Status note:
   `requirePreferredAgentProvider(...)`, the matching `...OrThrow(...)`
   helpers, and execution-policy bundles that standardize search depth,
   provider-mode ordering, and advertised-fee preference in app code
+- the same client-consumption wave now also extends into runtime settlement
+  inspection: GTOS `tosclient` exposes typed
+  `settlement_getRuntimeReceipt` / `settlement_getSettlementEffect`
+  wrappers, `gtosclient` exposes
+  `GetRuntimeReceiptSurface(...)` / `GetSettlementEffectSurface(...)` to join
+  those records with sender/recipient deployed metadata, and `tosdk` now
+  exposes `inspectRuntimeReceipt(...)` / `inspectSettlementEffect(...)` so
+  TypeScript consumers can inspect canonical runtime receipts/effects without
+  hand-writing settlement RPC joins
+- OpenFox now also exposes that runtime settlement consumption directly in its
+  own operator-facing surfaces: `openfox settlement runtime-receipt ...` and
+  `openfox settlement runtime-effect ...` inspect canonical GTOS runtime
+  receipts/effects by `receipt_ref` / `settlement_ref`, and the operator API
+  mirrors those reads at `/operator/settlement/runtime-receipt` and
+  `/operator/settlement/runtime-effect` without collapsing them into the older
+  local OpenFox `receiptId` anchor namespace
 - OpenFox now consumes the same typed metadata hints directly in its
   agent-discovery selection policy and exposes
   `resolveCapabilityProvider(...)`, `diagnoseCapabilityProviders(...)`, and

@@ -328,6 +328,9 @@ contract UnoBalanceTest {
 	if len(bc) == 0 {
 		t.Fatal("bytecode is empty")
 	}
+	if !strings.Contains(string(bc), "uno_balance") {
+		t.Fatal("expected 'uno_balance' in bytecode constant pool")
+	}
 }
 
 // TestLowerUnoTransfer verifies that uno.transfer(to, ct) compiles.
@@ -347,6 +350,9 @@ contract UnoTransferTest {
 	}
 	if len(bc) == 0 {
 		t.Fatal("bytecode is empty")
+	}
+	if !strings.Contains(string(bc), "uno_transfer") {
+		t.Fatal("expected 'uno_transfer' in bytecode constant pool")
 	}
 }
 

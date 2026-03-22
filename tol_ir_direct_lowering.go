@@ -6893,6 +6893,16 @@ func lowerUnoMethodExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, err
 			}
 			args = append(args, ex)
 		}
+		if method == "balance" || method == "transfer" {
+			return withLineExpr(&luast.FuncCallExpr{
+				Func: withLineExpr(&luast.AttrGetExpr{
+					Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
+					Key: withLineExpr(&luast.StringExpr{Value: "uno_" + method}),
+				}),
+				Args:      args,
+				AdjustRet: true,
+			}), true, nil
+		}
 		return withLineExpr(&luast.FuncCallExpr{
 			Func: withLineExpr(&luast.AttrGetExpr{
 				Object: withLineExpr(&luast.AttrGetExpr{

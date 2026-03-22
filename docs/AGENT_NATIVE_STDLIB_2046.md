@@ -1185,6 +1185,7 @@ Those GTOS-owned design homes are:
 | --- | --- | --- |
 | Protocol registries for capability / delegation / verification / settlement-policy / agent identity | Tolang can express these semantics, but GTOS must provide canonical registry-backed truth, revocation, and query surfaces | `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md` |
 | LVM-native economic primitives | `package_call`, capability routing, `agentload`, `escrow/release`, and UNO rails need stable VM/runtime-native semantics rather than host-shaped conventions | `/home/tomi/gtos/docs/LVM_NATIVE_ECONOMIC_PRIMITIVES.md` |
+| Settlement bus and receipt hooks | first-wave stdlib settlement now works, but GTOS still needs a protocol-native bus for atomic value movement, receipt finalization, sponsor/escrow/refund joins, and public/UNO rail normalization | `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md` |
 | Package identity and publishing registry | local package resolution is not enough for agent-network trust; publisher identity, version/channel, and revocation need a protocol-grade model if GTOS adopts network publishing | `/home/tomi/gtos/docs/PACKAGE_PUBLISHING_REGISTRY.md` |
 
 Practical split:
@@ -1211,17 +1212,24 @@ Current GTOS implementation status (2026-03-22):
 - escrow / release semantics now have explicit VM-level rollback coverage:
   reserve/release/slash balance movement is tested, and both top-level revert
   and nested-call failure restore the escrow ledger correctly
+- UNO runtime-contract normalization is now resolved:
+  GTOS exposes `tos.uno_value`, `tos.uno_balance(...)`, and
+  `tos.uno_transfer(...)` as explicit VM-native UNO rails, preserves
+  `tos.ciphertext.balance/transfer` compatibility, fails closed on malformed
+  addresses, and has rollback coverage for both top-level revert and nested
+  call failure
 
 Execution prompt for this GTOS-owned wave:
 
 - Claude Code parallel implementation prompt:
   `docs/CLAUDE_CODE_GTOS_PROTOCOL_IMPLEMENTATION.md`
 
-That prompt is designed to execute directly against the three GTOS design
+That prompt is designed to execute directly against the GTOS design
 homes above:
 
 - `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md`
 - `/home/tomi/gtos/docs/LVM_NATIVE_ECONOMIC_PRIMITIVES.md`
+- `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md`
 - `/home/tomi/gtos/docs/PACKAGE_PUBLISHING_REGISTRY.md`
 
 ## A hard rule

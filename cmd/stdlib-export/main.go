@@ -23,6 +23,7 @@ type releaseIndexEntry struct {
 	TORPath            string `json:"tor_path"`
 	DiscoveryPath      string `json:"discovery_path"`
 	AgentPackagePath   string `json:"agent_package_path"`
+	ProfilePath        string `json:"profile_path"`
 	BytecodeHash       string `json:"bytecode_hash"`
 	PackageHash        string `json:"package_hash"`
 }
@@ -47,6 +48,7 @@ type releaseBundleCatalogContract struct {
 	TORPath            string `json:"tor_path"`
 	DiscoveryPath      string `json:"discovery_path"`
 	AgentPackagePath   string `json:"agent_package_path"`
+	ProfilePath        string `json:"profile_path"`
 	BytecodeHash       string `json:"bytecode_hash"`
 	PackageHash        string `json:"package_hash"`
 }
@@ -184,6 +186,16 @@ func main() {
 		if err := os.WriteFile(filepath.Join(repoRoot, agentPkgRel), agentPkgBytes, 0o644); err != nil {
 			fatalf("write %s: %v", agentPkgRel, err)
 		}
+		profile := metadata.BuildAgentProfile(meta)
+		profile.Identity.PackageName = entry.ReleasePackageName
+		profileBytes, err := json.MarshalIndent(profile, "", "  ")
+		if err != nil {
+			fatalf("marshal profile %s: %v", entry.Contract, err)
+		}
+		profileRel := filepath.ToSlash(filepath.Join("stdlib", "releases", entry.Family, entry.Contract+".profile.json"))
+		if err := os.WriteFile(filepath.Join(repoRoot, profileRel), profileBytes, 0o644); err != nil {
+			fatalf("write %s: %v", profileRel, err)
+		}
 		idxEntry := releaseIndexEntry{
 			Family:             entry.Family,
 			Contract:           entry.Contract,
@@ -195,6 +207,7 @@ func main() {
 			TORPath:            torRel,
 			DiscoveryPath:      discoveryRel,
 			AgentPackagePath:   agentPkgRel,
+			ProfilePath:        profileRel,
 			BytecodeHash:       art.BytecodeHash,
 			PackageHash:        lua.PackageHash(built.PackageTOR),
 		}
@@ -250,6 +263,7 @@ func main() {
 				TORPath:            idxEntry.TORPath,
 				DiscoveryPath:      idxEntry.DiscoveryPath,
 				AgentPackagePath:   idxEntry.AgentPackagePath,
+				ProfilePath:        idxEntry.ProfilePath,
 				BytecodeHash:       idxEntry.BytecodeHash,
 				PackageHash:        idxEntry.PackageHash,
 			})

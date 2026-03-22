@@ -119,4 +119,5 @@ Runtime rollback semantics are now resolved (per-contract atomicity via
 StateDB snapshot/revert, cross-contract atomicity via `tos.multicall`).
 The main remaining blockers for a true "production-complete" claim are fuller
 GTOS protocol backing for delegation / verification / agent identity
-governance and the still-open UNO runtime-contract normalization wave.
+governance plus broader release/discovery/threat-model hardening as new flows
+are added.

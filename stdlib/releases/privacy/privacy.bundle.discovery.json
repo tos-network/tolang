@@ -4,7 +4,7 @@
   "package_version": "1.0.0",
   "source_package_path": "tolang.stdlib.privacy",
   "tor_path": "stdlib/releases/privacy/privacy.tor",
-  "package_hash": "0x0fd8572433fb3aab528e1d24c5a27f5cd6a803140b85b298e1bb207f785dbc1c",
+  "package_hash": "0x206648129e0aeeead5ea0fcab4049e5dfd82a5babcfa95a9dfeff044e6a511b4",
   "service_kinds": [
     "balance_query",
     "query",
@@ -23,8 +23,8 @@
       "package_name": "tolang.stdlib.privacy.confidential_escrow",
       "package_version": "1.0.0",
       "artifact_ref": {
-        "package_hash": "0xf5ccd2f45e37d04668ee46809a93fa6850260518106892e6c2d62413a25bec41",
-        "bytecode_hash": "0xf25a06ee7e50b72ebcd416eab4ed777842ea7c2cfc76a056e00bb2a694f7dc8f",
+        "package_hash": "0x0fb05bc6586f30dbd43d01ca3bf2e6db62e891e8373faf9b4897bbe388d4cc08",
+        "bytecode_hash": "0x9d76bd49c60edd6f75e41dc063893c17a16c75afbf8e7c471dae317bf5e8b27a",
         "source_hash": "0xa2cf29f1e7feaaaa95047bf20c65f3b18e050fd8e13316d91a39f049db570320",
         "abi_hash": "0xa909bbe80e48cbcd85c96347e1ee8d26a0994747ba736e2cacad414dc9d06fc4",
         "version": "1.0.0"
@@ -175,8 +175,8 @@
       "package_name": "tolang.stdlib.privacy.confidential_vault",
       "package_version": "1.0.0",
       "artifact_ref": {
-        "package_hash": "0x4f30c42cf3f9d6fc1c04b6b143f36c29fde1a4fcea8e3eb980a2d58269db2d95",
-        "bytecode_hash": "0xf1c32f5981cbb84774e4a89573513b0769647b43db8cfe1df3a33078d9e0a5f2",
+        "package_hash": "0x74c5418b79fb7509b6ba412085600e7f689b4a9841d37d09808ee34a79e745e0",
+        "bytecode_hash": "0x4e0a08670e454e80a06a90c06c2181037b7eff0965398592da30b96bd250616c",
         "source_hash": "0x0f648d8ab6795aaa1081aedf5791aada7c01f3762e248506cefbe69d5fac4349",
         "abi_hash": "0x3abf63514010c944c003fecc8bcafe29100700016bafdb049a6e07c6e86ab516",
         "version": "1.0.0"

@@ -1,0 +1,343 @@
+{
+  "schema_version": "0.2.0",
+  "identity": {
+    "package_name": "tolang.stdlib.recovery",
+    "package_version": "1.0.0",
+    "content_hash": "0xc4e60856737f6054ae3f166ac32197da02db6a3ed5886a82eea09e450196f22f",
+    "bytecode_hash": "0xb288ed5c0c5cd91246d753c3ebbce01cc5bb48437ad0deab5df039acadae12aa",
+    "abi_hash": "0x4196a1fceef4e6be19507accfbfe17233a6a891925ca628015b2d500c1c9a167"
+  },
+  "contract": {
+    "name": "RecoveryController",
+    "type": "custom",
+    "tags": [
+      "custom",
+      "verifiable"
+    ]
+  },
+  "functions": [
+    {
+      "name": "addGuardian",
+      "selector": "0xa3d555b6",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "guardian",
+          "type": "agent"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "removeGuardian",
+      "selector": "0xcc66b763",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "guardian",
+          "type": "agent"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "startRecovery",
+      "selector": "0x5c9004f2",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "new_controller",
+          "type": "agent"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "approveRecovery",
+      "selector": "0xfcae8d38",
+      "visibility": "public",
+      "mutability": "view",
+      "params": null,
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "executeRecovery",
+      "selector": "0x20c5a3e1",
+      "visibility": "public",
+      "mutability": "view",
+      "params": null,
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "cancelRecovery",
+      "selector": "0x0ba234d6",
+      "visibility": "public",
+      "mutability": "view",
+      "params": null,
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "freeze",
+      "selector": "0xec13cc7b",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "reason_ref",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "unfreeze",
+      "selector": "0x6a28f000",
+      "visibility": "public",
+      "mutability": "view",
+      "params": null,
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "currentController",
+      "selector": "0x912637f1",
+      "visibility": "public",
+      "mutability": "view",
+      "params": null,
+      "returns": [
+        {
+          "name": "current",
+          "type": "agent"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "isFrozen",
+      "selector": "0x33eeb147",
+      "visibility": "public",
+      "mutability": "view",
+      "params": null,
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "isRecoveryActive",
+      "selector": "0xaa55e16f",
+      "visibility": "public",
+      "mutability": "view",
+      "params": null,
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "approvalCount",
+      "selector": "0x6884d0a6",
+      "visibility": "public",
+      "mutability": "view",
+      "params": null,
+      "returns": [
+        {
+          "name": "count",
+          "type": "u256"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    }
+  ],
+  "events": [
+    {
+      "name": "GuardianAdded",
+      "params": [
+        {
+          "name": "guardian",
+          "type": "agent"
+        },
+        {
+          "name": "index",
+          "type": "u256"
+        }
+      ]
+    },
+    {
+      "name": "GuardianRemoved",
+      "params": [
+        {
+          "name": "guardian",
+          "type": "agent"
+        }
+      ]
+    },
+    {
+      "name": "RecoveryStarted",
+      "params": [
+        {
+          "name": "proposed_controller",
+          "type": "agent"
+        },
+        {
+          "name": "completes_at",
+          "type": "u256"
+        }
+      ]
+    },
+    {
+      "name": "RecoveryApproved",
+      "params": [
+        {
+          "name": "guardian",
+          "type": "agent"
+        },
+        {
+          "name": "approval_count",
+          "type": "u256"
+        }
+      ]
+    },
+    {
+      "name": "RecoveryCancelled",
+      "params": null
+    },
+    {
+      "name": "RecoveryExecuted",
+      "params": [
+        {
+          "name": "old_controller",
+          "type": "agent"
+        },
+        {
+          "name": "new_controller",
+          "type": "agent"
+        }
+      ]
+    },
+    {
+      "name": "Frozen",
+      "params": [
+        {
+          "name": "reason_ref",
+          "type": "bytes32"
+        }
+      ]
+    },
+    {
+      "name": "Unfrozen",
+      "params": null
+    }
+  ],
+  "service_kinds": [
+    "query",
+    "verifiable_compute"
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "gas_model": {
+    "version": "tolang/0.2.0",
+    "sload": 2100,
+    "sstore": 20000,
+    "log_base": 375
+  }
+}

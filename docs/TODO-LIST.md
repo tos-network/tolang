@@ -17,6 +17,7 @@ Last updated: 2026-03-22
 | S-9 | GTOS package publishing trust integration | Done | `pkgregistry` now maintains latest-by-channel indexes, RPC exposes latest active package resolution, and deployed metadata joins published package/publisher trust |
 | S-10 | LVM native inspection expansion | Done | GTOS LVM now exposes `tos.agentinfo(...)`, `tos.packageinfo(...)`, `tos.packagelatest(...)`, and `tos.publisherinfo(...)` for runtime protocol-backed inspection |
 | S-11 | GTOS escrow / release rollback closure | Done | LVM now has direct rollback coverage for escrow reserve and nested release failure, on top of existing reserve/release/slash balance movement tests |
+| S-12 | GTOS UNO runtime contract normalization | Done | GTOS now exposes explicit `tos.uno_balance(...)` / `tos.uno_transfer(...)` aliases, lowers Tolang `uno.balance/transfer` onto them, fails closed on malformed addresses, and has top-level + nested rollback coverage |
 
 ## Review Follow-Ups
 

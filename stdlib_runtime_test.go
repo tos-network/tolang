@@ -699,13 +699,15 @@ func installStdlibRuntimeHost(L *LState) *stdlibRuntimeHost {
 		L.Push(LBool(left.Cmp(right) != 0))
 		return 1
 	}))
-	L.SetField(ctTable, "balance", L.NewFunction(func(L *LState) int {
+	balanceFn := L.NewFunction(func(L *LState) int {
 		addr := LVAsString(L.CheckAny(1))
 		stdlibRememberAgentString(host, addr)
 		L.Push(LString(stdlibUnoStringFromBigInt(stdlibNativeUnoBalance(host, addr))))
 		return 1
-	}))
-	L.SetField(ctTable, "transfer", L.NewFunction(func(L *LState) int {
+	})
+	L.SetField(ctTable, "balance", balanceFn)
+	L.SetField(tosTable, "uno_balance", balanceFn)
+	transferFn := L.NewFunction(func(L *LState) int {
 		addr := LVAsString(L.CheckAny(1))
 		amount := stdlibParseUnoString(LVAsString(L.CheckAny(2)))
 		stdlibRememberAgentString(host, addr)
@@ -716,7 +718,9 @@ func installStdlibRuntimeHost(L *LState) *stdlibRuntimeHost {
 		next.Add(next, amount)
 		host.nativeUnoBalances[addr] = next
 		return 0
-	}))
+	})
+	L.SetField(ctTable, "transfer", transferFn)
+	L.SetField(tosTable, "uno_transfer", transferFn)
 
 	L.SetGlobal("emit", L.NewFunction(func(L *LState) int {
 		n := L.GetTop()

@@ -1,0 +1,382 @@
+{
+  "schema_version": "0.2.0",
+  "identity": {
+    "package_name": "tolang.stdlib.session",
+    "package_version": "1.0.0",
+    "content_hash": "0x1eb0fcf51f534328d666c0c4b1f1d3e3d04eecd0db381461abb88bcdee0fc36f",
+    "bytecode_hash": "0x97f4ba22ca4591f729774bb6f6657176cb7ae90fbbb75e70c89699acbbccb64b",
+    "abi_hash": "0xa4a0f6622ba33a4a9c00106e328ef2623409230a29fce159d972c593cf9ce44b"
+  },
+  "contract": {
+    "name": "SessionBook",
+    "type": "custom",
+    "tags": [
+      "custom",
+      "verifiable"
+    ]
+  },
+  "functions": [
+    {
+      "name": "grantSession",
+      "selector": "0x5555e916",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "operator",
+          "type": "agent"
+        },
+        {
+          "name": "terminal_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "terminal_class",
+          "type": "u256"
+        },
+        {
+          "name": "trust_tier",
+          "type": "u256"
+        },
+        {
+          "name": "expiry_ms",
+          "type": "u256"
+        },
+        {
+          "name": "spend_limit",
+          "type": "u256"
+        },
+        {
+          "name": "step_up_limit",
+          "type": "u256"
+        },
+        {
+          "name": "degraded_mode",
+          "type": "bool"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "revokeSession",
+      "selector": "0xa7fed385",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "consume",
+      "selector": "0xb9d0d97e",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        },
+        {
+          "name": "step_up_completed",
+          "type": "bool"
+        }
+      ],
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "isActive",
+      "selector": "0x5c36901c",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "requiresStepUp",
+      "selector": "0xf04cc77d",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        }
+      ],
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "remainingOf",
+      "selector": "0xa4cceccc",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "remaining",
+          "type": "u256"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "requireTerminal",
+      "selector": "0xafc6a228",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        }
+      ],
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "terminalTypeOf",
+      "selector": "0x980eac6f",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "terminal_type",
+          "type": "u256"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "trustTierOf",
+      "selector": "0xbd8af51b",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "trust_tier",
+          "type": "u256"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "enforceStepUp",
+      "selector": "0x1489189e",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    }
+  ],
+  "events": [
+    {
+      "name": "SessionGranted",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "operator",
+          "type": "agent"
+        },
+        {
+          "name": "terminal_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "terminal_class",
+          "type": "u256"
+        },
+        {
+          "name": "trust_tier",
+          "type": "u256"
+        },
+        {
+          "name": "expiry_ms",
+          "type": "u256"
+        },
+        {
+          "name": "spend_limit",
+          "type": "u256"
+        },
+        {
+          "name": "step_up_limit",
+          "type": "u256"
+        },
+        {
+          "name": "degraded_mode",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "SessionConsumed",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        },
+        {
+          "name": "remaining",
+          "type": "u256"
+        }
+      ]
+    },
+    {
+      "name": "SessionRevoked",
+      "params": [
+        {
+          "name": "session_id",
+          "type": "bytes32"
+        }
+      ]
+    }
+  ],
+  "service_kinds": [
+    "query",
+    "verifiable_compute"
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "gas_model": {
+    "version": "tolang/0.2.0",
+    "sload": 2100,
+    "sstore": 20000,
+    "log_base": 375
+  }
+}

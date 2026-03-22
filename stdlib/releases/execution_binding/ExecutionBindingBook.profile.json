@@ -1,0 +1,318 @@
+{
+  "schema_version": "0.2.0",
+  "identity": {
+    "package_name": "tolang.stdlib.execution_binding",
+    "package_version": "1.0.0",
+    "content_hash": "0x19cc1d362640d56bc05dc517d9d4280d630a3169908a392574d4cca2c0c8953b",
+    "bytecode_hash": "0xa4b596c2ce5239594404279044cac4317ea4ab19b1b96ddbcb4dfbd65a7d0dde",
+    "abi_hash": "0x1427abdabc90540c5e806253c5189a2f51ef358e977241298103762d4b82cbcd"
+  },
+  "contract": {
+    "name": "ExecutionBindingBook",
+    "type": "token",
+    "tags": [
+      "token",
+      "approvable",
+      "verifiable"
+    ]
+  },
+  "functions": [
+    {
+      "name": "approve",
+      "selector": "0x13d3a587",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "binding_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "executor",
+          "type": "agent"
+        },
+        {
+          "name": "target",
+          "type": "agent"
+        },
+        {
+          "name": "value_limit",
+          "type": "u256"
+        },
+        {
+          "name": "expiry_ms",
+          "type": "u256"
+        },
+        {
+          "name": "policy_hash",
+          "type": "bytes32"
+        },
+        {
+          "name": "sponsor_policy_hash",
+          "type": "bytes32"
+        },
+        {
+          "name": "proof_ref",
+          "type": "bytes32"
+        },
+        {
+          "name": "intent_ref",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "cancel",
+      "selector": "0xc4d252f5",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "binding_id",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "consume",
+      "selector": "0xf7d3a11e",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "binding_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "value_used",
+          "type": "u256"
+        },
+        {
+          "name": "receipt_ref",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "isConsumable",
+      "selector": "0x9ca3efea",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "binding_id",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "executorOf",
+      "selector": "0x5fe523d4",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "binding_id",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "executor",
+          "type": "agent"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "policyHashOf",
+      "selector": "0x6f11c1fc",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "binding_id",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "policy_hash",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "proofRefOf",
+      "selector": "0x82ee1f94",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "binding_id",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "proof_ref",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    }
+  ],
+  "events": [
+    {
+      "name": "BindingApproved",
+      "params": [
+        {
+          "name": "binding_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "approver",
+          "type": "agent"
+        },
+        {
+          "name": "executor",
+          "type": "agent"
+        },
+        {
+          "name": "target",
+          "type": "agent"
+        },
+        {
+          "name": "value_limit",
+          "type": "u256"
+        },
+        {
+          "name": "expiry_ms",
+          "type": "u256"
+        },
+        {
+          "name": "policy_hash",
+          "type": "bytes32"
+        },
+        {
+          "name": "sponsor_policy_hash",
+          "type": "bytes32"
+        },
+        {
+          "name": "proof_ref",
+          "type": "bytes32"
+        },
+        {
+          "name": "intent_ref",
+          "type": "bytes32"
+        }
+      ]
+    },
+    {
+      "name": "BindingConsumed",
+      "params": [
+        {
+          "name": "binding_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "consumer",
+          "type": "agent"
+        },
+        {
+          "name": "value_used",
+          "type": "u256"
+        },
+        {
+          "name": "receipt_ref",
+          "type": "bytes32"
+        }
+      ]
+    },
+    {
+      "name": "BindingCancelled",
+      "params": [
+        {
+          "name": "binding_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "canceller",
+          "type": "agent"
+        }
+      ]
+    }
+  ],
+  "service_kinds": [
+    "query",
+    "token_transfer",
+    "balance_query",
+    "verifiable_compute"
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "gas_model": {
+    "version": "tolang/0.2.0",
+    "sload": 2100,
+    "sstore": 20000,
+    "log_base": 375
+  }
+}

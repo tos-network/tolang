@@ -28,6 +28,7 @@ func TestStdlibReleaseArtifactsAreCurrent(t *testing.T) {
 		TORPath            string `json:"tor_path"`
 		DiscoveryPath      string `json:"discovery_path"`
 		AgentPackagePath   string `json:"agent_package_path"`
+		ProfilePath        string `json:"profile_path"`
 		BytecodeHash       string `json:"bytecode_hash"`
 		PackageHash        string `json:"package_hash"`
 	}
@@ -50,6 +51,7 @@ func TestStdlibReleaseArtifactsAreCurrent(t *testing.T) {
 		TORPath            string `json:"tor_path"`
 		DiscoveryPath      string `json:"discovery_path"`
 		AgentPackagePath   string `json:"agent_package_path"`
+		ProfilePath        string `json:"profile_path"`
 		BytecodeHash       string `json:"bytecode_hash"`
 		PackageHash        string `json:"package_hash"`
 	}
@@ -354,6 +356,7 @@ func TestStdlibReleaseArtifactsAreCurrent(t *testing.T) {
 				TORPath:            idxEntry.TORPath,
 				DiscoveryPath:      idxEntry.DiscoveryPath,
 				AgentPackagePath:   idxEntry.AgentPackagePath,
+				ProfilePath:        idxEntry.ProfilePath,
 				BytecodeHash:       idxEntry.BytecodeHash,
 				PackageHash:        idxEntry.PackageHash,
 			})

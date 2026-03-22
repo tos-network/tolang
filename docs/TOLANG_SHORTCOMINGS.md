@@ -227,7 +227,7 @@ Why this matters:
 - when reserved words leak into package naming, it signals that the language
   namespace model is still too brittle
 
-### 6. The ABI/discovery layer is still not unified enough for agents — PARTIALLY RESOLVED
+### 6. The ABI/discovery layer is still not unified enough for agents — RESOLVED
 
 The stdlib effort made clear that agents do not consume source code first.
 They consume:
@@ -238,21 +238,17 @@ They consume:
 - capability summaries
 - receipt/proof anchors
 
-The maturity matrix still marks unified ABI schema work as partial/proposed.
+**Resolved (2026-03-22):**
 
-Evidence:
+`AgentContractProfile` (schema version 0.2.0) unifies ContractMetadata,
+DiscoveryManifest, and AgentPackageInfo into a single `.profile.json` per
+contract. `BuildAgentProfile(cm)` assembles identity, contract info,
+capabilities, functions, events, errors, service kinds, human summary, gas
+model, and typed discovery into one document.
 
-- `docs/FEATURE_MATURITY_MATRIX.md`
-
-Why this matters:
-
-- in an agent-native ecosystem, ABI/discovery quality is not secondary
-- it is part of the language product itself
-
-Diagnosis:
-
-- Tolang metadata is already one of its strengths, but it still needs a more
-  unified, protocol-grade contract capability schema
+The stdlib exporter now emits `.profile.json` alongside existing artifacts.
+All release index entries include the profile path. 3 tests in
+`metadata/agent_profile_test.go`.
 
 ### 7. Core economic primitives are still too host-shaped — IN PROGRESS
 
@@ -294,11 +290,11 @@ Of the 7 structural shortcomings identified by the stdlib effort:
 | 3 | Annotations ahead of protocol backing | **RESOLVED** — all 4 annotations registry-backed |
 | 4 | Package resolution filesystem-dependent | **RESOLVED** — `PackageSearchPaths` |
 | 5 | Namespace hygiene | **RESOLVED** — `session` unreserved + renamed |
-| 6 | ABI/discovery not unified for agents | **PARTIALLY RESOLVED** — typed discovery fields + design doc |
+| 6 | ABI/discovery not unified for agents | **RESOLVED** — unified `AgentContractProfile` (.profile.json) |
 | 7 | Economic primitives too host-shaped | **IN PROGRESS** — design doc ready |
 
-**5 of 7 resolved.  2 remaining** (#6 and #7) are incremental refinement
-work, not structural blockers.
+**6 of 7 resolved.  1 remaining** (#7) is incremental refinement work,
+not a structural blocker.
 
 ## Priority Order For Fixing These Gaps
 
@@ -328,11 +324,10 @@ The priority order should be:
    enables filesystem-independent resolution; `CompileOptions` and
    `ArtifactOptions` expose the field; GTOS `pkgregistry/` provides protocol-
    grade package identity model.
-5. Unified ABI/discovery/capability schema designed explicitly for agents. —
-   PARTIALLY DONE: `ServiceDirectory` has typed discovery fields (`fee`,
-   `sla_duration_ms`, capability/manifest/version refs);
-   `AgentContractProfile` design doc exists (`DISCOVERY_TYPED_SCHEMA.md`);
-   full typed routing schema not yet implemented on-chain.
+5. ~~Unified ABI/discovery/capability schema designed explicitly for agents.~~ —
+   **RESOLVED (2026-03-22)**: `AgentContractProfile` (v0.2.0) unifies
+   ContractMetadata + DiscoveryManifest + AgentPackageInfo into one
+   `.profile.json`; exporter emits it; 3 tests.
 6. ~~Namespace cleanup so standard library naming is conceptually clean and not
    parser-accidental.~~ — **RESOLVED**: `session` removed from lexer reserved
    words; `stdlib/session_book` directory renamed to `stdlib/session`.

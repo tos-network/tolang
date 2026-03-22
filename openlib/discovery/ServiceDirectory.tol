@@ -1,0 +1,426 @@
+pragma tolang 0.4.0;
+
+package tolang.openlib.discovery;
+
+// ServiceDirectory — discovery-facing registry for machine commerce endpoints.
+//
+// It standardizes provider identity, manifest references, capability references,
+// compatibility markers, and quote references in one machine-readable directory.
+
+interface IServiceDirectory {
+    event ServiceRegistered(
+        u256 indexed service_id,
+        agent indexed provider,
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref,
+        bytes32 quote_ref
+    )
+    event ServiceManifestUpdated(
+        u256 indexed service_id,
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref
+    )
+    event ServiceQuoteUpdated(u256 indexed service_id, bytes32 quote_ref)
+    event ServiceDeactivated(u256 indexed service_id)
+
+    function registerService(
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref,
+        bytes32 quote_ref
+    ) public returns (u256 service_id);
+
+    function updateManifest(
+        u256 service_id,
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref
+    ) public;
+
+    function updateQuote(u256 service_id, bytes32 quote_ref) public;
+    function deactivate(u256 service_id) public;
+
+    @verifiable
+    function providerOf(u256 service_id) public view returns (agent provider);
+
+    @verifiable
+    function manifestRefOf(u256 service_id) public view returns (bytes32 manifest_ref);
+
+    @verifiable
+    function capabilityRefOf(u256 service_id) public view returns (bytes32 capability_ref);
+
+    @verifiable
+    function quoteRefOf(u256 service_id) public view returns (bytes32 quote_ref);
+
+    @verifiable
+    function isActive(u256 service_id) public view returns (bool ok);
+
+    function setServiceFee(u256 service_id, u256 fee_amount) public;
+    function setServiceSLA(u256 service_id, u256 sla_duration_ms) public;
+
+    @verifiable
+    function feeOf(u256 service_id) public view returns (u256 fee);
+
+    @verifiable
+    function slaOf(u256 service_id) public view returns (u256 sla_duration_ms);
+
+    function setCapabilityType(u256 service_id, u256 capability_type) public;
+    function setServiceKind(u256 service_id, u256 service_kind) public;
+    function setPricingKind(u256 service_id, u256 pricing_kind) public;
+    function setPrivacyMode(u256 service_id, u256 privacy_mode) public;
+    function setReceiptMode(u256 service_id, u256 receipt_mode) public;
+    function setTrustFloorRef(u256 service_id, bytes32 trust_floor_ref) public;
+
+    @verifiable
+    function capabilityTypeOf(u256 service_id) public view returns (u256 capability_type);
+
+    @verifiable
+    function serviceKindOf(u256 service_id) public view returns (u256 service_kind);
+
+    @verifiable
+    function pricingKindOf(u256 service_id) public view returns (u256 pricing_kind);
+
+    @verifiable
+    function privacyModeOf(u256 service_id) public view returns (u256 privacy_mode);
+
+    @verifiable
+    function receiptModeOf(u256 service_id) public view returns (u256 receipt_mode);
+
+    @verifiable
+    function trustFloorRefOf(u256 service_id) public view returns (bytes32 trust_floor_ref);
+
+    @verifiable
+    function serviceCount() public view returns (u256 count);
+}
+
+contract ServiceDirectory is IServiceDirectory {
+    manifest {
+        name: "ServiceDirectory";
+        version: "1.0.0";
+        description: "Discovery registry for provider identity, manifest refs, capability refs, compatibility markers, and quote refs";
+    }
+
+    u256 constant SERVICE_UNSET = 0;
+    u256 constant SERVICE_QUERY = 1;
+    u256 constant SERVICE_PAYMENT = 2;
+    u256 constant SERVICE_ESCROW = 3;
+    u256 constant SERVICE_SETTLEMENT = 4;
+    u256 constant SERVICE_SPONSOR_RELAY = 5;
+    u256 constant SERVICE_ORACLE = 6;
+    u256 constant SERVICE_TREASURY = 7;
+    u256 constant SERVICE_DISCOVERY = 8;
+    u256 constant SERVICE_PRIVACY_HELPER = 9;
+
+    u256 constant CAP_UNSET = 0;
+    u256 constant CAP_READ_ONLY = 1;
+    u256 constant CAP_VALUE_TRANSFER = 2;
+    u256 constant CAP_ESCROW_LIFECYCLE = 3;
+    u256 constant CAP_SETTLEMENT_LIFECYCLE = 4;
+    u256 constant CAP_SPONSOR_EXECUTION = 5;
+    u256 constant CAP_DISCLOSURE_MANAGEMENT = 6;
+    u256 constant CAP_AUDIT_RECEIPT = 7;
+
+    u256 constant PRICING_UNSET = 0;
+    u256 constant PRICING_FREE = 1;
+    u256 constant PRICING_FIXED_FEE = 2;
+    u256 constant PRICING_QUOTE_REQUIRED = 3;
+    u256 constant PRICING_SUBSCRIPTION = 4;
+    u256 constant PRICING_METERED = 5;
+
+    u256 constant PRIVACY_UNSET = 0;
+    u256 constant PRIVACY_PUBLIC_ONLY = 1;
+    u256 constant PRIVACY_CONFIDENTIAL_OPTIONAL = 2;
+    u256 constant PRIVACY_CONFIDENTIAL_REQUIRED = 3;
+    u256 constant PRIVACY_DISCLOSURE_READY = 4;
+
+    u256 constant RECEIPT_UNSET = 0;
+    u256 constant RECEIPT_NO_RECEIPT = 1;
+    u256 constant RECEIPT_MANUAL = 2;
+    u256 constant RECEIPT_AUTO_EXPECTED = 3;
+    u256 constant RECEIPT_AUDIT_REQUIRED = 4;
+
+    u256 next_service_id;
+
+    mapping(u256 => agent) service_provider;
+    mapping(u256 => bytes32) service_manifest_ref;
+    mapping(u256 => bytes32) service_capability_ref;
+    mapping(u256 => bytes32) service_version_ref;
+    mapping(u256 => bytes32) service_quote_ref;
+    mapping(u256 => bool) service_active;
+    mapping(u256 => u256) service_fee;
+    mapping(u256 => u256) service_sla;
+    mapping(u256 => u256) service_capability_type;
+    mapping(u256 => u256) service_kind;
+    mapping(u256 => u256) service_pricing_kind;
+    mapping(u256 => u256) service_privacy_mode;
+    mapping(u256 => u256) service_receipt_mode;
+    mapping(u256 => bytes32) service_trust_floor_ref;
+
+    event ServiceRegistered(
+        u256 indexed service_id,
+        agent indexed provider,
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref,
+        bytes32 quote_ref
+    )
+    event ServiceManifestUpdated(
+        u256 indexed service_id,
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref
+    )
+    event ServiceQuoteUpdated(u256 indexed service_id, bytes32 quote_ref)
+    event ServiceDeactivated(u256 indexed service_id)
+    event ServiceFeeUpdated(u256 indexed service_id, u256 fee_amount)
+    event ServiceSLAUpdated(u256 indexed service_id, u256 sla_duration_ms)
+    event ServiceTypedSchemaUpdated(
+        u256 indexed service_id,
+        u256 service_kind,
+        u256 capability_kind,
+        u256 pricing_kind,
+        u256 privacy_mode,
+        u256 receipt_mode,
+        bytes32 trust_floor_ref
+    )
+
+    constructor() {
+        set next_service_id = 1;
+    }
+
+    function registerService(
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref,
+        bytes32 quote_ref
+    ) public returns (u256 service_id) {
+        require(manifest_ref != bytes32(0), "ZERO_MANIFEST");
+        require(capability_ref != bytes32(0), "ZERO_CAPABILITIES");
+        require(version_ref != bytes32(0), "ZERO_VERSION");
+
+        service_id = next_service_id;
+        set next_service_id = next_service_id + 1;
+
+        set service_provider[service_id] = msg.sender;
+        set service_manifest_ref[service_id] = manifest_ref;
+        set service_capability_ref[service_id] = capability_ref;
+        set service_version_ref[service_id] = version_ref;
+        set service_quote_ref[service_id] = quote_ref;
+        set service_active[service_id] = true;
+
+        emit ServiceRegistered(service_id, msg.sender, manifest_ref, capability_ref, version_ref, quote_ref);
+    }
+
+    function updateManifest(
+        u256 service_id,
+        bytes32 manifest_ref,
+        bytes32 capability_ref,
+        bytes32 version_ref
+    ) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        require(manifest_ref != bytes32(0), "ZERO_MANIFEST");
+        require(capability_ref != bytes32(0), "ZERO_CAPABILITIES");
+        require(version_ref != bytes32(0), "ZERO_VERSION");
+
+        set service_manifest_ref[service_id] = manifest_ref;
+        set service_capability_ref[service_id] = capability_ref;
+        set service_version_ref[service_id] = version_ref;
+
+        emit ServiceManifestUpdated(service_id, manifest_ref, capability_ref, version_ref);
+    }
+
+    function updateQuote(u256 service_id, bytes32 quote_ref) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        set service_quote_ref[service_id] = quote_ref;
+        emit ServiceQuoteUpdated(service_id, quote_ref);
+    }
+
+    function deactivate(u256 service_id) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        set service_active[service_id] = false;
+        emit ServiceDeactivated(service_id);
+    }
+
+    @verifiable
+    function providerOf(u256 service_id) public view returns (agent provider) {
+        return service_provider[service_id];
+    }
+
+    @verifiable
+    function manifestRefOf(u256 service_id) public view returns (bytes32 manifest_ref) {
+        return service_manifest_ref[service_id];
+    }
+
+    @verifiable
+    function capabilityRefOf(u256 service_id) public view returns (bytes32 capability_ref) {
+        return service_capability_ref[service_id];
+    }
+
+    @verifiable
+    function quoteRefOf(u256 service_id) public view returns (bytes32 quote_ref) {
+        return service_quote_ref[service_id];
+    }
+
+    @verifiable
+    function isActive(u256 service_id) public view returns (bool ok) {
+        return service_active[service_id];
+    }
+
+    function setServiceFee(u256 service_id, u256 fee_amount) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        set service_fee[service_id] = fee_amount;
+        emit ServiceFeeUpdated(service_id, fee_amount);
+    }
+
+    function setServiceSLA(u256 service_id, u256 sla_duration_ms) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        set service_sla[service_id] = sla_duration_ms;
+        emit ServiceSLAUpdated(service_id, sla_duration_ms);
+    }
+
+    @verifiable
+    function feeOf(u256 service_id) public view returns (u256 fee) {
+        return service_fee[service_id];
+    }
+
+    @verifiable
+    function slaOf(u256 service_id) public view returns (u256 sla_duration_ms) {
+        return service_sla[service_id];
+    }
+
+    function setCapabilityType(u256 service_id, u256 capability_type) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        require(capability_type <= CAP_AUDIT_RECEIPT, "INVALID_CAPABILITY");
+        set service_capability_type[service_id] = capability_type;
+        emit ServiceTypedSchemaUpdated(
+            service_id,
+            service_kind[service_id],
+            capability_type,
+            service_pricing_kind[service_id],
+            service_privacy_mode[service_id],
+            service_receipt_mode[service_id],
+            service_trust_floor_ref[service_id]
+        );
+    }
+
+    function setServiceKind(u256 service_id, u256 service_kind_value) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        require(service_kind_value >= SERVICE_QUERY && service_kind_value <= SERVICE_PRIVACY_HELPER, "INVALID_SERVICE_KIND");
+        set service_kind[service_id] = service_kind_value;
+        emit ServiceTypedSchemaUpdated(
+            service_id,
+            service_kind_value,
+            service_capability_type[service_id],
+            service_pricing_kind[service_id],
+            service_privacy_mode[service_id],
+            service_receipt_mode[service_id],
+            service_trust_floor_ref[service_id]
+        );
+    }
+
+    function setPricingKind(u256 service_id, u256 pricing_kind) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        require(pricing_kind >= PRICING_FREE && pricing_kind <= PRICING_METERED, "INVALID_PRICING_KIND");
+        set service_pricing_kind[service_id] = pricing_kind;
+        emit ServiceTypedSchemaUpdated(
+            service_id,
+            service_kind[service_id],
+            service_capability_type[service_id],
+            pricing_kind,
+            service_privacy_mode[service_id],
+            service_receipt_mode[service_id],
+            service_trust_floor_ref[service_id]
+        );
+    }
+
+    function setPrivacyMode(u256 service_id, u256 privacy_mode) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        require(privacy_mode >= PRIVACY_PUBLIC_ONLY && privacy_mode <= PRIVACY_DISCLOSURE_READY, "INVALID_PRIVACY_MODE");
+        set service_privacy_mode[service_id] = privacy_mode;
+        emit ServiceTypedSchemaUpdated(
+            service_id,
+            service_kind[service_id],
+            service_capability_type[service_id],
+            service_pricing_kind[service_id],
+            privacy_mode,
+            service_receipt_mode[service_id],
+            service_trust_floor_ref[service_id]
+        );
+    }
+
+    function setReceiptMode(u256 service_id, u256 receipt_mode) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        require(receipt_mode >= RECEIPT_NO_RECEIPT && receipt_mode <= RECEIPT_AUDIT_REQUIRED, "INVALID_RECEIPT_MODE");
+        set service_receipt_mode[service_id] = receipt_mode;
+        emit ServiceTypedSchemaUpdated(
+            service_id,
+            service_kind[service_id],
+            service_capability_type[service_id],
+            service_pricing_kind[service_id],
+            service_privacy_mode[service_id],
+            receipt_mode,
+            service_trust_floor_ref[service_id]
+        );
+    }
+
+    function setTrustFloorRef(u256 service_id, bytes32 trust_floor_ref) public {
+        require(service_active[service_id] == true, "NOT_ACTIVE");
+        require(msg.sender == service_provider[service_id], "NOT_PROVIDER");
+        set service_trust_floor_ref[service_id] = trust_floor_ref;
+        emit ServiceTypedSchemaUpdated(
+            service_id,
+            service_kind[service_id],
+            service_capability_type[service_id],
+            service_pricing_kind[service_id],
+            service_privacy_mode[service_id],
+            service_receipt_mode[service_id],
+            trust_floor_ref
+        );
+    }
+
+    @verifiable
+    function capabilityTypeOf(u256 service_id) public view returns (u256 capability_type) {
+        return service_capability_type[service_id];
+    }
+
+    @verifiable
+    function serviceKindOf(u256 service_id) public view returns (u256 service_kind_value) {
+        return service_kind[service_id];
+    }
+
+    function pricingKindOf(u256 service_id) public view returns (u256 pricing_kind) {
+        return service_pricing_kind[service_id];
+    }
+
+    @verifiable
+    function privacyModeOf(u256 service_id) public view returns (u256 privacy_mode) {
+        return service_privacy_mode[service_id];
+    }
+
+    @verifiable
+    function receiptModeOf(u256 service_id) public view returns (u256 receipt_mode) {
+        return service_receipt_mode[service_id];
+    }
+
+    @verifiable
+    function trustFloorRefOf(u256 service_id) public view returns (bytes32 trust_floor_ref) {
+        return service_trust_floor_ref[service_id];
+    }
+
+    @verifiable
+    function serviceCount() public view returns (u256 count) {
+        return next_service_id - 1;
+    }
+}

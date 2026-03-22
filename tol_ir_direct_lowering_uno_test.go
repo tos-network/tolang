@@ -412,16 +412,16 @@ contract PayableUnoEnvMethodTest {
   }
 }
 `)
-	L, tos, host := deployStdlibSourceContract(t, src, "PayableUnoEnvMethodTest")
+	L, tos, host := deployOpenlibSourceContract(t, src, "PayableUnoEnvMethodTest")
 	defer L.Close()
 
-	stdlibSetUnoValue(host, stdlibUnoFromInt(7))
-	if got := invokeStdlib(t, L, tos, "hasValue()"); !LVAsBool(got) {
+	openlibSetUnoValue(host, openlibUnoFromInt(7))
+	if got := invokeOpenlib(t, L, tos, "hasValue()"); !LVAsBool(got) {
 		t.Fatal("expected positive uno_value to be greater than zero")
 	}
 
-	stdlibSetUnoValue(host, stdlibUnoFromInt(0))
-	if got := invokeStdlib(t, L, tos, "hasValue()"); LVAsBool(got) {
+	openlibSetUnoValue(host, openlibUnoFromInt(0))
+	if got := invokeOpenlib(t, L, tos, "hasValue()"); LVAsBool(got) {
 		t.Fatal("expected zero uno_value to not be greater than zero")
 	}
 }

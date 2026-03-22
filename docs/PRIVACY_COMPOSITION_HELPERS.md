@@ -13,7 +13,7 @@ GTOS already resolves the protocol-layer privacy stack:
 - `DecryptionToken`
 - `AuditorKey`
 
-TOL stdlib already resolves the contract-layer privacy family:
+TOL openlib already resolves the contract-layer privacy family:
 
 - `ConfidentialVault`
 - `ConfidentialEscrow`
@@ -37,7 +37,7 @@ still too bespoke:
 - escrow and disclosure are not bound together by default
 - receipts are not automatically shaped for arbitrator / auditor workflows
 - treasury spends and regulated checkouts still require app-specific glue
-- selective disclosure exists, but there is no canonical stdlib helper that says
+- selective disclosure exists, but there is no canonical openlib helper that says
   "when dispute X happens, disclose Y to role Z under policy P"
 
 The gap is not protocol correctness.
@@ -47,7 +47,7 @@ The gap is **agent-facing business ergonomics**.
 
 ## Scope
 
-This document defines the stdlib-side helper layer for:
+This document defines the openlib-side helper layer for:
 
 1. arbitrated confidential settlement
 2. regulator / auditor ready private checkout
@@ -66,7 +66,7 @@ This work must not:
 - add new consensus rules
 - duplicate the existing privacy family contracts
 - replace `AuditorDisclosureBook` with a new disclosure storage primitive
-- turn stdlib helper contracts into proof verifiers
+- turn openlib helper contracts into proof verifiers
 
 GTOS remains the home of:
 
@@ -74,7 +74,7 @@ GTOS remains the home of:
 - token generation / verification
 - auditor-key consensus behavior
 
-TOL stdlib remains the home of:
+TOL openlib remains the home of:
 
 - policy composition
 - receipt/disclosure linkage
@@ -322,7 +322,7 @@ At least one composed runtime example must cover:
 This design is considered implemented only when:
 
 - at least 2 privacy composition helpers exist in code
-- helper APIs compile and import as stdlib packages or examples
+- helper APIs compile and import as openlib packages or examples
 - runtime/composed-flow tests exist
 - receipts include stable privacy/disclosure refs
 - no new cryptographic primitives are introduced

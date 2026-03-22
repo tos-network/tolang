@@ -1,0 +1,153 @@
+{
+  "package_name": "tolang.openlib.receipt",
+  "package_version": "1.0.0",
+  "artifact_ref": {
+    "package_hash": "0xba36856a28ae9404db5704a545d6865118ce52e1ee1722ce6d83317736b30b34",
+    "bytecode_hash": "0xbf2ba81f66c19195a90fbe1ed2728f452c7014468d6456a73bf2927fb216a131",
+    "source_hash": "0xb0e85a5500c6f2fa429f93d3cd27e7dbcf9f2c9a157251c2670ef6b9678fa201",
+    "abi_hash": "0xb8586da74204084e85634c8750b4ac1dff71e5285c9a4021f116ae66658c81a6",
+    "version": "1.0.0"
+  },
+  "capabilities": {
+    "contract_name": "ReceiptBook",
+    "version": "1.0.0",
+    "capabilities": null,
+    "verifiable_methods": [
+      {
+        "function_name": "statusOf",
+        "selector": "0xc7df14e2",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      },
+      {
+        "function_name": "bindingRefOf",
+        "selector": "0x92d72030",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      },
+      {
+        "function_name": "proofRefOf",
+        "selector": "0x82ee1f94",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      },
+      {
+        "function_name": "isFinalized",
+        "selector": "0x7f8d429e",
+        "proof_type": "state_proof",
+        "description": "Pure computation with no state access"
+      }
+    ],
+    "delegated_methods": null
+  },
+  "discovery": {
+    "schema_version": "0.1.0",
+    "package_name": "tolang.openlib.receipt",
+    "package_version": "1.0.0",
+    "artifact_ref": {
+      "package_hash": "0xba36856a28ae9404db5704a545d6865118ce52e1ee1722ce6d83317736b30b34",
+      "bytecode_hash": "0xbf2ba81f66c19195a90fbe1ed2728f452c7014468d6456a73bf2927fb216a131",
+      "source_hash": "0xb0e85a5500c6f2fa429f93d3cd27e7dbcf9f2c9a157251c2670ef6b9678fa201",
+      "abi_hash": "0xb8586da74204084e85634c8750b4ac1dff71e5285c9a4021f116ae66658c81a6",
+      "version": "1.0.0"
+    },
+    "contract_type": "custom",
+    "service_kinds": [
+      "query",
+      "verifiable_compute"
+    ],
+    "capabilities": null,
+    "interface_methods": [
+      {
+        "name": "openReceipt",
+        "selector": "0xdc57a28c",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "failure_modes": [
+          {
+            "name": "Error",
+            "kind": "error",
+            "selector": "0x08c379a0"
+          }
+        ],
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "finalizeSuccess",
+        "selector": "0x4deadd80",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "failure_modes": [
+          {
+            "name": "Error",
+            "kind": "error",
+            "selector": "0x08c379a0"
+          }
+        ],
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "finalizeFailure",
+        "selector": "0xf937f477",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": false,
+        "failure_modes": [
+          {
+            "name": "Error",
+            "kind": "error",
+            "selector": "0x08c379a0"
+          }
+        ],
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "statusOf",
+        "selector": "0xc7df14e2",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "bindingRefOf",
+        "selector": "0x92d72030",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "proofRefOf",
+        "selector": "0x82ee1f94",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      },
+      {
+        "name": "isFinalized",
+        "selector": "0x7f8d429e",
+        "risk_level": "low",
+        "payable": false,
+        "delegated": false,
+        "verifiable": true,
+        "summary": "Pure computation with no state access"
+      }
+    ],
+    "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+    "tags": [
+      "custom",
+      "verifiable"
+    ]
+  },
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls"
+}

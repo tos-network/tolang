@@ -224,7 +224,7 @@ func TestBuildDiscoveryManifestTypedDiscoveryProfile(t *testing.T) {
 		},
 	}
 
-	dm := BuildDiscoveryManifest(meta, "tolang.stdlib.discovery.service_directory")
+	dm := BuildDiscoveryManifest(meta, "tolang.openlib.discovery.service_directory")
 	if dm.ContractType != "discovery" {
 		t.Fatalf("ContractType = %q, want %q", dm.ContractType, "discovery")
 	}

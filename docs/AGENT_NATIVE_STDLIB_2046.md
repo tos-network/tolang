@@ -31,7 +31,7 @@ expressing:
 
 That is the starting point.
 
-## The question TOL stdlib must answer
+## The question TOL openlib must answer
 
 The right question is not:
 
@@ -237,9 +237,9 @@ It also includes the question of whether value itself is handled in:
 - confidential rails
 - mixed public/private settlement paths
 
-## What belongs in the language and what belongs in stdlib
+## What belongs in the language and what belongs in openlib
 
-TOL should not try to solve everything in stdlib.
+TOL should not try to solve everything in openlib.
 
 Some things belong in the language and compiler:
 
@@ -253,9 +253,9 @@ Some things belong in the language and compiler:
 
 Those are language-level guarantees.
 
-Stdlib begins where reusable economic structure begins.
+Openlib begins where reusable economic structure begins.
 
-The stdlib should standardize:
+The openlib should standardize:
 
 - reusable authority envelopes
 - reusable policy patterns
@@ -268,9 +268,9 @@ The stdlib should standardize:
 In short:
 
 - language = execution guarantees
-- stdlib = economic semantics
+- openlib = economic semantics
 
-## UNO bridge must be surfaced as stdlib, not left as raw primitives
+## UNO bridge must be surfaced as openlib, not left as raw primitives
 
 TOL already has a real confidential-value bridge:
 
@@ -285,15 +285,15 @@ These are powerful low-level rails, but they are still rails.
 Most application authors should not be forced to design commercial confidential
 flows directly from these raw bridge points every time.
 
-Therefore, stdlib should treat UNO as a first-class substrate for reusable
+Therefore, openlib should treat UNO as a first-class substrate for reusable
 package families, not merely as a compiler feature.
 
 The goal is:
 
 - language exposes `uno`
-- stdlib turns `uno` into canonical confidential business APIs
+- openlib turns `uno` into canonical confidential business APIs
 
-In practice, that means the stdlib should wrap the raw bridge into reusable
+In practice, that means the openlib should wrap the raw bridge into reusable
 contract surfaces such as:
 
 - confidential deposit and withdrawal flows
@@ -307,9 +307,9 @@ contract surfaces such as:
 This is the difference between "having encrypted arithmetic" and "having a
 usable confidential commerce standard library."
 
-## Deriving the stdlib package map
+## Deriving the openlib package map
 
-If the semantic kernel above is correct, then the TOL stdlib should be organized
+If the semantic kernel above is correct, then the TOL openlib should be organized
 around package families that correspond to recurring economic roles.
 
 ## Current implementation status
@@ -317,58 +317,58 @@ around package families that correspond to recurring economic roles.
 As of the current repo state, the package map below is no longer purely
 aspirational.
 
-- ✅ Implemented package seeds in `stdlib/`:
+- ✅ Implemented package seeds in `openlib/`:
   `account`, `authority`, `execution_binding`, `session`, `agreement`,
   `settlement`, `sponsor`, `evidence`, `receipt`, `trust`, `privacy`,
   `recovery`, `discovery`
 - ✅ Compile/import coverage for every package seed plus composed example
-  coverage in `stdlib_packages_test.go`, `stdlib_composition_test.go`, and
-  `stdlib_examples_test.go`
+  coverage in `openlib_packages_test.go`, `openlib_composition_test.go`, and
+  `openlib_examples_test.go`
 - ✅ Metadata, human-readable summary, discovery-manifest, and agent-package
-  end-to-end coverage for composed examples in `e2e/stdlib_examples_e2e_test.go`
-- ✅ Runtime execution coverage for core stdlib packages in
-  `stdlib_runtime_test.go`, including authority, execution binding, session,
+  end-to-end coverage for composed examples in `e2e/openlib_examples_e2e_test.go`
+- ✅ Runtime execution coverage for core openlib packages in
+  `openlib_runtime_test.go`, including authority, execution binding, session,
   receipt, sponsor, evidence, recovery, trust, discovery, agreement,
   account, settlement, and privacy/UNO flows
 - ✅ Composed runtime package-call coverage for `PolicySponsoredCheckout` and
-  `PrivateServiceOrder` in `stdlib_composed_runtime_test.go`
-- ✅ Stateful composed runtime flows with real downstream stdlib contract state
-  in `stdlib_composed_runtime_test.go`
-- ✅ Stateful composed runtime write flows now mutate downstream stdlib state
+  `PrivateServiceOrder` in `openlib_composed_runtime_test.go`
+- ✅ Stateful composed runtime flows with real downstream openlib contract state
+  in `openlib_composed_runtime_test.go`
+- ✅ Stateful composed runtime write flows now mutate downstream openlib state
   through the coordinators themselves, including receipt finalization and
-  agreement/settlement completion in `stdlib_composed_runtime_test.go`
+  agreement/settlement completion in `openlib_composed_runtime_test.go`
 - ✅ Confidential escrow + receipt composed example coverage now exists in
-  `examples/stdlib_composed/PrivateEscrowCheckout.tol`,
-  `stdlib_examples_test.go`, `e2e/stdlib_examples_e2e_test.go`, and
-  `stdlib_composed_runtime_test.go`
+  `examples/openlib_composed/PrivateEscrowCheckout.tol`,
+  `openlib_examples_test.go`, `e2e/openlib_examples_e2e_test.go`, and
+  `openlib_composed_runtime_test.go`
 - ✅ Sponsored confidential checkout coverage now exists in
-  `examples/stdlib_composed/SponsoredPrivateEscrowCheckout.tol`, combining
+  `examples/openlib_composed/SponsoredPrivateEscrowCheckout.tol`, combining
   execution binding, sponsor relay, receipt finalization, confidential escrow,
-  and real downstream call execution in `stdlib_composed_runtime_test.go`
-- ✅ Deterministic stdlib release artifacts now exist under `stdlib/releases/`,
-  produced by `cmd/stdlib-export` and locked by `stdlib_release_test.go`
-- ✅ Family-level stdlib bundle packages now exist for multi-contract families,
+  and real downstream call execution in `openlib_composed_runtime_test.go`
+- ✅ Deterministic openlib release artifacts now exist under `openlib/releases/`,
+  produced by `cmd/openlib-export` and locked by `openlib_release_test.go`
+- ✅ Family-level openlib bundle packages now exist for multi-contract families,
   so package identity is not limited to per-contract `.tor` artifacts
 - ✅ Family-local bundle catalogs now exist beside those bundle packages, so a
-  consumer can resolve a multi-contract stdlib family without first loading the
+  consumer can resolve a multi-contract openlib family without first loading the
   global release index
 - ✅ Family-level bundle discovery and agent-package metadata now exist beside
   those bundle packages, so discovery clients can consume a multi-contract
   family directly rather than reconstructing one from contract-level records
-- ✅ A first-pass stdlib threat model baseline now exists in
+- ✅ A first-pass openlib threat model baseline now exists in
   `docs/STDLIB_THREAT_MODEL_MATRIX.md`
 - ✅ Low-level external-call runtime coverage now executes real target contracts
   behind `target.call(data)` for sponsor/account paths, not just host stubs, in
-  `stdlib_runtime_test.go` and `stdlib_composed_runtime_test.go`
+  `openlib_runtime_test.go` and `openlib_composed_runtime_test.go`
 - ✅ Confidential escrow seed and UNO runtime coverage are now implemented in
-  `stdlib/privacy/ConfidentialEscrow.tol` and `stdlib_runtime_test.go`
+  `openlib/privacy/ConfidentialEscrow.tol` and `openlib_runtime_test.go`
 - ✅ Direct `msg.uno_value.*` UNO method-call runtime coverage now has a focused
   regression test in `tol_ir_direct_lowering_uno_test.go`, closing an env-member
-  type-inference/lowering gap exposed by stdlib privacy flows
+  type-inference/lowering gap exposed by openlib privacy flows
 
-### `stdlib/account`
+### `openlib/account`
 
-Status: ✅ implemented seed in `stdlib/account/PolicyAccount.tol`
+Status: ✅ implemented seed in `openlib/account/PolicyAccount.tol`
 
 Derived from:
 
@@ -395,9 +395,9 @@ Current seeds:
 - `examples/policy_wallet/GuardianRecovery.tol`
 - `examples/policy_wallet/DelegatedAgent.tol`
 
-### `stdlib/authority`
+### `openlib/authority`
 
-Status: ✅ implemented seed in `stdlib/authority/AuthorityBook.tol`
+Status: ✅ implemented seed in `openlib/authority/AuthorityBook.tol`
 
 Derived from:
 
@@ -417,9 +417,9 @@ What it standardizes:
 
 This package is the canonical surface for bounded authority, not "ownership."
 
-### `stdlib/execution_binding`
+### `openlib/execution_binding`
 
-Status: ✅ implemented seed in `stdlib/execution_binding/ExecutionBindingBook.tol`
+Status: ✅ implemented seed in `openlib/execution_binding/ExecutionBindingBook.tol`
 
 Derived from:
 
@@ -442,7 +442,7 @@ This package must be kept narrow.
 
 `IntentEnvelope`, `PlanRecord`, route selection, fallback planning, approval
 narrative, and intent lifecycle management belong to OpenFox and the shared
-boundary layer, not to on-chain stdlib.
+boundary layer, not to on-chain openlib.
 
 The on-chain role is smaller:
 
@@ -455,9 +455,9 @@ So this package is not an on-chain intent engine.
 It is the contract-side execution-binding layer that lets intent-native runtime
 systems safely anchor approval and settlement to chain execution.
 
-### `stdlib/session`
+### `openlib/session`
 
-Status: ✅ implemented seed in `stdlib/session/SessionBook.tol`
+Status: ✅ implemented seed in `openlib/session/SessionBook.tol`
 
 Derived from:
 
@@ -475,9 +475,9 @@ What it standardizes:
 - lost-terminal recovery hooks
 - degraded-mode authority limits
 
-### `stdlib/agreement`
+### `openlib/agreement`
 
-Status: ✅ implemented seed in `stdlib/agreement/CommercialAgreement.tol`
+Status: ✅ implemented seed in `openlib/agreement/CommercialAgreement.tol`
 
 Derived from:
 
@@ -498,7 +498,7 @@ What it standardizes:
 This package is where TOL stops looking like a raw contract language and starts
 looking like a language of machine commerce.
 
-### `stdlib/settlement`
+### `openlib/settlement`
 
 Status: ✅ implemented — `TaskSettlement.tol` + `RecurringPayment.tol` (2026-03-21)
 
@@ -528,19 +528,19 @@ Its canonical forms should support both:
 
 Current contracts:
 
-- `stdlib/settlement/TaskSettlement.tol` — task escrow with dispute/proof/receipt
-- `stdlib/settlement/RecurringPayment.tol` — subscription/periodic payment scheduler
+- `openlib/settlement/TaskSettlement.tol` — task escrow with dispute/proof/receipt
+- `openlib/settlement/RecurringPayment.tol` — subscription/periodic payment scheduler
 
 Current seeds:
 
-- `stdlib/Task.tol`
+- `openlib/Task.tol`
 - `examples/agent_economy/TaskEscrow.tol`
 - `examples/agent_economy/MerchantPayment.tol`
 - `examples/agent_economy/RecurringPayment.tol`
 
-### `stdlib/sponsor`
+### `openlib/sponsor`
 
-Status: ✅ implemented seed in `stdlib/sponsor/SponsorPolicyRelay.tol`
+Status: ✅ implemented seed in `openlib/sponsor/SponsorPolicyRelay.tol`
 
 Derived from:
 
@@ -561,9 +561,9 @@ Current seeds:
 
 - `examples/agent_economy/SponsorRelay.tol`
 
-### `stdlib/evidence`
+### `openlib/evidence`
 
-Status: ✅ implemented seed in `stdlib/evidence/EvidenceBook.tol`
+Status: ✅ implemented seed in `openlib/evidence/EvidenceBook.tol`
 
 Derived from:
 
@@ -582,12 +582,12 @@ What it standardizes:
 
 Current seeds:
 
-- `stdlib/Oracle.tol`
+- `openlib/Oracle.tol`
 - `examples/agent_economy/OracleResolver.tol`
 
-### `stdlib/receipt`
+### `openlib/receipt`
 
-Status: ✅ implemented seed in `stdlib/receipt/ReceiptBook.tol`
+Status: ✅ implemented seed in `openlib/receipt/ReceiptBook.tol`
 
 Derived from:
 
@@ -610,9 +610,9 @@ What it standardizes:
 This package is central because 2046 users and agents consume receipts, not raw
 transaction internals.
 
-### `stdlib/trust`
+### `openlib/trust`
 
-Status: ✅ implemented seed in `stdlib/trust/TrustRegistry.tol`
+Status: ✅ implemented seed in `openlib/trust/TrustRegistry.tol`
 
 Derived from:
 
@@ -632,7 +632,7 @@ What it standardizes:
 This package converts reputation and stake from ambient chain data into
 commercially reusable contract semantics.
 
-### `stdlib/privacy`
+### `openlib/privacy`
 
 Status: ✅ all 6 contracts implemented (2026-03-21)
 
@@ -657,7 +657,7 @@ What it standardizes:
 This package matters because public terminals and weak terminals cannot be
 treated as neutral observers.
 
-It should be explicit that `stdlib/privacy` is not only about disclosure after
+It should be explicit that `openlib/privacy` is not only about disclosure after
 the fact.
 
 It is also about making confidential value usable during execution.
@@ -684,16 +684,16 @@ rather than directly wiring low-level UNO bridge calls each time.
 
 Current contracts:
 
-- `stdlib/privacy/ConfidentialVault.tol` — deposit/withdraw/auditor auth
-- `stdlib/privacy/ConfidentialEscrow.tol` — escrow/release/refund on UNO rails
-- `stdlib/privacy/ConfidentialPayment.tol` — batch/individual encrypted payments
-- `stdlib/privacy/ConfidentialTreasury.tol` — multi-signer treasury with auditor disclosure
-- `stdlib/privacy/ConfidentialAllowance.tol` — encrypted approve/transferFrom with expiry
-- `stdlib/privacy/AuditorDisclosureBook.tol` — snapshot-based auditor disclosure management
+- `openlib/privacy/ConfidentialVault.tol` — deposit/withdraw/auditor auth
+- `openlib/privacy/ConfidentialEscrow.tol` — escrow/release/refund on UNO rails
+- `openlib/privacy/ConfidentialPayment.tol` — batch/individual encrypted payments
+- `openlib/privacy/ConfidentialTreasury.tol` — multi-signer treasury with auditor disclosure
+- `openlib/privacy/ConfidentialAllowance.tol` — encrypted approve/transferFrom with expiry
+- `openlib/privacy/AuditorDisclosureBook.tol` — snapshot-based auditor disclosure management
 
-### `stdlib/recovery`
+### `openlib/recovery`
 
-Status: ✅ implemented seed in `stdlib/recovery/RecoveryController.tol`
+Status: ✅ implemented seed in `openlib/recovery/RecoveryController.tol`
 
 Derived from:
 
@@ -713,9 +713,9 @@ What it standardizes:
 Some implementations will live near `account` and `authority`, but the semantic
 surface is important enough to justify its own package family.
 
-### `stdlib/discovery`
+### `openlib/discovery`
 
-Status: ✅ implemented seed in `stdlib/discovery/ServiceDirectory.tol`
+Status: ✅ implemented seed in `openlib/discovery/ServiceDirectory.tol`
 
 Derived from:
 
@@ -737,7 +737,7 @@ hardcoded.
 
 ## The package unit should be a protocol package, not a helper file
 
-A serious TOL stdlib package should not be only a reusable `.tol` snippet.
+A serious TOL openlib package should not be only a reusable `.tol` snippet.
 
 It should normally ship:
 
@@ -803,9 +803,9 @@ Without this wave, there is no scalable marketplace for autonomous services.
 
 The current repo already contains useful seeds:
 
-- `stdlib/Task.tol`
-- `stdlib/Oracle.tol`
-- `stdlib/Vote.tol`
+- `openlib/Task.tol`
+- `openlib/Oracle.tol`
+- `openlib/Vote.tol`
 - `examples/policy_wallet/*`
 - `examples/agent_economy/*`
 - `examples/confidential_vault/*`
@@ -836,14 +836,14 @@ Concretely, that means:
 
 ## Current execution frontier
 
-The stdlib and release pipeline are no longer the main unfinished layer.
+The openlib and release pipeline are no longer the main unfinished layer.
 
 The current highest-value remaining task is:
 
 `Finish the deepest remaining VM/protocol gap for Tolang/GTOS: nested-call rollback and atomic execution semantics across LVM, with cross-stack tests and docs.`
 
 This is not a greenfield task.
-The stdlib and release pipeline are already substantially complete.
+The openlib and release pipeline are already substantially complete.
 
 ### Current context
 
@@ -853,7 +853,7 @@ The stdlib and release pipeline are already substantially complete.
   `docs/STDLIB_THREAT_MODEL_MATRIX.md`
 - The exposed framework/runtime gaps are tracked in:
   `docs/TOLANG_SHORTCOMINGS.md`
-- Stdlib families, release artifacts, discovery metadata, agent package
+- Openlib families, release artifacts, discovery metadata, agent package
   metadata, GTOS package target validation, explicit gas caps, typed custom
   reverts, and deployed TOL metadata RPC are already implemented
 - The highest-value unresolved gap is nested call rollback and atomicity across
@@ -872,12 +872,12 @@ behavior in GTOS/LVM, then prove it with cross-stack tests in both repos.
 - Revert data still propagates correctly
 - Raw Lua compatibility is preserved
 - TOL's 32-byte agent normalization boundary is preserved
-- Existing stdlib, runtime, and release behavior is not broken
+- Existing openlib, runtime, and release behavior is not broken
 - New tests exist and pass
 
 ### Important constraints
 
-- Do not add new stdlib families
+- Do not add new openlib families
 - Do not broaden scope into unrelated protocol systems
 - Do not revert unrelated changes
 - Keep changes minimal and defensible
@@ -892,10 +892,10 @@ behavior in GTOS/LVM, then prove it with cross-stack tests in both repos.
 - `/home/tomi/tolang/docs/STDLIB_THREAT_MODEL_MATRIX.md`
 - `/home/tomi/tolang/docs/TOLANG_SHORTCOMINGS.md`
 - `/home/tomi/gtos/core/vm/lvm.go`
-- `/home/tomi/tolang/stdlib_runtime_test.go`
-- `/home/tomi/tolang/stdlib_composed_runtime_test.go`
+- `/home/tomi/tolang/openlib_runtime_test.go`
+- `/home/tomi/tolang/openlib_composed_runtime_test.go`
 - `/home/tomi/gtos/core/lvm_tol_e2e_test.go`
-- `/home/tomi/gtos/core/lvm_tol_stdlib_e2e_test.go`
+- `/home/tomi/gtos/core/lvm_tol_openlib_e2e_test.go`
 
 ### Parallel execution plan
 
@@ -948,12 +948,12 @@ Task:
   - structured custom revert propagation through failed nested execution
 - prefer minimal, direct tests that fail before the fix and pass after
 
-#### Agent 4: Tolang stdlib and composed-flow regressions
+#### Agent 4: Tolang openlib and composed-flow regressions
 
 Ownership:
 
-- `/home/tomi/tolang/stdlib_runtime_test.go`
-- `/home/tomi/tolang/stdlib_composed_runtime_test.go`
+- `/home/tomi/tolang/openlib_runtime_test.go`
+- `/home/tomi/tolang/openlib_composed_runtime_test.go`
 - `/home/tomi/tolang/e2e/*` only if needed
 - `/home/tomi/tolang/docs/TOLANG_SHORTCOMINGS.md` and
   `/home/tomi/tolang/docs/STDLIB_THREAT_MODEL_MATRIX.md` if semantics change
@@ -986,9 +986,9 @@ Task:
 - `/home/tomi/gtos`: `go test ./internal/tosapi`
 - `/home/tomi/gtos`: `go test -cover ./core/... ./internal/tosapi`
 - `/home/tomi/tolang`: `go test ./...`
-- If any stdlib release artifact or metadata output changes:
-  - `/home/tomi/tolang`: `go run ./cmd/stdlib-export`
-  - `/home/tomi/tolang`: `go test -run 'TestStdlibReleaseArtifactsAreCurrent' -v .`
+- If any openlib release artifact or metadata output changes:
+  - `/home/tomi/tolang`: `go run ./cmd/openlib-export`
+  - `/home/tomi/tolang`: `go test -run 'TestOpenlibReleaseArtifactsAreCurrent' -v .`
 - Final report must state:
   - exact rollback semantics now guaranteed
   - files changed
@@ -1000,7 +1000,7 @@ Task:
 If this work is delegated to a parallel coding system such as Claude Code, the
 kickoff prompt should be:
 
-`Start the 4 agents now. Prioritize nested-call rollback and atomicity. Do not expand scope into new stdlib families.`
+`Start the 4 agents now. Prioritize nested-call rollback and atomicity. Do not expand scope into new openlib families.`
 
 A more aggressive execution posture is:
 
@@ -1008,7 +1008,7 @@ A more aggressive execution posture is:
 
 ## Remaining capability backlog from the implementation audit
 
-The stdlib seeds, release artifacts, runtime coverage, and discovery surfaces
+The openlib seeds, release artifacts, runtime coverage, and discovery surfaces
 are now substantially complete.  The five major follow-on gaps (cross-contract
 atomicity, privacy family completion, recurring payments, `@requires` syntax,
 and selective disclosure) are all resolved. The next six follow-on delivery
@@ -1027,7 +1027,7 @@ as resolved implementation work, not open backlog.
 ### Missing contracts — RESOLVED (2026-03-21)
 
 All previously missing privacy-family contracts are now implemented in
-`stdlib/privacy/`:
+`openlib/privacy/`:
 
 - ~~`ConfidentialPayment`~~ — **IMPLEMENTED**: batch and individual encrypted payment flows
 - ~~`ConfidentialTreasury`~~ — **IMPLEMENTED**: multi-owner confidential treasury with selective disclosure
@@ -1036,7 +1036,7 @@ All previously missing privacy-family contracts are now implemented in
 
 ### Missing control-plane capability features
 
-The previous control-plane gaps are now resolved in the current stdlib wave:
+The previous control-plane gaps are now resolved in the current openlib wave:
 
 - ~~`PolicyAccount` still lacks per-role or per-employee spend caps~~ —
   **RESOLVED (2026-03-21)**: `setDelegateCaps(...)` and execute-path
@@ -1090,7 +1090,7 @@ These are the main remaining scale-out and privacy gaps:
   receipt/trust-floor fields and exporter-generated `typed_discovery` metadata
 - ~~selective disclosure is now RESOLVED at the GTOS protocol layer~~ —
   **RESOLVED (2026-03-21)**: GTOS provides DisclosureProof, DecryptionToken,
-  and AuditorKey; stdlib now also has stateful `PrivateDisputeEscrow` helper
+  and AuditorKey; openlib now also has stateful `PrivateDisputeEscrow` helper
   coverage for privacy-aware dispute/refund coordination
 
 ### Missing compiler and language features — RESOLVED (2026-03-21)
@@ -1115,7 +1115,7 @@ Next evolution order:
    `PrivateDisputeEscrow`, `RegulatedPrivateCheckout`, and
    `TreasuryDisclosureFlow` now form a concrete v1 helper family with
    compile/runtime/e2e coverage
-2. ~~continue typed discovery integration beyond stdlib release/export into
+2. ~~continue typed discovery integration beyond openlib release/export into
    broader GTOS/OpenFox consumption paths described in
    `docs/DISCOVERY_TYPED_SCHEMA.md`~~ — **RESOLVED (2026-03-22)**:
    `PrivateServiceOrder` now routes on typed discovery fields, and GTOS
@@ -1130,7 +1130,7 @@ contract exists.
 
 For each remaining item, the closure bar should be:
 
-- implementation exists in stdlib or compiler
+- implementation exists in openlib or compiler
 - compile/import coverage exists
 - runtime or composed-flow tests exist where applicable
 - release metadata and discovery semantics are updated when applicable
@@ -1147,8 +1147,8 @@ They should be documented as follows:
 | Gap | Nature | Primary summary document | Capability / shortcoming document | Detailed design home |
 | --- | --- | --- | --- | --- |
 | Cross-contract atomicity | VM / protocol — **RESOLVED**: `tos.multicall` implemented | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/TOLANG_SHORTCOMINGS.md` | `/home/tomi/gtos/docs/Atomic-Execution-v1.md` |
-| Privacy family completion | stdlib family — **RESOLVED**: all 6 contracts implemented | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `docs/PRIVACY_STDLIB_FAMILY.md` |
-| Recurring / subscription settlement | stdlib — **RESOLVED**: `RecurringPayment` contract; protocol scheduler pending | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
+| Privacy family completion | openlib family — **RESOLVED**: all 6 contracts implemented | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `docs/PRIVACY_STDLIB_FAMILY.md` |
+| Recurring / subscription settlement | openlib — **RESOLVED**: `RecurringPayment` contract; protocol scheduler pending | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `/home/tomi/gtos/docs/Native-Scheduled-Tasks.md` |
 | `@requires(caller: Cap)` | language / compiler — **RESOLVED**: pipeline implemented + tested | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/TOLANG_SHORTCOMINGS.md` | `docs/CALLER_CAPABILITY_SYNTAX.md` |
 | Selective disclosure (`ZK + token`) | privacy / protocol — **RESOLVED**: all 3 layers in GTOS | `docs/AGENT_NATIVE_STDLIB_2046.md` | `docs/STDLIB_CAPABILITY_ANALYSIS.md` | `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` plus `docs/PRIVACY_STDLIB_FAMILY.md` |
 
@@ -1158,25 +1158,25 @@ All five items above are now resolved (2026-03-21).  Their design homes remain
 stable for future evolution:
 
 - atomicity — **RESOLVED** (`tos.multicall`); design home: GTOS / LVM
-- privacy-family completion — **RESOLVED** (all 6 contracts); design home: stdlib family
+- privacy-family completion — **RESOLVED** (all 6 contracts); design home: openlib family
 - recurring settlement — **RESOLVED** (`RecurringPayment`); design home: scheduler + settlement
 - caller capability syntax — **RESOLVED** (compiler pipeline + tests); design home: compiler
 - selective disclosure — **RESOLVED** (all 3 GTOS layers); design home: GTOS privacy/protocol
 
 ### Design homes for the next evolution wave
 
-The current stdlib closure wave is complete. These design homes now describe
+The current openlib closure wave is complete. These design homes now describe
 future expansion, not unresolved correctness gaps in the present codebase.
 
 | Next evolution item | Primary implementation surface | Detailed design home |
 | --- | --- | --- |
 | Broader privacy helper family beyond `PrivateDisputeEscrow` | **RESOLVED (2026-03-22)** — composed examples now include `PrivateDisputeEscrow`, `RegulatedPrivateCheckout`, and `TreasuryDisclosureFlow` with runtime coverage | `docs/PRIVACY_COMPOSITION_HELPERS.md` |
-| Typed discovery integration beyond stdlib release/export into GTOS/OpenFox consumers | **RESOLVED (2026-03-22)** — typed routing now influences `PrivateServiceOrder`, and GTOS metadata RPC exposes `routing_profile` | `docs/DISCOVERY_TYPED_SCHEMA.md` plus `docs/AGENT_ABI_SCHEMA.md` |
+| Typed discovery integration beyond openlib release/export into GTOS/OpenFox consumers | **RESOLVED (2026-03-22)** — typed routing now influences `PrivateServiceOrder`, and GTOS metadata RPC exposes `routing_profile` | `docs/DISCOVERY_TYPED_SCHEMA.md` plus `docs/AGENT_ABI_SCHEMA.md` |
 | Ongoing release/discovery/threat-model tightening as new flows are added | docs + exporter + release manifests | `docs/STDLIB_THREAT_MODEL_MATRIX.md` plus `docs/AGENT_NATIVE_STDLIB_2046.md` |
 
 ### GTOS protocol design homes for the next stage
 
-Some of the next-stage work is no longer primarily a Tolang stdlib problem.
+Some of the next-stage work is no longer primarily a Tolang openlib problem.
 It requires GTOS-side protocol, runtime, or publishing changes.
 
 Those GTOS-owned design homes are:
@@ -1185,12 +1185,12 @@ Those GTOS-owned design homes are:
 | --- | --- | --- |
 | Protocol registries for capability / delegation / verification / settlement-policy / agent identity | Tolang can express these semantics, but GTOS must provide canonical registry-backed truth, revocation, and query surfaces | `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md` |
 | LVM-native economic primitives | `package_call`, capability routing, `agentload`, `escrow/release`, and UNO rails need stable VM/runtime-native semantics rather than host-shaped conventions | `/home/tomi/gtos/docs/LVM_NATIVE_ECONOMIC_PRIMITIVES.md` |
-| Settlement bus and receipt hooks | first-wave stdlib settlement now works, but GTOS still needs a protocol-native bus for atomic value movement, receipt finalization, sponsor/escrow/refund joins, and public/UNO rail normalization | `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md` |
+| Settlement bus and receipt hooks | first-wave openlib settlement now works, but GTOS still needs a protocol-native bus for atomic value movement, receipt finalization, sponsor/escrow/refund joins, and public/UNO rail normalization | `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md` |
 | Package identity and publishing registry | local package resolution is not enough for agent-network trust; publisher identity, version/channel, and revocation need a protocol-grade model if GTOS adopts network publishing | `/home/tomi/gtos/docs/PACKAGE_PUBLISHING_REGISTRY.md` |
 
 Practical split:
 
-- Tolang should continue to own expression, stdlib composition, metadata, and
+- Tolang should continue to own expression, openlib composition, metadata, and
   exporter shape.
 - GTOS should own protocol registries, VM-native economic primitives, and any
   network-grade package publishing identity model.
@@ -1234,7 +1234,7 @@ homes above:
 
 ## A hard rule
 
-TOL stdlib should standardize economic flows, not only safety helpers.
+TOL openlib should standardize economic flows, not only safety helpers.
 
 It should answer questions like:
 
@@ -1247,14 +1247,14 @@ It should answer questions like:
 - How does an auditor receive a redacted but sufficient proof surface?
 - How does a discovery client know a contract is safe to compose with?
 
-If the stdlib can answer those questions coherently, TOL becomes a real
+If the openlib can answer those questions coherently, TOL becomes a real
 agent-native platform.
 
 ## Bottom line
 
 The first-principles result is simple:
 
-TOL stdlib is not primarily a security-helper library.
+TOL openlib is not primarily a security-helper library.
 
 It is the canonical package layer for expressing:
 
@@ -1274,4 +1274,4 @@ It is the canonical package layer for expressing:
 That is what an autonomous agent must naturally express in order to participate
 in economic life.
 
-That is what TOL stdlib should standardize.
+That is what TOL openlib should standardize.

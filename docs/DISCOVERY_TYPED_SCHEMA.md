@@ -301,7 +301,7 @@ They do not remove the existing ref-based fields.
 
 ### Phase 2: Export normalized typed discovery
 
-- extend `cmd/stdlib-export`
+- extend `cmd/openlib-export`
 - emit typed discovery profile next to current artifacts
 - make GTOS deployed metadata RPC return the typed discovery view if available
 

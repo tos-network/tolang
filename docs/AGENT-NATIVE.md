@@ -563,8 +563,8 @@ TOS), the entire call reverts — the compiler does not silently swallow failed 
 
 ### 5. `task<T>` Type — Lifecycle-Aware Task Primitive — ✅ Done
 
-> **Removed.** The `task<T>` compiler intrinsic has been replaced by the stdlib pattern
-> in `stdlib/Task.tol`. Use explicit state constants and `require()` guards instead.
+> **Removed.** The `task<T>` compiler intrinsic has been replaced by the openlib pattern
+> in `openlib/Task.tol`. Use explicit state constants and `require()` guards instead.
 
 **Current state:** `TaskEscrow` tracks task state in raw `mapping(u256 => u8)` with numeric status
 codes. The state machine is invisible to the type system.
@@ -654,8 +654,8 @@ release(worker, amount, purpose: TaskReward);  // unlock `amount` from worker's 
 
 ### 7. `oracle<T>` Type — Write-Once Data Feed — ✅ Done
 
-> **Removed.** The `oracle<T>` compiler intrinsic has been replaced by the stdlib pattern
-> in `stdlib/Oracle.tol`. Use plain `value` + `is_set` storage with a `require(!is_set)` guard.
+> **Removed.** The `oracle<T>` compiler intrinsic has been replaced by the openlib pattern
+> in `openlib/Oracle.tol`. Use plain `value` + `is_set` storage with a `require(!is_set)` guard.
 
 **Current state:** oracle resolution is manual state mutation with no language-level write-once
 guarantee. A second `resolve()` call can silently overwrite the outcome.
@@ -786,8 +786,8 @@ function rebalancePortfolio(delegation d, ...) public {
 
 ### 10. `vote<T>` Type — Governance Coordination Primitive — ✅ Done
 
-> **Removed.** The `vote<T>` compiler intrinsic has been replaced by the stdlib pattern
-> in `stdlib/Vote.tol`. Use mappings and threshold logic with `require()` guards.
+> **Removed.** The `vote<T>` compiler intrinsic has been replaced by the openlib pattern
+> in `openlib/Vote.tol`. Use mappings and threshold logic with `require()` guards.
 
 **Relevance:** THESIS.md Pillar 6 — AI agents analyze proposals and recommend voting decisions
 in decentralized governance. The language needs a native governance primitive that is as safe

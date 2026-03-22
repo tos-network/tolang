@@ -181,9 +181,9 @@ Benefits of migration:
 
 | Test | File | What it proves |
 |------|------|----------------|
-| `TestRequiresCapabilityCompileAndABI` | `stdlib_runtime_test.go` | Compile + ABI emission with `requires_capability` field |
-| `TestRequiresCapabilityUnknownCapRejected` | `stdlib_runtime_test.go` | Sema rejects unknown capabilities (TOL2302) |
-| `TestRequiresCapabilityRuntimePreamble` | `stdlib_runtime_test.go` | Runtime preamble: denied without hook, granted with hook, denied when hook returns false |
+| `TestRequiresCapabilityCompileAndABI` | `openlib_runtime_test.go` | Compile + ABI emission with `requires_capability` field |
+| `TestRequiresCapabilityUnknownCapRejected` | `openlib_runtime_test.go` | Sema rejects unknown capabilities (TOL2302) |
+| `TestRequiresCapabilityRuntimePreamble` | `openlib_runtime_test.go` | Runtime preamble: denied without hook, granted with hook, denied when hook returns false |
 
 ---
 

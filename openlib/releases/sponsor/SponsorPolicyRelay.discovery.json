@@ -1,0 +1,134 @@
+{
+  "schema_version": "0.1.0",
+  "package_name": "tolang.openlib.sponsor",
+  "package_version": "1.0.0",
+  "artifact_ref": {
+    "package_hash": "0x0cef116db250913ccde2cf9beeacaddea826ab10c69839c50b951817f86b1efd",
+    "bytecode_hash": "0x7a4b8e214a85156bee69bbd30f9de66652a341a742ecb4ff8ee42565e7bcecd2",
+    "source_hash": "0x35c778965120ceb42cbb9040b4e069b19f205d862cdaef85e8f32de00c500de2",
+    "abi_hash": "0x620e08719ad6bfe9294155fc879bb8315f573b9f125dc339ad7967b8dadb1573",
+    "version": "1.0.0"
+  },
+  "contract_type": "payment",
+  "service_kinds": [
+    "query",
+    "payment_processing",
+    "verifiable_compute",
+    "delegated_execution"
+  ],
+  "capabilities": null,
+  "interface_methods": [
+    {
+      "name": "deposit",
+      "selector": "0xd0e30db0",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "withdraw",
+      "selector": "0xbbc26126",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "authorizeRelayer",
+      "selector": "0xf597e887",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "revokeRelayer",
+      "selector": "0x6f6cd49d",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "relay",
+      "selector": "0x3b0d9c18",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": true,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "remainingOf",
+      "selector": "0x9ed407e6",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "policyHashOf",
+      "selector": "0xbc852e85",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "isRelayerActive",
+      "selector": "0x5cf919c1",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    }
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "tags": [
+    "payment",
+    "verifiable"
+  ]
+}

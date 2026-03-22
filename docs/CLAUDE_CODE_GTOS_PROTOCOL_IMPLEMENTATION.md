@@ -7,16 +7,16 @@ implementation wave** in parallel, based on the three GTOS design documents:
 - `/home/tomi/gtos/docs/LVM_NATIVE_ECONOMIC_PRIMITIVES.md`
 - `/home/tomi/gtos/docs/PACKAGE_PUBLISHING_REGISTRY.md`
 
-It assumes the current stdlib closure wave is already complete:
+It assumes the current openlib closure wave is already complete:
 
 - cross-contract atomicity
 - privacy-family completion
 - recurring payment support
 - `@requires(caller: Cap)`
 - GTOS selective disclosure
-- stdlib settlement / receipt / typed discovery hardening
+- openlib settlement / receipt / typed discovery hardening
 
-The goal is no longer “finish stdlib packages”.
+The goal is no longer “finish openlib packages”.
 The goal is to make the underlying GTOS runtime and protocol layers catch up.
 
 ---
@@ -34,8 +34,8 @@ Mission:
 Carry the GTOS-side protocol closure work from design into code, tests, RPC/metadata integration, and documentation sync where justified.
 
 This is not a greenfield task.
-The stdlib/productization wave is already done.
-Do not reopen resolved Tolang stdlib tasks unless blocked by a concrete GTOS integration issue.
+The openlib/productization wave is already done.
+Do not reopen resolved Tolang openlib tasks unless blocked by a concrete GTOS integration issue.
 
 Primary design homes:
 - /home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md
@@ -56,7 +56,7 @@ Read first:
 
 Important constraints:
 - Do not treat the three design docs as independent forever; integrate them where it reduces duplication.
-- Do not reopen settled stdlib business-logic work unless the GTOS-side protocol change truly requires it.
+- Do not reopen settled openlib business-logic work unless the GTOS-side protocol change truly requires it.
 - Preserve backward compatibility where practical.
 - Avoid broad speculative refactors.
 - If a design item is too large for one pass, complete a defensible v1 slice and document the boundary clearly.
@@ -150,8 +150,8 @@ Acceptance:
 - cd /home/tomi/gtos && go test ./...
 - cd /home/tomi/tolang && go test ./...   (only if Tolang-side integration changed)
 - if Tolang release/export output changed:
-  - cd /home/tomi/tolang && go run ./cmd/stdlib-export
-  - cd /home/tomi/tolang && go test -run 'TestStdlibReleaseArtifactsAreCurrent' -v .
+  - cd /home/tomi/tolang && go run ./cmd/openlib-export
+  - cd /home/tomi/tolang && go test -run 'TestOpenlibReleaseArtifactsAreCurrent' -v .
 
 Required final report:
 - what part of GTOS_PROTOCOL_REGISTRIES.md was implemented
@@ -171,7 +171,7 @@ Do not stop at analysis. Spawn the 5 agents now and carry the work through imple
 ## Notes
 
 - This prompt is intentionally GTOS-first. It is meant for the part of the
-  roadmap that can no longer be closed by stdlib work alone.
+  roadmap that can no longer be closed by openlib work alone.
 - The narrowest defensible v1 is:
   1. Capability Registry
   2. LVM capability lookup integration

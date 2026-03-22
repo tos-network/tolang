@@ -1,0 +1,181 @@
+pragma tolang 0.4.0;
+
+package tolang.openlib.sponsor;
+
+// SponsorPolicyRelay — sponsor-funded execution with explicit policy binding.
+
+interface ISponsorPolicyRelay {
+    event SponsorDeposited(agent indexed sponsor, u256 amount)
+    event SponsorWithdrawn(agent indexed sponsor, u256 amount)
+    event RelayerAuthorized(agent indexed relayer, u256 budget, u256 expiry_ms, bytes32 policy_hash)
+    event RelayerRevoked(agent indexed relayer)
+    event RouteConsumed(
+        agent indexed relayer,
+        agent indexed user,
+        agent indexed target,
+        u256 cost,
+        bytes32 policy_hash,
+        bytes32 binding_ref,
+        bytes32 receipt_ref
+    )
+
+    function deposit() public payable;
+    function withdraw(u256 amount) public;
+    function authorizeRelayer(agent relayer, u256 budget, u256 expiry_ms, bytes32 policy_hash) public;
+    function revokeRelayer(agent relayer) public;
+
+    @delegated
+    function relay(
+        agent target,
+        bytes data,
+        agent user,
+        u256 cost,
+        bytes32 policy_hash,
+        bytes32 binding_ref,
+        bytes32 receipt_ref
+    ) public returns (bool ok);
+
+    @verifiable
+    function remainingOf(agent relayer) public view returns (u256 remaining);
+
+    @verifiable
+    function policyHashOf(agent relayer) public view returns (bytes32 policy_hash);
+
+    @verifiable
+    function isRelayerActive(agent relayer) public view returns (bool ok);
+}
+
+contract SponsorPolicyRelay is ISponsorPolicyRelay {
+    manifest {
+        name: "SponsorPolicyRelay";
+        version: "1.0.0";
+        description: "Sponsor-funded relay with relayer budgets, expiry windows, and policy-hash binding";
+    }
+
+    agent sponsor;
+
+    u256 total_deposited;
+    u256 total_spent;
+
+    mapping(agent => bool) relayer_active;
+    mapping(agent => u256) relayer_budget;
+    mapping(agent => u256) relayer_spent;
+    mapping(agent => u256) relayer_expiry_ms;
+    mapping(agent => bytes32) relayer_policy_hash;
+
+    event SponsorDeposited(agent indexed sponsor, u256 amount)
+    event SponsorWithdrawn(agent indexed sponsor, u256 amount)
+    event RelayerAuthorized(agent indexed relayer, u256 budget, u256 expiry_ms, bytes32 policy_hash)
+    event RelayerRevoked(agent indexed relayer)
+    event RouteConsumed(
+        agent indexed relayer,
+        agent indexed user,
+        agent indexed target,
+        u256 cost,
+        bytes32 policy_hash,
+        bytes32 binding_ref,
+        bytes32 receipt_ref
+    )
+
+    constructor(agent _sponsor) {
+        require(_sponsor != agent(0), "ZERO_SPONSOR");
+        set sponsor = _sponsor;
+    }
+
+    function deposit() public payable {
+        require(msg.sender == sponsor, "NOT_SPONSOR");
+        require(msg.value > 0, "ZERO_VALUE");
+        set total_deposited = total_deposited + msg.value;
+        emit SponsorDeposited(sponsor, msg.value);
+    }
+
+    function withdraw(u256 amount) public {
+        require(msg.sender == sponsor, "NOT_SPONSOR");
+        require(amount <= total_deposited - total_spent, "INSUFFICIENT_BALANCE");
+        set total_deposited = total_deposited - amount;
+        release(sponsor, amount);
+        emit SponsorWithdrawn(sponsor, amount);
+    }
+
+    function authorizeRelayer(agent relayer, u256 budget, u256 expiry_ms, bytes32 policy_hash) public {
+        require(msg.sender == sponsor, "NOT_SPONSOR");
+        require(relayer != agent(0), "ZERO_RELAYER");
+        require(budget > 0, "ZERO_BUDGET");
+        set relayer_active[relayer] = true;
+        set relayer_budget[relayer] = budget;
+        set relayer_spent[relayer] = 0;
+        set relayer_expiry_ms[relayer] = expiry_ms;
+        set relayer_policy_hash[relayer] = policy_hash;
+        emit RelayerAuthorized(relayer, budget, expiry_ms, policy_hash);
+    }
+
+    function revokeRelayer(agent relayer) public {
+        require(msg.sender == sponsor, "NOT_SPONSOR");
+        set relayer_active[relayer] = false;
+        emit RelayerRevoked(relayer);
+    }
+
+    @delegated
+    function relay(
+        agent target,
+        bytes data,
+        agent user,
+        u256 cost,
+        bytes32 policy_hash,
+        bytes32 binding_ref,
+        bytes32 receipt_ref
+    ) public returns (bool ok) {
+        require(relayer_active[msg.sender] == true, "NOT_RELAYER");
+        require(target != agent(0), "ZERO_TARGET");
+        require(cost > 0, "ZERO_COST");
+        require(policy_hash == relayer_policy_hash[msg.sender], "POLICY_MISMATCH");
+
+        u256 expiry_ms = relayer_expiry_ms[msg.sender];
+        if (expiry_ms > 0) {
+            require(block.timestamp_ms < expiry_ms, "RELAYER_EXPIRED");
+        }
+
+        require(relayer_spent[msg.sender] + cost <= relayer_budget[msg.sender], "OVER_BUDGET");
+        require(cost <= total_deposited - total_spent, "SPONSOR_DEPLETED");
+
+        set relayer_spent[msg.sender] = relayer_spent[msg.sender] + cost;
+        set total_spent = total_spent + cost;
+
+        ok = target.call(data);
+        require(ok, "CALL_FAILED");
+
+        emit RouteConsumed(msg.sender, user, target, cost, policy_hash, binding_ref, receipt_ref);
+        return true;
+    }
+
+    @verifiable
+    function remainingOf(agent relayer) public view returns (u256 remaining) {
+        if (relayer_active[relayer] != true) {
+            return 0;
+        }
+        u256 expiry_ms = relayer_expiry_ms[relayer];
+        if (expiry_ms > 0 && block.timestamp_ms >= expiry_ms) {
+            return 0;
+        }
+        return relayer_budget[relayer] - relayer_spent[relayer];
+    }
+
+    @verifiable
+    function policyHashOf(agent relayer) public view returns (bytes32 policy_hash) {
+        return relayer_policy_hash[relayer];
+    }
+
+    @verifiable
+    function isRelayerActive(agent relayer) public view returns (bool ok) {
+        if (relayer_active[relayer] != true) {
+            return false;
+        }
+        u256 expiry_ms = relayer_expiry_ms[relayer];
+        if (expiry_ms > 0 && block.timestamp_ms >= expiry_ms) {
+            return false;
+        }
+        return true;
+    }
+
+    receive() external payable {}
+}

@@ -1,11 +1,11 @@
-# Agent-Native Stdlib Threat Model Matrix
+# Agent-Native Openlib Threat Model Matrix
 
-This matrix is the first release baseline for the TOL stdlib.
+This matrix is the first release baseline for the TOL openlib.
 
 It does not attempt to replace full audits.
 Its purpose is narrower and practical:
 
-- identify the primary trust boundary of each stdlib family
+- identify the primary trust boundary of each openlib family
 - make the key invariants explicit
 - state the expected failure posture
 - highlight where correct behavior still depends on runtime or protocol semantics
@@ -56,7 +56,7 @@ Per-contract atomicity is now guaranteed at both layers:
 - **Tolang test harness (off-chain):** `snapshotLuaStorage` /
   `revertLuaStorage` now snapshot `__tol_storage` before every call entry point
   and revert on error.  Six regression tests in
-  `stdlib_composed_runtime_test.go` cover PolicyAccount, SponsorPolicyRelay,
+  `openlib_composed_runtime_test.go` cover PolicyAccount, SponsorPolicyRelay,
   TaskSettlement, ReceiptBook, ConfidentialEscrow, and composed flows.
 
 **Cross-contract atomicity — RESOLVED (2026-03-21):**
@@ -80,7 +80,7 @@ Receipt integrity should be treated as a first-class protocol concern.
 
 ### 3. Package identity and package resolution still need stronger publishing semantics
 
-The stdlib now has real release artifacts in `stdlib/releases/`, but package
+The openlib now has real release artifacts in `openlib/releases/`, but package
 identity is still more source-tree-aware than a mature public package ecosystem
 should be.
 
@@ -93,7 +93,7 @@ Release artifacts help, but do not by themselves solve:
 
 ### 4. Confidential value flows are only as strong as the UNO bridge beneath them
 
-`ConfidentialVault` and `ConfidentialEscrow` are useful stdlib surfaces, but
+`ConfidentialVault` and `ConfidentialEscrow` are useful openlib surfaces, but
 their safety still depends on:
 
 - native ciphertext arithmetic correctness
@@ -101,12 +101,12 @@ their safety still depends on:
 - trustworthy `uno.transfer(...)` semantics
 - proof validation at the chain/runtime layer
 
-The stdlib can make these flows usable.
+The openlib can make these flows usable.
 It cannot, by itself, make the underlying confidential rails sound.
 
 ## Release Guidance
 
-Before calling a stdlib family "commercially ready", the minimum bar should be:
+Before calling a openlib family "commercially ready", the minimum bar should be:
 
 1. deterministic `.toc/.tor` release artifact exists
 2. compile/import tests exist
@@ -114,7 +114,7 @@ Before calling a stdlib family "commercially ready", the minimum bar should be:
 4. at least one composed-flow test exists if the family is intended for orchestration
 5. the family's trust boundary and failure posture are documented here
 
-That bar is now substantially met for the current first-wave stdlib set.
+That bar is now substantially met for the current first-wave openlib set.
 Runtime rollback semantics are now resolved (per-contract atomicity via
 StateDB snapshot/revert, cross-contract atomicity via `tos.multicall`).
 The main remaining blockers for a true "production-complete" claim are fuller

@@ -1,0 +1,211 @@
+pragma tolang 0.4.0;
+
+package tolang.openlib.execution_binding;
+
+// ExecutionBindingBook — replay-safe anchor for one approved execution.
+//
+// OpenFox and higher runtimes own full intent orchestration. This contract only
+// anchors the on-chain execution binding: executor, target, value ceiling,
+// expiry, policy snapshot, sponsor policy snapshot, and proof references.
+
+interface IExecutionBindingBook {
+    event BindingApproved(
+        bytes32 indexed binding_id,
+        agent indexed approver,
+        agent indexed executor,
+        agent target,
+        u256 value_limit,
+        u256 expiry_ms,
+        bytes32 policy_hash,
+        bytes32 sponsor_policy_hash,
+        bytes32 proof_ref,
+        bytes32 intent_ref
+    )
+    event BindingConsumed(
+        bytes32 indexed binding_id,
+        agent indexed consumer,
+        u256 value_used,
+        bytes32 receipt_ref
+    )
+    event BindingCancelled(bytes32 indexed binding_id, agent indexed canceller)
+
+    function approve(
+        bytes32 binding_id,
+        agent executor,
+        agent target,
+        u256 value_limit,
+        u256 expiry_ms,
+        bytes32 policy_hash,
+        bytes32 sponsor_policy_hash,
+        bytes32 proof_ref,
+        bytes32 intent_ref
+    ) public;
+
+    function cancel(bytes32 binding_id) public;
+
+    function consume(bytes32 binding_id, u256 value_used, bytes32 receipt_ref) public returns (bool ok);
+
+    @verifiable
+    function isConsumable(bytes32 binding_id) public view returns (bool ok);
+
+    @verifiable
+    function executorOf(bytes32 binding_id) public view returns (agent executor);
+
+    @verifiable
+    function policyHashOf(bytes32 binding_id) public view returns (bytes32 policy_hash);
+
+    @verifiable
+    function proofRefOf(bytes32 binding_id) public view returns (bytes32 proof_ref);
+}
+
+contract ExecutionBindingBook is IExecutionBindingBook {
+    manifest {
+        name: "ExecutionBindingBook";
+        version: "1.0.0";
+        description: "Single-use execution bindings with expiry, policy hash, sponsor policy hash, and proof references";
+    }
+
+    agent approver;
+
+    mapping(bytes32 => bool) binding_exists;
+    mapping(bytes32 => bool) binding_active;
+    mapping(bytes32 => bool) binding_consumed;
+    mapping(bytes32 => agent) binding_executor;
+    mapping(bytes32 => agent) binding_target;
+    mapping(bytes32 => u256) binding_value_limit;
+    mapping(bytes32 => u256) binding_expiry_ms;
+    mapping(bytes32 => bytes32) binding_policy_hash;
+    mapping(bytes32 => bytes32) binding_sponsor_policy_hash;
+    mapping(bytes32 => bytes32) binding_proof_ref;
+    mapping(bytes32 => bytes32) binding_intent_ref;
+    mapping(bytes32 => bytes32) binding_receipt_ref;
+
+    event BindingApproved(
+        bytes32 indexed binding_id,
+        agent indexed approver,
+        agent indexed executor,
+        agent target,
+        u256 value_limit,
+        u256 expiry_ms,
+        bytes32 policy_hash,
+        bytes32 sponsor_policy_hash,
+        bytes32 proof_ref,
+        bytes32 intent_ref
+    )
+    event BindingConsumed(
+        bytes32 indexed binding_id,
+        agent indexed consumer,
+        u256 value_used,
+        bytes32 receipt_ref
+    )
+    event BindingCancelled(bytes32 indexed binding_id, agent indexed canceller)
+
+    constructor(agent _approver) {
+        require(_approver != agent(0), "ZERO_APPROVER");
+        set approver = _approver;
+    }
+
+    function approve(
+        bytes32 binding_id,
+        agent executor,
+        agent target,
+        u256 value_limit,
+        u256 expiry_ms,
+        bytes32 policy_hash,
+        bytes32 sponsor_policy_hash,
+        bytes32 proof_ref,
+        bytes32 intent_ref
+    ) public {
+        require(msg.sender == approver, "NOT_APPROVER");
+        require(binding_exists[binding_id] != true, "BINDING_EXISTS");
+        require(binding_id != bytes32(0), "ZERO_BINDING");
+        require(executor != agent(0), "ZERO_EXECUTOR");
+        require(target != agent(0), "ZERO_TARGET");
+
+        set binding_exists[binding_id] = true;
+        set binding_active[binding_id] = true;
+        set binding_consumed[binding_id] = false;
+        set binding_executor[binding_id] = executor;
+        set binding_target[binding_id] = target;
+        set binding_value_limit[binding_id] = value_limit;
+        set binding_expiry_ms[binding_id] = expiry_ms;
+        set binding_policy_hash[binding_id] = policy_hash;
+        set binding_sponsor_policy_hash[binding_id] = sponsor_policy_hash;
+        set binding_proof_ref[binding_id] = proof_ref;
+        set binding_intent_ref[binding_id] = intent_ref;
+        set binding_receipt_ref[binding_id] = bytes32(0);
+
+        emit BindingApproved(
+            binding_id,
+            approver,
+            executor,
+            target,
+            value_limit,
+            expiry_ms,
+            policy_hash,
+            sponsor_policy_hash,
+            proof_ref,
+            intent_ref
+        );
+    }
+
+    function cancel(bytes32 binding_id) public {
+        require(msg.sender == approver, "NOT_APPROVER");
+        require(binding_exists[binding_id] == true, "UNKNOWN_BINDING");
+        set binding_active[binding_id] = false;
+        emit BindingCancelled(binding_id, approver);
+    }
+
+    function consume(bytes32 binding_id, u256 value_used, bytes32 receipt_ref) public returns (bool ok) {
+        require(binding_exists[binding_id] == true, "UNKNOWN_BINDING");
+        require(binding_active[binding_id] == true, "NOT_ACTIVE");
+        require(binding_consumed[binding_id] != true, "ALREADY_CONSUMED");
+        require(msg.sender == binding_executor[binding_id] || msg.sender == approver, "NOT_EXECUTOR");
+
+        u256 expiry_ms = binding_expiry_ms[binding_id];
+        if (expiry_ms > 0) {
+            require(block.timestamp_ms < expiry_ms, "BINDING_EXPIRED");
+        }
+
+        require(value_used <= binding_value_limit[binding_id], "VALUE_LIMIT");
+
+        set binding_consumed[binding_id] = true;
+        set binding_receipt_ref[binding_id] = receipt_ref;
+
+        emit BindingConsumed(binding_id, msg.sender, value_used, receipt_ref);
+        return true;
+    }
+
+    @verifiable
+    function isConsumable(bytes32 binding_id) public view returns (bool ok) {
+        if (binding_exists[binding_id] != true) {
+            return false;
+        }
+        if (binding_active[binding_id] != true) {
+            return false;
+        }
+        if (binding_consumed[binding_id] == true) {
+            return false;
+        }
+        u256 expiry_ms = binding_expiry_ms[binding_id];
+        if (expiry_ms > 0 && block.timestamp_ms >= expiry_ms) {
+            return false;
+        }
+        return true;
+    }
+
+    @verifiable
+    function executorOf(bytes32 binding_id) public view returns (agent executor) {
+        return binding_executor[binding_id];
+    }
+
+    @verifiable
+    function policyHashOf(bytes32 binding_id) public view returns (bytes32 policy_hash) {
+        return binding_policy_hash[binding_id];
+    }
+
+    @verifiable
+    function proofRefOf(bytes32 binding_id) public view returns (bytes32 proof_ref) {
+        return binding_proof_ref[binding_id];
+    }
+}

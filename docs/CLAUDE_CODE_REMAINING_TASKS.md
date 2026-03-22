@@ -70,13 +70,13 @@ Acceptance:
 ## Prompt 2: Control Plane Completion
 
 ```text
-Task: Complete the remaining control-plane stdlib gaps in Tolang.
+Task: Complete the remaining control-plane openlib gaps in Tolang.
 
 Repo:
 - /home/tomi/tolang
 
 Current resolved work:
-- stdlib package map exists
+- openlib package map exists
 - runtime tests exist
 - @requires(caller: Cap) is resolved
 - major privacy/atomicity gaps are resolved
@@ -91,10 +91,10 @@ Read first:
 - /home/tomi/tolang/docs/AGENT_NATIVE_STDLIB_2046.md
 - /home/tomi/tolang/docs/STDLIB_CAPABILITY_ANALYSIS.md
 - /home/tomi/tolang/docs/STDLIB_THREAT_MODEL_MATRIX.md
-- /home/tomi/tolang/stdlib/account/PolicyAccount.tol
-- /home/tomi/tolang/stdlib/session/SessionBook.tol
-- /home/tomi/tolang/stdlib_runtime_test.go
-- /home/tomi/tolang/stdlib_composed_runtime_test.go
+- /home/tomi/tolang/openlib/account/PolicyAccount.tol
+- /home/tomi/tolang/openlib/session/SessionBook.tol
+- /home/tomi/tolang/openlib_runtime_test.go
+- /home/tomi/tolang/openlib_composed_runtime_test.go
 
 Instructions:
 - Spawn 3 agents in parallel.
@@ -106,15 +106,15 @@ Instructions:
 - Add runtime coverage, not only compile coverage.
 
 Deliverables:
-- Code changes in stdlib/account and stdlib/session
+- Code changes in openlib/account and openlib/session
 - New or extended runtime/composed tests
 - Doc status updates in AGENT_NATIVE_STDLIB_2046.md and STDLIB_CAPABILITY_ANALYSIS.md
 
 Acceptance:
 - cd /home/tomi/tolang && go test ./...
 - if release artifacts change:
-  - cd /home/tomi/tolang && go run ./cmd/stdlib-export
-  - cd /home/tomi/tolang && go test -run 'TestStdlibReleaseArtifactsAreCurrent' -v .
+  - cd /home/tomi/tolang && go run ./cmd/openlib-export
+  - cd /home/tomi/tolang && go test -run 'TestOpenlibReleaseArtifactsAreCurrent' -v .
 ```
 
 ---
@@ -137,13 +137,13 @@ Open targets:
 Read first:
 - /home/tomi/tolang/docs/AGENT_NATIVE_STDLIB_2046.md
 - /home/tomi/tolang/docs/STDLIB_CAPABILITY_ANALYSIS.md
-- /home/tomi/tolang/stdlib/settlement/TaskSettlement.tol
-- /home/tomi/tolang/stdlib/settlement/RecurringPayment.tol
-- /home/tomi/tolang/stdlib/agreement/CommercialAgreement.tol
-- /home/tomi/tolang/stdlib/receipt/ReceiptBook.tol
-- /home/tomi/tolang/examples/stdlib_composed/
-- /home/tomi/tolang/stdlib_runtime_test.go
-- /home/tomi/tolang/stdlib_composed_runtime_test.go
+- /home/tomi/tolang/openlib/settlement/TaskSettlement.tol
+- /home/tomi/tolang/openlib/settlement/RecurringPayment.tol
+- /home/tomi/tolang/openlib/agreement/CommercialAgreement.tol
+- /home/tomi/tolang/openlib/receipt/ReceiptBook.tol
+- /home/tomi/tolang/examples/openlib_composed/
+- /home/tomi/tolang/openlib_runtime_test.go
+- /home/tomi/tolang/openlib_composed_runtime_test.go
 
 Instructions:
 - Spawn 4 agents.
@@ -164,8 +164,8 @@ Deliverables:
 Acceptance:
 - cd /home/tomi/tolang && go test ./...
 - if artifacts change:
-  - cd /home/tomi/tolang && go run ./cmd/stdlib-export
-  - cd /home/tomi/tolang && go test -run 'TestStdlibReleaseArtifactsAreCurrent' -v .
+  - cd /home/tomi/tolang && go run ./cmd/openlib-export
+  - cd /home/tomi/tolang && go test -run 'TestOpenlibReleaseArtifactsAreCurrent' -v .
 ```
 
 ---
@@ -173,7 +173,7 @@ Acceptance:
 ## Prompt 4: Market Plane Completion
 
 ```text
-Task: Complete the remaining market-plane stdlib gaps in Tolang.
+Task: Complete the remaining market-plane openlib gaps in Tolang.
 
 Repo:
 - /home/tomi/tolang
@@ -188,12 +188,12 @@ Read first:
 - /home/tomi/tolang/docs/PRIVACY_STDLIB_FAMILY.md
 - /home/tomi/tolang/docs/PRIVACY_COMPOSITION_HELPERS.md
 - /home/tomi/tolang/docs/DISCOVERY_TYPED_SCHEMA.md
-- /home/tomi/tolang/stdlib/trust/TrustRegistry.tol
-- /home/tomi/tolang/stdlib/discovery/ServiceDirectory.tol
-- /home/tomi/tolang/stdlib/privacy/
-- /home/tomi/tolang/examples/stdlib_composed/
-- /home/tomi/tolang/stdlib_runtime_test.go
-- /home/tomi/tolang/stdlib_composed_runtime_test.go
+- /home/tomi/tolang/openlib/trust/TrustRegistry.tol
+- /home/tomi/tolang/openlib/discovery/ServiceDirectory.tol
+- /home/tomi/tolang/openlib/privacy/
+- /home/tomi/tolang/examples/openlib_composed/
+- /home/tomi/tolang/openlib_runtime_test.go
+- /home/tomi/tolang/openlib_composed_runtime_test.go
 - /home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md
 
 Instructions:
@@ -203,7 +203,7 @@ Instructions:
 - Agent 3 owns privacy composed helper contracts/examples only.
 - Agent 4 owns tests and doc sync.
 - Do not re-implement GTOS selective disclosure cryptography in Tolang.
-- Build stdlib convenience flows on top of what GTOS already provides.
+- Build openlib convenience flows on top of what GTOS already provides.
 - Follow `PRIVACY_COMPOSITION_HELPERS.md` for helper contracts/examples.
 - Follow `DISCOVERY_TYPED_SCHEMA.md` for typed discovery fields, enums, and export shape.
 
@@ -216,8 +216,8 @@ Deliverables:
 Acceptance:
 - cd /home/tomi/tolang && go test ./...
 - if artifacts change:
-  - cd /home/tomi/tolang && go run ./cmd/stdlib-export
-  - cd /home/tomi/tolang && go test -run 'TestStdlibReleaseArtifactsAreCurrent' -v .
+  - cd /home/tomi/tolang && go run ./cmd/openlib-export
+  - cd /home/tomi/tolang && go test -run 'TestOpenlibReleaseArtifactsAreCurrent' -v .
 ```
 
 ---

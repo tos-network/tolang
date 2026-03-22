@@ -1,0 +1,352 @@
+{
+  "schema_version": "0.2.0",
+  "identity": {
+    "package_name": "tolang.openlib.evidence",
+    "package_version": "1.0.0",
+    "content_hash": "0x51b077f7fb9e62929ed0fd9ce3f6564885e5948d4aaac0056cbd0f361f320e08",
+    "bytecode_hash": "0xedb088799d39559caebd8921df1ce6d0b12ebabe0f97e69b51bb0389785617ec",
+    "abi_hash": "0x8fb8eb117ffa726f83f7728c6230a48d50b750898e4d128bd3bdc6ec32ba1db5"
+  },
+  "contract": {
+    "name": "EvidenceBook",
+    "type": "custom",
+    "tags": [
+      "custom",
+      "verifiable"
+    ]
+  },
+  "functions": [
+    {
+      "name": "setAttester",
+      "selector": "0xa60a3f2e",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "attester",
+          "type": "agent"
+        },
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "openEvidence",
+      "selector": "0x2daa9712",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "evidence_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "claim_ref",
+          "type": "bytes32"
+        },
+        {
+          "name": "attester",
+          "type": "agent"
+        },
+        {
+          "name": "expiry_ms",
+          "type": "u256"
+        },
+        {
+          "name": "challenge_window_ms",
+          "type": "u256"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "fulfill",
+      "selector": "0xd4be9aa0",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "evidence_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "value",
+          "type": "u256"
+        },
+        {
+          "name": "proof_ref",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "challenge",
+      "selector": "0xada3a764",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "evidence_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "challenge_ref",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "finalize",
+      "selector": "0x92584d80",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "evidence_id",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "readValue",
+      "selector": "0x0057245c",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "evidence_id",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "value",
+          "type": "u256"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "statusOf",
+      "selector": "0xc7df14e2",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "evidence_id",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "status",
+          "type": "u256"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "proofRefOf",
+      "selector": "0x82ee1f94",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "evidence_id",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "proof_ref",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "isFinalized",
+      "selector": "0x7f8d429e",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "evidence_id",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    }
+  ],
+  "events": [
+    {
+      "name": "AttesterAuthorized",
+      "params": [
+        {
+          "name": "attester",
+          "type": "agent"
+        },
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "EvidenceOpened",
+      "params": [
+        {
+          "name": "evidence_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "claim_ref",
+          "type": "bytes32"
+        },
+        {
+          "name": "attester",
+          "type": "agent"
+        },
+        {
+          "name": "expiry_ms",
+          "type": "u256"
+        },
+        {
+          "name": "challenge_window_ms",
+          "type": "u256"
+        }
+      ]
+    },
+    {
+      "name": "EvidenceFulfilled",
+      "params": [
+        {
+          "name": "evidence_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "value",
+          "type": "u256"
+        },
+        {
+          "name": "proof_ref",
+          "type": "bytes32"
+        }
+      ]
+    },
+    {
+      "name": "EvidenceChallenged",
+      "params": [
+        {
+          "name": "evidence_id",
+          "type": "bytes32"
+        },
+        {
+          "name": "challenge_ref",
+          "type": "bytes32"
+        }
+      ]
+    },
+    {
+      "name": "EvidenceFinalized",
+      "params": [
+        {
+          "name": "evidence_id",
+          "type": "bytes32"
+        }
+      ]
+    }
+  ],
+  "service_kinds": [
+    "query",
+    "verifiable_compute"
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "gas_model": {
+    "version": "tolang/0.2.0",
+    "sload": 2100,
+    "sstore": 20000,
+    "log_base": 375
+  }
+}

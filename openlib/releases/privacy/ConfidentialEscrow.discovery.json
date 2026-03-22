@@ -1,0 +1,152 @@
+{
+  "schema_version": "0.1.0",
+  "package_name": "tolang.openlib.privacy.confidential_escrow",
+  "package_version": "1.0.0",
+  "artifact_ref": {
+    "package_hash": "0xc2feb19e673a38c6d214ba25a06580ae312e4396ee5dd2a90f7156adcb111f62",
+    "bytecode_hash": "0x9d76bd49c60edd6f75e41dc063893c17a16c75afbf8e7c471dae317bf5e8b27a",
+    "source_hash": "0xa5ed5c16b67a42ed6e5054ed99d696c932ffe2028e6a75df8ac74a435b1cbdf9",
+    "abi_hash": "0xa909bbe80e48cbcd85c96347e1ee8d26a0994747ba736e2cacad414dc9d06fc4",
+    "version": "1.0.0"
+  },
+  "contract_type": "custom",
+  "service_kinds": [
+    "query",
+    "verifiable_compute"
+  ],
+  "capabilities": null,
+  "interface_methods": [
+    {
+      "name": "openEscrow",
+      "selector": "0xd424dd42",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "releaseEscrow",
+      "selector": "0x5b7d6b7e",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "refundEscrow",
+      "selector": "0xfc3e8c70",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "refundEscrowTo",
+      "selector": "0x406671ab",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "reclaimExpired",
+      "selector": "0x7d2c2931",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "statusOf",
+      "selector": "0xc7df14e2",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "amountOf",
+      "selector": "0x8251eac9",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "payerOf",
+      "selector": "0x24108273",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "payeeOf",
+      "selector": "0x8cede576",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "receiptRefOf",
+      "selector": "0xb7761847",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "nativeBalance",
+      "selector": "0x18910f40",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    }
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "tags": [
+    "custom",
+    "verifiable"
+  ]
+}

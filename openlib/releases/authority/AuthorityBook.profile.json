@@ -1,0 +1,309 @@
+{
+  "schema_version": "0.2.0",
+  "identity": {
+    "package_name": "tolang.openlib.authority",
+    "package_version": "1.0.0",
+    "content_hash": "0x53ee51f446c79feeaf43512631dfa7a0a3783af0108657576fc0a6df9761a59f",
+    "bytecode_hash": "0xf480be14291042ef5440e6fede15845fefa823f7541ae7714c9d425e11f6c1c0",
+    "abi_hash": "0xfdcc76b1161b722117f68e97a4505cafa77b16935259fd34f810696befe73dbf"
+  },
+  "contract": {
+    "name": "AuthorityBook",
+    "type": "custom",
+    "tags": [
+      "custom",
+      "verifiable"
+    ]
+  },
+  "functions": [
+    {
+      "name": "grant",
+      "selector": "0xa35bb02c",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "operator",
+          "type": "agent"
+        },
+        {
+          "name": "scope",
+          "type": "bytes32"
+        },
+        {
+          "name": "budget",
+          "type": "u256"
+        },
+        {
+          "name": "expiry_ms",
+          "type": "u256"
+        },
+        {
+          "name": "policy_hash",
+          "type": "bytes32"
+        },
+        {
+          "name": "nonce_floor",
+          "type": "u256"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "revoke",
+      "selector": "0xb4b7bbdb",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "operator",
+          "type": "agent"
+        },
+        {
+          "name": "scope",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "consume",
+      "selector": "0xadfd12d0",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "operator",
+          "type": "agent"
+        },
+        {
+          "name": "scope",
+          "type": "bytes32"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        },
+        {
+          "name": "nonce",
+          "type": "u256"
+        },
+        {
+          "name": "binding_ref",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "remainingOf",
+      "selector": "0xb7ea7e99",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "operator",
+          "type": "agent"
+        },
+        {
+          "name": "scope",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "remaining",
+          "type": "u256"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "isActive",
+      "selector": "0xf45c9d6e",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "operator",
+          "type": "agent"
+        },
+        {
+          "name": "scope",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "policyHashOf",
+      "selector": "0xb268e04c",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "operator",
+          "type": "agent"
+        },
+        {
+          "name": "scope",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "policy_hash",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    }
+  ],
+  "events": [
+    {
+      "name": "AuthorityGranted",
+      "params": [
+        {
+          "name": "principal",
+          "type": "agent"
+        },
+        {
+          "name": "operator",
+          "type": "agent"
+        },
+        {
+          "name": "scope",
+          "type": "bytes32"
+        },
+        {
+          "name": "budget",
+          "type": "u256"
+        },
+        {
+          "name": "expiry_ms",
+          "type": "u256"
+        },
+        {
+          "name": "policy_hash",
+          "type": "bytes32"
+        },
+        {
+          "name": "nonce_floor",
+          "type": "u256"
+        }
+      ]
+    },
+    {
+      "name": "AuthorityConsumed",
+      "params": [
+        {
+          "name": "principal",
+          "type": "agent"
+        },
+        {
+          "name": "operator",
+          "type": "agent"
+        },
+        {
+          "name": "scope",
+          "type": "bytes32"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        },
+        {
+          "name": "nonce",
+          "type": "u256"
+        },
+        {
+          "name": "binding_ref",
+          "type": "bytes32"
+        },
+        {
+          "name": "remaining",
+          "type": "u256"
+        }
+      ]
+    },
+    {
+      "name": "AuthorityRevoked",
+      "params": [
+        {
+          "name": "principal",
+          "type": "agent"
+        },
+        {
+          "name": "operator",
+          "type": "agent"
+        },
+        {
+          "name": "scope",
+          "type": "bytes32"
+        }
+      ]
+    }
+  ],
+  "service_kinds": [
+    "query",
+    "verifiable_compute"
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "gas_model": {
+    "version": "tolang/0.2.0",
+    "sload": 2100,
+    "sstore": 20000,
+    "log_base": 375
+  }
+}

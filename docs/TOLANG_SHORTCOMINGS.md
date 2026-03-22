@@ -1,8 +1,8 @@
-# Tolang Shortcomings Exposed By Building The Agent-Native Stdlib
+# Tolang Shortcomings Exposed By Building The Agent-Native Openlib
 
 ## Executive Summary
 
-Building the stdlib clarified an important point:
+Building the openlib clarified an important point:
 
 Tolang is already stronger on language shape, compiler structure, and artifact
 metadata than it is on runtime-native economic semantics.
@@ -22,11 +22,11 @@ Tolang can already express a large part of the agent-native model, but the
 runtime and protocol layers are not yet strong enough to make every one of
 those semantics native, uniform, and reliable.
 
-## Problems The Stdlib Work Exposed And Already Forced Us To Fix
+## Problems The Openlib Work Exposed And Already Forced Us To Fix
 
 ### 1. Init/runtime compilation was not package-consistent
 
-When stdlib packages started importing each other in realistic ways, we found
+When openlib packages started importing each other in realistic ways, we found
 that runtime compilation and init compilation did not behave consistently.
 
 `CompileInitBytecode(...)` needed to resolve imports the same way runtime
@@ -49,7 +49,7 @@ What this revealed:
 
 ### 2. Imported contract/interface values were not treated as first-class enough
 
-The stdlib uses imported contract types pervasively:
+The openlib uses imported contract types pervasively:
 
 - `PolicyAccount(account_addr)`
 - `AuthorityBook(authority_addr)`
@@ -71,11 +71,11 @@ Impact:
 What this revealed:
 
 - Tolang was still weaker than it should be at "contract-as-typed-address"
-  semantics, which is central for packageized stdlib design
+  semantics, which is central for packageized openlib design
 
-### 3. Basic stdlib-heavy surface syntax was still incomplete in lowering
+### 3. Basic openlib-heavy surface syntax was still incomplete in lowering
 
-Real stdlib code quickly touched constructs such as:
+Real openlib code quickly touched constructs such as:
 
 - `bytes32(0)`
 - `addr.call(data)`
@@ -118,7 +118,7 @@ TODO to tighten).  4 focused tests in `lvm_pkgreg_test.go`.
 
 ### 2. External call semantics are still too thin — LARGELY RESOLVED
 
-The stdlib work pushed heavily on:
+The openlib work pushed heavily on:
 
 - `target.call(data)`
 - sponsor relays
@@ -156,9 +156,9 @@ Two layers of rollback are now in place:
 2. **Tolang test harness (off-chain):** `snapshotLuaStorage` /
    `revertLuaStorage` helpers now deep-copy `__tol_storage` and
    `__tol_transient_storage` before every top-level or cross-contract call, and
-   revert on error.  Applied in `invokeStdlib`, `invokeStdlibErr`,
+   revert on error.  Applied in `invokeOpenlib`, `invokeOpenlibErr`,
    `invokeCallContractCalldata`, and `invokePackageContractCalldata`.  Six
-   regression tests in `stdlib_composed_runtime_test.go` prove per-contract
+   regression tests in `openlib_composed_runtime_test.go` prove per-contract
    atomicity for PolicyAccount, SponsorPolicyRelay, TaskSettlement, ReceiptBook,
    ConfidentialEscrow, and a composed cross-contract scenario.
 
@@ -171,7 +171,7 @@ cross-contract atomicity for coordinator flows like "finalize receipt +
 release escrow".
 
 7 regression tests in `lvm_rollback_test.go` and 1 composed test in
-`stdlib_composed_runtime_test.go` prove the semantics.  Full design in
+`openlib_composed_runtime_test.go` prove the semantics.  Full design in
 `/home/tomi/gtos/docs/Atomic-Execution-v1.md`.
 
 ### 3. Agent-native annotations are ahead of protocol backing — RESOLVED
@@ -206,8 +206,8 @@ All agent-native annotations now have protocol-level backing:
 directories where package-style imports resolve before the walk-up heuristic.
 `CompileOptions` and `ArtifactOptions` both expose `PackageSearchPaths`.
 
-Example: `PackageSearchPaths: ["/repo/stdlib"]` makes `import
-"tolang.stdlib.account"` resolve by checking `/repo/stdlib/account/` first,
+Example: `PackageSearchPaths: ["/repo/openlib"]` makes `import
+"tolang.openlib.account"` resolve by checking `/repo/openlib/account/` first,
 without relying on the importing file's position in the directory tree.
 
 Test: `TestPackageImportResolvesFromSearchPaths` verifies compilation with
@@ -215,10 +215,10 @@ a real file path + search path (no synthetic compile name hack).
 
 ### 5. Namespace hygiene — RESOLVED (lexer unreserve + directory rename)
 
-Previously `stdlib/session` had to become `stdlib/session_book` because `session`
+Previously `openlib/session` had to become `openlib/session_book` because `session`
 was a parser reserved word. Fixed: `session` was removed from the lexer's reserved
-word list and the package directory was renamed back from `stdlib/session_book` to
-`stdlib/session` (package `tolang.stdlib.session`).
+word list and the package directory was renamed back from `openlib/session_book` to
+`openlib/session` (package `tolang.openlib.session`).
 
 Why this matters:
 
@@ -229,7 +229,7 @@ Why this matters:
 
 ### 6. The ABI/discovery layer is still not unified enough for agents — RESOLVED
 
-The stdlib effort made clear that agents do not consume source code first.
+The openlib effort made clear that agents do not consume source code first.
 They consume:
 
 - ABI
@@ -246,7 +246,7 @@ contract. `BuildAgentProfile(cm)` assembles identity, contract info,
 capabilities, functions, events, errors, service kinds, human summary, gas
 model, and typed discovery into one document.
 
-The stdlib exporter now emits `.profile.json` alongside existing artifacts.
+The openlib exporter now emits `.profile.json` alongside existing artifacts.
 All release index entries include the profile path. 3 tests in
 `metadata/agent_profile_test.go`.
 
@@ -266,13 +266,13 @@ host stubs:
 - `tos.agentinfo` / `tos.packageinfo` / `tos.publisherinfo` — registry-backed
   inspection primitives (lvm.go lines 1691-2000+)
 
-The Tolang test harness (`stdlib_runtime_test.go`) intentionally uses
+The Tolang test harness (`openlib_runtime_test.go`) intentionally uses
 simpler stubs for off-chain testing. This is a normal test-harness trade-off,
 not a production gap — GTOS LVM provides the real implementations.
 
 ## Overall Status (2026-03-22)
 
-Of the 7 structural shortcomings identified by the stdlib effort:
+Of the 7 structural shortcomings identified by the openlib effort:
 
 | # | Shortcoming | Status |
 |---|------------|--------|
@@ -284,7 +284,7 @@ Of the 7 structural shortcomings identified by the stdlib effort:
 | 6 | ABI/discovery not unified for agents | **RESOLVED** — unified `AgentContractProfile` (.profile.json) |
 | 7 | Economic primitives too host-shaped | **RESOLVED** — all GTOS LVM primitives production-grade |
 
-**7 of 7 resolved.** All structural shortcomings identified by the stdlib
+**7 of 7 resolved.** All structural shortcomings identified by the openlib
 effort have been addressed.
 
 ## Priority Order For Fixing These Gaps
@@ -321,7 +321,7 @@ The priority order should be:
    `.profile.json`; exporter emits it; 3 tests.
 6. ~~Namespace cleanup so standard library naming is conceptually clean and not
    parser-accidental.~~ — **RESOLVED**: `session` removed from lexer reserved
-   words; `stdlib/session_book` directory renamed to `stdlib/session`.
+   words; `openlib/session_book` directory renamed to `openlib/session`.
 
 ## Design homes for the five strategic follow-on gaps
 
@@ -340,7 +340,7 @@ The split should be:
 
 Practical rule:
 
-- if the question is "what capability is still missing from stdlib?",
+- if the question is "what capability is still missing from openlib?",
   track it in `docs/STDLIB_CAPABILITY_ANALYSIS.md`
 - if the question is "what structural weakness in Tolang / LVM causes this?",
   track it here
@@ -349,7 +349,7 @@ Practical rule:
 
 ## Bottom Line
 
-The stdlib effort was valuable not only because it produced packages.
+The openlib effort was valuable not only because it produced packages.
 
 It also acted as a stress test for Tolang itself.
 
@@ -361,4 +361,4 @@ That stress test showed:
   Tolang can honestly claim that agent-native economic semantics are native
   end-to-end
 
-That is the real lesson from building the stdlib.
+That is the real lesson from building the openlib.

@@ -1,8 +1,8 @@
-# Privacy Stdlib Family
+# Privacy Openlib Family
 
 ## Purpose
 
-This document is the design home for the TOL privacy-family stdlib surface.
+This document is the design home for the TOL privacy-family openlib surface.
 
 It is not limited to one contract.
 It defines the package family shape for privacy-preserving value movement,
@@ -10,7 +10,7 @@ treasury control, allowance semantics, and selective disclosure over UNO rails.
 
 ## Scope
 
-This document should own the stdlib-side design for:
+This document should own the openlib-side design for:
 
 - `ConfidentialVault`
 - `ConfidentialEscrow`
@@ -69,7 +69,7 @@ Remaining frontier areas (contract-level, not protocol-blocking):
 1. What is the canonical privacy-family package map?
 2. Which flows should be first-class:
    payroll, treasury, escrow, subscription, allowance, audit, dispute?
-3. What should be plain stdlib policy and what must be GTOS protocol?
+3. What should be plain openlib policy and what must be GTOS protocol?
 4. How do confidential flows bind into receipts and settlement traces?
 5. How does selective disclosure integrate with the family without turning each
    contract into a proof system?
@@ -97,7 +97,7 @@ Remaining frontier areas (contract-level, not protocol-blocking):
 
 This document is ready for implementation work when it can answer:
 
-- which privacy-family behaviors belong in stdlib
+- which privacy-family behaviors belong in openlib
 - which belong in GTOS / protocol
 - which contracts are stable
 - what test matrix is required before claiming closure

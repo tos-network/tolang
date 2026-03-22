@@ -6983,7 +6983,7 @@ func lowerUnoMethodExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, err
 	}), true, nil
 }
 
-// oracle<T>/vote<T>/task<T> lowering functions removed — these intrinsics are now stdlib patterns.
+// oracle<T>/vote<T>/task<T> lowering functions removed — these intrinsics are now openlib patterns.
 
 // lowerAgentPropertyExpr handles agent property access:
 //
@@ -7691,7 +7691,7 @@ func lowerFixedBytesTypeCastExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, 
 // lowerInterfaceTypeCastExpr handles imported contract/interface casts:
 //
 //	PolicyAccount(addr) -> addr
-//	tolang.stdlib.account.PolicyAccount(addr) -> addr
+//	tolang.openlib.account.PolicyAccount(addr) -> addr
 //
 // These casts are runtime no-ops; they annotate an agent address with an imported
 // interface/contract type so that subsequent scoped calls can route through

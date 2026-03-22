@@ -1,0 +1,196 @@
+pragma tolang 0.4.0;
+
+package tolang.openlib.receipt;
+
+// ReceiptBook — canonical execution receipt surface.
+//
+// 2046 agents consume receipts, not raw transaction internals. The contract
+// records who acted, under which policy and binding, with which proof anchor,
+// and whether execution settled successfully or failed.
+
+interface IReceiptBook {
+    event ReceiptOpened(
+        bytes32 indexed receipt_id,
+        agent indexed principal,
+        agent indexed actor,
+        agent sponsor,
+        agent target,
+        u256 value,
+        bytes32 policy_hash,
+        bytes32 binding_ref,
+        bytes32 proof_ref,
+        bytes32 external_ref
+    )
+    event ReceiptFinalized(
+        bytes32 indexed receipt_id,
+        u8 status,
+        bytes32 result_ref,
+        bytes32 settlement_ref
+    )
+
+    function openReceipt(
+        bytes32 receipt_id,
+        agent principal,
+        agent actor,
+        agent sponsor,
+        agent target,
+        u256 value,
+        bytes32 policy_hash,
+        bytes32 binding_ref,
+        bytes32 proof_ref,
+        bytes32 external_ref
+    ) public;
+
+    function finalizeSuccess(bytes32 receipt_id, bytes32 result_ref, bytes32 settlement_ref) public;
+
+    function finalizeFailure(bytes32 receipt_id, bytes32 result_ref) public;
+
+    @verifiable
+    function statusOf(bytes32 receipt_id) public view returns (u256 status);
+
+    @verifiable
+    function bindingRefOf(bytes32 receipt_id) public view returns (bytes32 binding_ref);
+
+    @verifiable
+    function proofRefOf(bytes32 receipt_id) public view returns (bytes32 proof_ref);
+
+    @verifiable
+    function isFinalized(bytes32 receipt_id) public view returns (bool ok);
+}
+
+contract ReceiptBook is IReceiptBook {
+    manifest {
+        name: "ReceiptBook";
+        version: "1.0.0";
+        description: "Execution receipt schema with policy, binding, proof, and settlement linkage";
+    }
+
+    u8 constant STATUS_NONE = 0;
+    u8 constant STATUS_OPEN = 1;
+    u8 constant STATUS_SUCCESS = 2;
+    u8 constant STATUS_FAILURE = 3;
+
+    agent writer;
+
+    mapping(bytes32 => u8) receipt_status;
+    mapping(bytes32 => agent) receipt_principal;
+    mapping(bytes32 => agent) receipt_actor;
+    mapping(bytes32 => agent) receipt_sponsor;
+    mapping(bytes32 => agent) receipt_target;
+    mapping(bytes32 => u256) receipt_value;
+    mapping(bytes32 => bytes32) receipt_policy_hash;
+    mapping(bytes32 => bytes32) receipt_binding_ref;
+    mapping(bytes32 => bytes32) receipt_proof_ref;
+    mapping(bytes32 => bytes32) receipt_external_ref;
+    mapping(bytes32 => bytes32) receipt_result_ref;
+    mapping(bytes32 => bytes32) receipt_settlement_ref;
+    mapping(bytes32 => u256) receipt_opened_at;
+    mapping(bytes32 => u256) receipt_finalized_at;
+
+    event ReceiptOpened(
+        bytes32 indexed receipt_id,
+        agent indexed principal,
+        agent indexed actor,
+        agent sponsor,
+        agent target,
+        u256 value,
+        bytes32 policy_hash,
+        bytes32 binding_ref,
+        bytes32 proof_ref,
+        bytes32 external_ref
+    )
+    event ReceiptFinalized(
+        bytes32 indexed receipt_id,
+        u8 status,
+        bytes32 result_ref,
+        bytes32 settlement_ref
+    )
+
+    constructor(agent _writer) {
+        require(_writer != agent(0), "ZERO_WRITER");
+        set writer = _writer;
+    }
+
+    function openReceipt(
+        bytes32 receipt_id,
+        agent principal,
+        agent actor,
+        agent sponsor,
+        agent target,
+        u256 value,
+        bytes32 policy_hash,
+        bytes32 binding_ref,
+        bytes32 proof_ref,
+        bytes32 external_ref
+    ) public {
+        require(msg.sender == writer, "NOT_WRITER");
+        require(receipt_status[receipt_id] == STATUS_NONE, "RECEIPT_EXISTS");
+        require(receipt_id != bytes32(0), "ZERO_RECEIPT");
+
+        set receipt_status[receipt_id] = STATUS_OPEN;
+        set receipt_principal[receipt_id] = principal;
+        set receipt_actor[receipt_id] = actor;
+        set receipt_sponsor[receipt_id] = sponsor;
+        set receipt_target[receipt_id] = target;
+        set receipt_value[receipt_id] = value;
+        set receipt_policy_hash[receipt_id] = policy_hash;
+        set receipt_binding_ref[receipt_id] = binding_ref;
+        set receipt_proof_ref[receipt_id] = proof_ref;
+        set receipt_external_ref[receipt_id] = external_ref;
+        set receipt_opened_at[receipt_id] = block.timestamp_ms;
+
+        emit ReceiptOpened(
+            receipt_id,
+            principal,
+            actor,
+            sponsor,
+            target,
+            value,
+            policy_hash,
+            binding_ref,
+            proof_ref,
+            external_ref
+        );
+    }
+
+    function finalizeSuccess(bytes32 receipt_id, bytes32 result_ref, bytes32 settlement_ref) public {
+        require(msg.sender == writer, "NOT_WRITER");
+        require(receipt_status[receipt_id] == STATUS_OPEN, "NOT_OPEN");
+        set receipt_status[receipt_id] = STATUS_SUCCESS;
+        set receipt_result_ref[receipt_id] = result_ref;
+        set receipt_settlement_ref[receipt_id] = settlement_ref;
+        set receipt_finalized_at[receipt_id] = block.timestamp_ms;
+        emit ReceiptFinalized(receipt_id, STATUS_SUCCESS, result_ref, settlement_ref);
+    }
+
+    function finalizeFailure(bytes32 receipt_id, bytes32 result_ref) public {
+        require(msg.sender == writer, "NOT_WRITER");
+        require(receipt_status[receipt_id] == STATUS_OPEN, "NOT_OPEN");
+        set receipt_status[receipt_id] = STATUS_FAILURE;
+        set receipt_result_ref[receipt_id] = result_ref;
+        set receipt_settlement_ref[receipt_id] = bytes32(0);
+        set receipt_finalized_at[receipt_id] = block.timestamp_ms;
+        emit ReceiptFinalized(receipt_id, STATUS_FAILURE, result_ref, bytes32(0));
+    }
+
+    @verifiable
+    function statusOf(bytes32 receipt_id) public view returns (u256 status) {
+        return u256(receipt_status[receipt_id]);
+    }
+
+    @verifiable
+    function bindingRefOf(bytes32 receipt_id) public view returns (bytes32 binding_ref) {
+        return receipt_binding_ref[receipt_id];
+    }
+
+    @verifiable
+    function proofRefOf(bytes32 receipt_id) public view returns (bytes32 proof_ref) {
+        return receipt_proof_ref[receipt_id];
+    }
+
+    @verifiable
+    function isFinalized(bytes32 receipt_id) public view returns (bool ok) {
+        u8 status = receipt_status[receipt_id];
+        return status == STATUS_SUCCESS || status == STATUS_FAILURE;
+    }
+}

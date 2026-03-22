@@ -1,0 +1,164 @@
+pragma tolang 0.4.0;
+
+package tolang.openlib.privacy;
+
+// ConfidentialAllowance — encrypted allowance/approval patterns on UNO rails.
+//
+// This contract provides ERC-20-style approve/transferFrom semantics with
+// encrypted amounts.  An owner can grant spending allowances to operators,
+// each with an optional expiry, and operators can spend from the owner's
+// balance up to the approved limit.
+
+interface IConfidentialAllowance {
+    event Deposited(agent indexed account)
+    event Withdrawn(agent indexed account)
+    event Approved(agent indexed owner, agent indexed operator, u256 expiry_ms)
+    event ApprovalRevoked(agent indexed owner, agent indexed operator)
+    event TransferredFrom(
+        agent indexed owner,
+        agent indexed recipient,
+        agent indexed operator,
+        bytes32 receipt_ref
+    )
+
+    function deposit() public payable(uno);
+    function withdraw(uno amount) public;
+    function approve(agent operator, uno amount, u256 expiry_ms) public;
+    function revokeApproval(agent operator) public;
+    function transferFrom(agent owner, agent recipient, uno amount, bytes32 receipt_ref) public;
+
+    @verifiable
+    function balanceOf(agent account) public view returns (uno balance);
+
+    @verifiable
+    function allowanceOf(agent owner, agent operator) public view returns (uno remaining);
+
+    @verifiable
+    function isApproved(agent owner, agent operator) public view returns (bool ok);
+
+    @verifiable
+    function expiryOf(agent owner, agent operator) public view returns (u256 expiry_ms);
+
+    @verifiable
+    function nativeBalance(agent account) public view returns (uno balance);
+}
+
+contract ConfidentialAllowance is IConfidentialAllowance {
+    manifest {
+        name: "ConfidentialAllowance";
+        version: "1.0.0";
+        description: "Encrypted allowance and approval patterns with expiry over UNO rails";
+    }
+
+    mapping(agent => uno) balances;
+    mapping(agent => mapping(agent => uno)) allowances;
+    mapping(agent => mapping(agent => u256)) allowance_expiry;
+    mapping(agent => mapping(agent => bool)) allowance_active;
+
+    event Deposited(agent indexed account)
+    event Withdrawn(agent indexed account)
+    event Approved(agent indexed owner, agent indexed operator, u256 expiry_ms)
+    event ApprovalRevoked(agent indexed owner, agent indexed operator)
+    event TransferredFrom(
+        agent indexed owner,
+        agent indexed recipient,
+        agent indexed operator,
+        bytes32 receipt_ref
+    )
+
+    function deposit() public payable(uno) {
+        set balances[msg.sender] = balances[msg.sender].add(msg.uno_value);
+        emit Deposited(msg.sender);
+    }
+
+    function withdraw(uno amount) public {
+        uno new_balance = balances[msg.sender].sub(amount);
+        require(new_balance.gte(uno.zero()), "INSUFFICIENT_BALANCE");
+        set balances[msg.sender] = new_balance;
+        uno.transfer(msg.sender, amount);
+        emit Withdrawn(msg.sender);
+    }
+
+    function approve(agent operator, uno amount, u256 expiry_ms) public {
+        require(operator != agent(0), "ZERO_OPERATOR");
+        require(operator != msg.sender, "SELF_APPROVE");
+        if (expiry_ms > 0) {
+            require(expiry_ms > block.timestamp_ms, "EXPIRY_PAST");
+        }
+
+        set allowances[msg.sender][operator] = amount;
+        set allowance_expiry[msg.sender][operator] = expiry_ms;
+        set allowance_active[msg.sender][operator] = true;
+
+        emit Approved(msg.sender, operator, expiry_ms);
+    }
+
+    function revokeApproval(agent operator) public {
+        set allowance_active[msg.sender][operator] = false;
+        set allowances[msg.sender][operator] = uno.zero();
+        set allowance_expiry[msg.sender][operator] = 0;
+
+        emit ApprovalRevoked(msg.sender, operator);
+    }
+
+    function transferFrom(agent owner, agent recipient, uno amount, bytes32 receipt_ref) public {
+        require(recipient != agent(0), "ZERO_RECIPIENT");
+        require(allowance_active[owner][msg.sender], "NOT_APPROVED");
+
+        u256 expiry_ms = allowance_expiry[owner][msg.sender];
+        if (expiry_ms > 0) {
+            require(block.timestamp_ms < expiry_ms, "ALLOWANCE_EXPIRED");
+        }
+
+        uno remaining = allowances[owner][msg.sender].sub(amount);
+        require(remaining.gte(uno.zero()), "ALLOWANCE_EXCEEDED");
+
+        uno owner_balance = balances[owner].sub(amount);
+        require(owner_balance.gte(uno.zero()), "INSUFFICIENT_BALANCE");
+
+        set allowances[owner][msg.sender] = remaining;
+        set balances[owner] = owner_balance;
+        set balances[recipient] = balances[recipient].add(amount);
+
+        emit TransferredFrom(owner, recipient, msg.sender, receipt_ref);
+    }
+
+    @verifiable
+    function balanceOf(agent account) public view returns (uno balance) {
+        return balances[account];
+    }
+
+    @verifiable
+    function allowanceOf(agent owner, agent operator) public view returns (uno remaining) {
+        u256 expiry_ms = allowance_expiry[owner][operator];
+        if (allowance_active[owner][operator] != true) {
+            return uno.zero();
+        }
+        if (expiry_ms > 0 && block.timestamp_ms >= expiry_ms) {
+            return uno.zero();
+        }
+        return allowances[owner][operator];
+    }
+
+    @verifiable
+    function isApproved(agent owner, agent operator) public view returns (bool ok) {
+        if (allowance_active[owner][operator] != true) {
+            return false;
+        }
+        u256 expiry_ms = allowance_expiry[owner][operator];
+        if (expiry_ms > 0 && block.timestamp_ms >= expiry_ms) {
+            return false;
+        }
+        return true;
+    }
+
+    @verifiable
+    function expiryOf(agent owner, agent operator) public view returns (u256 expiry_ms) {
+        return allowance_expiry[owner][operator];
+    }
+
+    @verifiable
+    function nativeBalance(agent account) public view returns (uno balance) {
+        return uno.balance(account);
+    }
+}

@@ -1,0 +1,194 @@
+pragma tolang 0.4.0;
+
+package tolang.openlib.privacy;
+
+// AuditorDisclosureBook — structured auditor disclosure with snapshots.
+//
+// Manages disclosure authorizations, snapshot references, and audit windows
+// for regulators and auditors who need to verify confidential state.
+// The controller entity grants scoped, time-bounded access to auditors
+// and publishes immutable audit snapshots with proof anchors.
+
+interface IAuditorDisclosureBook {
+    event AuditorAuthorized(agent indexed auditor, bytes32 scope_ref, u256 expiry_ms)
+    event AuditorRevoked(agent indexed auditor)
+    event SnapshotPublished(bytes32 indexed snapshot_id, bytes32 data_ref, bytes32 proof_ref, u256 period_start_ms, u256 period_end_ms)
+    event SnapshotFinalized(bytes32 indexed snapshot_id)
+    event ProofAttached(bytes32 indexed snapshot_id, bytes32 additional_proof_ref)
+
+    function authorizeAuditor(agent auditor, bytes32 scope_ref, u256 expiry_ms) public;
+    function revokeAuditor(agent auditor) public;
+    function publishSnapshot(bytes32 snapshot_id, bytes32 data_ref, bytes32 proof_ref, u256 period_start_ms, u256 period_end_ms) public;
+    function finalizeSnapshot(bytes32 snapshot_id) public;
+    function attachProof(bytes32 snapshot_id, bytes32 additional_proof_ref) public;
+
+    @verifiable
+    function isAuthorized(agent auditor) public view returns (bool ok);
+
+    @verifiable
+    function scopeRefOf(agent auditor) public view returns (bytes32 scope_ref);
+
+    @verifiable
+    function expiryOf(agent auditor) public view returns (u256 expiry_ms);
+
+    @verifiable
+    function snapshotStatusOf(bytes32 snapshot_id) public view returns (u256 status);
+
+    @verifiable
+    function dataRefOf(bytes32 snapshot_id) public view returns (bytes32 data_ref);
+
+    @verifiable
+    function proofRefOf(bytes32 snapshot_id) public view returns (bytes32 proof_ref);
+
+    @verifiable
+    function isFinalized(bytes32 snapshot_id) public view returns (bool ok);
+
+    @verifiable
+    function snapshotCount() public view returns (u256 count);
+}
+
+contract AuditorDisclosureBook is IAuditorDisclosureBook {
+    manifest {
+        name: "AuditorDisclosureBook";
+        version: "1.0.0";
+        description: "Structured auditor disclosure with scoped authorization, audit snapshots, and proof anchors";
+    }
+
+    u8 constant STATUS_NONE = 0;
+    u8 constant STATUS_DRAFT = 1;
+    u8 constant STATUS_FINALIZED = 2;
+
+    agent controller;
+
+    mapping(agent => bool) auditor_authorized;
+    mapping(agent => bytes32) auditor_scope_ref;
+    mapping(agent => u256) auditor_expiry;
+
+    mapping(bytes32 => u8) snapshot_status;
+    mapping(bytes32 => bytes32) snapshot_data_ref;
+    mapping(bytes32 => bytes32) snapshot_proof_ref;
+    mapping(bytes32 => u256) snapshot_period_start;
+    mapping(bytes32 => u256) snapshot_period_end;
+
+    u256 total_snapshots;
+
+    event AuditorAuthorized(agent indexed auditor, bytes32 scope_ref, u256 expiry_ms)
+    event AuditorRevoked(agent indexed auditor)
+    event SnapshotPublished(bytes32 indexed snapshot_id, bytes32 data_ref, bytes32 proof_ref, u256 period_start_ms, u256 period_end_ms)
+    event SnapshotFinalized(bytes32 indexed snapshot_id)
+    event ProofAttached(bytes32 indexed snapshot_id, bytes32 additional_proof_ref)
+
+    constructor(agent _controller) {
+        require(_controller != agent(0), "ZERO_CONTROLLER");
+        set controller = _controller;
+    }
+
+    function authorizeAuditor(agent auditor, bytes32 scope_ref, u256 expiry_ms) public {
+        require(msg.sender == controller, "NOT_CONTROLLER");
+        require(auditor != agent(0), "ZERO_AUDITOR");
+        require(scope_ref != bytes32(0), "ZERO_SCOPE");
+        if (expiry_ms > 0) {
+            require(expiry_ms > block.timestamp_ms, "EXPIRY_PAST");
+        }
+
+        set auditor_authorized[auditor] = true;
+        set auditor_scope_ref[auditor] = scope_ref;
+        set auditor_expiry[auditor] = expiry_ms;
+
+        emit AuditorAuthorized(auditor, scope_ref, expiry_ms);
+    }
+
+    function revokeAuditor(agent auditor) public {
+        require(msg.sender == controller, "NOT_CONTROLLER");
+        require(auditor_authorized[auditor] == true, "NOT_AUTHORIZED");
+
+        set auditor_authorized[auditor] = false;
+        set auditor_scope_ref[auditor] = bytes32(0);
+        set auditor_expiry[auditor] = 0;
+
+        emit AuditorRevoked(auditor);
+    }
+
+    function publishSnapshot(bytes32 snapshot_id, bytes32 data_ref, bytes32 proof_ref, u256 period_start_ms, u256 period_end_ms) public {
+        require(msg.sender == controller, "NOT_CONTROLLER");
+        require(snapshot_id != bytes32(0), "ZERO_SNAPSHOT");
+        require(snapshot_status[snapshot_id] == STATUS_NONE, "SNAPSHOT_EXISTS");
+        require(data_ref != bytes32(0), "ZERO_DATA_REF");
+        require(period_end_ms > period_start_ms, "INVALID_PERIOD");
+
+        set snapshot_status[snapshot_id] = STATUS_DRAFT;
+        set snapshot_data_ref[snapshot_id] = data_ref;
+        set snapshot_proof_ref[snapshot_id] = proof_ref;
+        set snapshot_period_start[snapshot_id] = period_start_ms;
+        set snapshot_period_end[snapshot_id] = period_end_ms;
+        set total_snapshots = total_snapshots + 1;
+
+        emit SnapshotPublished(snapshot_id, data_ref, proof_ref, period_start_ms, period_end_ms);
+    }
+
+    function finalizeSnapshot(bytes32 snapshot_id) public {
+        require(msg.sender == controller, "NOT_CONTROLLER");
+        require(snapshot_status[snapshot_id] == STATUS_DRAFT, "NOT_DRAFT");
+
+        set snapshot_status[snapshot_id] = STATUS_FINALIZED;
+
+        emit SnapshotFinalized(snapshot_id);
+    }
+
+    function attachProof(bytes32 snapshot_id, bytes32 additional_proof_ref) public {
+        require(msg.sender == controller, "NOT_CONTROLLER");
+        require(snapshot_status[snapshot_id] == STATUS_DRAFT, "NOT_DRAFT");
+        require(additional_proof_ref != bytes32(0), "ZERO_PROOF");
+
+        set snapshot_proof_ref[snapshot_id] = additional_proof_ref;
+
+        emit ProofAttached(snapshot_id, additional_proof_ref);
+    }
+
+    @verifiable
+    function isAuthorized(agent auditor) public view returns (bool ok) {
+        if (auditor_authorized[auditor] != true) {
+            return false;
+        }
+        u256 expiry_ms = auditor_expiry[auditor];
+        if (expiry_ms == 0) {
+            return true;
+        }
+        return block.timestamp_ms < expiry_ms;
+    }
+
+    @verifiable
+    function scopeRefOf(agent auditor) public view returns (bytes32 scope_ref) {
+        return auditor_scope_ref[auditor];
+    }
+
+    @verifiable
+    function expiryOf(agent auditor) public view returns (u256 expiry_ms) {
+        return auditor_expiry[auditor];
+    }
+
+    @verifiable
+    function snapshotStatusOf(bytes32 snapshot_id) public view returns (u256 status) {
+        return u256(snapshot_status[snapshot_id]);
+    }
+
+    @verifiable
+    function dataRefOf(bytes32 snapshot_id) public view returns (bytes32 data_ref) {
+        return snapshot_data_ref[snapshot_id];
+    }
+
+    @verifiable
+    function proofRefOf(bytes32 snapshot_id) public view returns (bytes32 proof_ref) {
+        return snapshot_proof_ref[snapshot_id];
+    }
+
+    @verifiable
+    function isFinalized(bytes32 snapshot_id) public view returns (bool ok) {
+        return snapshot_status[snapshot_id] == STATUS_FINALIZED;
+    }
+
+    @verifiable
+    function snapshotCount() public view returns (u256 count) {
+        return total_snapshots;
+    }
+}

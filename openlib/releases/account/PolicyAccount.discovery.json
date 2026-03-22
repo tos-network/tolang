@@ -1,0 +1,214 @@
+{
+  "schema_version": "0.1.0",
+  "package_name": "tolang.openlib.account",
+  "package_version": "1.0.0",
+  "artifact_ref": {
+    "package_hash": "0x514ead9f169ca4fad652d31deba092f9ca7c4a3d575cb9adf67c73ff943e7fcf",
+    "bytecode_hash": "0x6df85932aca169fe9bcddd61d046bc88618f955b5010cce1fe5ba7579c589586",
+    "source_hash": "0x6bd80ccd94fd6ed00fad4ebd974fb3e6670e9bf8f9ea3d93ae31460e7d47d111",
+    "abi_hash": "0xce7afd8ba3deec6785d98c3e3966feb8289a0552d061fa55a9b7968173e71c85",
+    "version": "1.0.0"
+  },
+  "contract_type": "custom",
+  "service_kinds": [
+    "query",
+    "verifiable_compute"
+  ],
+  "capabilities": null,
+  "interface_methods": [
+    {
+      "name": "validate",
+      "selector": "0x65a8613c",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "setSpendCaps",
+      "selector": "0xf597a8d3",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "setAllowlistEnabled",
+      "selector": "0xd7644ba2",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "setAllowlisted",
+      "selector": "0x165c40dd",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "authorizeDelegate",
+      "selector": "0x3f19c45f",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "revokeDelegate",
+      "selector": "0xbebc81a5",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "suspend",
+      "selector": "0xe6400bbe",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "unsuspend",
+      "selector": "0x5c58ce87",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "execute",
+      "selector": "0xb9f2e431",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "remainingDaily",
+      "selector": "0xb3fd6940",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "delegateRemaining",
+      "selector": "0x584461be",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "isSuspended",
+      "selector": "0x1d130935",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "setDelegateCaps",
+      "selector": "0xa45bf8d6",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "summary": "Pure computation with no state access"
+    },
+    {
+      "name": "delegateDailyRemaining",
+      "selector": "0x7544f618",
+      "risk_level": "low",
+      "payable": false,
+      "delegated": false,
+      "verifiable": true,
+      "summary": "Pure computation with no state access"
+    }
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "tags": [
+    "custom",
+    "verifiable"
+  ]
+}

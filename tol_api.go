@@ -23,8 +23,8 @@ import (
 // PackageSearchPaths provides explicit directories where package-style imports
 // are resolved before falling back to the walk-up heuristic.  Each entry is a
 // root directory that may contain package family subdirectories (e.g., if
-// PackageSearchPaths includes "/repo/stdlib" then "tolang.stdlib.account" will
-// check "/repo/stdlib/account/" first).
+// PackageSearchPaths includes "/repo/openlib" then "tolang.openlib.account" will
+// check "/repo/openlib/account/" first).
 type OSFileResolver struct {
 	BaseDir            string
 	PackageSearchPaths []string
@@ -185,8 +185,8 @@ func (r *OSFileResolver) packageSearchDirs(importingFile, pkgPath string) []stri
 	}
 
 	// Priority 1: explicit PackageSearchPaths.
-	// For "tolang.stdlib.account", check <searchPath>/account/ and
-	// <searchPath>/tolang/stdlib/account/ and <searchPath>/stdlib/account/.
+	// For "tolang.openlib.account", check <searchPath>/account/ and
+	// <searchPath>/tolang/openlib/account/ and <searchPath>/openlib/account/.
 	family := segments[len(segments)-1]
 	relAll := filepath.Join(segments...)
 	relWithinRoot := ""
@@ -215,11 +215,11 @@ func (r *OSFileResolver) packageSearchDirs(importingFile, pkgPath string) []stri
 		if filepath.Base(cur) == segments[0] && relWithinRoot != "" {
 			addDir(filepath.Join(cur, relWithinRoot))
 		}
-		if len(segments) >= 2 && segments[0] == "tolang" && segments[1] == "stdlib" {
+		if len(segments) >= 2 && segments[0] == "tolang" && segments[1] == "openlib" {
 			if filepath.Base(cur) == "tolang" {
-				addDir(filepath.Join(cur, "stdlib", "releases", family))
+				addDir(filepath.Join(cur, "openlib", "releases", family))
 			}
-			addDir(filepath.Join(cur, "tolang", "stdlib", "releases", family))
+			addDir(filepath.Join(cur, "tolang", "openlib", "releases", family))
 		}
 		parent := filepath.Dir(cur)
 		if parent == cur {

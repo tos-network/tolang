@@ -111,7 +111,7 @@ This replaces `.bundle.agentpkg.json` and `.bundle.discovery.json`.
 
 1. Add `AgentContractProfile` to `metadata/metadata.go`
 2. Add `BuildAgentProfile(cm ContractMetadata) AgentContractProfile` to metadata package
-3. Update `cmd/stdlib-export` to emit `.profile.json` alongside existing artifacts
+3. Update `cmd/openlib-export` to emit `.profile.json` alongside existing artifacts
 4. Deprecate `.discovery.json` and `.agentpkg.json` (keep emitting for one version)
 5. Remove deprecated artifacts after consumers migrate
 
@@ -143,5 +143,5 @@ This replaces `.bundle.agentpkg.json` and `.bundle.discovery.json`.
 - `metadata/metadata.go` -- current `ContractMetadata`, `FunctionMeta`, `ArtifactRef`
 - `docs/TOLANG_SHORTCOMINGS.md` -- shortcoming #6 (ABI/discovery not unified)
 - `docs/AGENT_NATIVE_STDLIB_2046.md` -- discovery and manifest design
-- `stdlib/releases/index.json` -- current release index
+- `openlib/releases/index.json` -- current release index
 - `docs/FEATURE_MATURITY_MATRIX.md` -- unified ABI schema marked as partial

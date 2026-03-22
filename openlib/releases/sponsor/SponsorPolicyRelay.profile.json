@@ -1,0 +1,342 @@
+{
+  "schema_version": "0.2.0",
+  "identity": {
+    "package_name": "tolang.openlib.sponsor",
+    "package_version": "1.0.0",
+    "content_hash": "0x0cef116db250913ccde2cf9beeacaddea826ab10c69839c50b951817f86b1efd",
+    "bytecode_hash": "0x7a4b8e214a85156bee69bbd30f9de66652a341a742ecb4ff8ee42565e7bcecd2",
+    "abi_hash": "0x620e08719ad6bfe9294155fc879bb8315f573b9f125dc339ad7967b8dadb1573"
+  },
+  "contract": {
+    "name": "SponsorPolicyRelay",
+    "type": "payment",
+    "tags": [
+      "payment",
+      "verifiable"
+    ]
+  },
+  "functions": [
+    {
+      "name": "deposit",
+      "selector": "0xd0e30db0",
+      "visibility": "public",
+      "mutability": "view",
+      "params": null,
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "withdraw",
+      "selector": "0xbbc26126",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "amount",
+          "type": "u256"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "authorizeRelayer",
+      "selector": "0xf597e887",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "relayer",
+          "type": "agent"
+        },
+        {
+          "name": "budget",
+          "type": "u256"
+        },
+        {
+          "name": "expiry_ms",
+          "type": "u256"
+        },
+        {
+          "name": "policy_hash",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "revokeRelayer",
+      "selector": "0x6f6cd49d",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "relayer",
+          "type": "agent"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "relay",
+      "selector": "0x3b0d9c18",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "target",
+          "type": "agent"
+        },
+        {
+          "name": "data",
+          "type": "bytes"
+        },
+        {
+          "name": "user",
+          "type": "agent"
+        },
+        {
+          "name": "cost",
+          "type": "u256"
+        },
+        {
+          "name": "policy_hash",
+          "type": "bytes32"
+        },
+        {
+          "name": "binding_ref",
+          "type": "bytes32"
+        },
+        {
+          "name": "receipt_ref",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": false,
+      "delegated": true,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "remainingOf",
+      "selector": "0x9ed407e6",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "relayer",
+          "type": "agent"
+        }
+      ],
+      "returns": [
+        {
+          "name": "remaining",
+          "type": "u256"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "policyHashOf",
+      "selector": "0xbc852e85",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "relayer",
+          "type": "agent"
+        }
+      ],
+      "returns": [
+        {
+          "name": "policy_hash",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "isRelayerActive",
+      "selector": "0x5cf919c1",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "relayer",
+          "type": "agent"
+        }
+      ],
+      "returns": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    }
+  ],
+  "events": [
+    {
+      "name": "SponsorDeposited",
+      "params": [
+        {
+          "name": "sponsor",
+          "type": "agent"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        }
+      ]
+    },
+    {
+      "name": "SponsorWithdrawn",
+      "params": [
+        {
+          "name": "sponsor",
+          "type": "agent"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        }
+      ]
+    },
+    {
+      "name": "RelayerAuthorized",
+      "params": [
+        {
+          "name": "relayer",
+          "type": "agent"
+        },
+        {
+          "name": "budget",
+          "type": "u256"
+        },
+        {
+          "name": "expiry_ms",
+          "type": "u256"
+        },
+        {
+          "name": "policy_hash",
+          "type": "bytes32"
+        }
+      ]
+    },
+    {
+      "name": "RelayerRevoked",
+      "params": [
+        {
+          "name": "relayer",
+          "type": "agent"
+        }
+      ]
+    },
+    {
+      "name": "RouteConsumed",
+      "params": [
+        {
+          "name": "relayer",
+          "type": "agent"
+        },
+        {
+          "name": "user",
+          "type": "agent"
+        },
+        {
+          "name": "target",
+          "type": "agent"
+        },
+        {
+          "name": "cost",
+          "type": "u256"
+        },
+        {
+          "name": "policy_hash",
+          "type": "bytes32"
+        },
+        {
+          "name": "binding_ref",
+          "type": "bytes32"
+        },
+        {
+          "name": "receipt_ref",
+          "type": "bytes32"
+        }
+      ]
+    }
+  ],
+  "service_kinds": [
+    "query",
+    "payment_processing",
+    "verifiable_compute",
+    "delegated_execution"
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "gas_model": {
+    "version": "tolang/0.2.0",
+    "sload": 2100,
+    "sstore": 20000,
+    "log_base": 375
+  }
+}

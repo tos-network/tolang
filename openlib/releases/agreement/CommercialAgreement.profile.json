@@ -1,0 +1,454 @@
+{
+  "schema_version": "0.2.0",
+  "identity": {
+    "package_name": "tolang.openlib.agreement",
+    "package_version": "1.0.0",
+    "content_hash": "0xccf1f8a5ff4cfb5d605cb2a27b6ebfdec58f5e3f76a80ce59288e18d8b0a2842",
+    "bytecode_hash": "0x92ecd820f369bdb8d0629c509262298726371de7d24ca173648aea0c92723b76",
+    "abi_hash": "0xa89d0a9423b2661fb9d844122b6cd79d842b29a0f8d1c864c81d04b9b5773fb0"
+  },
+  "contract": {
+    "name": "CommercialAgreement",
+    "type": "custom",
+    "tags": [
+      "custom",
+      "typed-discovery",
+      "verifiable"
+    ]
+  },
+  "functions": [
+    {
+      "name": "createOffer",
+      "selector": "0xf4139a09",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "counterparty",
+          "type": "agent"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        },
+        {
+          "name": "expiry_ms",
+          "type": "u256"
+        },
+        {
+          "name": "quote_ref",
+          "type": "bytes32"
+        },
+        {
+          "name": "terms_ref",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "accept",
+      "selector": "0x9eace6d8",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        },
+        {
+          "name": "acceptance_ref",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "cancel",
+      "selector": "0x9e5a260c",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        },
+        {
+          "name": "reason_ref",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "fulfill",
+      "selector": "0xd6013977",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        },
+        {
+          "name": "settlement_ref",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "expire",
+      "selector": "0x30e88631",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "statusOf",
+      "selector": "0x50233782",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        }
+      ],
+      "returns": [
+        {
+          "name": "status",
+          "type": "u256"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "quoteRefOf",
+      "selector": "0x308b5663",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        }
+      ],
+      "returns": [
+        {
+          "name": "quote_ref",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "counterpartyOf",
+      "selector": "0xb00abeb2",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        }
+      ],
+      "returns": [
+        {
+          "name": "counterparty",
+          "type": "agent"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "settlementRefOf",
+      "selector": "0x3da8af75",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        }
+      ],
+      "returns": [
+        {
+          "name": "settlement_ref",
+          "type": "bytes32"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    },
+    {
+      "name": "createInvoice",
+      "selector": "0x1a7bceb8",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "payer",
+          "type": "agent"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        },
+        {
+          "name": "due_ms",
+          "type": "u256"
+        },
+        {
+          "name": "terms_ref",
+          "type": "bytes32"
+        }
+      ],
+      "returns": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        }
+      ],
+      "verifiable": false,
+      "delegated": false,
+      "non_composable": false,
+      "failure_modes": [
+        {
+          "name": "Error",
+          "kind": "error",
+          "selector": "0x08c379a0"
+        }
+      ],
+      "risk_level": "low"
+    },
+    {
+      "name": "agreementTypeOf",
+      "selector": "0x1a56f4ac",
+      "visibility": "public",
+      "mutability": "view",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        }
+      ],
+      "returns": [
+        {
+          "name": "atype",
+          "type": "u256"
+        }
+      ],
+      "verifiable": true,
+      "delegated": false,
+      "non_composable": false,
+      "risk_level": "low"
+    }
+  ],
+  "events": [
+    {
+      "name": "OfferCreated",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        },
+        {
+          "name": "creator",
+          "type": "agent"
+        },
+        {
+          "name": "counterparty",
+          "type": "agent"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        },
+        {
+          "name": "expiry_ms",
+          "type": "u256"
+        },
+        {
+          "name": "quote_ref",
+          "type": "bytes32"
+        },
+        {
+          "name": "terms_ref",
+          "type": "bytes32"
+        }
+      ]
+    },
+    {
+      "name": "OfferAccepted",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        },
+        {
+          "name": "counterparty",
+          "type": "agent"
+        },
+        {
+          "name": "acceptance_ref",
+          "type": "bytes32"
+        }
+      ]
+    },
+    {
+      "name": "OfferCancelled",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        },
+        {
+          "name": "reason_ref",
+          "type": "bytes32"
+        }
+      ]
+    },
+    {
+      "name": "OfferFulfilled",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        },
+        {
+          "name": "settlement_ref",
+          "type": "bytes32"
+        }
+      ]
+    },
+    {
+      "name": "OfferExpired",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        }
+      ]
+    },
+    {
+      "name": "InvoiceCreated",
+      "params": [
+        {
+          "name": "agreement_id",
+          "type": "u256"
+        },
+        {
+          "name": "creator",
+          "type": "agent"
+        },
+        {
+          "name": "payer",
+          "type": "agent"
+        },
+        {
+          "name": "amount",
+          "type": "u256"
+        },
+        {
+          "name": "due_ms",
+          "type": "u256"
+        },
+        {
+          "name": "terms_ref",
+          "type": "bytes32"
+        }
+      ]
+    }
+  ],
+  "service_kinds": [
+    "query",
+    "verifiable_compute"
+  ],
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "gas_model": {
+    "version": "tolang/0.2.0",
+    "sload": 2100,
+    "sstore": 20000,
+    "log_base": 375
+  },
+  "typed_discovery": {
+    "schema_version": "0.1.0",
+    "supported_fields": [
+      "quote_ref"
+    ]
+  }
+}

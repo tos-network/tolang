@@ -2,7 +2,7 @@
 
 Last updated: 2026-03-22
 
-## Current stdlib backlog closures
+## Current openlib backlog closures
 
 | ID | Item | Status | Notes |
 |---|---|---|---|

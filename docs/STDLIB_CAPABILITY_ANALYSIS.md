@@ -8,7 +8,7 @@
 
 ## One-Sentence Summary
 
-The TOL stdlib lets an autonomous agent write a policy-constrained,
+The TOL openlib lets an autonomous agent write a policy-constrained,
 evidence-backed, privacy-preserving, multi-terminal commercial transaction
 in under 50 lines of code.
 
@@ -16,8 +16,8 @@ in under 50 lines of code.
 
 ## Implementation Status Overview
 
-All 13 stdlib seed contracts exist and compile. Runtime test coverage exists
-for every package (`stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`).
+All 13 openlib seed contracts exist and compile. Runtime test coverage exists
+for every package (`openlib_runtime_test.go`, `openlib_composed_runtime_test.go`).
 Core lifecycles (grant/revoke, escrow/release, recovery, receipts) are
 functionally closed.
 
@@ -49,7 +49,7 @@ closure:
 tests. The named terminal/trust taxonomy and reusable step-up enforcement are
 now closed in the current wave.
 
-| Scenario | Without stdlib | With stdlib | Status |
+| Scenario | Without openlib | With openlib | Status |
 |----------|--------------|-------------|--------|
 | Employee agent daily spend cap of 1000 TOS | Hand-rolled storage + time-window arithmetic | `PolicyAccount.setSpendCaps(daily_limit, single_limit)` + `setDelegateCaps(delegate, daily_limit, single_limit)` | **~90%** — owner caps plus enforced per-delegate daily/single caps |
 | NFC card limited to 100 TOS at POS terminals | Hand-rolled terminal type check + amount guard | `SessionBook.grantSession(session_id, terminal, scope, trust_tier, budget, ...)` + `requireTerminal(session_id, amount)` | **~95%** — session grant, trust tier, budget, convenience guard, named taxonomy constants, and runtime validation exist |
@@ -70,7 +70,7 @@ evidence, and receipt contracts exist. `RecurringPayment` now provides
 subscription/periodic payment scheduling, and settlement automation now binds
 slash policy plus canonical receipts.
 
-| Scenario | With stdlib | Status |
+| Scenario | With openlib | Status |
 |----------|-------------|--------|
 | Bounty task: post → claim → submit → approve → pay | `TaskSettlement.openTask(task_ref, deadline_ms, receipt_ref)` → `acceptTask` → `submitTask` → `approveTask` | **~90%** — full lifecycle with dispute, reject, reclaim |
 | Oracle: weather data written once, immutable | `EvidenceBook.openEvidence(evidence_id, claim_ref, attester, ...)` → `fulfill(evidence_id, value, proof_ref)` | **~80%** — write-once guard via status check; semantics shifted from Oracle to Evidence |
@@ -104,7 +104,7 @@ consumption, and privacy composition now has a concrete helper trio:
 `PrivateDisputeEscrow`, `RegulatedPrivateCheckout`, and
 `TreasuryDisclosureFlow`.
 
-| Scenario | With stdlib | Status |
+| Scenario | With openlib | Status |
 |----------|-------------|--------|
 | Encrypted payroll: employees see amounts, not each other | `ConfidentialPayment.batchPay(batch_id, receipt_ref)` + `addPayee(batch_id, payee, amount)` + `releaseBatch(batch_id, settlement_ref)` | **~85%** — batch payment with per-payee amounts implemented |
 | Auditor verifies financials without seeing individual txs | `AuditorDisclosureBook.publishSnapshot(snapshot_id, data_ref, proof_ref, period_start, period_end)` + `authorizeAuditor(auditor, scope_ref, expiry_ms)` | **~85%** — snapshot-based disclosure with auditor authorization and finalization |
@@ -131,15 +131,15 @@ consumption, and privacy composition now has a concrete helper trio:
 
 ## Comparison With Existing Ecosystems
 
-| Capability | Solidity + OpenZeppelin | TOL + stdlib | Implementation status |
+| Capability | Solidity + OpenZeppelin | TOL + openlib | Implementation status |
 |------------|----------------------|--------------|----------------------|
 | Safe value transfer | `SafeERC20.safeTransfer()` library | `TaskSettlement.openTask` / `ConfidentialEscrow.openEscrow` — escrow-native | **~90%** |
 | Reentrancy protection | `ReentrancyGuard` modifier | Compiler-enforced `@effects` + `set` keyword — no library needed | **~90%** — compiler-level |
-| Access control | `Ownable` / `AccessControl` | `@requires(caller: Cap)` compiler-enforced + `tos.hascapability()` runtime check | **~90%** — compiler pipeline implemented + tested (parser/sema/lower/codegen/ABI); stdlib contracts can migrate from hand-rolled checks |
+| Access control | `Ownable` / `AccessControl` | `@requires(caller: Cap)` compiler-enforced + `tos.hascapability()` runtime check | **~90%** — compiler pipeline implemented + tested (parser/sema/lower/codegen/ABI); openlib contracts can migrate from hand-rolled checks |
 | Proxy delegation | `approve()` + `transferFrom()` | `AuthorityBook.grant` / `.revoke` / `.consume` — capped, time-bounded, revocable | **~85%** |
 | Multi-terminal support | Not supported | `SessionBook.grantSession` with trust tier, budget, step-up threshold | **~90%** — named 6x5 taxonomy plus runtime validation and reusable terminal guards |
 | Encrypted transfers | Not supported | `uno.transfer()` + `ConfidentialEscrow.openEscrow` / `.releaseEscrow` | **~90%** |
-| Selective disclosure | Not supported | GTOS: DisclosureProof (ZK/DLEQ) + DecryptionToken + AuditorKey (consensus); stdlib: `AuditorDisclosureBook` + `ConfidentialVault.authorizeAuditor` | **RESOLVED at protocol layer** — all 3 layers implemented in GTOS; stdlib provides contract-level management and can add better composed helpers later |
+| Selective disclosure | Not supported | GTOS: DisclosureProof (ZK/DLEQ) + DecryptionToken + AuditorKey (consensus); openlib: `AuditorDisclosureBook` + `ConfidentialVault.authorizeAuditor` | **RESOLVED at protocol layer** — all 3 layers implemented in GTOS; openlib provides contract-level management and can add better composed helpers later |
 | Task marketplace | ~200 lines hand-rolled state machine | `CommercialAgreement.createOffer` + `TaskSettlement.openTask` | **~90%** |
 | Gas sponsorship | ERC-4337 complex stack | `SponsorPolicyRelay.relay` — native sponsor binding + policy + budget | **~85%** |
 | Machine-readable audit | Optional event logs | `ReceiptBook.openReceipt` / `.finalizeSuccess` — structured evidence chain | **~92%** — `TaskSettlement` now auto-binds receipts into settlement lifecycle |
@@ -147,7 +147,7 @@ consumption, and privacy composition now has a concrete helper trio:
 | Gas bounds | Guessed or empirical | `@gas(upper: N)` verified by compiler, bound-checked | **~90%** — compiler-level |
 | Terminal-scoped policy | Not supported | `SessionBook` + `PolicyAccount` — per-session trust tier and budget | **~70%** — requires manual composition of two contracts |
 | Guardian recovery | ~150 lines hand-rolled | `RecoveryController.startRecovery` → `approveRecovery` → `executeRecovery` — timelocked, cancellable | **~90%** |
-| Discovery metadata | No standard | `ServiceDirectory.registerService(manifest_ref, capability_ref, version_ref, quote_ref)` + typed fields + exported `typed_discovery` + GTOS `routing_profile` | **~95%** — typed routing fields now flow through stdlib export and GTOS deployed metadata RPC |
+| Discovery metadata | No standard | `ServiceDirectory.registerService(manifest_ref, capability_ref, version_ref, quote_ref)` + typed fields + exported `typed_discovery` + GTOS `routing_profile` | **~95%** — typed routing fields now flow through openlib export and GTOS deployed metadata RPC |
 | Confidential DeFi | Not supported | `ConfidentialEscrow` + `ConfidentialVault` + `ConfidentialPayment` + `ConfidentialTreasury` + `ConfidentialAllowance` + `AuditorDisclosureBook` + composed helpers | **~95%** — all 6 contracts plus v1 helper family implemented |
 
 ---
@@ -168,18 +168,18 @@ TOL asks:
 >
 > **How many lines of contract code does this take?**
 
-With the TOL stdlib: **under 50 lines.**
+With the TOL openlib: **under 50 lines.**
 
 Without it: hundreds of lines of hand-rolled state machines, policy checks,
 encryption handling, receipt formatting, and terminal discrimination logic —
 repeated differently in every contract, with different bugs each time.
 
 **Implementation note:** The end-to-end scenario above is partially
-demonstrated in `stdlib_composed_runtime_test.go` (`PolicySponsoredCheckout`,
+demonstrated in `openlib_composed_runtime_test.go` (`PolicySponsoredCheckout`,
 `PrivateServiceOrder`, `SponsoredPrivateEscrowCheckout`). The selective
 disclosure to arbitrator step is no longer blocked by missing protocol or
 contract primitives — GTOS now provides DisclosureProof, DecryptionToken, and
-AuditorKey, and stdlib includes `AuditorDisclosureBook`. What remains is a
+AuditorKey, and openlib includes `AuditorDisclosureBook`. What remains is a
 cleaner composed example and convenience surface.
 
 ---
@@ -244,7 +244,7 @@ All previously missing contracts have been implemented:
 These five follow-on workstreams should not all be tracked as contract-level
 feature tickets.
 
-They split cleanly between stdlib capability backlog, structural shortcomings,
+They split cleanly between openlib capability backlog, structural shortcomings,
 and deeper design homes:
 
 | Workstream | This document tracks | Detailed design home |
@@ -257,7 +257,7 @@ and deeper design homes:
 
 Status guidance:
 
-- This document is the right place to state what stdlib capability is still not
+- This document is the right place to state what openlib capability is still not
   commercially closed.
 - It is not the right place to hold full VM, compiler, or cryptographic design.
 
@@ -265,13 +265,13 @@ Status guidance:
 
 ## The Commercial Value Proposition
 
-TOL without stdlib: a language with nice syntax and incomplete economic
+TOL without openlib: a language with nice syntax and incomplete economic
 semantics.
 
-TOL with stdlib: **the first smart contract platform where "agent-native"
+TOL with openlib: **the first smart contract platform where "agent-native"
 is not marketing — it is the actual development experience.**
 
-A developer importing `stdlib/settlement` and `stdlib/privacy` can write a
+A developer importing `openlib/settlement` and `openlib/privacy` can write a
 confidential escrow contract in 20 lines. The same contract works across
 all terminal types, respects policy wallet constraints, produces audit
 receipts, and supports selective disclosure to regulators — all without the
@@ -279,12 +279,12 @@ developer thinking about any of it.
 
 That is what makes TOL commercially viable at scale.
 
-**Current reality (2026-03-21):** All 18 stdlib seed contracts compile and
+**Current reality (2026-03-21):** All 18 openlib seed contracts compile and
 have package/artifact coverage.  The privacy family is now complete with 6
 contracts (ConfidentialVault, ConfidentialEscrow, ConfidentialPayment,
 ConfidentialTreasury, ConfidentialAllowance, AuditorDisclosureBook).  The
 settlement family has both TaskSettlement and RecurringPayment. The current
-stdlib closure wave also includes slash distribution, auto-receipt binding,
+openlib closure wave also includes slash distribution, auto-receipt binding,
 named terminal/trust taxonomy, reusable step-up enforcement, v1 privacy
 composition helpers, and typed discovery normalization. The remaining work is
 longer-horizon evolution: continued release/discovery/threat-model tightening

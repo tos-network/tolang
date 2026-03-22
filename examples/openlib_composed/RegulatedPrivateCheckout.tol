@@ -1,0 +1,260 @@
+pragma tolang 0.4.0;
+
+import tolang.openlib.account.PolicyAccount;
+import tolang.openlib.sponsor.SponsorPolicyRelay;
+import tolang.openlib.privacy.ConfidentialEscrow;
+import tolang.openlib.receipt.ReceiptBook;
+import tolang.openlib.privacy.AuditorDisclosureBook;
+
+// RegulatedPrivateCheckout — sponsor-aware confidential checkout with audit binding.
+//
+// This helper packages:
+// policy-account gating + sponsor relay + confidential escrow + receipt
+// binding + auditor disclosure policy.
+
+contract RegulatedPrivateCheckout {
+    manifest {
+        name: "RegulatedPrivateCheckout";
+        version: "1.0.0";
+        description: "Regulator-ready confidential checkout flow over policy account, sponsor relay, confidential escrow, receipt, and disclosure openlib packages";
+    }
+
+    u8 constant STATUS_NONE = 0;
+    u8 constant STATUS_PREPARED = 1;
+    u8 constant STATUS_COMMITTED = 2;
+    u8 constant STATUS_SETTLED = 3;
+    u8 constant STATUS_REFUNDED = 4;
+    u8 constant STATUS_AUDIT_READY = 5;
+
+    agent owner;
+    agent merchant;
+    agent relay_actor;
+    agent sponsor_actor;
+    agent account_addr;
+    agent sponsor_addr;
+    agent escrow_addr;
+    agent receipt_addr;
+    agent disclosure_addr;
+
+    mapping(bytes32 => u8) checkout_status;
+    mapping(bytes32 => agent) checkout_payer;
+    mapping(bytes32 => u256) checkout_amount;
+    mapping(bytes32 => bytes32) checkout_scope_ref;
+    mapping(bytes32 => bytes32) checkout_policy_hash;
+
+    event CheckoutPrepared(
+        bytes32 indexed checkout_id,
+        agent indexed payer,
+        agent indexed merchant,
+        u256 amount,
+        bytes32 scope_ref
+    )
+    event CheckoutCommitted(
+        bytes32 indexed checkout_id,
+        agent indexed target,
+        u256 sponsor_cost,
+        bytes32 policy_hash
+    )
+    event CheckoutSettled(
+        bytes32 indexed checkout_id,
+        bytes32 result_ref,
+        bytes32 settlement_ref
+    )
+    event CheckoutRefunded(
+        bytes32 indexed checkout_id,
+        bytes32 result_ref,
+        bytes32 reason_ref
+    )
+    event AuditViewAuthorized(
+        bytes32 indexed checkout_id,
+        agent indexed auditor,
+        bytes32 scope_ref
+    )
+
+    constructor(
+        agent _owner,
+        agent _merchant,
+        agent _relay_actor,
+        agent _sponsor_actor,
+        agent _account_addr,
+        agent _sponsor_addr,
+        agent _escrow_addr,
+        agent _receipt_addr,
+        agent _disclosure_addr
+    ) {
+        require(_owner != agent(0), "ZERO_OWNER");
+        require(_merchant != agent(0), "ZERO_MERCHANT");
+        require(_relay_actor != agent(0), "ZERO_RELAY");
+        require(_sponsor_actor != agent(0), "ZERO_SPONSOR");
+        require(_account_addr != agent(0), "ZERO_ACCOUNT");
+        require(_sponsor_addr != agent(0), "ZERO_SPONSOR_ADDR");
+        require(_escrow_addr != agent(0), "ZERO_ESCROW");
+        require(_receipt_addr != agent(0), "ZERO_RECEIPT");
+        require(_disclosure_addr != agent(0), "ZERO_DISCLOSURE");
+
+        set owner = _owner;
+        set merchant = _merchant;
+        set relay_actor = _relay_actor;
+        set sponsor_actor = _sponsor_actor;
+        set account_addr = _account_addr;
+        set sponsor_addr = _sponsor_addr;
+        set escrow_addr = _escrow_addr;
+        set receipt_addr = _receipt_addr;
+        set disclosure_addr = _disclosure_addr;
+    }
+
+    function prepareCheckout(
+        bytes32 checkout_id,
+        bytes32 scope_ref,
+        u256 expiry_ms,
+        u256 declared_amount
+    ) public payable(uno) returns (bool ok) {
+        PolicyAccount account = PolicyAccount(account_addr);
+        ConfidentialEscrow escrow = ConfidentialEscrow(escrow_addr);
+        ReceiptBook receipt = ReceiptBook(receipt_addr);
+
+        require(checkout_id != bytes32(0), "ZERO_CHECKOUT");
+        require(msg.uno_value.gt(uno.zero()), "ZERO_AMOUNT");
+        require(declared_amount > 0, "ZERO_DECLARED_AMOUNT");
+        require(account.isSuspended() != true, "ACCOUNT_SUSPENDED");
+        require(checkout_status[checkout_id] == STATUS_NONE, "CHECKOUT_EXISTS");
+
+        set checkout_payer[checkout_id] = msg.sender;
+        set checkout_amount[checkout_id] = declared_amount;
+        set checkout_scope_ref[checkout_id] = scope_ref;
+        set checkout_status[checkout_id] = STATUS_PREPARED;
+
+        receipt.openReceipt(
+            checkout_id,
+            msg.sender,
+            msg.sender,
+            sponsor_actor,
+            merchant,
+            u256(msg.uno_value),
+            bytes32(0),
+            checkout_id,
+            scope_ref,
+            checkout_id
+        );
+        escrow.openEscrow(checkout_id, merchant, expiry_ms, checkout_id);
+
+        emit CheckoutPrepared(checkout_id, msg.sender, merchant, u256(msg.uno_value), scope_ref);
+        return true;
+    }
+
+    function commitCheckout(
+        bytes32 checkout_id,
+        agent target,
+        bytes data,
+        bytes32 policy_hash,
+        u256 sponsor_cost
+    ) public returns (bool ok) {
+        PolicyAccount account = PolicyAccount(account_addr);
+        SponsorPolicyRelay sponsor = SponsorPolicyRelay(sponsor_addr);
+        ConfidentialEscrow escrow = ConfidentialEscrow(escrow_addr);
+
+        require(msg.sender == owner, "NOT_OWNER");
+        require(checkout_status[checkout_id] == STATUS_PREPARED, "NOT_PREPARED");
+        require(target != agent(0), "ZERO_TARGET");
+        require(account.isSuspended() != true, "ACCOUNT_SUSPENDED");
+        require(account.remainingDaily() >= checkout_amount[checkout_id], "ACCOUNT_LIMIT");
+        require(sponsor.isRelayerActive(relay_actor) == true, "RELAYER_INACTIVE");
+        require(escrow.statusOf(checkout_id) == 1, "ESCROW_NOT_OPEN");
+
+        require(
+            sponsor.relay(
+                target,
+                data,
+                checkout_payer[checkout_id],
+                sponsor_cost,
+                policy_hash,
+                checkout_id,
+                checkout_id
+            ) == true,
+            "SPONSOR_RELAY_FAILED"
+        );
+
+        set checkout_status[checkout_id] = STATUS_COMMITTED;
+        set checkout_policy_hash[checkout_id] = policy_hash;
+
+        emit CheckoutCommitted(checkout_id, target, sponsor_cost, policy_hash);
+        return true;
+    }
+
+    function settleCheckout(
+        bytes32 checkout_id,
+        bytes32 result_ref,
+        bytes32 settlement_ref
+    ) public returns (bool ok) {
+        ConfidentialEscrow escrow = ConfidentialEscrow(escrow_addr);
+        ReceiptBook receipt = ReceiptBook(receipt_addr);
+
+        require(msg.sender == owner, "NOT_OWNER");
+        require(checkout_status[checkout_id] == STATUS_COMMITTED, "NOT_COMMITTED");
+        require(escrow.statusOf(checkout_id) == 1, "ESCROW_NOT_OPEN");
+        require(receipt.statusOf(checkout_id) == 1, "RECEIPT_NOT_OPEN");
+
+        escrow.releaseEscrow(checkout_id, settlement_ref);
+        receipt.finalizeSuccess(checkout_id, result_ref, settlement_ref);
+        set checkout_status[checkout_id] = STATUS_SETTLED;
+
+        emit CheckoutSettled(checkout_id, result_ref, settlement_ref);
+        return true;
+    }
+
+    function refundCheckout(
+        bytes32 checkout_id,
+        bytes32 result_ref,
+        bytes32 reason_ref
+    ) public returns (bool ok) {
+        ConfidentialEscrow escrow = ConfidentialEscrow(escrow_addr);
+        ReceiptBook receipt = ReceiptBook(receipt_addr);
+
+        require(msg.sender == owner, "NOT_OWNER");
+        require(
+            checkout_status[checkout_id] == STATUS_PREPARED ||
+            checkout_status[checkout_id] == STATUS_COMMITTED,
+            "NOT_REFUNDABLE"
+        );
+        require(escrow.statusOf(checkout_id) == 1, "ESCROW_NOT_OPEN");
+        require(receipt.statusOf(checkout_id) == 1, "RECEIPT_NOT_OPEN");
+
+        escrow.refundEscrowTo(checkout_id, checkout_payer[checkout_id], reason_ref);
+        receipt.finalizeFailure(checkout_id, result_ref);
+        set checkout_status[checkout_id] = STATUS_REFUNDED;
+
+        emit CheckoutRefunded(checkout_id, result_ref, reason_ref);
+        return true;
+    }
+
+    function authorizeAuditView(
+        bytes32 checkout_id,
+        agent auditor,
+        u256 expiry_ms
+    ) public returns (bool ok) {
+        AuditorDisclosureBook disclosure = AuditorDisclosureBook(disclosure_addr);
+
+        require(msg.sender == owner, "NOT_OWNER");
+        require(auditor != agent(0), "ZERO_AUDITOR");
+        require(
+            checkout_status[checkout_id] == STATUS_SETTLED ||
+            checkout_status[checkout_id] == STATUS_REFUNDED,
+            "NOT_FINAL"
+        );
+        require(checkout_scope_ref[checkout_id] != bytes32(0), "NO_SCOPE_REF");
+
+        disclosure.authorizeAuditor(auditor, checkout_scope_ref[checkout_id], expiry_ms);
+        set checkout_status[checkout_id] = STATUS_AUDIT_READY;
+
+        emit AuditViewAuthorized(checkout_id, auditor, checkout_scope_ref[checkout_id]);
+        return true;
+    }
+
+    function receiptOf(bytes32 checkout_id) public pure returns (bytes32 receipt_id) {
+        return checkout_id;
+    }
+
+    function checkoutStatusOf(bytes32 checkout_id) public view returns (u256 status) {
+        return u256(checkout_status[checkout_id]);
+    }
+}

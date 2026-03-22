@@ -1,0 +1,195 @@
+pragma tolang 0.4.0;
+
+import tolang.openlib.privacy.ConfidentialTreasury;
+import tolang.openlib.privacy.AuditorDisclosureBook;
+import tolang.openlib.receipt.ReceiptBook;
+
+// TreasuryDisclosureFlow — confidential treasury spend with disclosure-bound receipt.
+
+contract TreasuryDisclosureFlow {
+    manifest {
+        name: "TreasuryDisclosureFlow";
+        version: "1.0.0";
+        description: "Treasury spend flow over ConfidentialTreasury, AuditorDisclosureBook, and ReceiptBook openlib packages";
+    }
+
+    u8 constant STATUS_NONE = 0;
+    u8 constant STATUS_PROPOSED = 1;
+    u8 constant STATUS_APPROVED = 2;
+    u8 constant STATUS_DISCLOSURE_BOUND = 3;
+    u8 constant STATUS_EXECUTED = 4;
+    u8 constant STATUS_RECEIPTED = 5;
+
+    agent owner;
+    agent treasury_addr;
+    agent disclosure_addr;
+    agent receipt_addr;
+
+    mapping(bytes32 => u8) spend_status;
+    mapping(bytes32 => bytes32) spend_receipt_ref;
+    mapping(bytes32 => bytes32) spend_policy_ref;
+    mapping(bytes32 => bytes32) spend_scope_ref;
+    mapping(bytes32 => agent) spend_recipient;
+    mapping(bytes32 => u256) spend_amount;
+
+    event TreasurySpendProposed(
+        bytes32 indexed spend_id,
+        bytes32 indexed receipt_id,
+        agent indexed recipient,
+        u256 amount,
+        bytes32 policy_ref
+    )
+    event TreasurySpendApproved(bytes32 indexed spend_id)
+    event TreasuryDisclosureAttached(
+        bytes32 indexed spend_id,
+        agent indexed auditor,
+        bytes32 scope_ref
+    )
+    event TreasurySpendExecuted(bytes32 indexed spend_id, bytes32 settlement_ref)
+    event TreasuryReceiptFinalized(
+        bytes32 indexed spend_id,
+        bytes32 indexed receipt_id,
+        bytes32 result_ref,
+        bytes32 settlement_ref
+    )
+
+    constructor(agent _owner, agent _treasury_addr, agent _disclosure_addr, agent _receipt_addr) {
+        require(_owner != agent(0), "ZERO_OWNER");
+        require(_treasury_addr != agent(0), "ZERO_TREASURY");
+        require(_disclosure_addr != agent(0), "ZERO_DISCLOSURE");
+        require(_receipt_addr != agent(0), "ZERO_RECEIPT");
+
+        set owner = _owner;
+        set treasury_addr = _treasury_addr;
+        set disclosure_addr = _disclosure_addr;
+        set receipt_addr = _receipt_addr;
+    }
+
+    function proposeTreasurySpend(
+        bytes32 spend_id,
+        bytes32 receipt_id,
+        agent recipient,
+        uno amount,
+        bytes32 purpose_ref,
+        bytes32 policy_ref
+    ) public returns (bool ok) {
+        ReceiptBook receipt = ReceiptBook(receipt_addr);
+        ConfidentialTreasury treasury = ConfidentialTreasury(treasury_addr);
+
+        require(msg.sender == owner, "NOT_OWNER");
+        require(spend_id != bytes32(0), "ZERO_SPEND_ID");
+        require(receipt_id != bytes32(0), "ZERO_RECEIPT_ID");
+        require(recipient != agent(0), "ZERO_RECIPIENT");
+        require(amount.gt(uno.zero()), "ZERO_AMOUNT");
+        require(spend_status[spend_id] == STATUS_NONE, "SPEND_EXISTS");
+        require(treasury.spendStatusOf(spend_id) == 1, "TREASURY_SPEND_NOT_PENDING");
+
+        receipt.openReceipt(
+            receipt_id,
+            owner,
+            owner,
+            agent(0),
+            recipient,
+            u256(amount),
+            bytes32(0),
+            spend_id,
+            bytes32(0),
+            purpose_ref
+        );
+
+        set spend_status[spend_id] = STATUS_PROPOSED;
+        set spend_receipt_ref[spend_id] = receipt_id;
+        set spend_policy_ref[spend_id] = policy_ref;
+        set spend_recipient[spend_id] = recipient;
+        set spend_amount[spend_id] = u256(amount);
+
+        emit TreasurySpendProposed(spend_id, receipt_id, recipient, u256(amount), policy_ref);
+        return true;
+    }
+
+    function approveTreasurySpend(bytes32 spend_id) public returns (bool ok) {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(spend_status[spend_id] == STATUS_PROPOSED, "NOT_PROPOSED");
+        set spend_status[spend_id] = STATUS_APPROVED;
+        emit TreasurySpendApproved(spend_id);
+        return true;
+    }
+
+    function attachDisclosurePolicy(
+        bytes32 spend_id,
+        agent auditor,
+        bytes32 scope_ref,
+        u256 expiry_ms
+    ) public returns (bool ok) {
+        ConfidentialTreasury treasury = ConfidentialTreasury(treasury_addr);
+        AuditorDisclosureBook disclosure = AuditorDisclosureBook(disclosure_addr);
+
+        require(msg.sender == owner, "NOT_OWNER");
+        require(auditor != agent(0), "ZERO_AUDITOR");
+        require(scope_ref != bytes32(0), "ZERO_SCOPE");
+        require(
+            spend_status[spend_id] == STATUS_PROPOSED ||
+            spend_status[spend_id] == STATUS_APPROVED,
+            "NOT_DISCLOSABLE"
+        );
+
+        treasury.authorizeAuditor(auditor, scope_ref);
+        disclosure.authorizeAuditor(auditor, scope_ref, expiry_ms);
+
+        set spend_scope_ref[spend_id] = scope_ref;
+        set spend_status[spend_id] = STATUS_DISCLOSURE_BOUND;
+
+        emit TreasuryDisclosureAttached(spend_id, auditor, scope_ref);
+        return true;
+    }
+
+    function executeTreasurySpend(bytes32 spend_id, bytes32 settlement_ref) public returns (bool ok) {
+        ConfidentialTreasury treasury = ConfidentialTreasury(treasury_addr);
+
+        require(msg.sender == owner, "NOT_OWNER");
+        require(
+            spend_status[spend_id] == STATUS_APPROVED ||
+            spend_status[spend_id] == STATUS_DISCLOSURE_BOUND,
+            "NOT_EXECUTABLE"
+        );
+
+        treasury.executeSpend(spend_id, settlement_ref);
+        set spend_status[spend_id] = STATUS_EXECUTED;
+
+        emit TreasurySpendExecuted(spend_id, settlement_ref);
+        return true;
+    }
+
+    function finalizeTreasuryReceipt(
+        bytes32 spend_id,
+        bytes32 result_ref,
+        bytes32 settlement_ref
+    ) public returns (bool ok) {
+        ReceiptBook receipt = ReceiptBook(receipt_addr);
+
+        require(msg.sender == owner, "NOT_OWNER");
+        require(spend_status[spend_id] == STATUS_EXECUTED, "NOT_EXECUTED");
+
+        receipt.finalizeSuccess(spend_receipt_ref[spend_id], result_ref, settlement_ref);
+        set spend_status[spend_id] = STATUS_RECEIPTED;
+
+        emit TreasuryReceiptFinalized(spend_id, spend_receipt_ref[spend_id], result_ref, settlement_ref);
+        return true;
+    }
+
+    function receiptOf(bytes32 spend_id) public view returns (bytes32 receipt_id) {
+        return spend_receipt_ref[spend_id];
+    }
+
+    function disclosureScopeOf(bytes32 spend_id) public view returns (bytes32 scope_ref) {
+        return spend_scope_ref[spend_id];
+    }
+
+    function policyRefOf(bytes32 spend_id) public view returns (bytes32 policy_ref) {
+        return spend_policy_ref[spend_id];
+    }
+
+    function spendStatusOf(bytes32 spend_id) public view returns (u256 status) {
+        return u256(spend_status[spend_id]);
+    }
+}

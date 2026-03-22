@@ -1,0 +1,123 @@
+pragma tolang 0.4.0;
+
+import tolang.openlib.privacy.ConfidentialEscrow;
+import tolang.openlib.receipt.ReceiptBook;
+
+// PrivateEscrowCheckout — confidential escrow + receipt coordinator.
+//
+// This example shows a narrower but commercially critical path:
+// encrypted payment reservation + machine-readable execution receipt.
+
+contract PrivateEscrowCheckout {
+    manifest {
+        name: "PrivateEscrowCheckout";
+        version: "1.0.0";
+        description: "Composed confidential checkout flow over ConfidentialEscrow and ReceiptBook openlib packages";
+    }
+
+    agent owner;
+    agent escrow_addr;
+    agent receipt_addr;
+
+    event CheckoutPrepared(
+        bytes32 indexed escrow_id,
+        bytes32 indexed receipt_id,
+        agent indexed payer,
+        agent payee
+    )
+    event CheckoutReleased(
+        bytes32 indexed escrow_id,
+        bytes32 indexed receipt_id,
+        bytes32 result_ref,
+        bytes32 settlement_ref
+    )
+    event CheckoutRefunded(
+        bytes32 indexed escrow_id,
+        bytes32 indexed receipt_id,
+        bytes32 result_ref,
+        bytes32 reason_ref
+    )
+
+    constructor(agent _owner, agent _escrow_addr, agent _receipt_addr) {
+        require(_owner != agent(0), "ZERO_OWNER");
+        require(_escrow_addr != agent(0), "ZERO_ESCROW");
+        require(_receipt_addr != agent(0), "ZERO_RECEIPT");
+
+        set owner = _owner;
+        set escrow_addr = _escrow_addr;
+        set receipt_addr = _receipt_addr;
+    }
+
+    function prepare(
+        agent payer,
+        agent payee,
+        bytes32 escrow_id,
+        bytes32 receipt_id,
+        bytes32 binding_ref,
+        bytes32 proof_ref
+    ) external returns (bool ok) {
+        ConfidentialEscrow escrow = ConfidentialEscrow(escrow_addr);
+        ReceiptBook receipt = ReceiptBook(receipt_addr);
+
+        require(escrow.statusOf(escrow_id) == 1, "ESCROW_NOT_OPEN");
+        require(receipt.statusOf(receipt_id) == 1, "RECEIPT_NOT_OPEN");
+        require(escrow.payerOf(escrow_id) == payer, "PAYER_MISMATCH");
+        require(escrow.payeeOf(escrow_id) == payee, "PAYEE_MISMATCH");
+        require(escrow.receiptRefOf(escrow_id) == receipt_id, "RECEIPT_LINK_MISMATCH");
+        require(receipt.bindingRefOf(receipt_id) == binding_ref, "BINDING_MISMATCH");
+        require(receipt.proofRefOf(receipt_id) == proof_ref, "PROOF_MISMATCH");
+
+        emit CheckoutPrepared(escrow_id, receipt_id, payer, payee);
+        return true;
+    }
+
+    function settleAndRelease(
+        bytes32 escrow_id,
+        bytes32 receipt_id,
+        bytes32 result_ref,
+        bytes32 settlement_ref
+    ) external returns (bool ok) {
+        ConfidentialEscrow escrow = ConfidentialEscrow(escrow_addr);
+        ReceiptBook receipt = ReceiptBook(receipt_addr);
+
+        require(escrow.statusOf(escrow_id) == 1, "ESCROW_NOT_OPEN");
+        require(receipt.statusOf(receipt_id) == 1, "RECEIPT_NOT_OPEN");
+        require(escrow.receiptRefOf(escrow_id) == receipt_id, "RECEIPT_LINK_MISMATCH");
+
+        receipt.finalizeSuccess(receipt_id, result_ref, settlement_ref);
+        escrow.releaseEscrow(escrow_id, settlement_ref);
+
+        emit CheckoutReleased(escrow_id, receipt_id, result_ref, settlement_ref);
+        return true;
+    }
+
+    function failAndRefund(
+        bytes32 escrow_id,
+        bytes32 receipt_id,
+        bytes32 result_ref,
+        bytes32 reason_ref
+    ) external returns (bool ok) {
+        ConfidentialEscrow escrow = ConfidentialEscrow(escrow_addr);
+        ReceiptBook receipt = ReceiptBook(receipt_addr);
+
+        require(escrow.statusOf(escrow_id) == 1, "ESCROW_NOT_OPEN");
+        require(receipt.statusOf(receipt_id) == 1, "RECEIPT_NOT_OPEN");
+        require(escrow.receiptRefOf(escrow_id) == receipt_id, "RECEIPT_LINK_MISMATCH");
+
+        receipt.finalizeFailure(receipt_id, result_ref);
+        escrow.refundEscrow(escrow_id, reason_ref);
+
+        emit CheckoutRefunded(escrow_id, receipt_id, result_ref, reason_ref);
+        return true;
+    }
+
+    function confidentialBalance(agent account) public view returns (uno balance) {
+        ConfidentialEscrow escrow = ConfidentialEscrow(escrow_addr);
+        return escrow.nativeBalance(account);
+    }
+
+    function receiptState(bytes32 receipt_id) public view returns (u256 status) {
+        ReceiptBook receipt = ReceiptBook(receipt_addr);
+        return receipt.statusOf(receipt_id);
+    }
+}

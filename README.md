@@ -108,7 +108,7 @@ function rule(u256 dispute_id, agent winner, u16 slash_bps, string reason) publi
 
 Emitted in the `.toc` ABI as `"requires_capability": "Arbitrator"` — so any agent can check authorization without reading source.
 
-### Write-Once Oracle Pattern (stdlib)
+### Write-Once Oracle Pattern (openlib)
 
 No compiler magic — use plain storage with `require(!is_set)` guard:
 
@@ -131,9 +131,9 @@ function claim() public {
 }
 ```
 
-See `stdlib/Oracle.tol`, `stdlib/Vote.tol`, `stdlib/Task.tol` for reusable patterns.
+See `openlib/Oracle.tol`, `openlib/Vote.tol`, `openlib/Task.tol` for reusable patterns.
 
-### Task State Machine Pattern (stdlib)
+### Task State Machine Pattern (openlib)
 
 Use explicit state constants and `require()` guards — no hardcoded compiler state machine:
 
@@ -237,7 +237,7 @@ The `examples/agent_economy/` directory contains five canonical contracts that d
 | **SponsorRelay** | `SponsorRelay.tol` | Gas sponsorship relay — a sponsor pays gas on behalf of an agent, with policy-bound attribution and audit receipts |
 | **MerchantPayment** | `MerchantPayment.tol` | Merchant payment acceptance with terminal-class restrictions, spend cap enforcement, and settlement callbacks |
 
-These contracts use TOL's agent-native primitives (`agent`, `escrow`/`release`/`slash`, `capability`, `@delegated`) and stdlib patterns (`stdlib/Task.tol`, `stdlib/Oracle.tol`) to eliminate boilerplate and make the economic logic machine-verifiable.
+These contracts use TOL's agent-native primitives (`agent`, `escrow`/`release`/`slash`, `capability`, `@delegated`) and openlib patterns (`openlib/Task.tol`, `openlib/Oracle.tol`) to eliminate boilerplate and make the economic logic machine-verifiable.
 
 ---
 

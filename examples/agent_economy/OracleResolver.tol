@@ -9,7 +9,7 @@ pragma tolang 0.4.0;
 // Consumers read the resolved value after fulfillment.
 //
 // Previously used oracle<u256> for write-once semantics. That compiler
-// intrinsic has been removed. This contract demonstrates the stdlib pattern:
+// intrinsic has been removed. This contract demonstrates the openlib pattern:
 // plain storage + require(!fulfilled) guard achieves the same write-once guarantee.
 
 capability OracleFulfiller;

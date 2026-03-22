@@ -1,6 +1,6 @@
 # Claude Code Direct Implementation Prompt
 
-This prompt is intended for Claude Code to execute the **remaining Tolang stdlib
+This prompt is intended for Claude Code to execute the **remaining Tolang openlib
 backlog directly in code**, with multiple agents running in parallel.
 
 It assumes the major foundational work is already complete:
@@ -25,14 +25,14 @@ The remaining work is now a smaller, concrete implementation wave:
 ## Paste This Into Claude Code
 
 ```text
-Task: Complete the remaining Tolang stdlib backlog end-to-end, with parallel agents, code changes, tests, docs, and exporter updates where needed.
+Task: Complete the remaining Tolang openlib backlog end-to-end, with parallel agents, code changes, tests, docs, and exporter updates where needed.
 
 Repos:
 - /home/tomi/tolang
 - /home/tomi/gtos (read-only unless a very small metadata/export alignment change is required)
 
 Mission:
-Finish the remaining stdlib/productization backlog in Tolang. Do not stop at design or analysis. Carry each selected item through implementation, tests, documentation sync, and artifact/export updates where applicable.
+Finish the remaining openlib/productization backlog in Tolang. Do not stop at design or analysis. Carry each selected item through implementation, tests, documentation sync, and artifact/export updates where applicable.
 
 Current remaining backlog:
 1. slash distribution
@@ -55,13 +55,13 @@ Read first:
 - /home/tomi/tolang/docs/DISCOVERY_TYPED_SCHEMA.md
 - /home/tomi/tolang/docs/AGENT_ABI_SCHEMA.md
 - /home/tomi/tolang/docs/CLAUDE_CODE_REMAINING_TASKS.md
-- /home/tomi/tolang/stdlib/settlement/TaskSettlement.tol
-- /home/tomi/tolang/stdlib/receipt/ReceiptBook.tol
-- /home/tomi/tolang/stdlib/session/SessionBook.tol
-- /home/tomi/tolang/stdlib/discovery/ServiceDirectory.tol
-- /home/tomi/tolang/stdlib/privacy/
-- /home/tomi/tolang/stdlib_runtime_test.go
-- /home/tomi/tolang/stdlib_composed_runtime_test.go
+- /home/tomi/tolang/openlib/settlement/TaskSettlement.tol
+- /home/tomi/tolang/openlib/receipt/ReceiptBook.tol
+- /home/tomi/tolang/openlib/session/SessionBook.tol
+- /home/tomi/tolang/openlib/discovery/ServiceDirectory.tol
+- /home/tomi/tolang/openlib/privacy/
+- /home/tomi/tolang/openlib_runtime_test.go
+- /home/tomi/tolang/openlib_composed_runtime_test.go
 - /home/tomi/tolang/e2e/
 
 Execution strategy:
@@ -69,9 +69,9 @@ Spawn 5 agents in parallel with disjoint ownership. The main agent integrates, r
 
 Agent 1: Settlement automation
 Ownership:
-- /home/tomi/tolang/stdlib/settlement/TaskSettlement.tol
-- /home/tomi/tolang/stdlib/receipt/ReceiptBook.tol only for receipt-binding integration points if needed
-- focused tests in /home/tomi/tolang/stdlib_runtime_test.go and /home/tomi/tolang/stdlib_composed_runtime_test.go
+- /home/tomi/tolang/openlib/settlement/TaskSettlement.tol
+- /home/tomi/tolang/openlib/receipt/ReceiptBook.tol only for receipt-binding integration points if needed
+- focused tests in /home/tomi/tolang/openlib_runtime_test.go and /home/tomi/tolang/openlib_composed_runtime_test.go
 Task:
 - implement slash distribution in `TaskSettlement`
 - define a minimal, defensible split/slash model rather than an overdesigned generic system
@@ -84,7 +84,7 @@ Task:
 
 Agent 2: Control-plane ergonomics
 Ownership:
-- /home/tomi/tolang/stdlib/session/SessionBook.tol
+- /home/tomi/tolang/openlib/session/SessionBook.tol
 - related runtime/composed tests only
 Task:
 - implement named terminal/trust taxonomy on top of the current raw `u256` model
@@ -97,7 +97,7 @@ Task:
 
 Agent 3: Privacy composition helpers
 Ownership:
-- new helper contracts/examples under /home/tomi/tolang/stdlib/privacy/ or /home/tomi/tolang/examples/stdlib_composed/
+- new helper contracts/examples under /home/tomi/tolang/openlib/privacy/ or /home/tomi/tolang/examples/openlib_composed/
 - privacy-focused runtime/composed tests
 Task:
 - implement the first helper wave from `PRIVACY_COMPOSITION_HELPERS.md`
@@ -113,9 +113,9 @@ Task:
 
 Agent 4: Typed discovery schema
 Ownership:
-- /home/tomi/tolang/stdlib/discovery/ServiceDirectory.tol
+- /home/tomi/tolang/openlib/discovery/ServiceDirectory.tol
 - /home/tomi/tolang/metadata/
-- /home/tomi/tolang/cmd/stdlib-export/
+- /home/tomi/tolang/cmd/openlib-export/
 - release/export tests
 Task:
 - implement the first wave from `DISCOVERY_TYPED_SCHEMA.md`
@@ -145,7 +145,7 @@ Coordination rules:
 - The main agent integrates and may adjust code after the agents return.
 - Do not duplicate work across agents.
 - Do not reopen already-resolved foundational work unless blocked by a concrete bug.
-- Do not introduce new stdlib package families unless absolutely necessary.
+- Do not introduce new openlib package families unless absolutely necessary.
 - Prefer additive evolution over breaking ABI unless a break is clearly justified and documented.
 
 Implementation constraints:
@@ -169,8 +169,8 @@ Required final deliverables:
 Acceptance:
 - cd /home/tomi/tolang && go test ./...
 - if metadata/export/artifacts changed:
-  - cd /home/tomi/tolang && go run ./cmd/stdlib-export
-  - cd /home/tomi/tolang && go test -run 'TestStdlibReleaseArtifactsAreCurrent' -v .
+  - cd /home/tomi/tolang && go run ./cmd/openlib-export
+  - cd /home/tomi/tolang && go test -run 'TestOpenlibReleaseArtifactsAreCurrent' -v .
 - final docs must remain internally consistent
 
 Execution posture:

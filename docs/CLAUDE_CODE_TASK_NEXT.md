@@ -47,9 +47,9 @@ Files added: `core/vm/lvm_rollback_test.go` (NEW, 4 tests)
 | `TestSponsorRelayValueRollback` | PASS | Relay balance restored on target revert |
 | `TestStructuredCustomRevertPropagation` | PASS | Typed revert data passes through call boundary |
 
-#### Agent 4: Tolang stdlib/composed-flow regressions — COMPLETED
+#### Agent 4: Tolang openlib/composed-flow regressions — COMPLETED
 
-Files changed: `stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`,
+Files changed: `openlib_runtime_test.go`, `openlib_composed_runtime_test.go`,
 `docs/TOLANG_SHORTCOMINGS.md`, `docs/STDLIB_THREAT_MODEL_MATRIX.md`
 
 | Test | Status | Proves |
@@ -64,9 +64,9 @@ Files changed: `stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`,
 #### Main agent integration — COMPLETED
 
 - Added `snapshotLuaStorage` / `revertLuaStorage` Go helpers in
-  `stdlib_runtime_test.go` to simulate StateDB journal for the
+  `openlib_runtime_test.go` to simulate StateDB journal for the
   `__tol_storage` Lua table fallback path
-- Applied snapshot/revert in `invokeStdlib`, `invokeStdlibErr`,
+- Applied snapshot/revert in `invokeOpenlib`, `invokeOpenlibErr`,
   `invokeCallContractCalldata`, `invokePackageContractCalldata`
 - This makes the test harness faithfully simulate the production GTOS
   StateDB behavior that was already correct on-chain
@@ -84,7 +84,7 @@ Files changed: `stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`,
 | Revert data still propagates correctly | **DONE** — `TestStructuredCustomRevertPropagation` |
 | Raw Lua compatibility is preserved | **DONE** — all existing tests pass |
 | TOL’s 32-byte agent normalization boundary is preserved | **DONE** — no changes to normalization |
-| Existing stdlib/runtime/release behavior is not broken | **DONE** — `go test ./...` all pass |
+| Existing openlib/runtime/release behavior is not broken | **DONE** — `go test ./...` all pass |
 | New tests exist and pass | **DONE** — 10 new tests, all pass |
 
 ### Acceptance criteria
@@ -95,13 +95,13 @@ Files changed: `stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`,
 | `gtos: go test ./internal/tosapi` | **PASS** |
 | `gtos: go test -cover ./core/... ./internal/tosapi` | **PASS** (70.9% core, 29.2% vm, 26.7% tosapi) |
 | `tolang: go test ./...` | **PASS** (12 packages) |
-| `tolang: TestStdlibReleaseArtifactsAreCurrent` | **PASS** |
+| `tolang: TestOpenlibReleaseArtifactsAreCurrent` | **PASS** |
 
 ### Constraints adherence
 
 | Constraint | Status |
 |------------|--------|
-| Do not add new stdlib families | **ADHERED** |
+| Do not add new openlib families | **ADHERED** |
 | Do not broaden scope into unrelated protocol systems | **ADHERED** |
 | Do not revert unrelated changes | **ADHERED** |
 | Keep changes minimal and defensible | **ADHERED** — 14 lines in lvm.go, 67 lines helpers in test |
@@ -119,14 +119,14 @@ Files changed: `stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`,
    `ConfidentialPayment`, `ConfidentialTreasury`,
    `ConfidentialAllowance`, `AuditorDisclosureBook`)
 3. ~~**Recurring/subscription payments**~~ — **RESOLVED (2026-03-21):**
-   `RecurringPayment` contract added to `stdlib/settlement/`
+   `RecurringPayment` contract added to `openlib/settlement/`
 4. ~~**`@requires(caller: Cap)`**~~ — **RESOLVED (2026-03-21):** compiler
    pipeline was already implemented (parser/sema/lower/codegen/ABI); added
    3 tests and completed design doc `docs/CALLER_CAPABILITY_SYNTAX.md`
 5. ~~**Selective disclosure**~~ — **RESOLVED:** all three layers implemented
    in GTOS: DisclosureProof (ZK/DLEQ), DecryptionToken (per-ciphertext),
    AuditorKey (consensus-enforced).  See `gtos/docs/SELECTIVE-DISCLOSURE.md`.
-   Stdlib `AuditorDisclosureBook` complements at contract level.
+   Openlib `AuditorDisclosureBook` complements at contract level.
 
 ---
 
@@ -141,13 +141,13 @@ You are working in two local repos:
 - /home/tomi/tolang
 - /home/tomi/gtos
 
-This is not a greenfield task. The stdlib and release pipeline are already substantially complete.
+This is not a greenfield task. The openlib and release pipeline are already substantially complete.
 
 Current context:
 - The guiding design is /home/tomi/tolang/docs/AGENT_NATIVE_STDLIB_2046.md
 - The threat model is /home/tomi/tolang/docs/STDLIB_THREAT_MODEL_MATRIX.md
 - The exposed framework/runtime gaps are tracked in /home/tomi/tolang/docs/TOLANG_SHORTCOMINGS.md
-- Stdlib families, release artifacts, discovery metadata, agent package metadata, GTOS package target validation, explicit gas caps, typed custom reverts, and deployed TOL metadata RPC are already implemented
+- Openlib families, release artifacts, discovery metadata, agent package metadata, GTOS package target validation, explicit gas caps, typed custom reverts, and deployed TOL metadata RPC are already implemented
 - The highest-value unresolved gap is nested call rollback / atomicity across account/sponsor/settlement/package-call flows
 
 Your mission:
@@ -159,11 +159,11 @@ What “done” means:
 - Revert data still propagates correctly
 - Raw Lua compatibility is preserved
 - TOL’s 32-byte agent normalization boundary is preserved
-- Existing stdlib/runtime/release behavior is not broken
+- Existing openlib/runtime/release behavior is not broken
 - New tests exist and pass
 
 Important constraints:
-- Do not add new stdlib families
+- Do not add new openlib families
 - Do not broaden scope into unrelated protocol systems
 - Do not revert unrelated changes
 - Keep changes minimal and defensible
@@ -175,10 +175,10 @@ Start by reading:
 - /home/tomi/tolang/docs/STDLIB_THREAT_MODEL_MATRIX.md
 - /home/tomi/tolang/docs/TOLANG_SHORTCOMINGS.md
 - /home/tomi/gtos/core/vm/lvm.go
-- /home/tomi/tolang/stdlib_runtime_test.go
-- /home/tomi/tolang/stdlib_composed_runtime_test.go
+- /home/tomi/tolang/openlib_runtime_test.go
+- /home/tomi/tolang/openlib_composed_runtime_test.go
 - /home/tomi/gtos/core/lvm_tol_e2e_test.go
-- /home/tomi/gtos/core/lvm_tol_stdlib_e2e_test.go
+- /home/tomi/gtos/core/lvm_tol_openlib_e2e_test.go
 
 Spawn 4 agents in parallel with disjoint ownership:
 
@@ -215,10 +215,10 @@ Task:
   - structured custom revert propagation through failed nested execution
 - Prefer minimal, direct tests that fail before the fix and pass after
 
-Agent 4: Tolang stdlib/composed-flow regressions
+Agent 4: Tolang openlib/composed-flow regressions
 Ownership:
-- /home/tomi/tolang/stdlib_runtime_test.go
-- /home/tomi/tolang/stdlib_composed_runtime_test.go
+- /home/tomi/tolang/openlib_runtime_test.go
+- /home/tomi/tolang/openlib_composed_runtime_test.go
 - /home/tomi/tolang/e2e/* only if needed
 - /home/tomi/tolang/docs/TOLANG_SHORTCOMINGS.md and /home/tomi/tolang/docs/STDLIB_THREAT_MODEL_MATRIX.md if semantics change materially
 Task:
@@ -242,9 +242,9 @@ Acceptance criteria:
 - /home/tomi/gtos: go test ./internal/tosapi
 - /home/tomi/gtos: go test -cover ./core/... ./internal/tosapi
 - /home/tomi/tolang: go test ./...
-- If any stdlib release artifact or metadata output changes:
-  - /home/tomi/tolang: go run ./cmd/stdlib-export
-  - /home/tomi/tolang: go test -run ‘TestStdlibReleaseArtifactsAreCurrent’ -v .
+- If any openlib release artifact or metadata output changes:
+  - /home/tomi/tolang: go run ./cmd/openlib-export
+  - /home/tomi/tolang: go test -run ‘TestOpenlibReleaseArtifactsAreCurrent’ -v .
 - Final report must state:
   - exact rollback semantics now guaranteed
   - files changed

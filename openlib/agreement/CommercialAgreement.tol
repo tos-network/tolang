@@ -1,0 +1,208 @@
+pragma tolang 0.4.0;
+
+package tolang.openlib.agreement;
+
+// CommercialAgreement — structured offer / acceptance / fulfillment book.
+//
+// This is the minimal machine-commerce agreement surface: offer terms,
+// accepted counterparty, expiry, and fulfillment linkage.
+
+interface ICommercialAgreement {
+    event OfferCreated(
+        u256 indexed agreement_id,
+        agent indexed creator,
+        agent indexed counterparty,
+        u256 amount,
+        u256 expiry_ms,
+        bytes32 quote_ref,
+        bytes32 terms_ref
+    )
+    event OfferAccepted(u256 indexed agreement_id, agent indexed counterparty, bytes32 acceptance_ref)
+    event OfferCancelled(u256 indexed agreement_id, bytes32 reason_ref)
+    event OfferFulfilled(u256 indexed agreement_id, bytes32 settlement_ref)
+    event OfferExpired(u256 indexed agreement_id)
+
+    function createOffer(
+        agent counterparty,
+        u256 amount,
+        u256 expiry_ms,
+        bytes32 quote_ref,
+        bytes32 terms_ref
+    ) public returns (u256 agreement_id);
+
+    function accept(u256 agreement_id, bytes32 acceptance_ref) public;
+    function cancel(u256 agreement_id, bytes32 reason_ref) public;
+    function fulfill(u256 agreement_id, bytes32 settlement_ref) public;
+    function expire(u256 agreement_id) public;
+
+    function createInvoice(agent payer, u256 amount, u256 due_ms, bytes32 terms_ref) public returns (u256 agreement_id);
+
+    @verifiable
+    function statusOf(u256 agreement_id) public view returns (u256 status);
+
+    @verifiable
+    function agreementTypeOf(u256 agreement_id) public view returns (u256 atype);
+
+    @verifiable
+    function quoteRefOf(u256 agreement_id) public view returns (bytes32 quote_ref);
+
+    @verifiable
+    function counterpartyOf(u256 agreement_id) public view returns (agent counterparty);
+
+    @verifiable
+    function settlementRefOf(u256 agreement_id) public view returns (bytes32 settlement_ref);
+}
+
+contract CommercialAgreement is ICommercialAgreement {
+    manifest {
+        name: "CommercialAgreement";
+        version: "1.0.0";
+        description: "Offer, acceptance, expiry, and fulfillment book for machine-readable commercial agreements";
+    }
+
+    u8 constant STATUS_NONE = 0;
+    u8 constant STATUS_OPEN = 1;
+    u8 constant STATUS_ACCEPTED = 2;
+    u8 constant STATUS_CANCELLED = 3;
+    u8 constant STATUS_FULFILLED = 4;
+    u8 constant STATUS_EXPIRED = 5;
+
+    u8 constant TYPE_OFFER = 1;
+    u8 constant TYPE_INVOICE = 2;
+
+    u256 next_agreement_id;
+
+    mapping(u256 => agent) agreement_creator;
+    mapping(u256 => agent) agreement_counterparty;
+    mapping(u256 => u256) agreement_amount;
+    mapping(u256 => u256) agreement_expiry_ms;
+    mapping(u256 => bytes32) agreement_quote_ref;
+    mapping(u256 => bytes32) agreement_terms_ref;
+    mapping(u256 => bytes32) agreement_acceptance_ref;
+    mapping(u256 => bytes32) agreement_settlement_ref;
+    mapping(u256 => u8) agreement_status;
+    mapping(u256 => u8) agreement_type;
+
+    event OfferCreated(
+        u256 indexed agreement_id,
+        agent indexed creator,
+        agent indexed counterparty,
+        u256 amount,
+        u256 expiry_ms,
+        bytes32 quote_ref,
+        bytes32 terms_ref
+    )
+    event OfferAccepted(u256 indexed agreement_id, agent indexed counterparty, bytes32 acceptance_ref)
+    event OfferCancelled(u256 indexed agreement_id, bytes32 reason_ref)
+    event OfferFulfilled(u256 indexed agreement_id, bytes32 settlement_ref)
+    event OfferExpired(u256 indexed agreement_id)
+    event InvoiceCreated(u256 indexed agreement_id, agent indexed creator, agent indexed payer, u256 amount, u256 due_ms, bytes32 terms_ref)
+
+    constructor() {
+        set next_agreement_id = 1;
+    }
+
+    function createOffer(
+        agent counterparty,
+        u256 amount,
+        u256 expiry_ms,
+        bytes32 quote_ref,
+        bytes32 terms_ref
+    ) public returns (u256 agreement_id) {
+        require(counterparty != agent(0), "ZERO_COUNTERPARTY");
+        require(counterparty != msg.sender, "SELF_COUNTERPARTY");
+        require(amount > 0, "ZERO_AMOUNT");
+        require(expiry_ms > block.timestamp_ms, "EXPIRY_PAST");
+
+        agreement_id = next_agreement_id;
+        set next_agreement_id = next_agreement_id + 1;
+
+        set agreement_creator[agreement_id] = msg.sender;
+        set agreement_counterparty[agreement_id] = counterparty;
+        set agreement_amount[agreement_id] = amount;
+        set agreement_expiry_ms[agreement_id] = expiry_ms;
+        set agreement_quote_ref[agreement_id] = quote_ref;
+        set agreement_terms_ref[agreement_id] = terms_ref;
+        set agreement_status[agreement_id] = STATUS_OPEN;
+        set agreement_type[agreement_id] = TYPE_OFFER;
+
+        emit OfferCreated(agreement_id, msg.sender, counterparty, amount, expiry_ms, quote_ref, terms_ref);
+    }
+
+    function accept(u256 agreement_id, bytes32 acceptance_ref) public {
+        require(agreement_status[agreement_id] == STATUS_OPEN, "NOT_OPEN");
+        require(msg.sender == agreement_counterparty[agreement_id], "NOT_COUNTERPARTY");
+        require(block.timestamp_ms < agreement_expiry_ms[agreement_id], "EXPIRED");
+
+        set agreement_status[agreement_id] = STATUS_ACCEPTED;
+        set agreement_acceptance_ref[agreement_id] = acceptance_ref;
+        emit OfferAccepted(agreement_id, msg.sender, acceptance_ref);
+    }
+
+    function cancel(u256 agreement_id, bytes32 reason_ref) public {
+        require(agreement_status[agreement_id] == STATUS_OPEN || agreement_status[agreement_id] == STATUS_ACCEPTED, "NOT_CANCELLABLE");
+        require(msg.sender == agreement_creator[agreement_id], "NOT_CREATOR");
+        set agreement_status[agreement_id] = STATUS_CANCELLED;
+        emit OfferCancelled(agreement_id, reason_ref);
+    }
+
+    function fulfill(u256 agreement_id, bytes32 settlement_ref) public {
+        require(agreement_status[agreement_id] == STATUS_ACCEPTED, "NOT_ACCEPTED");
+        require(msg.sender == agreement_creator[agreement_id] || msg.sender == agreement_counterparty[agreement_id], "NOT_PARTY");
+        set agreement_status[agreement_id] = STATUS_FULFILLED;
+        set agreement_settlement_ref[agreement_id] = settlement_ref;
+        emit OfferFulfilled(agreement_id, settlement_ref);
+    }
+
+    function expire(u256 agreement_id) public {
+        require(agreement_status[agreement_id] == STATUS_OPEN, "NOT_OPEN");
+        require(block.timestamp_ms >= agreement_expiry_ms[agreement_id], "NOT_EXPIRED");
+        set agreement_status[agreement_id] = STATUS_EXPIRED;
+        emit OfferExpired(agreement_id);
+    }
+
+    @verifiable
+    function statusOf(u256 agreement_id) public view returns (u256 status) {
+        return u256(agreement_status[agreement_id]);
+    }
+
+    @verifiable
+    function quoteRefOf(u256 agreement_id) public view returns (bytes32 quote_ref) {
+        return agreement_quote_ref[agreement_id];
+    }
+
+    @verifiable
+    function counterpartyOf(u256 agreement_id) public view returns (agent counterparty) {
+        return agreement_counterparty[agreement_id];
+    }
+
+    @verifiable
+    function settlementRefOf(u256 agreement_id) public view returns (bytes32 settlement_ref) {
+        return agreement_settlement_ref[agreement_id];
+    }
+
+    function createInvoice(agent payer, u256 amount, u256 due_ms, bytes32 terms_ref) public returns (u256 agreement_id) {
+        require(payer != agent(0), "ZERO_PAYER");
+        require(payer != msg.sender, "SELF_PAYER");
+        require(amount > 0, "ZERO_AMOUNT");
+        require(due_ms > block.timestamp_ms, "DUE_PAST");
+
+        agreement_id = next_agreement_id;
+        set next_agreement_id = next_agreement_id + 1;
+
+        set agreement_creator[agreement_id] = msg.sender;
+        set agreement_counterparty[agreement_id] = payer;
+        set agreement_amount[agreement_id] = amount;
+        set agreement_expiry_ms[agreement_id] = due_ms;
+        set agreement_terms_ref[agreement_id] = terms_ref;
+        set agreement_status[agreement_id] = STATUS_OPEN;
+        set agreement_type[agreement_id] = TYPE_INVOICE;
+
+        emit InvoiceCreated(agreement_id, msg.sender, payer, amount, due_ms, terms_ref);
+    }
+
+    @verifiable
+    function agreementTypeOf(u256 agreement_id) public view returns (u256 atype) {
+        return u256(agreement_type[agreement_id]);
+    }
+}

@@ -111,7 +111,7 @@ Operations that should remain as Stage 2 host functions indefinitely:
 - [ ] `tos.agentload` implemented in LVM with StateDB agent identity
 - [ ] Test harness implementations removed or reduced to thin wrappers over LVM primitives
 - [ ] Gas costs defined for all Stage 2 primitives
-- [ ] Existing stdlib contracts work unchanged after primitive promotion
+- [ ] Existing openlib contracts work unchanged after primitive promotion
 
 ---
 

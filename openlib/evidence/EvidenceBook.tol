@@ -1,0 +1,166 @@
+pragma tolang 0.4.0;
+
+package tolang.openlib.evidence;
+
+// EvidenceBook — attested value records with proof references and challenge windows.
+
+interface IEvidenceBook {
+    event AttesterAuthorized(agent indexed attester, bool enabled)
+    event EvidenceOpened(
+        bytes32 indexed evidence_id,
+        bytes32 indexed claim_ref,
+        agent indexed attester,
+        u256 expiry_ms,
+        u256 challenge_window_ms
+    )
+    event EvidenceFulfilled(bytes32 indexed evidence_id, u256 value, bytes32 proof_ref)
+    event EvidenceChallenged(bytes32 indexed evidence_id, bytes32 challenge_ref)
+    event EvidenceFinalized(bytes32 indexed evidence_id)
+
+    function setAttester(agent attester, bool enabled) public;
+    function openEvidence(
+        bytes32 evidence_id,
+        bytes32 claim_ref,
+        agent attester,
+        u256 expiry_ms,
+        u256 challenge_window_ms
+    ) public;
+    function fulfill(bytes32 evidence_id, u256 value, bytes32 proof_ref) public;
+    function challenge(bytes32 evidence_id, bytes32 challenge_ref) public;
+    function finalize(bytes32 evidence_id) public;
+
+    @verifiable
+    function readValue(bytes32 evidence_id) public view returns (u256 value);
+
+    @verifiable
+    function statusOf(bytes32 evidence_id) public view returns (u256 status);
+
+    @verifiable
+    function proofRefOf(bytes32 evidence_id) public view returns (bytes32 proof_ref);
+
+    @verifiable
+    function isFinalized(bytes32 evidence_id) public view returns (bool ok);
+}
+
+contract EvidenceBook is IEvidenceBook {
+    manifest {
+        name: "EvidenceBook";
+        version: "1.0.0";
+        description: "Attested value records with designated attesters, proof refs, expiry, and challenge windows";
+    }
+
+    u8 constant STATUS_NONE = 0;
+    u8 constant STATUS_OPEN = 1;
+    u8 constant STATUS_FULFILLED = 2;
+    u8 constant STATUS_CHALLENGED = 3;
+    u8 constant STATUS_FINAL = 4;
+
+    agent owner;
+    mapping(agent => bool) authorized_attester;
+
+    mapping(bytes32 => u8) evidence_status;
+    mapping(bytes32 => bytes32) evidence_claim_ref;
+    mapping(bytes32 => agent) evidence_attester;
+    mapping(bytes32 => u256) evidence_expiry_ms;
+    mapping(bytes32 => u256) evidence_challenge_window_ms;
+    mapping(bytes32 => u256) evidence_value;
+    mapping(bytes32 => bytes32) evidence_proof_ref;
+    mapping(bytes32 => bytes32) evidence_challenge_ref;
+    mapping(bytes32 => u256) evidence_fulfilled_at_ms;
+
+    event AttesterAuthorized(agent indexed attester, bool enabled)
+    event EvidenceOpened(
+        bytes32 indexed evidence_id,
+        bytes32 indexed claim_ref,
+        agent indexed attester,
+        u256 expiry_ms,
+        u256 challenge_window_ms
+    )
+    event EvidenceFulfilled(bytes32 indexed evidence_id, u256 value, bytes32 proof_ref)
+    event EvidenceChallenged(bytes32 indexed evidence_id, bytes32 challenge_ref)
+    event EvidenceFinalized(bytes32 indexed evidence_id)
+
+    constructor(agent _owner) {
+        require(_owner != agent(0), "ZERO_OWNER");
+        set owner = _owner;
+    }
+
+    function setAttester(agent attester, bool enabled) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(attester != agent(0), "ZERO_ATTESTER");
+        set authorized_attester[attester] = enabled;
+        emit AttesterAuthorized(attester, enabled);
+    }
+
+    function openEvidence(
+        bytes32 evidence_id,
+        bytes32 claim_ref,
+        agent attester,
+        u256 expiry_ms,
+        u256 challenge_window_ms
+    ) public {
+        require(msg.sender == owner, "NOT_OWNER");
+        require(evidence_id != bytes32(0), "ZERO_EVIDENCE");
+        require(evidence_status[evidence_id] == STATUS_NONE, "EVIDENCE_EXISTS");
+        require(authorized_attester[attester] == true, "ATTESTER_NOT_AUTHORIZED");
+        require(expiry_ms > block.timestamp_ms, "EXPIRY_PAST");
+
+        set evidence_status[evidence_id] = STATUS_OPEN;
+        set evidence_claim_ref[evidence_id] = claim_ref;
+        set evidence_attester[evidence_id] = attester;
+        set evidence_expiry_ms[evidence_id] = expiry_ms;
+        set evidence_challenge_window_ms[evidence_id] = challenge_window_ms;
+
+        emit EvidenceOpened(evidence_id, claim_ref, attester, expiry_ms, challenge_window_ms);
+    }
+
+    function fulfill(bytes32 evidence_id, u256 value, bytes32 proof_ref) public {
+        require(evidence_status[evidence_id] == STATUS_OPEN, "NOT_OPEN");
+        require(msg.sender == evidence_attester[evidence_id], "NOT_ATTESTER");
+        require(block.timestamp_ms < evidence_expiry_ms[evidence_id], "EXPIRED");
+
+        set evidence_status[evidence_id] = STATUS_FULFILLED;
+        set evidence_value[evidence_id] = value;
+        set evidence_proof_ref[evidence_id] = proof_ref;
+        set evidence_fulfilled_at_ms[evidence_id] = block.timestamp_ms;
+
+        emit EvidenceFulfilled(evidence_id, value, proof_ref);
+    }
+
+    function challenge(bytes32 evidence_id, bytes32 challenge_ref) public {
+        require(evidence_status[evidence_id] == STATUS_FULFILLED, "NOT_FULFILLED");
+        require(block.timestamp_ms < evidence_fulfilled_at_ms[evidence_id] + evidence_challenge_window_ms[evidence_id], "CHALLENGE_WINDOW_CLOSED");
+        set evidence_status[evidence_id] = STATUS_CHALLENGED;
+        set evidence_challenge_ref[evidence_id] = challenge_ref;
+        emit EvidenceChallenged(evidence_id, challenge_ref);
+    }
+
+    function finalize(bytes32 evidence_id) public {
+        require(evidence_status[evidence_id] == STATUS_FULFILLED, "NOT_FINALIZABLE");
+        require(block.timestamp_ms >= evidence_fulfilled_at_ms[evidence_id] + evidence_challenge_window_ms[evidence_id], "CHALLENGE_WINDOW");
+        set evidence_status[evidence_id] = STATUS_FINAL;
+        emit EvidenceFinalized(evidence_id);
+    }
+
+    @verifiable
+    function readValue(bytes32 evidence_id) public view returns (u256 value) {
+        u8 status = evidence_status[evidence_id];
+        require(status == STATUS_FULFILLED || status == STATUS_FINAL, "NOT_FULFILLED");
+        return evidence_value[evidence_id];
+    }
+
+    @verifiable
+    function statusOf(bytes32 evidence_id) public view returns (u256 status) {
+        return u256(evidence_status[evidence_id]);
+    }
+
+    @verifiable
+    function proofRefOf(bytes32 evidence_id) public view returns (bytes32 proof_ref) {
+        return evidence_proof_ref[evidence_id];
+    }
+
+    @verifiable
+    function isFinalized(bytes32 evidence_id) public view returns (bool ok) {
+        return evidence_status[evidence_id] == STATUS_FINAL;
+    }
+}

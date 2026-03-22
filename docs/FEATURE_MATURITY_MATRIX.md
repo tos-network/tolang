@@ -38,9 +38,9 @@ This distinction is essential for technical credibility. Tolang already has a st
 | `capability` declarations | ✅ | ✅ | ✅ | ✅ | partial | Compiler-Complete / Runtime-Dependent |
 | `@requires(...)` | ✅ | ✅ | ✅ | ✅ | ✅ | Implemented Today — full pipeline + `tos.hascapability` runtime preamble; 3 tests |
 | `agent` type | ✅ | ✅ | ✅ | partial | depends on registry | Compiler-Complete / Runtime-Dependent |
-| `oracle<T>` (removed) | — | — | — | — | — | Removed — use stdlib/Oracle.tol pattern |
-| `vote<T>` (removed) | — | — | — | — | — | Removed — use stdlib/Vote.tol pattern |
-| `task<T>` (removed) | — | — | — | — | — | Removed — use stdlib/Task.tol pattern |
+| `oracle<T>` (removed) | — | — | — | — | — | Removed — use openlib/Oracle.tol pattern |
+| `vote<T>` (removed) | — | — | — | — | — | Removed — use openlib/Vote.tol pattern |
+| `task<T>` (removed) | — | — | — | — | — | Removed — use openlib/Task.tol pattern |
 | `@delegated` | ✅ | ✅ | ✅ | ✅ | depends on delegation infra | Compiler-Complete / Runtime-Dependent |
 | `@verifiable` | ✅ | ✅ | ✅ | ✅ | depends on verifier/proof flow | Compiler-Complete / Runtime-Dependent |
 | `@pay` | ✅ | ✅ | ✅ | ✅ | depends on settlement rules | Compiler-Complete / Runtime-Dependent |

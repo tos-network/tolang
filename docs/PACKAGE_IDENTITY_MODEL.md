@@ -18,11 +18,11 @@ content-addressed publishing or cross-environment reproducibility.
 
 | Component | How it works today | Limitation |
 |-----------|-------------------|------------|
-| Package name | Derived from source directory path (e.g., `tolang.stdlib.account`) | Tied to filesystem layout |
+| Package name | Derived from source directory path (e.g., `tolang.openlib.account`) | Tied to filesystem layout |
 | Import resolution | Compiler walks directories relative to `--pkg-root` | Breaks when source tree moves |
 | `.tor` archives | ZIP containing bytecode + ABI + init; identified by `package_hash` (keccak256 of archive) | Content-addressed but not version-resolved |
 | `manifest.json` | Optional version string in contract manifest block | Not enforced by toolchain |
-| `stdlib/releases/index.json` | Maps family/contract to release paths and hashes | Flat file; no dependency resolution |
+| `openlib/releases/index.json` | Maps family/contract to release paths and hashes | Flat file; no dependency resolution |
 | `.agentpkg.json` | Per-contract and per-bundle metadata with `package_name` and `package_version` | Name is dot-path from source, not a stable identifier |
 
 The `package_hash` in `ArtifactRef` is already content-addressed. The gap is
@@ -37,7 +37,7 @@ source layout and supports version resolution at import time.
 
 A package is identified by a triple: `(name, version, content_hash)`.
 
-- **name**: reverse-domain style, declared in source (`package tolang.stdlib.account;`)
+- **name**: reverse-domain style, declared in source (`package tolang.openlib.account;`)
   rather than inferred from directory path
 - **version**: semver, declared in manifest block, enforced by compiler
 - **content_hash**: keccak256 of the `.tor` archive (already computed as `package_hash`)
@@ -48,7 +48,7 @@ by path.
 
 ### Import resolution
 
-Current: `import "tolang/stdlib/account" as Account;` resolves to a filesystem path.
+Current: `import "tolang/openlib/account" as Account;` resolves to a filesystem path.
 
 Proposed: resolution order becomes:
 
@@ -62,7 +62,7 @@ behavior is identical to today (local-only).
 ### Publishing pipeline
 
 ```
-tol publish --name tolang.stdlib.account --version 1.0.0
+tol publish --name tolang.openlib.account --version 1.0.0
 ```
 
 1. Compile source to `.tor` archive
@@ -80,8 +80,8 @@ A new `requires` block in the manifest:
 manifest {
     version = "1.0.0";
     requires = {
-        "tolang.stdlib.authority" = "^1.0.0",
-        "tolang.stdlib.receipt" = "^1.0.0"
+        "tolang.openlib.authority" = "^1.0.0",
+        "tolang.openlib.receipt" = "^1.0.0"
     };
 }
 ```
@@ -89,9 +89,9 @@ manifest {
 The compiler resolves dependencies before compilation. Version constraints
 use semver ranges. The resolved versions are locked in a `tol.lock` file.
 
-### Relation to `stdlib/releases/`
+### Relation to `openlib/releases/`
 
-The current `stdlib/releases/` pipeline produced by `cmd/stdlib-export` becomes
+The current `openlib/releases/` pipeline produced by `cmd/openlib-export` becomes
 the seed content for the package cache. `index.json` evolves into a registry
 index format. Existing hashes and paths remain valid.
 
@@ -113,7 +113,7 @@ index format. Existing hashes and paths remain valid.
 - [ ] `--pkg-registry` flag enables remote package resolution
 - [ ] Published packages are identified by `(name, version, content_hash)` triple
 - [ ] `tol.lock` file records resolved dependency versions
-- [ ] `stdlib/releases/index.json` format is forward-compatible with registry index
+- [ ] `openlib/releases/index.json` format is forward-compatible with registry index
 - [ ] Existing compile paths (`--pkg-root`) continue to work unchanged
 - [ ] `.tor` content hashes are stable across publish/install cycles
 
@@ -123,5 +123,5 @@ index format. Existing hashes and paths remain valid.
 
 - `docs/TOLANG_SHORTCOMINGS.md` -- shortcoming #4 (filesystem-dependent resolution)
 - `docs/AGENT_NATIVE_STDLIB_2046.md` -- package families and release pipeline
-- `stdlib/releases/index.json` -- current release index format
+- `openlib/releases/index.json` -- current release index format
 - `metadata/metadata.go` -- `ArtifactRef.PackageHash` and `ArtifactRef.Version`

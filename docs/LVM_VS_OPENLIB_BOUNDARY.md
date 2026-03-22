@@ -163,3 +163,36 @@ P-1 is considered complete when:
   reconstruction logic
 
 That bar is now met.
+
+---
+
+## P-2 adoption result
+
+P-2 is now the proof that this boundary is implementable in code, not only in
+metadata.
+
+The developer-facing settlement entry layer has been normalized onto the
+Tolang `settlement.*` helper surface, while GTOS still owns the underlying
+protocol semantics:
+
+- `settlement.openReceipt(...)`
+- `settlement.transferPublic(...)`
+- `settlement.refundPublic(...)`
+- `settlement.releaseEscrowPublic(...)`
+- `settlement.transferUno(...)`
+- `settlement.refundUno(...)`
+
+That helper layer now backs openlib settlement adoption in:
+
+- `openlib/settlement/TaskSettlement.tol`
+- `openlib/settlement/RecurringPayment.tol`
+- `openlib/privacy/ConfidentialEscrow.tol`
+- `openlib/privacy/ConfidentialTreasury.tol`
+- `openlib/sponsor/SponsorPolicyRelay.tol`
+
+So the architecture line is now concrete:
+
+- GTOS / LVM owns settlement-bus truth, receipt state, rollback, and effect
+  inspection.
+- openlib owns the developer-facing economic flow shape that contract authors
+  actually compose.

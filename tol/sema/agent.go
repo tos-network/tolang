@@ -183,6 +183,36 @@ func checkAgentBodyCalls(filename string, stmts []ast.Statement, isDelegated, is
 					}
 				}
 			}
+			if obj != nil && obj.Kind == "ident" &&
+				strings.TrimSpace(obj.Value) == "settlement" {
+				method := strings.TrimSpace(callee.Member)
+				switch method {
+				case "openReceipt":
+					if len(e.Args) != 2 {
+						*diags = append(*diags, diag.Diagnostic{
+							Code:    diag.CodeAgentDelegateVerifyOutside,
+							Message: "settlement.openReceipt() requires exactly 2 arguments: (receipt_ref, kind)",
+							Span:    defaultSpan(filename),
+						})
+					}
+				case "transferPublic", "refundPublic", "transferUno", "refundUno":
+					if len(e.Args) < 4 || len(e.Args) > 6 {
+						*diags = append(*diags, diag.Diagnostic{
+							Code:    diag.CodeAgentDelegateVerifyOutside,
+							Message: fmt.Sprintf("settlement.%s() requires 4 to 6 arguments", method),
+							Span:    defaultSpan(filename),
+						})
+					}
+				case "releaseEscrowPublic":
+					if len(e.Args) < 5 || len(e.Args) > 7 {
+						*diags = append(*diags, diag.Diagnostic{
+							Code:    diag.CodeAgentDelegateVerifyOutside,
+							Message: "settlement.releaseEscrowPublic() requires 5 to 7 arguments",
+							Span:    defaultSpan(filename),
+						})
+					}
+				}
+			}
 		}
 		if callee.Kind != "ident" {
 			return

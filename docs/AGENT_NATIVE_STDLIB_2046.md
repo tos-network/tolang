@@ -1352,18 +1352,28 @@ The next post-closure wave is now:
    dedicated design home at `docs/LVM_VS_OPENLIB_BOUNDARY.md`, explicitly
    distinguishing GTOS-native protocol semantics, preferred openlib
    entrypoints, and future system-contract targets.
-2. `Settlement-bus adoption cleanup`
-   standardize how openlib and higher-level runtimes consume
-   `tos.settle(...)`, `tos.receipt_*`, and runtime settlement records so
-   public rail, UNO rail, escrow, sponsor, and receipt flows converge on one
-   stable developer-facing model.
-3. `OpenFox / SDK orchestration policy layer`
-   lift discovery/runtime/trust/fallback logic into reusable execution policy
-   bundles so planner/executor paths stop embedding one-off selection logic.
-4. `Governance v2 hardening`
-   extend registry/package governance beyond v1 lifecycle metadata and basic
-   governor override into clearer dispute, namespace, revocation-propagation,
-   and operator workflow semantics.
+2. `Settlement-bus adoption cleanup` — **RESOLVED (2026-03-22)**
+   Tolang lowering now exposes a focused `settlement.*` helper namespace over
+   GTOS-native settlement-bus primitives, and openlib adoption is now in
+   place across `TaskSettlement`, `RecurringPayment`, `ConfidentialEscrow`,
+   `ConfidentialTreasury`, and `SponsorPolicyRelay`, with runtime/composed
+   rollback coverage migrated onto `tos.settle(...)`, `tos.settle_refund(...)`,
+   and `tos.settle_escrow(...)` instead of legacy ad hoc hooks.
+3. `OpenFox / SDK orchestration policy layer` — **RESOLVED (2026-03-22)**
+   OpenFox and `tosdk` now expose reusable execution-policy bundles over the
+   discovery/provider-selection stack: capability-family defaults now control
+   search depth, preferred provider modes, advertised-fee preference, and
+   fallback depth, while planner/executor-facing request paths consume those
+   bundles instead of embedding helper-by-helper ranking rules.
+4. `Governance v2 hardening` — **RESOLVED (2026-03-22)**
+   package governance now extends beyond v1 lifecycle timestamps and basic
+   governor override into explicit namespace dispute/freeze workflows,
+   revocation propagation across `packagelatest` / trust evaluation /
+   runtime inspection, and clearer operator-facing lifecycle semantics via
+   `effective_status`, `namespace_status`, `updated_by`, and `status_ref`
+   across the package/publisher query surfaces. The same operator-facing
+   lifecycle facts now also extend across capability, delegation, verifier,
+   verification-claim, and pay-policy registry projections.
 
 Execution prompt for this GTOS-owned wave:
 

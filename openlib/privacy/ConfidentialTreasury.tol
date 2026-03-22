@@ -59,6 +59,7 @@ contract ConfidentialTreasury is IConfidentialTreasury {
     u8 constant STATUS_PENDING = 1;
     u8 constant STATUS_EXECUTED = 2;
     u8 constant STATUS_CANCELLED = 3;
+    u8 constant RUNTIME_RECEIPT_TREASURY = 4;
 
     uno treasury_balance;
     agent owner;
@@ -99,7 +100,14 @@ contract ConfidentialTreasury is IConfidentialTreasury {
         uno new_balance = treasury_balance.sub(amount);
         require(new_balance.gte(uno.zero()), "INSUFFICIENT_BALANCE");
         set treasury_balance = new_balance;
-        uno.transfer(msg.sender, amount);
+        settlement.transferUno(
+            msg.sender,
+            amount,
+            receipt_ref,
+            RUNTIME_RECEIPT_TREASURY,
+            bytes32(0),
+            bytes32(0)
+        );
         emit TreasuryWithdrawn(msg.sender, amount, receipt_ref);
     }
 
@@ -142,7 +150,14 @@ contract ConfidentialTreasury is IConfidentialTreasury {
 
         set spend_status[spend_id] = STATUS_EXECUTED;
         set treasury_balance = new_balance;
-        uno.transfer(spend_recipient[spend_id], amount);
+        settlement.transferUno(
+            spend_recipient[spend_id],
+            amount,
+            spend_id,
+            RUNTIME_RECEIPT_TREASURY,
+            spend_purpose_ref[spend_id],
+            settlement_ref
+        );
 
         emit SpendExecuted(spend_id, settlement_ref);
     }

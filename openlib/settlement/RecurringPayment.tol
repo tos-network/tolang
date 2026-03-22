@@ -63,6 +63,7 @@ contract RecurringPayment is IRecurringPayment {
     u8 constant STATUS_PAUSED = 2;
     u8 constant STATUS_CANCELLED = 3;
     u8 constant STATUS_COMPLETED = 4;
+    u8 constant RUNTIME_RECEIPT_SUBSCRIPTION = 2;
 
     agent coordinator;
 
@@ -137,7 +138,15 @@ contract RecurringPayment is IRecurringPayment {
         set sub_last_payment_ms[subscription_id] = block.timestamp_ms;
         set sub_deposit[subscription_id] = sub_deposit[subscription_id] - amount;
 
-        release(provider, amount);
+        settlement.releaseEscrowPublic(
+            provider,
+            amount,
+            receipt_ref,
+            RUNTIME_RECEIPT_SUBSCRIPTION,
+            0,
+            bytes32(0),
+            sub_agreement_ref[subscription_id]
+        );
         emit PaymentExecuted(subscription_id, provider, cycles_done, receipt_ref);
 
         if (cycles_done == sub_max_cycles[subscription_id]) {
@@ -155,7 +164,15 @@ contract RecurringPayment is IRecurringPayment {
         set sub_deposit[subscription_id] = 0;
 
         if (remaining > 0) {
-            release(msg.sender, remaining);
+            settlement.releaseEscrowPublic(
+                msg.sender,
+                remaining,
+                bytes32(0),
+                RUNTIME_RECEIPT_SUBSCRIPTION,
+                0,
+                bytes32(0),
+                reason_ref
+            );
         }
 
         emit SubscriptionCancelled(subscription_id, msg.sender, reason_ref);

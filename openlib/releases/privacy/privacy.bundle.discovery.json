@@ -4,7 +4,7 @@
   "package_version": "1.0.0",
   "source_package_path": "tolang.openlib.privacy",
   "tor_path": "openlib/releases/privacy/privacy.tor",
-  "package_hash": "0x42da21b2d1c6a2487f4fc80789c5ff516b40e4b22f1eaad7e8f1944a9ac45296",
+  "package_hash": "0x39e1e7f722925b48583d5b99e59892694ed21e14a9816dccf5f552ca11459162",
   "service_kinds": [
     "balance_query",
     "query",
@@ -23,9 +23,9 @@
       "package_name": "tolang.openlib.privacy.confidential_escrow",
       "package_version": "1.0.0",
       "artifact_ref": {
-        "package_hash": "0x16cd49fa80f3f0f3f55c0fd8e706ddb1f5c95a9512393b609882966a6fc34dbf",
-        "bytecode_hash": "0xda7393c6cad72959acc4c443562cdcd535b89d912227bb5b925ce6492b134a62",
-        "source_hash": "0xa5ed5c16b67a42ed6e5054ed99d696c932ffe2028e6a75df8ac74a435b1cbdf9",
+        "package_hash": "0x71fb272743aea8f2aacba60056a19e38ca7cbc997ff5a0b762799d9d738ca276",
+        "bytecode_hash": "0x63a4d612fa7bcccc6b4bd3a134839a3a91993beecdf5d5d7e40fbb324ee06197",
+        "source_hash": "0xf792ea68d1d12ed2a3cafdcc8c1c68e63fd454f95aca779a54097e47301a33f6",
         "abi_hash": "0xa909bbe80e48cbcd85c96347e1ee8d26a0994747ba736e2cacad414dc9d06fc4",
         "version": "1.0.0"
       },

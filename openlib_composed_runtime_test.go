@@ -1262,25 +1262,28 @@ func TestPrivateDisputeEscrowRefundTransferFailureKeepsStateConsistent(t *testin
 	defer coordL.Close()
 
 	failRefundTransfer := false
-	ctTable := escrowL.GetField(escrowHost.tosTable, "ciphertext").(*LTable)
+	origSettleRefund := escrowL.GetField(escrowHost.tosTable, "settle_refund")
 	failRefundTransferFn := escrowL.NewFunction(func(L *LState) int {
 		if failRefundTransfer {
 			L.RaiseError("UNO_TRANSFER_FAILED")
 			return 0
 		}
-		addr := LVAsString(L.CheckAny(1))
-		amount := openlibParseUnoString(LVAsString(L.CheckAny(2)))
-		openlibRememberAgentString(escrowHost, addr)
-		escrowHost.unoTransferCount++
-		escrowHost.lastUnoTransferAddr = addr
-		escrowHost.lastUnoTransferAmount = openlibUnoStringFromBigInt(amount)
-		next := openlibNativeUnoBalance(escrowHost, addr)
-		next.Add(next, amount)
-		escrowHost.nativeUnoBalances[addr] = next
-		return 0
+		base := L.GetTop()
+		args := make([]LValue, base)
+		for i := 1; i <= base; i++ {
+			args[i-1] = L.Get(i)
+		}
+		if err := L.CallByParam(P{Fn: origSettleRefund, NRet: 1, Protect: true}, args...); err != nil {
+			L.SetTop(base)
+			L.RaiseError("%v", err)
+			return 0
+		}
+		ret := L.Get(-1)
+		L.SetTop(base)
+		L.Push(ret)
+		return 1
 	})
-	escrowL.SetField(ctTable, "transfer", failRefundTransferFn)
-	escrowL.SetField(escrowHost.tosTable, "uno_transfer", failRefundTransferFn)
+	escrowL.SetField(escrowHost.tosTable, "settle_refund", failRefundTransferFn)
 
 	deps := map[string]*openlibDeployedPackageContract{
 		escrowAddr:     {name: "ConfidentialEscrow", addr: escrowAddr, L: escrowL, tos: escrowTOS, host: escrowHost},
@@ -1875,21 +1878,28 @@ func TestTaskSettlementAtomicApproveRelease(t *testing.T) {
 	settlementL2 := NewState()
 	defer settlementL2.Close()
 	settlementHost2 := installOpenlibRuntimeHost(settlementL2)
-	// Replace release with a conditional-fail version BEFORE loading bytecode,
-	// so that __tol_release captures this function.
-	settlementL2.SetField(settlementHost2.tosTable, "release", settlementL2.NewFunction(func(L *LState) int {
+	// Replace settlement bus escrow release with a conditional-fail version
+	// BEFORE loading bytecode, so the settlement helper prelude captures it.
+	origSettleEscrow := settlementL2.GetField(settlementHost2.tosTable, "settle_escrow")
+	settlementL2.SetField(settlementHost2.tosTable, "settle_escrow", settlementL2.NewFunction(func(L *LState) int {
 		if failRelease {
 			L.RaiseError("RELEASE_FAILED")
 			return 0
 		}
-		settlementHost2.releaseCount++
-		if L.GetTop() >= 1 {
-			settlementHost2.lastReleaseAddr = LVAsString(L.CheckAny(1))
+		base := L.GetTop()
+		args := make([]LValue, base)
+		for i := 1; i <= base; i++ {
+			args[i-1] = L.Get(i)
 		}
-		if L.GetTop() >= 2 {
-			settlementHost2.lastReleaseAmt = LVAsString(L.CheckAny(2))
+		if err := settlementL2.CallByParam(P{Fn: origSettleEscrow, NRet: 1, Protect: true}, args...); err != nil {
+			settlementL2.SetTop(base)
+			settlementL2.RaiseError("%v", err)
+			return 0
 		}
-		return 0
+		ret := settlementL2.Get(-1)
+		settlementL2.SetTop(base)
+		settlementL2.Push(ret)
+		return 1
 	}))
 
 	repoRoot2, err2 := os.Getwd()
@@ -2109,26 +2119,33 @@ func TestComposedSettleReceiptEscrowRollback(t *testing.T) {
 	receiptL, receiptTOS, receiptHost := deployOpenlibContract(t, "openlib/receipt/ReceiptBook.tol", LString(coordinatorAddr))
 	defer receiptL.Close()
 
-	// Deploy a fresh escrow with a ciphertext.transfer that can fail.
+	// Deploy a fresh escrow with a settlement bus transfer path that can fail.
 	failTransfer := false
 	escrowL := NewState()
 	defer escrowL.Close()
 	escrowHost := installOpenlibRuntimeHost(escrowL)
-	ctTable := escrowL.GetField(escrowHost.tosTable, "ciphertext")
+	origSettle := escrowL.GetField(escrowHost.tosTable, "settle")
 	failTransferFn := escrowL.NewFunction(func(L *LState) int {
 		if failTransfer {
 			L.RaiseError("UNO_TRANSFER_FAILED")
 			return 0
 		}
-		addr := LVAsString(L.CheckAny(1))
-		amount := openlibParseUnoString(LVAsString(L.CheckAny(2)))
-		escrowHost.unoTransferCount++
-		escrowHost.lastUnoTransferAddr = addr
-		escrowHost.lastUnoTransferAmount = openlibUnoStringFromBigInt(amount)
-		return 0
+		base := L.GetTop()
+		args := make([]LValue, base)
+		for i := 1; i <= base; i++ {
+			args[i-1] = L.Get(i)
+		}
+		if err := escrowL.CallByParam(P{Fn: origSettle, NRet: 1, Protect: true}, args...); err != nil {
+			escrowL.SetTop(base)
+			escrowL.RaiseError("%v", err)
+			return 0
+		}
+		ret := escrowL.Get(-1)
+		escrowL.SetTop(base)
+		escrowL.Push(ret)
+		return 1
 	})
-	escrowL.SetField(ctTable.(*LTable), "transfer", failTransferFn)
-	escrowL.SetField(escrowHost.tosTable, "uno_transfer", failTransferFn)
+	escrowL.SetField(escrowHost.tosTable, "settle", failTransferFn)
 
 	repoRoot, err := os.Getwd()
 	if err != nil {
@@ -2205,7 +2222,7 @@ func TestComposedSettleReceiptEscrowRollback(t *testing.T) {
 	invokeOpenlib(t, receiptL, receiptTOS, "finalizeSuccess(bytes32,bytes32,bytes32)",
 		LString(receiptID), LString(openlibBytes32("a")), LString(openlibBytes32("b")))
 
-	// Step 2: releaseEscrow on escrow (will fail because we enable failTransfer).
+	// Step 2: releaseEscrow on escrow (will fail because the settlement bus transfer fails).
 	failTransfer = true
 	openlibSetSender(escrowHost, coordinatorAddr)
 	errMsg := invokeOpenlibErr(t, escrowL, escrowTOS, "releaseEscrow(bytes32,bytes32)",
@@ -2260,16 +2277,13 @@ func TestConfidentialEscrowRollbackOnFailedRelease(t *testing.T) {
 		t.Fatalf("escrow status should be OPEN (1), got %s", got)
 	}
 
-	// Replace the ciphertext transfer function to simulate UNO transfer failure.
-	ctTable := escrowL.GetField(escrowHost.tosTable, "ciphertext")
-	origTransfer := escrowL.GetField(ctTable.(*LTable), "transfer")
-	origUnoTransfer := escrowL.GetField(escrowHost.tosTable, "uno_transfer")
+	// Replace settlement bus transfer to simulate UNO transfer failure.
+	origSettle := escrowL.GetField(escrowHost.tosTable, "settle")
 	failTransferFn := escrowL.NewFunction(func(L *LState) int {
 		L.RaiseError("UNO_BRIDGE_FAILED")
 		return 0
 	})
-	escrowL.SetField(ctTable.(*LTable), "transfer", failTransferFn)
-	escrowL.SetField(escrowHost.tosTable, "uno_transfer", failTransferFn)
+	escrowL.SetField(escrowHost.tosTable, "settle", failTransferFn)
 
 	// Attempt release -- should fail because UNO transfer fails.
 	openlibSetSender(escrowHost, coordinatorAddr)
@@ -2278,9 +2292,8 @@ func TestConfidentialEscrowRollbackOnFailedRelease(t *testing.T) {
 		t.Fatalf("expected UNO_BRIDGE_FAILED, got %q", errMsg)
 	}
 
-	// Restore transfer.
-	escrowL.SetField(ctTable.(*LTable), "transfer", origTransfer)
-	escrowL.SetField(escrowHost.tosTable, "uno_transfer", origUnoTransfer)
+	// Restore settlement transfer.
+	escrowL.SetField(escrowHost.tosTable, "settle", origSettle)
 
 	// Escrow must still be OPEN (1), not RELEASED (2).
 	statusAfter := LVAsString(invokeOpenlib(t, escrowL, escrowTOS, "statusOf(bytes32)", LString(escrowID)))

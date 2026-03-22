@@ -3,8 +3,8 @@
   "identity": {
     "package_name": "tolang.openlib.settlement",
     "package_version": "1.0.0",
-    "content_hash": "0xfd1c809ff78597aee02f2757b8d2348763a52db28fa984e6b920c9100c952b24",
-    "bytecode_hash": "0xf996831a6c1af1dbce308b7ef23a1fdb760818a8ba1a47849ee769ed8775271a",
+    "content_hash": "0xba7aa7d7903e56e72cf0c3a5507f79c1c11ff2044419fee8f31b3628483e8bde",
+    "bytecode_hash": "0x542f5c96da0b17d32dc0997225f0b2c23f29bbe786639b0be3c1fe6d646e4d09",
     "abi_hash": "0xd5b671ac6deb748de276054f23609b15dcc2aea8edba943a7fb02e39c666b4b4"
   },
   "contract": {

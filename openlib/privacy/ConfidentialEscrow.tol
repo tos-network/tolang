@@ -55,6 +55,7 @@ contract ConfidentialEscrow is IConfidentialEscrow {
     u8 constant STATUS_OPEN = 1;
     u8 constant STATUS_RELEASED = 2;
     u8 constant STATUS_REFUNDED = 3;
+    u8 constant RUNTIME_RECEIPT_CONFIDENTIAL_ESCROW = 3;
 
     agent resolver;
 
@@ -108,7 +109,14 @@ contract ConfidentialEscrow is IConfidentialEscrow {
 
         set escrow_status[escrow_id] = STATUS_RELEASED;
         set escrow_settlement_ref[escrow_id] = settlement_ref;
-        uno.transfer(escrow_payee[escrow_id], escrow_amount[escrow_id]);
+        settlement.transferUno(
+            escrow_payee[escrow_id],
+            escrow_amount[escrow_id],
+            escrow_receipt_ref[escrow_id],
+            RUNTIME_RECEIPT_CONFIDENTIAL_ESCROW,
+            bytes32(0),
+            settlement_ref
+        );
 
         emit EscrowReleased(escrow_id, msg.sender, settlement_ref);
     }
@@ -124,7 +132,14 @@ contract ConfidentialEscrow is IConfidentialEscrow {
 
         set escrow_status[escrow_id] = STATUS_REFUNDED;
         set escrow_reason_ref[escrow_id] = reason_ref;
-        uno.transfer(refundee, escrow_amount[escrow_id]);
+        settlement.refundUno(
+            refundee,
+            escrow_amount[escrow_id],
+            escrow_receipt_ref[escrow_id],
+            RUNTIME_RECEIPT_CONFIDENTIAL_ESCROW,
+            bytes32(0),
+            reason_ref
+        );
 
         emit EscrowRefunded(escrow_id, msg.sender, reason_ref);
     }
@@ -139,7 +154,14 @@ contract ConfidentialEscrow is IConfidentialEscrow {
 
         set escrow_status[escrow_id] = STATUS_REFUNDED;
         set escrow_reason_ref[escrow_id] = bytes32(0);
-        uno.transfer(escrow_payer[escrow_id], escrow_amount[escrow_id]);
+        settlement.refundUno(
+            escrow_payer[escrow_id],
+            escrow_amount[escrow_id],
+            escrow_receipt_ref[escrow_id],
+            RUNTIME_RECEIPT_CONFIDENTIAL_ESCROW,
+            bytes32(0),
+            bytes32(0)
+        );
 
         emit EscrowRefunded(escrow_id, msg.sender, bytes32(0));
     }

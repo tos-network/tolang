@@ -743,6 +743,9 @@ func needsAgentNativePrelude(p *lower.Program) bool {
 		if bodyHasDelegationCall(fn.Body) {
 			return true
 		}
+		if bodyHasSettlementCall(fn.Body) {
+			return true
+		}
 	}
 	return false
 }
@@ -910,6 +913,58 @@ func exprHasEscrow(e *tolast.Expr) bool {
 	return false
 }
 
+// bodyHasSettlementCall reports whether any statement in a body calls the
+// settlement.* namespace helpers emitted by the direct lowerer.
+func bodyHasSettlementCall(stmts []tolast.Statement) bool {
+	for i := range stmts {
+		if stmtHasSettlementCall(&stmts[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+func stmtHasSettlementCall(s *tolast.Statement) bool {
+	if s == nil {
+		return false
+	}
+	for _, e := range []*tolast.Expr{s.Expr, s.Cond, s.Target, s.Post} {
+		if exprHasSettlementCall(e) {
+			return true
+		}
+	}
+	if s.Init != nil && stmtHasSettlementCall(s.Init) {
+		return true
+	}
+	return bodyHasSettlementCall(s.Then) || bodyHasSettlementCall(s.Else) || bodyHasSettlementCall(s.Body)
+}
+
+func exprHasSettlementCall(e *tolast.Expr) bool {
+	if e == nil {
+		return false
+	}
+	if e.Kind == "call" {
+		callee := stripTolParens(e.Callee)
+		if callee != nil && callee.Kind == "member" {
+			obj := stripTolParens(callee.Object)
+			if obj != nil && obj.Kind == "ident" && strings.TrimSpace(obj.Value) == "settlement" {
+				return true
+			}
+		}
+	}
+	for _, sub := range []*tolast.Expr{e.Left, e.Right, e.Callee, e.Object, e.Index} {
+		if exprHasSettlementCall(sub) {
+			return true
+		}
+	}
+	for _, a := range e.Args {
+		if exprHasSettlementCall(a) {
+			return true
+		}
+	}
+	return false
+}
+
 // hasAgentNativeSlots reports whether any storage slot uses an agent-native type (agent).
 func hasAgentNativeSlots(slots []lower.StorageSlot) bool {
 	for _, s := range slots {
@@ -998,8 +1053,20 @@ end or function(addr, field) return 0 end
 local __tol_MIN_AGENT_STAKE = tos and type(tos.min_agent_stake)=="function" and tos.min_agent_stake() or 0
 `)
 
-	// 8. Escrow/release/slash helpers — emitted when purposes are declared OR any body calls them.
-	needsEscrow := len(p.Purposes) > 0
+	needsSettlement := false
+	for _, fn := range p.Functions {
+		if bodyHasSettlementCall(fn.Body) {
+			needsSettlement = true
+			break
+		}
+	}
+	if !needsSettlement && p.HasConstructor {
+		needsSettlement = bodyHasSettlementCall(p.ConstructorBody)
+	}
+
+	// 8. Escrow/release/slash helpers — emitted when purposes are declared, any body calls them,
+	// or settlement wrappers need release() fallback for zero-receipt flows.
+	needsEscrow := len(p.Purposes) > 0 || needsSettlement
 	if !needsEscrow {
 		for _, fn := range p.Functions {
 			if programBodyHasEscrow(fn.Body) {
@@ -1016,6 +1083,114 @@ local __tol_MIN_AGENT_STAKE = tos and type(tos.min_agent_stake)=="function" and 
 local __tol_escrow  = tos and type(tos.escrow)=="function"  and tos.escrow  or function(...) error("escrow: tos unavailable") end
 local __tol_release = tos and type(tos.release)=="function" and tos.release or function(...) error("release: tos unavailable") end
 local __tol_slash   = tos and type(tos.slash)=="function"   and tos.slash   or function(...) error("slash: tos unavailable") end
+`)
+	}
+
+	if needsSettlement {
+		sb.WriteString(`
+local __tol_zero_b256 = "0x" .. string.rep("0", 64)
+
+local __tol_settlement_zero_ref = function(v)
+  if v == nil then
+    return true
+  end
+  local s = string.lower(tostring(v))
+  return s == "" or s == "0" or s == __tol_zero_b256
+end
+
+local __tol_settlement_opt_ref = function(v)
+  if __tol_settlement_zero_ref(v) then
+    return nil
+  end
+  return tostring(v)
+end
+
+local __tol_settlement_require = function(name)
+  if tos ~= nil and type(tos) == "table" and type(tos[name]) == "function" then
+    return tos[name]
+  end
+  error("settlement: tos." .. name .. " unavailable")
+end
+
+local __tol_settlement_open_receipt = function(receipt_ref, kind)
+  local ref = __tol_settlement_opt_ref(receipt_ref)
+  if ref == nil then
+    return nil
+  end
+  local info = __tol_settlement_require("receipt_info")(ref)
+  if info == nil then
+    __tol_settlement_require("receipt_open")(ref, kind)
+  end
+  return ref
+end
+
+local __tol_settlement_opts = function(proof_ref, artifact_ref, extra)
+  local opts = extra or {}
+  local proof = __tol_settlement_opt_ref(proof_ref)
+  if proof ~= nil then
+    opts.proof_ref = proof
+  end
+  local artifact = __tol_settlement_opt_ref(artifact_ref)
+  if artifact ~= nil then
+    opts.artifact_ref = artifact
+  end
+  return opts
+end
+
+local __tol_settlement_uno_transfer = function(recipient, amount)
+  if tos ~= nil and type(tos) == "table" and type(tos.uno_transfer) == "function" then
+    return tos.uno_transfer(recipient, amount)
+  end
+  if tos ~= nil and type(tos) == "table" and type(tos.ciphertext) == "table" and type(tos.ciphertext.transfer) == "function" then
+    return tos.ciphertext.transfer(recipient, amount)
+  end
+  error("settlement: uno transfer unavailable")
+end
+
+local __tol_settlement_transfer_public = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref)
+  local ref = __tol_settlement_open_receipt(receipt_ref, kind)
+  if ref == nil then
+    __tol_host_transfer(recipient, amount)
+    return __tol_zero_b256
+  end
+  return __tol_settlement_require("settle")("PUBLIC_TRANSFER", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, nil))
+end
+
+local __tol_settlement_refund_public = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref)
+  local ref = __tol_settlement_open_receipt(receipt_ref, kind)
+  if ref == nil then
+    __tol_host_transfer(recipient, amount)
+    return __tol_zero_b256
+  end
+  return __tol_settlement_require("settle_refund")("REFUND_PUBLIC", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, nil))
+end
+
+local __tol_settlement_release_escrow_public = function(recipient, amount, receipt_ref, kind, purpose, proof_ref, artifact_ref)
+  local ref = __tol_settlement_open_receipt(receipt_ref, kind)
+  if ref == nil then
+    __tol_release(recipient, amount, purpose or 0)
+    return __tol_zero_b256
+  end
+  return __tol_settlement_require("settle_escrow")("ESCROW_RELEASE_PUBLIC", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, {purpose = purpose or 0}))
+end
+
+local __tol_settlement_transfer_uno = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref)
+  local ref = __tol_settlement_open_receipt(receipt_ref, kind)
+  if ref == nil then
+    __tol_settlement_uno_transfer(recipient, amount)
+    return __tol_zero_b256
+  end
+  return __tol_settlement_require("settle")("UNO_TRANSFER", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, nil))
+end
+
+local __tol_settlement_refund_uno = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref)
+  local ref = __tol_settlement_open_receipt(receipt_ref, kind)
+  if ref == nil then
+    __tol_settlement_uno_transfer(recipient, amount)
+    return __tol_zero_b256
+  end
+  return __tol_settlement_require("settle_refund")("REFUND_UNO", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, nil))
+end
 `)
 	}
 
@@ -5409,6 +5584,60 @@ func lowerAgentNativeCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 					return withLineExpr(&luast.FuncCallExpr{
 						Func:      withLineExpr(&luast.IdentExpr{Value: "__tol_delegation_revoke"}),
 						Args:      luaArgs,
+						AdjustRet: true,
+					}), true, nil
+				}
+			}
+
+			if objName == "settlement" {
+				type settlementSpec struct {
+					helperName string
+					minArity   int
+					maxArity   int
+					purposeIdx int
+				}
+				var spec *settlementSpec
+				switch method {
+				case "openReceipt":
+					spec = &settlementSpec{helperName: "__tol_settlement_open_receipt", minArity: 2, maxArity: 2, purposeIdx: -1}
+				case "transferPublic":
+					spec = &settlementSpec{helperName: "__tol_settlement_transfer_public", minArity: 4, maxArity: 6, purposeIdx: -1}
+				case "refundPublic":
+					spec = &settlementSpec{helperName: "__tol_settlement_refund_public", minArity: 4, maxArity: 6, purposeIdx: -1}
+				case "releaseEscrowPublic":
+					spec = &settlementSpec{helperName: "__tol_settlement_release_escrow_public", minArity: 5, maxArity: 7, purposeIdx: 4}
+				case "transferUno":
+					spec = &settlementSpec{helperName: "__tol_settlement_transfer_uno", minArity: 4, maxArity: 6, purposeIdx: -1}
+				case "refundUno":
+					spec = &settlementSpec{helperName: "__tol_settlement_refund_uno", minArity: 4, maxArity: 6, purposeIdx: -1}
+				}
+				if spec != nil {
+					nArgs := len(e.Args)
+					if nArgs < spec.minArity || nArgs > spec.maxArity {
+						return nil, true, fmt.Errorf("[%s] settlement.%s(...) requires %d to %d arguments", diag.CodeLowerUnsupportedFeature, method, spec.minArity, spec.maxArity)
+					}
+					args := make([]luast.Expr, 0, spec.maxArity)
+					for i := 0; i < nArgs; i++ {
+						if i == spec.purposeIdx {
+							purIdent := stripTolParens(e.Args[i])
+							if purIdent != nil && purIdent.Kind == "ident" {
+								purName := strings.TrimSpace(purIdent.Value)
+								args = append(args, withLineExpr(&luast.IdentExpr{Value: "__tol_pur_" + purName}))
+								continue
+							}
+						}
+						la, err := tolExprToLua(ctx, e.Args[i])
+						if err != nil {
+							return nil, true, err
+						}
+						args = append(args, la)
+					}
+					for len(args) < spec.maxArity {
+						args = append(args, withLineExpr(&luast.NumberExpr{Value: "0"}))
+					}
+					return withLineExpr(&luast.FuncCallExpr{
+						Func:      withLineExpr(&luast.IdentExpr{Value: spec.helperName}),
+						Args:      args,
 						AdjustRet: true,
 					}), true, nil
 				}

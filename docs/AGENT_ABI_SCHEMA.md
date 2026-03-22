@@ -154,8 +154,9 @@ Status note:
   `directorySearchPreferredAgentProvider(...)`, and the matching
   `...WithDiagnostics(...)` helpers; it also now exposes
   `summarizeAgentProviderDiagnostics(...)`,
-  `requirePreferredAgentProvider(...)`, and the matching `...OrThrow(...)`
-  helpers for explainable failure handling in app code
+  `requirePreferredAgentProvider(...)`, the matching `...OrThrow(...)`
+  helpers, and execution-policy bundles that standardize search depth,
+  provider-mode ordering, and advertised-fee preference in app code
 - OpenFox now consumes the same typed metadata hints directly in its
   agent-discovery selection policy and exposes
   `resolveCapabilityProvider(...)`, `diagnoseCapabilityProviders(...)`, and
@@ -167,8 +168,10 @@ Status note:
   solver bounty discovery, and opportunity scouting now also persist the
   latest provider-selection explanation into local state for orchestration
   and planner consumption, while direct provider invocation paths now also
-  fall back across ranked providers and feed those outcomes back into the
-  local ranking model used for future selection
+  consume reusable execution-policy bundles for fallback depth and
+  mode/cost preferences, then fall back across ranked providers and feed
+  those outcomes back into the local ranking model used for future
+  selection
 - legacy `.discovery.json` / `.agentpkg.json` bundle artifacts are still emitted
   for compatibility during the transition
 

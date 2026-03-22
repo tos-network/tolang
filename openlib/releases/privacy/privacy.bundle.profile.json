@@ -9,8 +9,8 @@
       "identity": {
         "package_name": "tolang.openlib.privacy.confidential_escrow",
         "package_version": "1.0.0",
-        "content_hash": "0x16cd49fa80f3f0f3f55c0fd8e706ddb1f5c95a9512393b609882966a6fc34dbf",
-        "bytecode_hash": "0xda7393c6cad72959acc4c443562cdcd535b89d912227bb5b925ce6492b134a62",
+        "content_hash": "0x71fb272743aea8f2aacba60056a19e38ca7cbc997ff5a0b762799d9d738ca276",
+        "bytecode_hash": "0x63a4d612fa7bcccc6b4bd3a134839a3a91993beecdf5d5d7e40fbb324ee06197",
         "abi_hash": "0xa909bbe80e48cbcd85c96347e1ee8d26a0994747ba736e2cacad414dc9d06fc4"
       },
       "contract": {

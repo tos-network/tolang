@@ -74,6 +74,7 @@ contract TaskSettlement is ITaskSettlement {
     u8 constant STATUS_RESOLVED = 7;
     u8 constant STATUS_CANCELLED = 8;
     u8 constant STATUS_MILESTONE_PARTIAL = 9;
+    u8 constant RUNTIME_RECEIPT_TASK = 1;
 
     agent resolver;
     u256 next_task_id;
@@ -168,7 +169,15 @@ contract TaskSettlement is ITaskSettlement {
 
         set task_status[task_id] = STATUS_APPROVED;
         set task_settlement_ref[task_id] = settlement_ref;
-        release(worker, reward);
+        settlement.releaseEscrowPublic(
+            worker,
+            reward,
+            receipt_ref,
+            RUNTIME_RECEIPT_TASK,
+            0,
+            task_proof_ref[task_id],
+            settlement_ref
+        );
 
         if (task_receipt_book != agent(0) && receipt_ref != bytes32(0)) {
             ReceiptBook receipt = ReceiptBook(task_receipt_book);
@@ -202,6 +211,7 @@ contract TaskSettlement is ITaskSettlement {
         require(task_status[task_id] == STATUS_SUBMITTED, "NOT_SUBMITTED");
         require(msg.sender == task_poster[task_id], "NOT_POSTER");
         bytes32 receipt_ref = task_receipt_ref[task_id];
+        settlement.openReceipt(receipt_ref, RUNTIME_RECEIPT_TASK);
         if (task_receipt_book != agent(0) && receipt_ref != bytes32(0)) {
             ReceiptBook receipt = ReceiptBook(task_receipt_book);
             if (receipt.statusOf(receipt_ref) == 0) {
@@ -251,7 +261,15 @@ contract TaskSettlement is ITaskSettlement {
         set task_settlement_ref[task_id] = settlement_ref;
 
         if (worker_wins) {
-            release(worker, reward + bond);
+            settlement.releaseEscrowPublic(
+                worker,
+                reward + bond,
+                receipt_ref,
+                RUNTIME_RECEIPT_TASK,
+                0,
+                task_proof_ref[task_id],
+                settlement_ref
+            );
             if (task_receipt_book != agent(0) && receipt_ref != bytes32(0)) {
                 ReceiptBook receipt = ReceiptBook(task_receipt_book);
                 if (receipt.statusOf(receipt_ref) == 0) {
@@ -283,7 +301,15 @@ contract TaskSettlement is ITaskSettlement {
                 if (worker_share > 0) {
                     release(worker, worker_share);
                 }
-                release(poster, poster_share + bond);
+                settlement.releaseEscrowPublic(
+                    poster,
+                    poster_share + bond,
+                    receipt_ref,
+                    RUNTIME_RECEIPT_TASK,
+                    0,
+                    task_proof_ref[task_id],
+                    settlement_ref
+                );
                 if (task_receipt_book != agent(0) && receipt_ref != bytes32(0)) {
                     ReceiptBook receipt = ReceiptBook(task_receipt_book);
                     if (receipt.statusOf(receipt_ref) == 0) {
@@ -308,7 +334,15 @@ contract TaskSettlement is ITaskSettlement {
                 emit TaskResolved(task_id, poster, poster_share + bond, settlement_ref);
             }
             if (slash_pct == 0) {
-                release(poster, reward + bond);
+                settlement.releaseEscrowPublic(
+                    poster,
+                    reward + bond,
+                    receipt_ref,
+                    RUNTIME_RECEIPT_TASK,
+                    0,
+                    task_proof_ref[task_id],
+                    settlement_ref
+                );
                 if (task_receipt_book != agent(0) && receipt_ref != bytes32(0)) {
                     ReceiptBook receipt = ReceiptBook(task_receipt_book);
                     if (receipt.statusOf(receipt_ref) == 0) {
@@ -353,7 +387,15 @@ contract TaskSettlement is ITaskSettlement {
         require(msg.sender == task_poster[task_id], "NOT_POSTER");
 
         set task_status[task_id] = STATUS_CANCELLED;
-        release(msg.sender, task_reward[task_id]);
+        settlement.releaseEscrowPublic(
+            msg.sender,
+            task_reward[task_id],
+            task_receipt_ref[task_id],
+            RUNTIME_RECEIPT_TASK,
+            0,
+            task_proof_ref[task_id],
+            bytes32(0)
+        );
         if (task_receipt_book != agent(0) && task_receipt_ref[task_id] != bytes32(0)) {
             ReceiptBook receipt = ReceiptBook(task_receipt_book);
             if (receipt.statusOf(task_receipt_ref[task_id]) == 0) {
@@ -397,7 +439,15 @@ contract TaskSettlement is ITaskSettlement {
 
         set task_status[task_id] = STATUS_CANCELLED;
         if (refund_amount > 0) {
-            release(msg.sender, refund_amount);
+            settlement.releaseEscrowPublic(
+                msg.sender,
+                refund_amount,
+                task_receipt_ref[task_id],
+                RUNTIME_RECEIPT_TASK,
+                0,
+                task_proof_ref[task_id],
+                bytes32(0)
+            );
         }
         if (task_receipt_book != agent(0) && task_receipt_ref[task_id] != bytes32(0)) {
             ReceiptBook receipt = ReceiptBook(task_receipt_book);
@@ -489,7 +539,15 @@ contract TaskSettlement is ITaskSettlement {
             // Final milestone: release per_milestone + any floor-division remainder.
             u256 remainder = reward - (per_milestone * count);
             set task_status[task_id] = STATUS_APPROVED;
-            release(worker, per_milestone + remainder);
+            settlement.releaseEscrowPublic(
+                worker,
+                per_milestone + remainder,
+                task_receipt_ref[task_id],
+                RUNTIME_RECEIPT_TASK,
+                0,
+                proof_ref,
+                proof_ref
+            );
             if (task_receipt_book != agent(0) && task_receipt_ref[task_id] != bytes32(0)) {
                 ReceiptBook receipt = ReceiptBook(task_receipt_book);
                 if (receipt.statusOf(task_receipt_ref[task_id]) == 0) {

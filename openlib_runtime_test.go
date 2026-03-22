@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -23,6 +24,9 @@ type openlibRuntimeHost struct {
 	agentProps map[string]map[string]LValue
 
 	nativeUnoBalances map[string]*big.Int
+	runtimeReceipts   map[string]openlibRuntimeReceipt
+	settlementEffects map[string]openlibRuntimeSettlementEffect
+	nextSettlementRef int
 
 	callHook        func(addr, value, data string) (bool, string, bool)
 	packageCallHook func(addr, contractName, calldata string) []LValue
@@ -51,10 +55,44 @@ type openlibRuntimeHost struct {
 	lastUnoTransferAddr   string
 	lastUnoTransferAmount string
 
+	hostTransferCount      int
+	lastHostTransferAddr   string
+	lastHostTransferAmount string
+
+	settlementCount         int
+	lastSettlementMode      string
+	lastSettlementRecipient string
+	lastSettlementAmount    string
+	lastSettlementReceipt   string
+	lastSettlementArtifact  string
+
 	capturedResult string
 	hasResult      bool
 
 	emittedEvents []openlibEmittedEvent
+}
+
+type openlibRuntimeReceipt struct {
+	Kind         string
+	Status       string
+	ModeName     string
+	Sender       string
+	Recipient    string
+	SettlementRef string
+	ProofRef     string
+	FailureRef   string
+	ArtifactRef  string
+	AmountRef    string
+}
+
+type openlibRuntimeSettlementEffect struct {
+	SettlementRef string
+	ReceiptRef    string
+	ModeName      string
+	Sender        string
+	Recipient     string
+	ArtifactRef   string
+	AmountRef     string
 }
 
 type openlibEmittedEvent struct {
@@ -67,6 +105,9 @@ var openlibResultSentinel = &struct{}{}
 type openlibRuntimeHostSnapshot struct {
 	agentProps        map[string]map[string]LValue
 	nativeUnoBalances map[string]*big.Int
+	runtimeReceipts   map[string]openlibRuntimeReceipt
+	settlementEffects map[string]openlibRuntimeSettlementEffect
+	nextSettlementRef int
 
 	callCount    int
 	lastCallAddr string
@@ -91,6 +132,17 @@ type openlibRuntimeHostSnapshot struct {
 	unoTransferCount      int
 	lastUnoTransferAddr   string
 	lastUnoTransferAmount string
+
+	hostTransferCount      int
+	lastHostTransferAddr   string
+	lastHostTransferAmount string
+
+	settlementCount         int
+	lastSettlementMode      string
+	lastSettlementRecipient string
+	lastSettlementAmount    string
+	lastSettlementReceipt   string
+	lastSettlementArtifact  string
 
 	capturedResult string
 	hasResult      bool
@@ -139,6 +191,28 @@ func cloneNativeUnoBalances(src map[string]*big.Int) map[string]*big.Int {
 	return out
 }
 
+func cloneRuntimeReceipts(src map[string]openlibRuntimeReceipt) map[string]openlibRuntimeReceipt {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]openlibRuntimeReceipt, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
+}
+
+func cloneSettlementEffects(src map[string]openlibRuntimeSettlementEffect) map[string]openlibRuntimeSettlementEffect {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]openlibRuntimeSettlementEffect, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
+}
+
 func snapshotRuntimeHost(host *openlibRuntimeHost) openlibRuntimeHostSnapshot {
 	if host == nil {
 		return openlibRuntimeHostSnapshot{}
@@ -146,6 +220,9 @@ func snapshotRuntimeHost(host *openlibRuntimeHost) openlibRuntimeHostSnapshot {
 	snap := openlibRuntimeHostSnapshot{
 		agentProps:              cloneAgentProps(host.agentProps),
 		nativeUnoBalances:       cloneNativeUnoBalances(host.nativeUnoBalances),
+		runtimeReceipts:         cloneRuntimeReceipts(host.runtimeReceipts),
+		settlementEffects:       cloneSettlementEffects(host.settlementEffects),
+		nextSettlementRef:       host.nextSettlementRef,
 		callCount:               host.callCount,
 		lastCallAddr:            host.lastCallAddr,
 		lastCallData:            host.lastCallData,
@@ -165,6 +242,15 @@ func snapshotRuntimeHost(host *openlibRuntimeHost) openlibRuntimeHostSnapshot {
 		unoTransferCount:        host.unoTransferCount,
 		lastUnoTransferAddr:     host.lastUnoTransferAddr,
 		lastUnoTransferAmount:   host.lastUnoTransferAmount,
+		hostTransferCount:       host.hostTransferCount,
+		lastHostTransferAddr:    host.lastHostTransferAddr,
+		lastHostTransferAmount:  host.lastHostTransferAmount,
+		settlementCount:         host.settlementCount,
+		lastSettlementMode:      host.lastSettlementMode,
+		lastSettlementRecipient: host.lastSettlementRecipient,
+		lastSettlementAmount:    host.lastSettlementAmount,
+		lastSettlementReceipt:   host.lastSettlementReceipt,
+		lastSettlementArtifact:  host.lastSettlementArtifact,
 		capturedResult:          host.capturedResult,
 		hasResult:               host.hasResult,
 	}
@@ -192,6 +278,9 @@ func restoreRuntimeHost(host *openlibRuntimeHost, snap openlibRuntimeHostSnapsho
 	}
 	host.agentProps = cloneAgentProps(snap.agentProps)
 	host.nativeUnoBalances = cloneNativeUnoBalances(snap.nativeUnoBalances)
+	host.runtimeReceipts = cloneRuntimeReceipts(snap.runtimeReceipts)
+	host.settlementEffects = cloneSettlementEffects(snap.settlementEffects)
+	host.nextSettlementRef = snap.nextSettlementRef
 	host.callCount = snap.callCount
 	host.lastCallAddr = snap.lastCallAddr
 	host.lastCallData = snap.lastCallData
@@ -211,6 +300,15 @@ func restoreRuntimeHost(host *openlibRuntimeHost, snap openlibRuntimeHostSnapsho
 	host.unoTransferCount = snap.unoTransferCount
 	host.lastUnoTransferAddr = snap.lastUnoTransferAddr
 	host.lastUnoTransferAmount = snap.lastUnoTransferAmount
+	host.hostTransferCount = snap.hostTransferCount
+	host.lastHostTransferAddr = snap.lastHostTransferAddr
+	host.lastHostTransferAmount = snap.lastHostTransferAmount
+	host.settlementCount = snap.settlementCount
+	host.lastSettlementMode = snap.lastSettlementMode
+	host.lastSettlementRecipient = snap.lastSettlementRecipient
+	host.lastSettlementAmount = snap.lastSettlementAmount
+	host.lastSettlementReceipt = snap.lastSettlementReceipt
+	host.lastSettlementArtifact = snap.lastSettlementArtifact
 	host.capturedResult = snap.capturedResult
 	host.hasResult = snap.hasResult
 	restoreRuntimeHostCallContext(host, snap)
@@ -419,6 +517,26 @@ func openlibNativeUnoBalance(host *openlibRuntimeHost, addr string) *big.Int {
 	return big.NewInt(0)
 }
 
+func openlibRuntimeReceiptInfo(host *openlibRuntimeHost, receiptRef string) openlibRuntimeReceipt {
+	if host == nil {
+		return openlibRuntimeReceipt{}
+	}
+	return host.runtimeReceipts[receiptRef]
+}
+
+func openlibNextSettlementRef(host *openlibRuntimeHost) string {
+	if host == nil {
+		return openlibBytes32("0")
+	}
+	host.nextSettlementRef++
+	hex := strconv.FormatInt(int64(host.nextSettlementRef), 16)
+	return "0x" + strings.Repeat("0", 64-len(hex)) + hex
+}
+
+func openlibSettlementAmountRef(raw string) string {
+	return "0x" + openlibNormalizeHex64(raw)
+}
+
 func deployOpenlibContract(t *testing.T, relPath string, ctorArgs ...LValue) (*LState, LValue, *openlibRuntimeHost) {
 	return deployOpenlibContractWithCompileName(t, relPath, "", ctorArgs...)
 }
@@ -537,6 +655,8 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 	host := &openlibRuntimeHost{
 		agentProps:        map[string]map[string]LValue{},
 		nativeUnoBalances: map[string]*big.Int{},
+		runtimeReceipts:   map[string]openlibRuntimeReceipt{},
+		settlementEffects: map[string]openlibRuntimeSettlementEffect{},
 	}
 
 	msgTable := L.NewTable()
@@ -620,12 +740,262 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 		return 1
 	}))
 	hostTransferFn := L.NewFunction(func(L *LState) int {
-		_ = L.CheckAny(1)
-		_ = L.CheckAny(2)
+		host.hostTransferCount++
+		host.lastHostTransferAddr = LVAsString(L.CheckAny(1))
+		host.lastHostTransferAmount = LVAsString(L.CheckAny(2))
 		return 0
 	})
 	L.SetField(tosTable, "host_transfer", hostTransferFn)
 	L.SetField(tosTable, "transfer", hostTransferFn)
+	L.SetField(tosTable, "receipt_open", L.NewFunction(func(L *LState) int {
+		receiptRef := LVAsString(L.CheckAny(1))
+		kind := LVAsString(L.CheckAny(2))
+		if receiptRef == "" || receiptRef == openlibBytes32("0") {
+			L.RaiseError("tos.receipt_open: invalid receipt_ref")
+			return 0
+		}
+		if _, ok := host.runtimeReceipts[receiptRef]; ok {
+			L.RaiseError("tos.receipt_open: settlement: receipt already exists")
+			return 0
+		}
+		host.runtimeReceipts[receiptRef] = openlibRuntimeReceipt{
+			Kind:   kind,
+			Status: "open",
+		}
+		return 0
+	}))
+	L.SetField(tosTable, "receipt_success", L.NewFunction(func(L *LState) int {
+		receiptRef := LVAsString(L.CheckAny(1))
+		settlementRef := LVAsString(L.CheckAny(2))
+		receipt, ok := host.runtimeReceipts[receiptRef]
+		if !ok || receipt.Status != "open" {
+			L.RaiseError("tos.receipt_success: settlement: receipt is not open")
+			return 0
+		}
+		effect, ok := host.settlementEffects[settlementRef]
+		if !ok {
+			L.RaiseError("tos.receipt_success: settlement: settlement not found")
+			return 0
+		}
+		receipt.Status = "success"
+		receipt.ModeName = effect.ModeName
+		receipt.Sender = effect.Sender
+		receipt.Recipient = effect.Recipient
+		receipt.SettlementRef = settlementRef
+		receipt.AmountRef = effect.AmountRef
+		receipt.ArtifactRef = effect.ArtifactRef
+		if L.GetTop() >= 3 {
+			receipt.ProofRef = LVAsString(L.CheckAny(3))
+		}
+		host.runtimeReceipts[receiptRef] = receipt
+		return 0
+	}))
+	L.SetField(tosTable, "receipt_failure", L.NewFunction(func(L *LState) int {
+		receiptRef := LVAsString(L.CheckAny(1))
+		failureRef := LVAsString(L.CheckAny(2))
+		receipt, ok := host.runtimeReceipts[receiptRef]
+		if !ok || receipt.Status != "open" {
+			L.RaiseError("tos.receipt_failure: settlement: receipt is not open")
+			return 0
+		}
+		receipt.Status = "failure"
+		receipt.FailureRef = failureRef
+		if L.GetTop() >= 3 {
+			receipt.ProofRef = LVAsString(L.CheckAny(3))
+		}
+		host.runtimeReceipts[receiptRef] = receipt
+		return 0
+	}))
+	L.SetField(tosTable, "receipt_info", L.NewFunction(func(L *LState) int {
+		receiptRef := LVAsString(L.CheckAny(1))
+		receipt, ok := host.runtimeReceipts[receiptRef]
+		if !ok {
+			L.Push(LNil)
+			return 1
+		}
+		tbl := L.NewTable()
+		tbl.RawSetString("kind", LString(receipt.Kind))
+		tbl.RawSetString("status", LString(receipt.Status))
+		if receipt.ModeName != "" {
+			tbl.RawSetString("mode_name", LString(receipt.ModeName))
+		}
+		if receipt.Sender != "" {
+			tbl.RawSetString("sender", LString(receipt.Sender))
+		}
+		if receipt.Recipient != "" {
+			tbl.RawSetString("recipient", LString(receipt.Recipient))
+		}
+		if receipt.SettlementRef != "" {
+			tbl.RawSetString("settlement_ref", LString(receipt.SettlementRef))
+		}
+		if receipt.ProofRef != "" {
+			tbl.RawSetString("proof_ref", LString(receipt.ProofRef))
+		}
+		if receipt.FailureRef != "" {
+			tbl.RawSetString("failure_ref", LString(receipt.FailureRef))
+		}
+		if receipt.ArtifactRef != "" {
+			tbl.RawSetString("artifact_ref", LString(receipt.ArtifactRef))
+		}
+		if receipt.AmountRef != "" {
+			tbl.RawSetString("amount_ref", LString(receipt.AmountRef))
+		}
+		L.Push(tbl)
+		return 1
+	}))
+	L.SetField(tosTable, "settlement_info", L.NewFunction(func(L *LState) int {
+		settlementRef := LVAsString(L.CheckAny(1))
+		effect, ok := host.settlementEffects[settlementRef]
+		if !ok {
+			L.Push(LNil)
+			return 1
+		}
+		tbl := L.NewTable()
+		tbl.RawSetString("settlement_ref", LString(effect.SettlementRef))
+		tbl.RawSetString("receipt_ref", LString(effect.ReceiptRef))
+		tbl.RawSetString("mode_name", LString(effect.ModeName))
+		if effect.Sender != "" {
+			tbl.RawSetString("sender", LString(effect.Sender))
+		}
+		if effect.Recipient != "" {
+			tbl.RawSetString("recipient", LString(effect.Recipient))
+		}
+		if effect.ArtifactRef != "" {
+			tbl.RawSetString("artifact_ref", LString(effect.ArtifactRef))
+		}
+		if effect.AmountRef != "" {
+			tbl.RawSetString("amount_ref", LString(effect.AmountRef))
+		}
+		L.Push(tbl)
+		return 1
+	}))
+	recordSettlement := func(modeName, recipient, amount, receiptRef, artifactRef string, valueMover func()) string {
+		host.settlementCount++
+		host.lastSettlementMode = modeName
+		host.lastSettlementRecipient = recipient
+		host.lastSettlementAmount = amount
+		host.lastSettlementReceipt = receiptRef
+		host.lastSettlementArtifact = artifactRef
+		valueMover()
+		settlementRef := openlibNextSettlementRef(host)
+		host.settlementEffects[settlementRef] = openlibRuntimeSettlementEffect{
+			SettlementRef: settlementRef,
+			ReceiptRef:    receiptRef,
+			ModeName:      modeName,
+			Recipient:     recipient,
+			ArtifactRef:   artifactRef,
+			AmountRef:     openlibSettlementAmountRef(amount),
+		}
+		receipt := host.runtimeReceipts[receiptRef]
+		receipt.Status = "success"
+		receipt.ModeName = modeName
+		receipt.Recipient = recipient
+		receipt.SettlementRef = settlementRef
+		receipt.ArtifactRef = artifactRef
+		receipt.AmountRef = openlibSettlementAmountRef(amount)
+		host.runtimeReceipts[receiptRef] = receipt
+		return settlementRef
+	}
+	L.SetField(tosTable, "settle", L.NewFunction(func(L *LState) int {
+		mode := LVAsString(L.CheckAny(1))
+		recipient := LVAsString(L.CheckAny(2))
+		amount := LVAsString(L.CheckAny(3))
+		receiptRef := LVAsString(L.CheckAny(4))
+		artifactRef := ""
+		if L.GetTop() >= 5 {
+			if opts, ok := L.CheckAny(5).(*LTable); ok {
+				artifactRef = LVAsString(opts.RawGetString("artifact_ref"))
+			}
+		}
+		if _, ok := host.runtimeReceipts[receiptRef]; !ok {
+			L.RaiseError("tos.settle: settlement: receipt not found")
+			return 0
+		}
+		settlementRef := recordSettlement(mode, recipient, amount, receiptRef, artifactRef, func() {
+			switch mode {
+			case "PUBLIC_TRANSFER":
+				host.hostTransferCount++
+				host.lastHostTransferAddr = recipient
+				host.lastHostTransferAmount = amount
+			case "UNO_TRANSFER":
+				amt := openlibParseUnoString(amount)
+				host.unoTransferCount++
+				host.lastUnoTransferAddr = recipient
+				host.lastUnoTransferAmount = openlibUnoStringFromBigInt(amt)
+				next := openlibNativeUnoBalance(host, recipient)
+				next.Add(next, amt)
+				host.nativeUnoBalances[recipient] = next
+			default:
+				L.RaiseError("tos.settle: invalid mode")
+			}
+		})
+		L.Push(LString(settlementRef))
+		return 1
+	}))
+	L.SetField(tosTable, "settle_refund", L.NewFunction(func(L *LState) int {
+		mode := LVAsString(L.CheckAny(1))
+		recipient := LVAsString(L.CheckAny(2))
+		amount := LVAsString(L.CheckAny(3))
+		receiptRef := LVAsString(L.CheckAny(4))
+		artifactRef := ""
+		if L.GetTop() >= 5 {
+			if opts, ok := L.CheckAny(5).(*LTable); ok {
+				artifactRef = LVAsString(opts.RawGetString("artifact_ref"))
+			}
+		}
+		if _, ok := host.runtimeReceipts[receiptRef]; !ok {
+			L.RaiseError("tos.settle_refund: settlement: receipt not found")
+			return 0
+		}
+		settlementRef := recordSettlement(mode, recipient, amount, receiptRef, artifactRef, func() {
+			switch mode {
+			case "REFUND_PUBLIC":
+				host.hostTransferCount++
+				host.lastHostTransferAddr = recipient
+				host.lastHostTransferAmount = amount
+			case "REFUND_UNO":
+				amt := openlibParseUnoString(amount)
+				host.unoTransferCount++
+				host.lastUnoTransferAddr = recipient
+				host.lastUnoTransferAmount = openlibUnoStringFromBigInt(amt)
+				next := openlibNativeUnoBalance(host, recipient)
+				next.Add(next, amt)
+				host.nativeUnoBalances[recipient] = next
+			default:
+				L.RaiseError("tos.settle_refund: invalid mode")
+			}
+		})
+		L.Push(LString(settlementRef))
+		return 1
+	}))
+	L.SetField(tosTable, "settle_escrow", L.NewFunction(func(L *LState) int {
+		mode := LVAsString(L.CheckAny(1))
+		recipient := LVAsString(L.CheckAny(2))
+		amount := LVAsString(L.CheckAny(3))
+		receiptRef := LVAsString(L.CheckAny(4))
+		artifactRef := ""
+		if L.GetTop() >= 5 {
+			if opts, ok := L.CheckAny(5).(*LTable); ok {
+				artifactRef = LVAsString(opts.RawGetString("artifact_ref"))
+			}
+		}
+		if mode != "ESCROW_RELEASE_PUBLIC" {
+			L.RaiseError("tos.settle_escrow: invalid mode")
+			return 0
+		}
+		if _, ok := host.runtimeReceipts[receiptRef]; !ok {
+			L.RaiseError("tos.settle_escrow: settlement: receipt not found")
+			return 0
+		}
+		settlementRef := recordSettlement(mode, recipient, amount, receiptRef, artifactRef, func() {
+			host.releaseCount++
+			host.lastReleaseAddr = recipient
+			host.lastReleaseAmt = amount
+			host.lastReleaseTag = "0"
+		})
+		L.Push(LString(settlementRef))
+		return 1
+	}))
 	L.SetField(tosTable, "agentload", L.NewFunction(func(L *LState) int {
 		addr := LVAsString(L.CheckAny(1))
 		field := "is_registered"
@@ -1529,11 +1899,11 @@ func TestSponsorPolicyRelayRuntimeDepositRelayAndWithdraw(t *testing.T) {
 
 	openlibSetSender(host, alice)
 	invokeOpenlib(t, L, tos, "withdraw(u256)", lu256FromInt(300))
-	if host.lastReleaseAddr != alice {
-		t.Fatalf("release addr: got=%q want=%q", host.lastReleaseAddr, alice)
+	if host.lastHostTransferAddr != alice {
+		t.Fatalf("withdraw transfer addr: got=%q want=%q", host.lastHostTransferAddr, alice)
 	}
-	if host.lastReleaseAmt != "300" {
-		t.Fatalf("release amount: got=%q want=%q", host.lastReleaseAmt, "300")
+	if host.lastHostTransferAmount != "300" {
+		t.Fatalf("withdraw transfer amount: got=%q want=%q", host.lastHostTransferAmount, "300")
 	}
 }
 
@@ -2077,6 +2447,13 @@ func TestConfidentialEscrowRuntimeOpenReleaseRefundAndReclaim(t *testing.T) {
 	if got := LVAsString(invokeOpenlib(t, L, tos, "nativeBalance(agent)", LString(bob))); got != LVAsString(openlibUnoFromInt(50)) {
 		t.Fatalf("nativeBalance bob after release: got=%s want=%s", got, LVAsString(openlibUnoFromInt(50)))
 	}
+	runtimeRelease := openlibRuntimeReceiptInfo(host, receiptOne)
+	if runtimeRelease.Status != "success" || runtimeRelease.ModeName != "UNO_TRANSFER" {
+		t.Fatalf("runtime release receipt=%+v want success/UNO_TRANSFER", runtimeRelease)
+	}
+	if runtimeRelease.ArtifactRef != settlementRef {
+		t.Fatalf("runtime release artifact: got=%q want=%q", runtimeRelease.ArtifactRef, settlementRef)
+	}
 
 	openlibSetSender(host, alice)
 	openlibSetTimestamp(host, 150)
@@ -2089,6 +2466,13 @@ func TestConfidentialEscrowRuntimeOpenReleaseRefundAndReclaim(t *testing.T) {
 	}
 	if got := LVAsString(invokeOpenlib(t, L, tos, "nativeBalance(agent)", LString(alice))); got != LVAsString(openlibUnoFromInt(20)) {
 		t.Fatalf("nativeBalance alice after refund: got=%s want=%s", got, LVAsString(openlibUnoFromInt(20)))
+	}
+	runtimeRefund := openlibRuntimeReceiptInfo(host, receiptTwo)
+	if runtimeRefund.Status != "success" || runtimeRefund.ModeName != "REFUND_UNO" {
+		t.Fatalf("runtime refund receipt=%+v want success/REFUND_UNO", runtimeRefund)
+	}
+	if runtimeRefund.ArtifactRef != reasonRef {
+		t.Fatalf("runtime refund artifact: got=%q want=%q", runtimeRefund.ArtifactRef, reasonRef)
 	}
 
 	openlibSetSender(host, alice)
@@ -2108,6 +2492,10 @@ func TestConfidentialEscrowRuntimeOpenReleaseRefundAndReclaim(t *testing.T) {
 	}
 	if got := LVAsString(invokeOpenlib(t, L, tos, "nativeBalance(agent)", LString(alice))); got != LVAsString(openlibUnoFromInt(35)) {
 		t.Fatalf("nativeBalance alice after reclaim: got=%s want=%s", got, LVAsString(openlibUnoFromInt(35)))
+	}
+	runtimeReclaim := openlibRuntimeReceiptInfo(host, receiptThree)
+	if runtimeReclaim.Status != "success" || runtimeReclaim.ModeName != "REFUND_UNO" {
+		t.Fatalf("runtime reclaim receipt=%+v want success/REFUND_UNO", runtimeReclaim)
 	}
 }
 
@@ -2253,6 +2641,13 @@ func TestConfidentialTreasuryRuntimeSignerSpendAndAuditorLifecycle(t *testing.T)
 	}
 	if got := LVAsString(invokeOpenlib(t, L, tos, "nativeBalance(agent)", LString(charlie))); got != LVAsString(openlibUnoFromInt(30)) {
 		t.Fatalf("nativeBalance charlie after execute: got=%s want=%s", got, LVAsString(openlibUnoFromInt(30)))
+	}
+	runtimeSpend := openlibRuntimeReceiptInfo(host, spendOne)
+	if runtimeSpend.Status != "success" || runtimeSpend.ModeName != "UNO_TRANSFER" {
+		t.Fatalf("runtime spend receipt=%+v want success/UNO_TRANSFER", runtimeSpend)
+	}
+	if runtimeSpend.ArtifactRef != settlementRef {
+		t.Fatalf("runtime spend artifact: got=%q want=%q", runtimeSpend.ArtifactRef, settlementRef)
 	}
 
 	openlibSetSender(host, bob)
@@ -2432,6 +2827,10 @@ func TestRecurringPaymentRuntimeLifecyclePauseResumeCancelAndComplete(t *testing
 	if host.lastReleaseAddr != bob || host.lastReleaseAmt != "10" {
 		t.Fatalf("executePayment release mismatch: addr=%q amt=%q", host.lastReleaseAddr, host.lastReleaseAmt)
 	}
+	runtimeCycleOne := openlibRuntimeReceiptInfo(host, receiptOne)
+	if runtimeCycleOne.Status != "success" || runtimeCycleOne.ModeName != "ESCROW_RELEASE_PUBLIC" {
+		t.Fatalf("runtime cycle one receipt=%+v want success/ESCROW_RELEASE_PUBLIC", runtimeCycleOne)
+	}
 
 	openlibSetSender(host, alice)
 	invokeOpenlib(t, L, tos, "pause(bytes32)", LString(subOne))
@@ -2496,6 +2895,10 @@ func TestRecurringPaymentRuntimeLifecyclePauseResumeCancelAndComplete(t *testing
 	}
 	if host.lastReleaseAddr != bob || host.lastReleaseAmt != "5" {
 		t.Fatalf("final completion release mismatch: addr=%q amt=%q", host.lastReleaseAddr, host.lastReleaseAmt)
+	}
+	runtimeCycleFinal := openlibRuntimeReceiptInfo(host, receiptFour)
+	if runtimeCycleFinal.Status != "success" || runtimeCycleFinal.ModeName != "ESCROW_RELEASE_PUBLIC" {
+		t.Fatalf("runtime cycle final receipt=%+v want success/ESCROW_RELEASE_PUBLIC", runtimeCycleFinal)
 	}
 }
 
@@ -3305,6 +3708,16 @@ func TestTaskSettlementAutoReceiptBinding(t *testing.T) {
 	if got := LVAsString(invokeOpenlib(t, receiptL, receiptTOS, "proofRefOf(bytes32)", LString(receiptRef))); got != proofRef {
 		t.Fatalf("receipt proof ref after approve: got=%s want=%s", got, proofRef)
 	}
+	runtimeReceipt := openlibRuntimeReceiptInfo(host, receiptRef)
+	if runtimeReceipt.Status != "success" {
+		t.Fatalf("runtime receipt status after approve: got=%q want=success", runtimeReceipt.Status)
+	}
+	if runtimeReceipt.ModeName != "ESCROW_RELEASE_PUBLIC" {
+		t.Fatalf("runtime receipt mode after approve: got=%q want=ESCROW_RELEASE_PUBLIC", runtimeReceipt.ModeName)
+	}
+	if runtimeReceipt.ArtifactRef != settlementRef {
+		t.Fatalf("runtime receipt artifact after approve: got=%q want=%q", runtimeReceipt.ArtifactRef, settlementRef)
+	}
 }
 
 func TestTaskSettlementDisputeFinalizesFailureReceipt(t *testing.T) {
@@ -3385,6 +3798,16 @@ func TestTaskSettlementDisputeFinalizesFailureReceipt(t *testing.T) {
 	}
 	if !foundReceiptEvent {
 		t.Fatal("expected SettlementReceipt event on dispute resolution")
+	}
+	runtimeReceipt := openlibRuntimeReceiptInfo(host, receiptRef)
+	if runtimeReceipt.Status != "success" {
+		t.Fatalf("runtime receipt status after dispute loss: got=%q want=success", runtimeReceipt.Status)
+	}
+	if runtimeReceipt.ModeName != "ESCROW_RELEASE_PUBLIC" {
+		t.Fatalf("runtime receipt mode after dispute loss: got=%q want=ESCROW_RELEASE_PUBLIC", runtimeReceipt.ModeName)
+	}
+	if runtimeReceipt.Recipient != alice {
+		t.Fatalf("runtime receipt recipient after dispute loss: got=%q want=%q", runtimeReceipt.Recipient, alice)
 	}
 }
 

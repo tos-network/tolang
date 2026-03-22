@@ -52,6 +52,8 @@ contract SponsorPolicyRelay is ISponsorPolicyRelay {
         description: "Sponsor-funded relay with relayer budgets, expiry windows, and policy-hash binding";
     }
 
+    u8 constant RUNTIME_RECEIPT_SPONSOR = 5;
+
     agent sponsor;
 
     u256 total_deposited;
@@ -93,7 +95,14 @@ contract SponsorPolicyRelay is ISponsorPolicyRelay {
         require(msg.sender == sponsor, "NOT_SPONSOR");
         require(amount <= total_deposited - total_spent, "INSUFFICIENT_BALANCE");
         set total_deposited = total_deposited - amount;
-        release(sponsor, amount);
+        settlement.transferPublic(
+            sponsor,
+            amount,
+            bytes32(0),
+            RUNTIME_RECEIPT_SPONSOR,
+            bytes32(0),
+            bytes32(0)
+        );
         emit SponsorWithdrawn(sponsor, amount);
     }
 

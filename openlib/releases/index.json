@@ -103,8 +103,8 @@
       "discovery_path": "openlib/releases/privacy/ConfidentialEscrow.discovery.json",
       "agent_package_path": "openlib/releases/privacy/ConfidentialEscrow.agentpkg.json",
       "profile_path": "openlib/releases/privacy/ConfidentialEscrow.profile.json",
-      "bytecode_hash": "0xda7393c6cad72959acc4c443562cdcd535b89d912227bb5b925ce6492b134a62",
-      "package_hash": "0x16cd49fa80f3f0f3f55c0fd8e706ddb1f5c95a9512393b609882966a6fc34dbf"
+      "bytecode_hash": "0x63a4d612fa7bcccc6b4bd3a134839a3a91993beecdf5d5d7e40fbb324ee06197",
+      "package_hash": "0x71fb272743aea8f2aacba60056a19e38ca7cbc997ff5a0b762799d9d738ca276"
     },
     {
       "family": "privacy",
@@ -177,8 +177,8 @@
       "discovery_path": "openlib/releases/settlement/TaskSettlement.discovery.json",
       "agent_package_path": "openlib/releases/settlement/TaskSettlement.agentpkg.json",
       "profile_path": "openlib/releases/settlement/TaskSettlement.profile.json",
-      "bytecode_hash": "0xf996831a6c1af1dbce308b7ef23a1fdb760818a8ba1a47849ee769ed8775271a",
-      "package_hash": "0xfd1c809ff78597aee02f2757b8d2348763a52db28fa984e6b920c9100c952b24"
+      "bytecode_hash": "0x542f5c96da0b17d32dc0997225f0b2c23f29bbe786639b0be3c1fe6d646e4d09",
+      "package_hash": "0xba7aa7d7903e56e72cf0c3a5507f79c1c11ff2044419fee8f31b3628483e8bde"
     },
     {
       "family": "sponsor",
@@ -192,8 +192,8 @@
       "discovery_path": "openlib/releases/sponsor/SponsorPolicyRelay.discovery.json",
       "agent_package_path": "openlib/releases/sponsor/SponsorPolicyRelay.agentpkg.json",
       "profile_path": "openlib/releases/sponsor/SponsorPolicyRelay.profile.json",
-      "bytecode_hash": "0x20769f197fce553fbdce399109a7e539bffa38174296bf371e097c6ed4f0166d",
-      "package_hash": "0x33e618b0d60b79bcefcfd4f56ffb788d8937aad1fb965e089343f0bc8923eb68"
+      "bytecode_hash": "0xdf6416d14b0f69ee467a73abd7a02880c97a8cbef32e41519dbb03c3d965c371",
+      "package_hash": "0x1e840dca07263345298bff1b2d6cdaf8aa582a8ad493f90b703d331f65706555"
     },
     {
       "family": "trust",
@@ -224,7 +224,7 @@
       "discovery_path": "openlib/releases/privacy/privacy.bundle.discovery.json",
       "agent_package_path": "openlib/releases/privacy/privacy.bundle.agentpkg.json",
       "profile_path": "openlib/releases/privacy/privacy.bundle.profile.json",
-      "package_hash": "0x42da21b2d1c6a2487f4fc80789c5ff516b40e4b22f1eaad7e8f1944a9ac45296"
+      "package_hash": "0x39e1e7f722925b48583d5b99e59892694ed21e14a9816dccf5f552ca11459162"
     }
   ]
 }

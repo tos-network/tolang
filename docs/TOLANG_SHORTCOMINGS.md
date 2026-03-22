@@ -283,21 +283,22 @@ Diagnosis:
 - the language already points toward an agent economy, but the VM/runtime still
   exposes too much of that economy through ad hoc host plumbing
 
-## The Most Important Overall Diagnosis
+## Overall Status (2026-03-22)
 
-The stdlib effort showed that Tolang's biggest unresolved problem is not syntax.
+Of the 7 structural shortcomings identified by the stdlib effort:
 
-It is semantic closure.
+| # | Shortcoming | Status |
+|---|------------|--------|
+| 1 | Package calls host-dependent | **RESOLVED** — registry-backed identity validation |
+| 2 | External call semantics too thin | **RESOLVED** — rollback + `tos.multicall` |
+| 3 | Annotations ahead of protocol backing | **RESOLVED** — all 4 annotations registry-backed |
+| 4 | Package resolution filesystem-dependent | **RESOLVED** — `PackageSearchPaths` |
+| 5 | Namespace hygiene | **RESOLVED** — `session` unreserved + renamed |
+| 6 | ABI/discovery not unified for agents | **PARTIALLY RESOLVED** — typed discovery fields + design doc |
+| 7 | Economic primitives too host-shaped | **IN PROGRESS** — design doc ready |
 
-More precisely:
-
-- the compiler can express agent-native ideas
-- the package system can model agent-native composition
-- the artifact layer can describe agent-native metadata
-- but the runtime and protocol layers do not yet make all of those ideas
-  equally native, enforceable, and uniform
-
-That is the central shortcoming.
+**5 of 7 resolved.  2 remaining** (#6 and #7) are incremental refinement
+work, not structural blockers.
 
 ## Priority Order For Fixing These Gaps
 

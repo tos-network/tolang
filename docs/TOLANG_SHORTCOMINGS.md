@@ -101,28 +101,20 @@ What this revealed:
 
 ## Structural Shortcomings That Still Exist
 
-### 1. Package calls are compiler-real but runtime-dependent — PARTIALLY RESOLVED
+### 1. Package calls are compiler-real but runtime-dependent — RESOLVED
 
-The lowering path can emit package-aware calls, but those calls still depend on
-the host exposing `tos.package_call`.
+**Resolved (2026-03-22):**
 
-Evidence:
+`tos.package_call` in GTOS LVM now performs registry-backed package identity
+validation.  After the lease check, it computes `keccak256(deployedCode)` and
+queries `pkgregistry.ReadPackageByHash`.  If a registry record exists:
 
-- `tol_ir_direct_lowering.go` emits `__tol_host_package_call(...)`
-- if the host does not provide `tos.package_call`, execution errors with
-  `host function 'package_call' is not available`
-- our runtime coverage had to provide this manually in `stdlib_runtime_test.go`
+- Revoked package → returns `(false, "PACKAGE_REVOKED")`
+- Revoked publisher → returns `(false, "PUBLISHER_REVOKED")`
+- Active/deprecated → call proceeds normally
 
-Why this matters:
-
-- stdlib composition is one of the core delivery mechanisms for Tolang
-- if package calls are not native and dependable in the host/runtime, then the
-  package system is not yet truly production-grade
-
-Diagnosis:
-
-- package composition currently sits in an uncomfortable middle state:
-  language-supported, but not yet a deeply native runtime primitive
+Unregistered packages still work (backward-compatible permissive fallback with
+TODO to tighten).  4 focused tests in `lvm_pkgreg_test.go`.
 
 ### 2. External call semantics are still too thin — LARGELY RESOLVED
 
@@ -335,11 +327,10 @@ The priority order should be:
    atomic multi-contract execution.~~ — **RESOLVED (2026-03-21)**: per-contract
    atomicity via StateDB snapshot/revert; cross-contract atomicity via
    `tos.multicall`; 10 regression tests across both repos.
-2. Native, dependable runtime support for package calls and contract capability
-   routing. — `tos.package_call` exists in GTOS LVM and handles dispatch,
-   snapshot/revert, and gas caps, but is not yet protocol-native with package
-   identity validation (deployed `.tor` identity is not checked at the VM
-   level). Design doc: `/home/tomi/gtos/docs/LVM_NATIVE_ECONOMIC_PRIMITIVES.md`.
+2. ~~Native, dependable runtime support for package calls and contract capability
+   routing.~~ — **RESOLVED (2026-03-22)**: `tos.package_call` now validates
+   deployed package identity via `pkgregistry.ReadPackageByHash`; revoked
+   packages/publishers are blocked; 4 tests in `lvm_pkgreg_test.go`.
 3. Protocol-backed registries and enforcement for delegation, verification,
    settlement, and agent identity semantics. — GTOS design doc
    `GTOS_PROTOCOL_REGISTRIES.md` is ready (5 registries defined); LVM stubs

@@ -500,6 +500,26 @@
         "agent_package_json"
       ]
     },
+    "runtime_boundary": {
+      "schema_version": "0.1.0",
+      "native_surfaces": [
+        "protocol_registry",
+        "runtime_inspection",
+        "package_registry"
+      ],
+      "preferred_openlib": [
+        "tolang.openlib.discovery",
+        "tolang.openlib.discovery.ServiceDirectory"
+      ],
+      "future_system_surfaces": [
+        "system.registry",
+        "system.package_registry"
+      ],
+      "notes": [
+        "prefer_openlib_entrypoints",
+        "native_surfaces_are_protocol_semantics"
+      ]
+    },
     "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
     "tags": [
       "discovery",
@@ -529,6 +549,26 @@
       "profile_json",
       "discovery_json",
       "agent_package_json"
+    ]
+  },
+  "runtime_boundary": {
+    "schema_version": "0.1.0",
+    "native_surfaces": [
+      "protocol_registry",
+      "runtime_inspection",
+      "package_registry"
+    ],
+    "preferred_openlib": [
+      "tolang.openlib.discovery",
+      "tolang.openlib.discovery.ServiceDirectory"
+    ],
+    "future_system_surfaces": [
+      "system.registry",
+      "system.package_registry"
+    ],
+    "notes": [
+      "prefer_openlib_entrypoints",
+      "native_surfaces_are_protocol_semantics"
     ]
   }
 }

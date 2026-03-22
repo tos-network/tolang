@@ -243,11 +243,20 @@ func TestBuildDiscoveryManifestTypedDiscoveryProfile(t *testing.T) {
 	if dm.ThreatModel.Family != "discovery" {
 		t.Fatalf("ThreatModel.Family = %q, want discovery", dm.ThreatModel.Family)
 	}
+	if dm.RuntimeBoundary == nil {
+		t.Fatal("expected runtime boundary for openlib discovery contract")
+	}
 	if !dm.ProtocolAlignment.RegistryGovernance {
 		t.Error("expected registry-governance alignment for discovery contracts")
 	}
 	if !dm.ProtocolAlignment.PackageGovernance {
 		t.Error("expected package-governance alignment for exported discovery artifacts")
+	}
+	if !containsString(dm.RuntimeBoundary.NativeSurfaces, "protocol_registry") || !containsString(dm.RuntimeBoundary.NativeSurfaces, "runtime_inspection") {
+		t.Fatalf("unexpected runtime boundary %+v", dm.RuntimeBoundary)
+	}
+	if !containsString(dm.RuntimeBoundary.FutureSystemSurfaces, "system.package_registry") {
+		t.Fatalf("expected package registry future surface %+v", dm.RuntimeBoundary)
 	}
 	if dm.TypedDiscovery.ServiceKind != "DISCOVERY" {
 		t.Fatalf("typed discovery service kind = %q, want %q", dm.TypedDiscovery.ServiceKind, "DISCOVERY")

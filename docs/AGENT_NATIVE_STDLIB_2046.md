@@ -1347,10 +1347,11 @@ The current GTOS/tolang/tosdk/openfox closure wave is now complete through:
 
 The next post-closure wave is now:
 
-1. `LVM vs openlib boundary cleanup`
-   decide which developer-facing economic/discovery helpers remain protocol
-   native, which should be wrapped by openlib, and which should move to a
-   system-contract shape.
+1. `LVM vs openlib boundary cleanup` — **RESOLVED (2026-03-22)**
+   the stack now exports a machine-readable `runtime_boundary` profile and a
+   dedicated design home at `docs/LVM_VS_OPENLIB_BOUNDARY.md`, explicitly
+   distinguishing GTOS-native protocol semantics, preferred openlib
+   entrypoints, and future system-contract targets.
 2. `Settlement-bus adoption cleanup`
    standardize how openlib and higher-level runtimes consume
    `tos.settle(...)`, `tos.receipt_*`, and runtime settlement records so

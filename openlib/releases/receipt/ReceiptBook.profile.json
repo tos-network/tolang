@@ -323,5 +323,26 @@
       "discovery_json",
       "agent_package_json"
     ]
+  },
+  "runtime_boundary": {
+    "schema_version": "0.1.0",
+    "native_surfaces": [
+      "settlement_bus",
+      "package_registry",
+      "runtime_inspection"
+    ],
+    "preferred_openlib": [
+      "tolang.openlib.receipt",
+      "tolang.openlib.receipt.ReceiptBook"
+    ],
+    "future_system_surfaces": [
+      "system.settlement",
+      "system.receipt",
+      "system.package_registry"
+    ],
+    "notes": [
+      "prefer_openlib_entrypoints",
+      "native_surfaces_are_protocol_semantics"
+    ]
   }
 }

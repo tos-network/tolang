@@ -258,6 +258,18 @@ func TestBuildAgentProfile_PackageGovernanceAlignment(t *testing.T) {
 	if p.ThreatModel.FailurePosture == "" || p.ThreatModel.RuntimeDependency == "" {
 		t.Fatalf("expected populated threat model, got %+v", p.ThreatModel)
 	}
+	if p.RuntimeBoundary == nil {
+		t.Fatal("expected runtime boundary for openlib settlement profile")
+	}
+	if !containsString(p.RuntimeBoundary.NativeSurfaces, "settlement_bus") {
+		t.Fatalf("expected settlement_bus native surface, got %+v", p.RuntimeBoundary)
+	}
+	if !containsString(p.RuntimeBoundary.PreferredOpenlib, "tolang.openlib.settlement.task.TaskSettlement") {
+		t.Fatalf("expected preferred openlib contract entry, got %+v", p.RuntimeBoundary)
+	}
+	if !containsString(p.RuntimeBoundary.FutureSystemSurfaces, "system.settlement") {
+		t.Fatalf("expected system.settlement future surface, got %+v", p.RuntimeBoundary)
+	}
 }
 
 func TestBuildAgentBundleProfile(t *testing.T) {
@@ -271,6 +283,12 @@ func TestBuildAgentBundleProfile(t *testing.T) {
 				PackageGovernance: true,
 				ReleaseArtifacts:  []string{"profile_json", "discovery_json"},
 			},
+			RuntimeBoundary: &RuntimeBoundaryProfile{
+				SchemaVersion:        RuntimeBoundarySchemaVersion,
+				NativeSurfaces:       []string{"settlement_bus", "uno_rail"},
+				PreferredOpenlib:     []string{"tolang.openlib.privacy", "tolang.openlib.privacy.ConfidentialEscrow"},
+				FutureSystemSurfaces: []string{"system.settlement", "system.receipt", "system.uno"},
+			},
 		},
 		{
 			SchemaVersion: AgentProfileSchemaVersion,
@@ -280,6 +298,12 @@ func TestBuildAgentBundleProfile(t *testing.T) {
 				RegistryGovernance: true,
 				PackageGovernance:  true,
 				ReleaseArtifacts:   []string{"agent_package_json"},
+			},
+			RuntimeBoundary: &RuntimeBoundaryProfile{
+				SchemaVersion:        RuntimeBoundarySchemaVersion,
+				NativeSurfaces:       []string{"runtime_inspection", "package_registry"},
+				PreferredOpenlib:     []string{"tolang.openlib.privacy", "tolang.openlib.privacy.ConfidentialVault"},
+				FutureSystemSurfaces: []string{"system.package_registry"},
 			},
 		},
 	}
@@ -306,8 +330,17 @@ func TestBuildAgentBundleProfile(t *testing.T) {
 	if bundle.ThreatModel.Family != "privacy" || bundle.ThreatModel.Scope != "family_bundle" {
 		t.Fatalf("unexpected bundle threat model %+v", bundle.ThreatModel)
 	}
+	if bundle.RuntimeBoundary == nil {
+		t.Fatal("expected merged runtime boundary")
+	}
 	if !bundle.ProtocolAlignment.SettlementBus || !bundle.ProtocolAlignment.RegistryGovernance || !bundle.ProtocolAlignment.PackageGovernance {
 		t.Fatalf("unexpected merged protocol alignment %+v", bundle.ProtocolAlignment)
+	}
+	if !containsString(bundle.RuntimeBoundary.NativeSurfaces, "settlement_bus") || !containsString(bundle.RuntimeBoundary.NativeSurfaces, "package_registry") {
+		t.Fatalf("unexpected merged runtime boundary %+v", bundle.RuntimeBoundary)
+	}
+	if !containsString(bundle.RuntimeBoundary.FutureSystemSurfaces, "system.uno") {
+		t.Fatalf("expected merged UNO future system surface %+v", bundle.RuntimeBoundary)
 	}
 	for _, want := range []string{"bundle_profile_json", "bundle_discovery_json", "bundle_agent_package_json"} {
 		if !containsString(bundle.ProtocolAlignment.ReleaseArtifacts, want) {

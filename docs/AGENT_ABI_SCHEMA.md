@@ -174,8 +174,8 @@ Status note:
 
 ### Protocol alignment layer
 
-The unified profile now also carries additive `protocol_alignment` and
-`threat_model` sections.
+The unified profile now also carries additive `protocol_alignment`,
+`threat_model`, and `runtime_boundary` sections.
 
 `protocol_alignment` is not a new execution primitive. It is a machine-readable
 hint layer for the next GTOS-owned wave:
@@ -238,6 +238,35 @@ Example:
   }
 }
 ```
+
+### Runtime boundary layer
+
+`runtime_boundary` is the machine-readable answer to:
+
+- which surfaces are GTOS-native protocol semantics
+- which openlib package/contract entrypoints should be preferred by developers
+- which long-term protocol domains should eventually collapse into clearer
+  system-contract shapes
+
+Example:
+
+```json
+{
+  "runtime_boundary": {
+    "schema_version": "0.1.0",
+    "native_surfaces": ["settlement_bus", "package_registry"],
+    "preferred_openlib": [
+      "tolang.openlib.settlement.task",
+      "tolang.openlib.settlement.task.TaskSettlement"
+    ],
+    "future_system_surfaces": ["system.settlement", "system.receipt", "system.package_registry"],
+    "notes": ["prefer_openlib_entrypoints", "native_surfaces_are_protocol_semantics"]
+  }
+}
+```
+
+This boundary layer is emitted alongside the same profile/discovery/agent
+package surfaces as `threat_model`.
 
 ### Migration path
 

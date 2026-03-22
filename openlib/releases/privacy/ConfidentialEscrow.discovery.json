@@ -167,6 +167,29 @@
       "agent_package_json"
     ]
   },
+  "runtime_boundary": {
+    "schema_version": "0.1.0",
+    "native_surfaces": [
+      "settlement_bus",
+      "package_registry",
+      "runtime_inspection",
+      "uno_rail"
+    ],
+    "preferred_openlib": [
+      "tolang.openlib.privacy.confidential_escrow",
+      "tolang.openlib.privacy.confidential_escrow.ConfidentialEscrow"
+    ],
+    "future_system_surfaces": [
+      "system.settlement",
+      "system.receipt",
+      "system.package_registry",
+      "system.uno"
+    ],
+    "notes": [
+      "prefer_openlib_entrypoints",
+      "native_surfaces_are_protocol_semantics"
+    ]
+  },
   "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
   "tags": [
     "custom",

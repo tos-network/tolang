@@ -255,6 +255,9 @@ func TestBuildAgentPackageInfo(t *testing.T) {
 	if pkg.ThreatModel != nil {
 		t.Fatalf("expected nil openlib threat model for non-openlib package, got %+v", pkg.ThreatModel)
 	}
+	if pkg.RuntimeBoundary != nil {
+		t.Fatalf("expected nil runtime boundary for non-openlib package, got %+v", pkg.RuntimeBoundary)
+	}
 	if !pkg.ProtocolAlignment.SettlementBus {
 		t.Error("expected settlement-bus alignment for TaskEscrow package")
 	}
@@ -269,6 +272,30 @@ func TestBuildAgentPackageInfo(t *testing.T) {
 	}
 	if len(pkg.Discovery.InterfaceMethods) == 0 || len(pkg.Discovery.InterfaceMethods[0].FailureModes) != 1 {
 		t.Fatalf("Discovery failure modes missing: %+v", pkg.Discovery.InterfaceMethods)
+	}
+}
+
+func TestBuildAgentPackageInfo_OpenlibRuntimeBoundary(t *testing.T) {
+	meta := &ContractMetadata{
+		SchemaVersion: SchemaVersion,
+		Contract: ContractInfo{
+			Name: "TaskSettlement",
+		},
+		Functions: []FunctionMeta{
+			{Name: "openTask", Visibility: "external"},
+			{Name: "approveTask", Visibility: "external"},
+		},
+	}
+
+	pkg := BuildAgentPackageInfo(meta, "tolang.openlib.settlement.task")
+	if pkg.RuntimeBoundary == nil {
+		t.Fatal("expected runtime boundary for openlib package")
+	}
+	if !containsString(pkg.RuntimeBoundary.NativeSurfaces, "settlement_bus") {
+		t.Fatalf("expected settlement_bus native surface, got %+v", pkg.RuntimeBoundary)
+	}
+	if !containsString(pkg.RuntimeBoundary.PreferredOpenlib, "tolang.openlib.settlement.task.TaskSettlement") {
+		t.Fatalf("expected preferred openlib contract entry, got %+v", pkg.RuntimeBoundary)
 	}
 }
 

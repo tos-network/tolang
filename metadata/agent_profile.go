@@ -12,19 +12,20 @@ const AgentBundleProfileSchemaVersion = "0.1.0"
 // and human-readable metadata into one structure that agent runtimes can consume
 // without chasing multiple JSON files.
 type AgentContractProfile struct {
-	SchemaVersion     string                 `json:"schema_version"`
-	Identity          ProfileIdentity        `json:"identity"`
-	Contract          ProfileContract        `json:"contract"`
-	Capabilities      []string               `json:"capabilities,omitempty"`
-	Functions         []FunctionMeta         `json:"functions"`
-	Events            []EventMeta            `json:"events,omitempty"`
-	Errors            []ErrorMeta            `json:"errors,omitempty"`
-	ServiceKinds      []string               `json:"service_kinds,omitempty"`
-	HumanSummary      string                 `json:"human_summary,omitempty"`
-	GasModel          *GasModelMeta          `json:"gas_model,omitempty"`
-	TypedDiscovery    *TypedDiscoveryProfile `json:"typed_discovery,omitempty"`
-	ThreatModel       *ThreatModelProfile    `json:"threat_model,omitempty"`
-	ProtocolAlignment *ProtocolAlignment     `json:"protocol_alignment,omitempty"`
+	SchemaVersion     string                  `json:"schema_version"`
+	Identity          ProfileIdentity         `json:"identity"`
+	Contract          ProfileContract         `json:"contract"`
+	Capabilities      []string                `json:"capabilities,omitempty"`
+	Functions         []FunctionMeta          `json:"functions"`
+	Events            []EventMeta             `json:"events,omitempty"`
+	Errors            []ErrorMeta             `json:"errors,omitempty"`
+	ServiceKinds      []string                `json:"service_kinds,omitempty"`
+	HumanSummary      string                  `json:"human_summary,omitempty"`
+	GasModel          *GasModelMeta           `json:"gas_model,omitempty"`
+	TypedDiscovery    *TypedDiscoveryProfile  `json:"typed_discovery,omitempty"`
+	ThreatModel       *ThreatModelProfile     `json:"threat_model,omitempty"`
+	ProtocolAlignment *ProtocolAlignment      `json:"protocol_alignment,omitempty"`
+	RuntimeBoundary   *RuntimeBoundaryProfile `json:"runtime_boundary,omitempty"`
 }
 
 // AgentBundleProfile is the family-level agent-facing profile for a multi-
@@ -37,6 +38,7 @@ type AgentBundleProfile struct {
 	Contracts         []*AgentContractProfile `json:"contracts"`
 	ThreatModel       *ThreatModelProfile     `json:"threat_model,omitempty"`
 	ProtocolAlignment *ProtocolAlignment      `json:"protocol_alignment,omitempty"`
+	RuntimeBoundary   *RuntimeBoundaryProfile `json:"runtime_boundary,omitempty"`
 	HumanSummary      string                  `json:"human_summary,omitempty"`
 }
 
@@ -135,6 +137,7 @@ func BuildAgentProfile(cm *ContractMetadata, packageName ...string) *AgentContra
 
 	// ProtocolAlignment.
 	p.ProtocolAlignment = BuildProtocolAlignment(cm, pkgName)
+	p.RuntimeBoundary = BuildRuntimeBoundaryProfile(cm, pkgName)
 
 	return p
 }
@@ -151,6 +154,7 @@ func BuildAgentBundleProfile(family, packageName, packageVersion string, contrac
 	}
 	bundle.ThreatModel = BuildBundleThreatModelProfile(family)
 	bundle.ProtocolAlignment = mergeProtocolAlignmentsFromProfiles(contracts)
+	bundle.RuntimeBoundary = mergeRuntimeBoundariesFromProfiles(contracts)
 
 	names := make([]string, 0, len(contracts))
 	for _, contract := range contracts {
@@ -176,6 +180,16 @@ func mergeProtocolAlignmentsFromProfiles(contracts []*AgentContractProfile) *Pro
 		}
 	}
 	return BuildBundleProtocolAlignment(alignments...)
+}
+
+func mergeRuntimeBoundariesFromProfiles(contracts []*AgentContractProfile) *RuntimeBoundaryProfile {
+	boundaries := make([]*RuntimeBoundaryProfile, 0, len(contracts))
+	for _, contract := range contracts {
+		if contract != nil {
+			boundaries = append(boundaries, contract.RuntimeBoundary)
+		}
+	}
+	return BuildBundleRuntimeBoundaryProfile(boundaries...)
 }
 
 func joinNames(names []string) string {

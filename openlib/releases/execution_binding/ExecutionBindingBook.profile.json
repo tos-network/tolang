@@ -336,5 +336,23 @@
       "discovery_json",
       "agent_package_json"
     ]
+  },
+  "runtime_boundary": {
+    "schema_version": "0.1.0",
+    "native_surfaces": [
+      "package_registry",
+      "runtime_inspection"
+    ],
+    "preferred_openlib": [
+      "tolang.openlib.execution_binding",
+      "tolang.openlib.execution_binding.ExecutionBindingBook"
+    ],
+    "future_system_surfaces": [
+      "system.package_registry"
+    ],
+    "notes": [
+      "prefer_openlib_entrypoints",
+      "native_surfaces_are_protocol_semantics"
+    ]
   }
 }

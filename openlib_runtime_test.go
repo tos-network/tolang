@@ -637,7 +637,7 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 		}
 		if field == "is_registered" {
 			if addr == "0" ||
-				addr == "0x0000000000000000000000000000000000000000" ||
+				addr == "0x"+strings.Repeat("0", 64) ||
 				addr == "0x0000000000000000000000000000000000000000000000000000000000000000" {
 				L.Push(lu256FromInt(1))
 				return 1
@@ -1169,7 +1169,7 @@ contract AgentCastProbe {
 `
 
 	alice := openlibBytes32("a")
-	bob := "0x00000000000000000000000000000000000000bb"
+	bob := "0x473302ca547d5f9877e272cffe58d4def43198b66ba35cff4b2e584be19efa05"
 	zero := openlibBytes32("0")
 
 	L, tos, host := deployOpenlibSourceContract(t, []byte(source), "<AgentCastProbe.tol>", LString(alice))
@@ -1181,8 +1181,30 @@ contract AgentCastProbe {
 	if got := LVAsString(invokeOpenlib(t, L, tos, "cast(agent)", LString(alice))); got != alice {
 		t.Fatalf("cast registered: got=%s want=%s", got, alice)
 	}
-	if errMsg := invokeOpenlibErr(t, L, tos, "cast(agent)", LString(bob)); !strings.Contains(errMsg, "AgentNotFound") {
-		t.Fatalf("cast unregistered: got=%s want contains AgentNotFound", errMsg)
+	// Bob is intentionally NOT registered.  invokeOpenlibErr auto-registers
+	// every arg via openlibRememberAgentValue, so we delete bob from the
+	// registry right after the call (the call itself will have succeeded
+	// because auto-registration happened first).  Instead, invoke manually
+	// without auto-registration to test the unregistered path.
+	{
+		delete(host.agentProps, bob) // ensure bob is unregistered
+		oninvoke := L.GetField(tos, "oninvoke")
+		storageSnap, transientSnap := snapshotLuaStorage(L)
+		hostSnap := snapshotRuntimeHost(host)
+		base := L.GetTop()
+		L.Push(oninvoke)
+		L.Push(LString(selectorHexFromSignature("cast(agent)")))
+		L.Push(LString(bob))
+		err := L.PCall(2, MultRet, nil)
+		L.SetTop(base)
+		revertLuaStorage(L, storageSnap, transientSnap)
+		restoreRuntimeHost(host, hostSnap)
+		if err == nil {
+			t.Fatal("cast unregistered: expected AgentNotFound error")
+		}
+		if errMsg := extractApiRevertMsg(err); !strings.Contains(errMsg, "AgentNotFound") {
+			t.Fatalf("cast unregistered: got=%s want contains AgentNotFound", errMsg)
+		}
 	}
 
 	openlibSetSender(host, alice)
@@ -1190,7 +1212,9 @@ contract AgentCastProbe {
 		t.Fatalf("caller registered: got=%s want=%s", got, alice)
 	}
 
-	openlibSetSender(host, bob)
+	// Set sender to bob (unregistered) — set sender without registering.
+	delete(host.agentProps, bob)
+	host.msgTable.RawSetString("sender", LString(bob))
 	if errMsg := invokeOpenlibErr(t, L, tos, "callerAgent()"); !strings.Contains(errMsg, "AgentNotFound") {
 		t.Fatalf("caller unregistered: got=%s want contains AgentNotFound", errMsg)
 	}

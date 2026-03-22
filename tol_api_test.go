@@ -1285,8 +1285,8 @@ contract Demo {
     set d = delegatecall("0x03", "0xcc");
     set a = create(0, "0x6000");
     set b = create2(0, "0x01", "0x6001");
-    set x = createx(7, "0x6002", 42, "0x0000000000000000000000000000000000000005");
-    set y = create2x(8, "0x02", "0x6003", 43, "0x0000000000000000000000000000000000000006");
+    set x = createx(7, "0x6002", 42, "0x473302ca547d5f9877e272cffe58d4def43198b66ba35cff4b2e584be19efa05");
+    set y = create2x(8, "0x02", "0x6003", 43, "0xdf96edbc954f43d46dc80e0180291bb781ac0a8a3a69c785631d4193e9a9d5e7");
     transfer("0x04", 9);
     return;
   }
@@ -1452,8 +1452,8 @@ contract Demo {
 	if got := LVAsString(L.GetGlobal("__createx_arg2")); got != "42" {
 		t.Fatalf("unexpected createx() arg2: got=%s want=42", got)
 	}
-	if got := LVAsString(L.GetGlobal("__createx_arg3")); got != "0x0000000000000000000000000000000000000005" {
-		t.Fatalf("unexpected createx() arg3: got=%s want=0x0000000000000000000000000000000000000005", got)
+	if got := LVAsString(L.GetGlobal("__createx_arg3")); got != "0x473302ca547d5f9877e272cffe58d4def43198b66ba35cff4b2e584be19efa05" {
+		t.Fatalf("unexpected createx() arg3: got=%s want=0x473302ca547d5f9877e272cffe58d4def43198b66ba35cff4b2e584be19efa05", got)
 	}
 	if got := LVAsString(L.GetGlobal("__createx_arg4")); got != "7" {
 		t.Fatalf("unexpected createx() arg4: got=%s want=7", got)
@@ -1467,8 +1467,8 @@ contract Demo {
 	if got := LVAsString(L.GetGlobal("__create2x_arg3")); got != "43" {
 		t.Fatalf("unexpected create2x() arg3: got=%s want=43", got)
 	}
-	if got := LVAsString(L.GetGlobal("__create2x_arg4")); got != "0x0000000000000000000000000000000000000006" {
-		t.Fatalf("unexpected create2x() arg4: got=%s want=0x0000000000000000000000000000000000000006", got)
+	if got := LVAsString(L.GetGlobal("__create2x_arg4")); got != "0xdf96edbc954f43d46dc80e0180291bb781ac0a8a3a69c785631d4193e9a9d5e7" {
+		t.Fatalf("unexpected create2x() arg4: got=%s want=0xdf96edbc954f43d46dc80e0180291bb781ac0a8a3a69c785631d4193e9a9d5e7", got)
 	}
 	if got := LVAsString(L.GetGlobal("__create2x_arg5")); got != "8" {
 		t.Fatalf("unexpected create2x() arg5: got=%s want=8", got)
@@ -1581,7 +1581,7 @@ func TestCompileBytecodeCallOptionsPassExplicitGasToTosHooks(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    agent addr = 0x0000000000000000000000000000000000000001;
+    agent addr = 0x8ac013baac6fd392efc57bb097b1c813eae702332ba3eaa1625f942c5472626d;
     (bool ok1, bytes ret1) = addr.call{value: 9, gas: 7000}("0xaa");
     (bool ok2, bytes ret2) = addr.staticcall{gas: 2300}("0xbb");
     (bool ok3, bytes ret3) = addr.delegatecall{gas: 5000}("0xcc");
@@ -1693,8 +1693,8 @@ contract Demo {
     set d = delegatecall("0x03", "0xcc");
     set a = create(0, "0x6000");
     set b = create2(0, "0x01", "0x6001");
-    set x = createx(7, "0x6002", 42, "0x0000000000000000000000000000000000000005");
-    set y = create2x(8, "0x02", "0x6003", 43, "0x0000000000000000000000000000000000000006");
+    set x = createx(7, "0x6002", 42, "0x473302ca547d5f9877e272cffe58d4def43198b66ba35cff4b2e584be19efa05");
+    set y = create2x(8, "0x02", "0x6003", 43, "0xdf96edbc954f43d46dc80e0180291bb781ac0a8a3a69c785631d4193e9a9d5e7");
     return;
   }
 }
@@ -1760,8 +1760,8 @@ pragma tolang 0.2.0;
 contract Demo {
   function run() public {
     set a = create(0, "0x6000");
-    set x = createx(7, "0x6002", 42, "0x0000000000000000000000000000000000000005");
-    set y = create2x(8, "0x02", "0x6003", 43, "0x0000000000000000000000000000000000000006");
+    set x = createx(7, "0x6002", 42, "0x473302ca547d5f9877e272cffe58d4def43198b66ba35cff4b2e584be19efa05");
+    set y = create2x(8, "0x02", "0x6003", 43, "0xdf96edbc954f43d46dc80e0180291bb781ac0a8a3a69c785631d4193e9a9d5e7");
     transfer("0x04", 11);
     return;
   }
@@ -6868,7 +6868,7 @@ contract TryCatchDemo {
 	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
 	// Set up msg table.
 	msg := L.NewTable()
-	L.SetField(msg, "sender", LString("0x0000000000000000000000000000000000000001"))
+	L.SetField(msg, "sender", LString("0x8ac013baac6fd392efc57bb097b1c813eae702332ba3eaa1625f942c5472626d"))
 	L.SetGlobal("msg", msg)
 
 	if err := L.DoString(string(bc)); err != nil {
@@ -6947,7 +6947,7 @@ contract TryCatchSuccessDemo {
 	L := NewState()
 	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
 	msg := L.NewTable()
-	L.SetField(msg, "sender", LString("0x0000000000000000000000000000000000000001"))
+	L.SetField(msg, "sender", LString("0x8ac013baac6fd392efc57bb097b1c813eae702332ba3eaa1625f942c5472626d"))
 	L.SetField(msg, "data", LString("0x1"))
 	L.SetGlobal("msg", msg)
 
@@ -7081,7 +7081,7 @@ contract PanicDemo {
 	L := NewState()
 	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
 	msg := L.NewTable()
-	L.SetField(msg, "sender", LString("0x0000000000000000000000000000000000000001"))
+	L.SetField(msg, "sender", LString("0x8ac013baac6fd392efc57bb097b1c813eae702332ba3eaa1625f942c5472626d"))
 	L.SetGlobal("msg", msg)
 
 	if err := L.DoString(string(bc)); err != nil {
@@ -7178,7 +7178,7 @@ contract ErrorCatchDemo {
 	L := NewState()
 	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
 	msg := L.NewTable()
-	L.SetField(msg, "sender", LString("0x0000000000000000000000000000000000000001"))
+	L.SetField(msg, "sender", LString("0x8ac013baac6fd392efc57bb097b1c813eae702332ba3eaa1625f942c5472626d"))
 	L.SetGlobal("msg", msg)
 	if err := L.DoString(string(bc)); err != nil {
 		t.Fatalf("load error: %v", err)
@@ -7251,7 +7251,7 @@ contract PanicCatchDemo {
 	L := NewState()
 	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
 	msg := L.NewTable()
-	L.SetField(msg, "sender", LString("0x0000000000000000000000000000000000000001"))
+	L.SetField(msg, "sender", LString("0x8ac013baac6fd392efc57bb097b1c813eae702332ba3eaa1625f942c5472626d"))
 	L.SetGlobal("msg", msg)
 	if err := L.DoString(string(bc)); err != nil {
 		t.Fatalf("load error: %v", err)
@@ -7317,7 +7317,7 @@ contract BytesCatchDemo {
 	L := NewState()
 	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
 	msg := L.NewTable()
-	L.SetField(msg, "sender", LString("0x0000000000000000000000000000000000000001"))
+	L.SetField(msg, "sender", LString("0x8ac013baac6fd392efc57bb097b1c813eae702332ba3eaa1625f942c5472626d"))
 	L.SetGlobal("msg", msg)
 	if err := L.DoString(string(bc)); err != nil {
 		t.Fatalf("load error: %v", err)
@@ -7368,7 +7368,7 @@ contract RawErrorDemo {
 	L := NewState()
 	L.SetGlobal("emit", L.NewFunction(func(L *LState) int { return 0 }))
 	msg := L.NewTable()
-	L.SetField(msg, "sender", LString("0x0000000000000000000000000000000000000001"))
+	L.SetField(msg, "sender", LString("0x8ac013baac6fd392efc57bb097b1c813eae702332ba3eaa1625f942c5472626d"))
 	L.SetGlobal("msg", msg)
 	if err := L.DoString(string(bc)); err != nil {
 		t.Fatalf("load error: %v", err)
@@ -10687,7 +10687,7 @@ func TestCallOptionsParseCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    agent addr = 0x0000000000000000000000000000000000000001;
+    agent addr = 0x8ac013baac6fd392efc57bb097b1c813eae702332ba3eaa1625f942c5472626d;
     (bool ok, bytes ret) = addr.call{value: 0}("0x");
     set out = ok;
     return;
@@ -10709,7 +10709,7 @@ func TestCallOptionsGasCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    agent addr = 0x0000000000000000000000000000000000000001;
+    agent addr = 0x8ac013baac6fd392efc57bb097b1c813eae702332ba3eaa1625f942c5472626d;
     (bool ok, bytes ret) = addr.staticcall{gas: 2300}("0x");
     set out = ok;
     return;
@@ -10862,7 +10862,7 @@ func TestCallOptionsDelegatecallCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    agent addr = 0x0000000000000000000000000000000000000002;
+    agent addr = 0x473302ca547d5f9877e272cffe58d4def43198b66ba35cff4b2e584be19efa05;
     (bool ok, bytes ret) = addr.delegatecall{gas: 5000}("0x");
     set out = ok;
     return;
@@ -10885,7 +10885,7 @@ func TestCallOptionsValueAndGasCompiles(t *testing.T) {
 pragma tolang 0.2.0;
 contract Demo {
   function run() public {
-    agent addr = 0x0000000000000000000000000000000000000003;
+    agent addr = 0xdf96edbc954f43d46dc80e0180291bb781ac0a8a3a69c785631d4193e9a9d5e7;
     (bool ok, bytes ret) = addr.call{value: 100, gas: 3000}("0x");
     set out = ok;
     return;

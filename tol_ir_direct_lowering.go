@@ -4377,7 +4377,7 @@ func tolExprToLua(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, error) {
 	case "msg_agent":
 		// msg.agent — returns msg.sender when available, otherwise zero address.
 		// Unlike agent(msg.sender) this never reverts on unregistered callers.
-		const zeroAddr = "0x0000000000000000000000000000000000000000"
+		const zeroAddr = "0x0000000000000000000000000000000000000000000000000000000000000000"
 		src := fmt.Sprintf(`(msg and msg.sender or %q)`, zeroAddr)
 		stmts, err := parse.Parse(bytes.NewReader([]byte("return "+src)), "<tol-msg-agent>")
 		if err != nil {

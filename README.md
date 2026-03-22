@@ -545,14 +545,14 @@ test TRC20Suite {
     }
 
     function test_transfer() {
-        with msg.sender = 0x0000000000000000000000000000000000000001 {
-            assert_eq(token.transfer(0x0000000000000000000000000000000000000002, 100), true);
+        with msg.sender = 0x8ac013baac6fd392efc57bb097b1c813eae702332ba3eaa1625f942c5472626d {
+            assert_eq(token.transfer(0x473302ca547d5f9877e272cffe58d4def43198b66ba35cff4b2e584be19efa05, 100), true);
         }
-        assert_eq(token.balanceOf(0x0000000000000000000000000000000000000002), 100);
+        assert_eq(token.balanceOf(0x473302ca547d5f9877e272cffe58d4def43198b66ba35cff4b2e584be19efa05), 100);
     }
 
     function test_insufficient_balance() {
-        assert_revert(function() { token.transfer(0x0000000000000000000000000000000000000002, 9999999); });
+        assert_revert(function() { token.transfer(0x473302ca547d5f9877e272cffe58d4def43198b66ba35cff4b2e584be19efa05, 9999999); });
     }
 }
 ```

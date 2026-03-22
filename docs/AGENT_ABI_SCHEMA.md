@@ -116,9 +116,11 @@ Status note:
 
 ### Protocol alignment layer
 
-The unified profile now also carries an additive `protocol_alignment` section.
-This is not a new execution primitive. It is a machine-readable hint layer for
-the next GTOS-owned wave:
+The unified profile now also carries additive `protocol_alignment` and
+`threat_model` sections.
+
+`protocol_alignment` is not a new execution primitive. It is a machine-readable
+hint layer for the next GTOS-owned wave:
 
 - `settlement_bus`
 - `registry_governance`
@@ -149,6 +151,36 @@ also includes:
 - `bundle_discovery_json`
 - `bundle_agent_package_json`
 
+The new `threat_model` section lifts the family-level release posture from
+`docs/STDLIB_THREAT_MODEL_MATRIX.md` into machine-readable metadata. It is
+exported in:
+
+- per-contract `.profile.json`
+- per-contract `.discovery.json`
+- per-contract `.agentpkg.json`
+- family `.bundle.profile.json`
+- family `.bundle.discovery.json`
+- family `.bundle.agentpkg.json`
+
+Example:
+
+```json
+{
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "settlement",
+    "scope": "contract",
+    "trust_boundary": "task poster, worker, dispute resolver",
+    "critical_invariants": [
+      "escrowed reward must map to exactly one terminal payout path",
+      "reject, dispute, and resolve states must be exclusive"
+    ],
+    "failure_posture": "fail closed on wrong status or wrong actor",
+    "runtime_dependency": "strong dependency on host escrow and release correctness plus rollback"
+  }
+}
+```
+
 ### Migration path
 
 1. Add `AgentContractProfile` to `metadata/metadata.go`
@@ -174,6 +206,7 @@ also includes:
 - [x] `BuildAgentProfile` produces identical information to current `.discovery.json` + `.agentpkg.json`
 - [x] Single `.profile.json` file per contract is emitted alongside the legacy files
 - [x] Bundle `.profile.json` is emitted alongside `.bundle.discovery.json` + `.bundle.agentpkg.json`
+- [x] Machine-readable `threat_model` is emitted alongside profile/discovery/agent package artifacts
 - [ ] No information loss compared to current artifacts
 - [ ] `risk_level`, `failure_modes`, `requires_capability`, `verifiable`, `delegated` all present in one document
 - [ ] GTOS `tos_getContractMetadata` returns the unified profile

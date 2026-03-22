@@ -75,6 +75,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 		Capabilities      []string                      `json:"capabilities"`
 		Tags              []string                      `json:"tags"`
 		Contracts         []*metadata.DiscoveryManifest `json:"contracts"`
+		ThreatModel       *metadata.ThreatModelProfile  `json:"threat_model,omitempty"`
 		ProtocolAlignment *metadata.ProtocolAlignment   `json:"protocol_alignment,omitempty"`
 		HumanSummary      string                        `json:"human_summary"`
 	}
@@ -85,6 +86,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 		TORPath           string                       `json:"tor_path"`
 		PackageHash       string                       `json:"package_hash"`
 		Contracts         []*metadata.AgentPackageInfo `json:"contracts"`
+		ThreatModel       *metadata.ThreatModelProfile `json:"threat_model,omitempty"`
 		ProtocolAlignment *metadata.ProtocolAlignment  `json:"protocol_alignment,omitempty"`
 		HumanSummary      string                       `json:"human_summary"`
 	}
@@ -413,6 +415,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 			Capabilities:      bundleDedupStrings(capabilities),
 			Tags:              bundleDedupStrings(tags),
 			Contracts:         discoveryContracts,
+			ThreatModel:       metadata.BuildBundleThreatModelProfile(family),
 			ProtocolAlignment: metadata.BuildBundleProtocolAlignment(bundleProtocolAlignmentsFromDiscovery(discoveryContracts)...),
 			HumanSummary:      "Family bundle for " + bundle.SourcePackagePath + " with contracts: " + strings.Join(wantContracts, ", "),
 		}
@@ -435,6 +438,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 			TORPath:           bundle.TORPath,
 			PackageHash:       bundle.PackageHash,
 			Contracts:         agentContracts,
+			ThreatModel:       metadata.BuildBundleThreatModelProfile(family),
 			ProtocolAlignment: metadata.BuildBundleProtocolAlignment(bundleProtocolAlignmentsFromAgentPackages(agentContracts)...),
 			HumanSummary:      "Agent package bundle for " + bundle.SourcePackagePath + " with contracts: " + strings.Join(wantContracts, ", "),
 		}

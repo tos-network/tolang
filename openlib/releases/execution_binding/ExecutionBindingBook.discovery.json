@@ -103,6 +103,19 @@
       "summary": "Pure computation with no state access"
     }
   ],
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "execution_binding",
+    "scope": "contract",
+    "trust_boundary": "approver and receipt-binding consumer",
+    "critical_invariants": [
+      "single-use binding must never be consumable twice",
+      "expiry must dominate late execution",
+      "value must stay within ceiling"
+    ],
+    "failure_posture": "fail closed on replay, expiry, or over-limit use",
+    "runtime_dependency": "moderate dependency on timestamp correctness and receipt-link consistency"
+  },
   "protocol_alignment": {
     "schema_version": "0.1.0",
     "package_governance": true,

@@ -340,6 +340,18 @@
     "sstore": 20000,
     "log_base": 375
   },
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "recovery",
+    "scope": "contract",
+    "trust_boundary": "guardian set, owner, and recovery controller",
+    "critical_invariants": [
+      "freeze and rotate flows must not bypass the active guardian threshold",
+      "recovery must not silently resurrect revoked authority"
+    ],
+    "failure_posture": "fail closed during contested recovery and require explicit recovery path",
+    "runtime_dependency": "moderate dependency on external guardian coordination and terminal-loss workflow"
+  },
   "protocol_alignment": {
     "schema_version": "0.1.0",
     "package_governance": true,

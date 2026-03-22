@@ -126,6 +126,19 @@
       "summary": "Pure computation with no state access"
     }
   ],
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "sponsor",
+    "scope": "contract",
+    "trust_boundary": "sponsor treasury owner and authorized relayer",
+    "critical_invariants": [
+      "relayer spend must not exceed budget",
+      "sponsor spend must not exceed deposits",
+      "policy hash must bind the route"
+    ],
+    "failure_posture": "fail closed on budget, expiry, or policy mismatch",
+    "runtime_dependency": "very strong dependency on external-call atomicity, revert propagation, and accounting semantics"
+  },
   "protocol_alignment": {
     "schema_version": "0.1.0",
     "settlement_bus": true,

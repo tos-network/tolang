@@ -1181,6 +1181,8 @@ The release/export surface has now tightened one step further:
 
 - per-contract `.profile.json` remains the canonical agent-facing contract view
 - family bundles now also emit `.bundle.profile.json`
+- per-contract and family bundle artifacts now also emit machine-readable
+  `threat_model` sections derived from the openlib threat matrix
 - legacy `.discovery.json` / `.agentpkg.json` bundle artifacts remain for
   compatibility while consumers migrate
 

@@ -21,6 +21,7 @@ type DiscoveryManifest struct {
 	InterfaceMethods  []DiscoveryMethod      `json:"interface_methods"`
 	PolicyProfile     *PolicyProfile         `json:"policy_profile,omitempty"`
 	TypedDiscovery    *TypedDiscoveryProfile `json:"typed_discovery,omitempty"`
+	ThreatModel       *ThreatModelProfile    `json:"threat_model,omitempty"`
 	ProtocolAlignment *ProtocolAlignment     `json:"protocol_alignment,omitempty"`
 	HumanSummary      string                 `json:"human_summary"`
 	Tags              []string               `json:"tags"`
@@ -96,6 +97,7 @@ func BuildDiscoveryManifest(meta *ContractMetadata, packageName string) *Discove
 	dm.ServiceKinds = InferServiceKinds(meta)
 	dm.Tags = InferTags(meta)
 	dm.TypedDiscovery = BuildTypedDiscoveryProfile(meta)
+	dm.ThreatModel = BuildThreatModelProfile(meta, packageName)
 	dm.ProtocolAlignment = BuildProtocolAlignment(meta, packageName)
 
 	// Build interface methods.

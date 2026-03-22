@@ -252,6 +252,9 @@ func TestBuildAgentPackageInfo(t *testing.T) {
 	if pkg.ProtocolAlignment == nil {
 		t.Fatal("ProtocolAlignment is nil")
 	}
+	if pkg.ThreatModel != nil {
+		t.Fatalf("expected nil openlib threat model for non-openlib package, got %+v", pkg.ThreatModel)
+	}
 	if !pkg.ProtocolAlignment.SettlementBus {
 		t.Error("expected settlement-bus alignment for TaskEscrow package")
 	}

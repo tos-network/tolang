@@ -248,6 +248,19 @@
         "summary": "Pure computation with no state access"
       }
     ],
+    "threat_model": {
+      "schema_version": "0.1.0",
+      "family": "account",
+      "scope": "contract",
+      "trust_boundary": "account owner, guardian, delegate executor",
+      "critical_invariants": [
+        "daily limit never underflows",
+        "allowlist gates stay authoritative",
+        "delegate budget and expiry stay bounded"
+      ],
+      "failure_posture": "fail closed on overspend, suspension, or unauthorized execution",
+      "runtime_dependency": "strong dependency on nested-call atomicity and external-call rollback"
+    },
     "protocol_alignment": {
       "schema_version": "0.1.0",
       "package_governance": true,
@@ -262,6 +275,19 @@
       "custom",
       "verifiable"
     ]
+  },
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "account",
+    "scope": "contract",
+    "trust_boundary": "account owner, guardian, delegate executor",
+    "critical_invariants": [
+      "daily limit never underflows",
+      "allowlist gates stay authoritative",
+      "delegate budget and expiry stay bounded"
+    ],
+    "failure_posture": "fail closed on overspend, suspension, or unauthorized execution",
+    "runtime_dependency": "strong dependency on nested-call atomicity and external-call rollback"
   },
   "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
   "protocol_alignment": {

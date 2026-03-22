@@ -270,6 +270,19 @@
       "summary": "Pure computation with no state access"
     }
   ],
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "settlement",
+    "scope": "contract",
+    "trust_boundary": "task poster, worker, dispute resolver",
+    "critical_invariants": [
+      "escrowed reward must map to exactly one terminal payout path",
+      "reject, dispute, and resolve states must be exclusive",
+      "reclaim must only occur after expiry"
+    ],
+    "failure_posture": "fail closed on wrong status or wrong actor",
+    "runtime_dependency": "strong dependency on host escrow and release correctness plus rollback"
+  },
   "protocol_alignment": {
     "schema_version": "0.1.0",
     "settlement_bus": true,

@@ -74,6 +74,7 @@ type releaseBundleDiscovery struct {
 	Capabilities      []string                      `json:"capabilities"`
 	Tags              []string                      `json:"tags"`
 	Contracts         []*metadata.DiscoveryManifest `json:"contracts"`
+	ThreatModel       *metadata.ThreatModelProfile  `json:"threat_model,omitempty"`
 	ProtocolAlignment *metadata.ProtocolAlignment   `json:"protocol_alignment,omitempty"`
 	HumanSummary      string                        `json:"human_summary"`
 }
@@ -85,6 +86,7 @@ type releaseBundleAgentPackage struct {
 	TORPath           string                       `json:"tor_path"`
 	PackageHash       string                       `json:"package_hash"`
 	Contracts         []*metadata.AgentPackageInfo `json:"contracts"`
+	ThreatModel       *metadata.ThreatModelProfile `json:"threat_model,omitempty"`
 	ProtocolAlignment *metadata.ProtocolAlignment  `json:"protocol_alignment,omitempty"`
 	HumanSummary      string                       `json:"human_summary"`
 }
@@ -318,6 +320,7 @@ func main() {
 			Capabilities:      dedupStrings(capabilities),
 			Tags:              dedupStrings(tags),
 			Contracts:         discoveryContracts,
+			ThreatModel:       metadata.BuildBundleThreatModelProfile(family),
 			ProtocolAlignment: metadata.BuildBundleProtocolAlignment(protocolAlignmentsFromDiscovery(discoveryContracts)...),
 			HumanSummary:      fmt.Sprintf("Family bundle for %s with contracts: %s", entries[0].SourcePackagePath, strings.Join(contractNames, ", ")),
 		}
@@ -335,6 +338,7 @@ func main() {
 			TORPath:           bundleRel,
 			PackageHash:       lua.PackageHash(bundleBytes),
 			Contracts:         agentContracts,
+			ThreatModel:       metadata.BuildBundleThreatModelProfile(family),
 			ProtocolAlignment: metadata.BuildBundleProtocolAlignment(protocolAlignmentsFromAgentPackages(agentContracts)...),
 			HumanSummary:      fmt.Sprintf("Agent package bundle for %s with contracts: %s", entries[0].SourcePackagePath, strings.Join(contractNames, ", ")),
 		}

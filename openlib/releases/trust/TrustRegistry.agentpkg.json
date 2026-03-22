@@ -245,6 +245,18 @@
         "summary": "Pure computation with no state access"
       }
     ],
+    "threat_model": {
+      "schema_version": "0.1.0",
+      "family": "trust",
+      "scope": "contract",
+      "trust_boundary": "registry writer and scoring authority",
+      "critical_invariants": [
+        "eligibility and reputation updates must not fabricate stake or status",
+        "slash and suspend semantics must remain explicit and monotonic"
+      ],
+      "failure_posture": "fail closed on untrusted registry mutation",
+      "runtime_dependency": "high dependency on external reputation, stake, or slashing systems"
+    },
     "protocol_alignment": {
       "schema_version": "0.1.0",
       "package_governance": true,
@@ -259,6 +271,18 @@
       "custom",
       "verifiable"
     ]
+  },
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "trust",
+    "scope": "contract",
+    "trust_boundary": "registry writer and scoring authority",
+    "critical_invariants": [
+      "eligibility and reputation updates must not fabricate stake or status",
+      "slash and suspend semantics must remain explicit and monotonic"
+    ],
+    "failure_posture": "fail closed on untrusted registry mutation",
+    "runtime_dependency": "high dependency on external reputation, stake, or slashing systems"
   },
   "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
   "protocol_alignment": {

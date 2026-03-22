@@ -357,6 +357,19 @@
     "sstore": 20000,
     "log_base": 375
   },
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "privacy",
+    "scope": "contract",
+    "trust_boundary": "UNO bridge, resolver, and disclosure policy",
+    "critical_invariants": [
+      "confidential balance movement must preserve ciphertext integrity",
+      "release and refund paths must be exclusive",
+      "disclosure permissions must not outlive revocation intent"
+    ],
+    "failure_posture": "fail closed on zero or invalid confidential value and unauthorized disclosure",
+    "runtime_dependency": "very strong dependency on UNO native rails, ciphertext helpers, and proof validity"
+  },
   "protocol_alignment": {
     "schema_version": "0.1.0",
     "settlement_bus": true,

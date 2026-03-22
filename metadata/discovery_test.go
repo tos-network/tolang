@@ -96,6 +96,9 @@ func TestBuildDiscoveryManifest(t *testing.T) {
 	if dm.TypedDiscovery != nil {
 		t.Fatalf("token manifest should not expose typed discovery, got %+v", dm.TypedDiscovery)
 	}
+	if dm.ThreatModel != nil {
+		t.Fatalf("token manifest should not expose openlib threat model, got %+v", dm.ThreatModel)
+	}
 }
 
 func TestInferContractType(t *testing.T) {
@@ -233,6 +236,12 @@ func TestBuildDiscoveryManifestTypedDiscoveryProfile(t *testing.T) {
 	}
 	if dm.ProtocolAlignment == nil {
 		t.Fatal("expected non-nil ProtocolAlignment")
+	}
+	if dm.ThreatModel == nil {
+		t.Fatal("expected non-nil ThreatModel for openlib discovery contract")
+	}
+	if dm.ThreatModel.Family != "discovery" {
+		t.Fatalf("ThreatModel.Family = %q, want discovery", dm.ThreatModel.Family)
 	}
 	if !dm.ProtocolAlignment.RegistryGovernance {
 		t.Error("expected registry-governance alignment for discovery contracts")

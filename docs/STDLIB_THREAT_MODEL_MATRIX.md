@@ -2,6 +2,10 @@
 
 This matrix is the first release baseline for the TOL openlib.
 
+As of 2026-03-22, this matrix is also partially exported as machine-readable
+`threat_model` metadata in openlib `.profile.json`, `.discovery.json`,
+`.agentpkg.json`, and family bundle equivalents.
+
 It does not attempt to replace full audits.
 Its purpose is narrower and practical:
 

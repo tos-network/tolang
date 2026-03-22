@@ -140,6 +140,19 @@
       "summary": "Pure computation with no state access"
     }
   ],
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "evidence",
+    "scope": "contract",
+    "trust_boundary": "evidence writer and finalizer",
+    "critical_invariants": [
+      "evidence id must remain unique",
+      "finalization must be monotonic",
+      "challenge and settlement refs must preserve audit linkage"
+    ],
+    "failure_posture": "fail closed on duplicate or inconsistent evidence state",
+    "runtime_dependency": "moderate dependency on off-chain proof systems and evidence availability"
+  },
   "protocol_alignment": {
     "schema_version": "0.1.0",
     "package_governance": true,

@@ -92,6 +92,19 @@
       "summary": "Pure computation with no state access"
     }
   ],
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "authority",
+    "scope": "contract",
+    "trust_boundary": "grant writer and revoker",
+    "critical_invariants": [
+      "scope must stay unique enough",
+      "nonce consumption must be monotonic",
+      "revocation must dominate reuse"
+    ],
+    "failure_posture": "fail closed on stale or replayed authority",
+    "runtime_dependency": "moderate dependency on durable replay semantics across hosts"
+  },
   "protocol_alignment": {
     "schema_version": "0.1.0",
     "registry_governance": true,

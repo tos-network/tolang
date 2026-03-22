@@ -23,6 +23,7 @@ type AgentContractProfile struct {
 	HumanSummary      string                 `json:"human_summary,omitempty"`
 	GasModel          *GasModelMeta          `json:"gas_model,omitempty"`
 	TypedDiscovery    *TypedDiscoveryProfile `json:"typed_discovery,omitempty"`
+	ThreatModel       *ThreatModelProfile    `json:"threat_model,omitempty"`
 	ProtocolAlignment *ProtocolAlignment     `json:"protocol_alignment,omitempty"`
 }
 
@@ -34,6 +35,7 @@ type AgentBundleProfile struct {
 	PackageName       string                  `json:"package_name"`
 	PackageVersion    string                  `json:"package_version,omitempty"`
 	Contracts         []*AgentContractProfile `json:"contracts"`
+	ThreatModel       *ThreatModelProfile     `json:"threat_model,omitempty"`
 	ProtocolAlignment *ProtocolAlignment      `json:"protocol_alignment,omitempty"`
 	HumanSummary      string                  `json:"human_summary,omitempty"`
 }
@@ -123,11 +125,15 @@ func BuildAgentProfile(cm *ContractMetadata, packageName ...string) *AgentContra
 	// TypedDiscovery.
 	p.TypedDiscovery = BuildTypedDiscoveryProfile(cm)
 
-	// ProtocolAlignment.
 	pkgName := ""
 	if len(packageName) > 0 {
 		pkgName = packageName[0]
 	}
+
+	// ThreatModel.
+	p.ThreatModel = BuildThreatModelProfile(cm, pkgName)
+
+	// ProtocolAlignment.
 	p.ProtocolAlignment = BuildProtocolAlignment(cm, pkgName)
 
 	return p
@@ -143,6 +149,7 @@ func BuildAgentBundleProfile(family, packageName, packageVersion string, contrac
 		PackageVersion: packageVersion,
 		Contracts:      contracts,
 	}
+	bundle.ThreatModel = BuildBundleThreatModelProfile(family)
 	bundle.ProtocolAlignment = mergeProtocolAlignmentsFromProfiles(contracts)
 
 	names := make([]string, 0, len(contracts))

@@ -379,6 +379,19 @@
     "sstore": 20000,
     "log_base": 375
   },
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "session",
+    "scope": "contract",
+    "trust_boundary": "session issuer and terminal-trust policy",
+    "critical_invariants": [
+      "session expiry must dominate reuse",
+      "step-up threshold must be enforced before spend",
+      "revoked session must become inert immediately"
+    ],
+    "failure_posture": "fail closed on inactive or degraded session",
+    "runtime_dependency": "moderate dependency on trustworthy terminal/session evidence outside chain"
+  },
   "protocol_alignment": {
     "schema_version": "0.1.0",
     "package_governance": true,

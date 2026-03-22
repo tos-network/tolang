@@ -143,6 +143,19 @@
         "summary": "Pure computation with no state access"
       }
     ],
+    "threat_model": {
+      "schema_version": "0.1.0",
+      "family": "receipt",
+      "scope": "contract",
+      "trust_boundary": "receipt writer",
+      "critical_invariants": [
+        "each receipt id must be unique",
+        "success and failure finalization must be terminal",
+        "binding and proof refs must remain stable once opened"
+      ],
+      "failure_posture": "fail closed on duplicate open or repeated finalize",
+      "runtime_dependency": "low dependency in pure storage terms and higher dependency when used as settlement or audit anchor"
+    },
     "protocol_alignment": {
       "schema_version": "0.1.0",
       "settlement_bus": true,
@@ -158,6 +171,19 @@
       "custom",
       "verifiable"
     ]
+  },
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "receipt",
+    "scope": "contract",
+    "trust_boundary": "receipt writer",
+    "critical_invariants": [
+      "each receipt id must be unique",
+      "success and failure finalization must be terminal",
+      "binding and proof refs must remain stable once opened"
+    ],
+    "failure_posture": "fail closed on duplicate open or repeated finalize",
+    "runtime_dependency": "low dependency in pure storage terms and higher dependency when used as settlement or audit anchor"
   },
   "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
   "protocol_alignment": {

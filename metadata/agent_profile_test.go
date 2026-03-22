@@ -112,6 +112,9 @@ func TestBuildAgentProfile_Token(t *testing.T) {
 	if p.TypedDiscovery != nil {
 		t.Error("expected nil TypedDiscovery for token contract")
 	}
+	if p.ThreatModel != nil {
+		t.Errorf("expected nil ThreatModel for non-openlib token profile, got %+v", p.ThreatModel)
+	}
 	if p.ProtocolAlignment == nil {
 		t.Fatal("expected non-nil ProtocolAlignment")
 	}
@@ -243,6 +246,18 @@ func TestBuildAgentProfile_PackageGovernanceAlignment(t *testing.T) {
 	if !p.ProtocolAlignment.SettlementBus {
 		t.Error("expected settlement-bus alignment for settlement contract")
 	}
+	if p.ThreatModel == nil {
+		t.Fatal("expected threat model for openlib settlement profile")
+	}
+	if p.ThreatModel.Family != "settlement" {
+		t.Fatalf("ThreatModel.Family = %q, want settlement", p.ThreatModel.Family)
+	}
+	if p.ThreatModel.Scope != "contract" {
+		t.Fatalf("ThreatModel.Scope = %q, want contract", p.ThreatModel.Scope)
+	}
+	if p.ThreatModel.FailurePosture == "" || p.ThreatModel.RuntimeDependency == "" {
+		t.Fatalf("expected populated threat model, got %+v", p.ThreatModel)
+	}
 }
 
 func TestBuildAgentBundleProfile(t *testing.T) {
@@ -285,6 +300,12 @@ func TestBuildAgentBundleProfile(t *testing.T) {
 	if bundle.ProtocolAlignment == nil {
 		t.Fatal("expected merged protocol alignment")
 	}
+	if bundle.ThreatModel == nil {
+		t.Fatal("expected bundle threat model")
+	}
+	if bundle.ThreatModel.Family != "privacy" || bundle.ThreatModel.Scope != "family_bundle" {
+		t.Fatalf("unexpected bundle threat model %+v", bundle.ThreatModel)
+	}
 	if !bundle.ProtocolAlignment.SettlementBus || !bundle.ProtocolAlignment.RegistryGovernance || !bundle.ProtocolAlignment.PackageGovernance {
 		t.Fatalf("unexpected merged protocol alignment %+v", bundle.ProtocolAlignment)
 	}
@@ -295,5 +316,28 @@ func TestBuildAgentBundleProfile(t *testing.T) {
 	}
 	if bundle.HumanSummary == "" {
 		t.Fatal("expected non-empty human summary")
+	}
+}
+
+func TestBuildThreatModelProfile_OpenlibFamily(t *testing.T) {
+	meta := &ContractMetadata{
+		Contract: ContractInfo{Name: "SponsorPolicyRelay"},
+		Functions: []FunctionMeta{
+			{Name: "relay", Visibility: "external"},
+		},
+	}
+
+	profile := BuildThreatModelProfile(meta, "tolang.openlib.sponsor")
+	if profile == nil {
+		t.Fatal("expected sponsor threat model")
+	}
+	if profile.Family != "sponsor" {
+		t.Fatalf("Family = %q, want sponsor", profile.Family)
+	}
+	if profile.Scope != "contract" {
+		t.Fatalf("Scope = %q, want contract", profile.Scope)
+	}
+	if profile.TrustBoundary == "" || len(profile.CriticalInvariants) == 0 {
+		t.Fatalf("expected populated threat model, got %+v", profile)
 	}
 }

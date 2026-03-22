@@ -17,6 +17,7 @@ type AgentPackageInfo struct {
 	Errors            []ErrorMeta         `json:"errors,omitempty"`
 	Capabilities      *CapabilityManifest `json:"capabilities"`
 	Discovery         *DiscoveryManifest  `json:"discovery"`
+	ThreatModel       *ThreatModelProfile `json:"threat_model,omitempty"`
 	HumanSummary      string              `json:"human_summary"`
 	ProtocolAlignment *ProtocolAlignment  `json:"protocol_alignment,omitempty"`
 }
@@ -42,6 +43,7 @@ func BuildAgentPackageInfo(meta *ContractMetadata, packageName string) *AgentPac
 		Errors:            meta.Errors,
 		Capabilities:      capManifest,
 		Discovery:         discManifest,
+		ThreatModel:       BuildThreatModelProfile(meta, packageName),
 		HumanSummary:      summary.RiskSummary,
 		ProtocolAlignment: BuildProtocolAlignment(meta, packageName),
 	}

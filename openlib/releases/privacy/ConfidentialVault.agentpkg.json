@@ -163,6 +163,19 @@
         "summary": "Pure computation with no state access"
       }
     ],
+    "threat_model": {
+      "schema_version": "0.1.0",
+      "family": "privacy",
+      "scope": "contract",
+      "trust_boundary": "UNO bridge, resolver, and disclosure policy",
+      "critical_invariants": [
+        "confidential balance movement must preserve ciphertext integrity",
+        "release and refund paths must be exclusive",
+        "disclosure permissions must not outlive revocation intent"
+      ],
+      "failure_posture": "fail closed on zero or invalid confidential value and unauthorized disclosure",
+      "runtime_dependency": "very strong dependency on UNO native rails, ciphertext helpers, and proof validity"
+    },
     "protocol_alignment": {
       "schema_version": "0.1.0",
       "package_governance": true,
@@ -177,6 +190,19 @@
       "token",
       "verifiable"
     ]
+  },
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "privacy",
+    "scope": "contract",
+    "trust_boundary": "UNO bridge, resolver, and disclosure policy",
+    "critical_invariants": [
+      "confidential balance movement must preserve ciphertext integrity",
+      "release and refund paths must be exclusive",
+      "disclosure permissions must not outlive revocation intent"
+    ],
+    "failure_posture": "fail closed on zero or invalid confidential value and unauthorized disclosure",
+    "runtime_dependency": "very strong dependency on UNO native rails, ciphertext helpers, and proof validity"
   },
   "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
   "protocol_alignment": {

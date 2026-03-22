@@ -369,6 +369,19 @@
       "quote_ref"
     ]
   },
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "discovery",
+    "scope": "contract",
+    "trust_boundary": "directory writer and market publisher",
+    "critical_invariants": [
+      "active flag must dominate routing",
+      "provider and manifest linkage must stay stable",
+      "capability metadata must not drift from actual contract surface"
+    ],
+    "failure_posture": "fail closed on inactive or mismatched service record",
+    "runtime_dependency": "moderate dependency on off-chain discovery consumers respecting metadata"
+  },
   "protocol_alignment": {
     "schema_version": "0.1.0",
     "registry_governance": true,

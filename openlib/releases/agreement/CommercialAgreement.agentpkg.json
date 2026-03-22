@@ -212,6 +212,19 @@
         "quote_ref"
       ]
     },
+    "threat_model": {
+      "schema_version": "0.1.0",
+      "family": "agreement",
+      "scope": "contract",
+      "trust_boundary": "counterparties and evidence finalizer",
+      "critical_invariants": [
+        "agreement state machine must remain monotonic",
+        "accepted terms must not mutate after acceptance",
+        "fulfill and cancel must be exclusive terminal outcomes"
+      ],
+      "failure_posture": "fail closed on invalid transition",
+      "runtime_dependency": "low dependency beyond standard storage consistency"
+    },
     "protocol_alignment": {
       "schema_version": "0.1.0",
       "package_governance": true,
@@ -227,6 +240,19 @@
       "typed-discovery",
       "verifiable"
     ]
+  },
+  "threat_model": {
+    "schema_version": "0.1.0",
+    "family": "agreement",
+    "scope": "contract",
+    "trust_boundary": "counterparties and evidence finalizer",
+    "critical_invariants": [
+      "agreement state machine must remain monotonic",
+      "accepted terms must not mutate after acceptance",
+      "fulfill and cancel must be exclusive terminal outcomes"
+    ],
+    "failure_posture": "fail closed on invalid transition",
+    "runtime_dependency": "low dependency beyond standard storage consistency"
   },
   "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
   "protocol_alignment": {

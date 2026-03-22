@@ -123,6 +123,9 @@ Status note:
   layer now also exposes typed reads for protocol registry and package-
   governance facts such as capability, delegation, package, publisher,
   verifier, verification, settlement policy, and agent identity
+- `gtosclient` now adds a higher-level `GetAgentRuntimeSurface(...)` helper on
+  top of those typed RPCs, so clients can consume one normalized object instead
+  of branching separately on deployed `.toc` vs `.tor` metadata
 - legacy `.discovery.json` / `.agentpkg.json` bundle artifacts are still emitted
   for compatibility during the transition
 

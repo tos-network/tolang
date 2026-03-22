@@ -1207,6 +1207,10 @@ The release/export surface has now tightened one step further:
   routing, package trust, and discovery surface; the same client surface now
   also exposes typed reads for capability/delegation/package/publisher/
   verifier/verification/pay-policy/agent-identity governance data
+- GTOS now also exposes a higher-level `gtosclient.GetAgentRuntimeSurface(...)`
+  helper that normalizes deployed `.toc` / `.tor` metadata into a single
+  client-side object carrying the effective profile or bundle profile,
+  routing hints, suggested discovery card, and package trust/publisher facts
 - legacy `.discovery.json` / `.agentpkg.json` bundle artifacts remain for
   compatibility while consumers migrate
 

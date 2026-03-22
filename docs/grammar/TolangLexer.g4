@@ -1,7 +1,8 @@
 // ANTLR4 Lexer Grammar for the TOL (TOS Object Language) language.
 //
-// TOL v0.3 / v0.4 (agent-native extension) — see docs/TOL_SPEC.md and
+// TOL v0.4 (agent-native + openlib closure) — see docs/TOL_SPEC.md and
 // docs/AGENT-NATIVE.md for the full language specification.
+// Updated: 2026-03-22
 //
 // Alignment policy (see docs/grammar/diff.md):
 //   - All Solidity reserved keywords are reserved here as well.
@@ -25,6 +26,7 @@ Abstract    : 'abstract'    ; // production: contextual
 // Address token removed — 'address' is a deprecated alias for 'agent'.
 // The production lexer still accepts 'address' for backward compatibility
 // and normalises it to 'agent' via normalizeSelectorType().
+Agent       : 'agent'       ; // TOL-specific: primary identity type (promoted from contextual)
 Anonymous   : 'anonymous'   ; // production: contextual
 As          : 'as'          ;
 Assert      : 'assert'      ; // TOL-specific (Solidity: contextual builtin)
@@ -89,6 +91,7 @@ Try         : 'try'         ; // production: contextual
 Type        : 'type'        ;
 Unchecked   : 'unchecked'   ; // production: contextual
 Unicode     : 'unicode'     ; // string-literal prefix (production: not yet implemented)
+Uno         : 'uno'         ; // TOL-specific: confidential encrypted integer type (promoted from contextual)
 Using       : 'using'       ; // production: contextual
 View        : 'view'        ; // production: contextual
 Virtual     : 'virtual'     ; // production: contextual
@@ -104,11 +107,13 @@ While       : 'while'       ;
 // ============================================================
 
 ReservedKeywords
-    : 'after' | 'alias' | 'apply' | 'auto' | 'byte' | 'case' | 'copyof'
+    : 'after' | 'alias' | 'apply' | 'async' | 'attest' | 'auto'
+    | 'await' | 'byte' | 'case' | 'copyof'
     | 'default' | 'define' | 'final' | 'implements' | 'in' | 'inline'
-    | 'macro' | 'match' | 'mutable' | 'null' | 'of' | 'partial' | 'promise'
-    | 'reference' | 'relocatable' | 'sealed' | 'sizeof' | 'static'
-    | 'supports' | 'switch' | 'typedef' | 'typeof' | 'var'
+    | 'intent' | 'macro' | 'match' | 'mutable' | 'null' | 'of'
+    | 'partial' | 'promise' | 'reference' | 'relocatable' | 'sealed'
+    | 'sizeof' | 'spawn' | 'static' | 'stream' | 'supports' | 'switch'
+    | 'typedef' | 'typeof' | 'var'
     ;
 
 // ============================================================
@@ -279,21 +284,18 @@ fragment HexDigit : [0-9a-fA-F] ;
 //
 // Additionally, the following have no reserved token and remain
 // purely contextual:
-//   agent  capability  cases  fuzz  inspect  mock  nil  oracle
+//   capability  cases  fuzz  inspect  manifest  mock  nil  oracle
 //   selector  setup  setup_suite  skip  tag  task  teardown
-//   teardown_suite  timeout  tolang  uno  vote  with
+//   teardown_suite  timeout  tolang  vote  with
 //
-// 'uno' is the confidential encrypted integer type (Twisted ElGamal
-// ciphertext, 64 bytes = commitment 32B + handle 32B). Like 'agent',
-// it is a contextual keyword (Identifier token) whose methods are
-// resolved by the sema layer. See docs/LVM_HE_OPCODES_PLAN_V2.md.
+// 'agent' and 'uno' were promoted from contextual to fully reserved
+// keywords (Agent and Uno tokens above).
 //
-// 'agent' is TOL's primary identity type — equivalent to Solidity's 'address'
-// but semantically richer (carries .stake, .is_active, .reputation etc.).
-// The deprecated 'address' and 'address payable' spellings are still accepted
-// and silently normalised to 'agent' throughout the pipeline.
+// 'manifest' is the block keyword for contract metadata declarations;
+// it is contextual (Identifier token) and disambiguated by the parser.
 //
 // Note: 'deploy' was contextual; promoted to Deploy token (TokenKwDeploy).
+// Note: 'session' was formerly reserved; unreserved in 2026-03-22.
 // ============================================================
 
 Identifier

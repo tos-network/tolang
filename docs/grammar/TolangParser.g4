@@ -1,7 +1,8 @@
 // ANTLR4 Parser Grammar for the TOL (TOS Object Language) language.
 //
-// TOL v0.3 / v0.4 (agent-native + privacy extension) — see docs/TOL_SPEC.md,
+// TOL v0.4 (agent-native + openlib closure) — see docs/TOL_SPEC.md,
 // docs/AGENT-NATIVE.md, and docs/LVM_HE_OPCODES_PLAN_V2.md for specifications.
+// Updated: 2026-03-22
 //
 // This grammar is a specification document aligned with SolidityParser.g4
 // (see docs/grammar/diff.md for the full diff analysis).

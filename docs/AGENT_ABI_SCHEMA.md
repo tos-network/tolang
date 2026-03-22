@@ -163,7 +163,10 @@ Status note:
   now also surface provider-selection failure reasons so runtime-level
   provider selection can be explained to users and agents, and that same
   explainability now reaches signer/paymaster CLI discovery plus the
-  `discover_capability_providers` tool surface
+  `discover_capability_providers` tool surface; gateway session selection,
+  solver bounty discovery, and opportunity scouting now also persist the
+  latest provider-selection explanation into local state for orchestration
+  and planner consumption
 - legacy `.discovery.json` / `.agentpkg.json` bundle artifacts are still emitted
   for compatibility during the transition
 

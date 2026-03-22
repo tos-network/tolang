@@ -1256,7 +1256,12 @@ The release/export surface has now tightened one step further:
   throwing opaque `No provider found` errors, so runtime-level selection is
   explainable rather than opaque; the same explainability now extends to
   signer/paymaster CLI discovery and the `discover_capability_providers`
-  tool, which surface package/routing hints and provider-selection failures
+  tool, which surface package/routing hints and provider-selection failures;
+  the same diagnostics now also feed OpenFox runtime/orchestration paths,
+  including gateway session selection, solver bounty discovery, and
+  opportunity scouting, which persist the last provider-selection explanation
+  into local state so planner/execution layers can explain why no provider
+  was selected
 - legacy `.discovery.json` / `.agentpkg.json` bundle artifacts remain for
   compatibility while consumers migrate
 

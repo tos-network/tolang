@@ -1,6 +1,6 @@
 # TODO / 任务一览
 
-Last updated: 2026-03-21
+Last updated: 2026-03-22
 
 ## Current stdlib backlog closures
 
@@ -14,6 +14,7 @@ Last updated: 2026-03-21
 | S-6 | Typed discovery schema normalization | Done | `ServiceDirectory` now exposes typed discovery fields, and `metadata.BuildDiscoveryManifest(...)` exports a normalized `typed_discovery` profile for agent-facing artifacts |
 | S-7 | Broader privacy helper family | Done | v1 helper family now includes `PrivateDisputeEscrow`, `RegulatedPrivateCheckout`, and `TreasuryDisclosureFlow` with runtime/e2e coverage |
 | S-8 | GTOS typed routing consumption | Done | `PrivateServiceOrder` routes on typed discovery fields and GTOS metadata RPC now returns `routing_profile` |
+| S-9 | GTOS package publishing trust integration | Done | `pkgregistry` now maintains latest-by-channel indexes, RPC exposes latest active package resolution, and deployed metadata joins published package/publisher trust |
 
 ## Review Follow-Ups
 

@@ -1202,7 +1202,9 @@ Current GTOS implementation status (2026-03-22):
 - LVM now consumes protocol-backed capability / delegation / verification /
   pay-policy state instead of leaving those surfaces as permissive stubs
 - package publishing is no longer design-only: GTOS now has package/publisher
-  state, sysactions, and RPC lookup by name/version/hash
+  state, sysactions, RPC lookup by name/version/hash, latest-by-channel
+  indexes, and deployed metadata joins that expose published package identity
+  plus publisher trust
 
 Execution prompt for this GTOS-owned wave:
 

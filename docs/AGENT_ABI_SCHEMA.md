@@ -126,6 +126,44 @@ Status note:
 - `gtosclient` now adds a higher-level `GetAgentRuntimeSurface(...)` helper on
   top of those typed RPCs, so clients can consume one normalized object instead
   of branching separately on deployed `.toc` vs `.tor` metadata
+- `gtosclient` also now adds `GetDiscoveredAgentSurface(...)`, which joins a
+  published discovery card with the deployed runtime metadata surface when the
+  structured card advertises a canonical `agent_address`
+- `gtosclient` also now adds `SearchDiscoveredAgentSurfaces(...)` and
+  `DirectorySearchDiscoveredAgentSurfaces(...)`, which batch-join capability
+  search results with published card data and deployed runtime metadata
+- `gtosclient` also now adds `SearchTrustedAgentSurfaces(...)` and
+  `DirectorySearchTrustedAgentSurfaces(...)`, which filter and rank those
+  joined provider surfaces using discovery trust summaries plus package trust
+  hints from the deployed runtime metadata
+- `gtosclient` also now adds `SearchPreferredAgentSurfaces(...)`,
+  `DirectorySearchPreferredAgentSurfaces(...)`, and
+  `SelectPreferredAgentSurface(...)`, which apply higher-level connection,
+  package, typed-routing, disclosure, and trust thresholds on top of the
+  trusted provider surface
+- `gtosclient` also now adds `ResolvePreferredAgentSurface(...)` and
+  `ResolveDirectoryPreferredAgentSurface(...)`, which collapse search/join/
+  trust/ranking/preference-selection into a single client-side resolve step
+- `gtosclient` also now adds
+  `SearchPreferredAgentSurfaceDiagnostics(...)` and
+  `DirectorySearchPreferredAgentSurfaceDiagnostics(...)`, which produce a
+  structured explanation of trust failures, preference failures, and final
+  `preferred` status for each candidate surface
+- `tosdk` now mirrors that higher-level discovery consumption layer for
+  TypeScript applications via `searchPreferredAgentProvider(...)`,
+  `directorySearchPreferredAgentProvider(...)`, and the matching
+  `...WithDiagnostics(...)` helpers; it also now exposes
+  `summarizeAgentProviderDiagnostics(...)`,
+  `requirePreferredAgentProvider(...)`, and the matching `...OrThrow(...)`
+  helpers for explainable failure handling in app code
+- OpenFox now consumes the same typed metadata hints directly in its
+  agent-discovery selection policy and exposes
+  `resolveCapabilityProvider(...)`, `diagnoseCapabilityProviders(...)`, and
+  `resolveCapabilityProviderWithDiagnostics(...)`; higher-level request paths
+  now also surface provider-selection failure reasons so runtime-level
+  provider selection can be explained to users and agents, and that same
+  explainability now reaches signer/paymaster CLI discovery plus the
+  `discover_capability_providers` tool surface
 - legacy `.discovery.json` / `.agentpkg.json` bundle artifacts are still emitted
   for compatibility during the transition
 

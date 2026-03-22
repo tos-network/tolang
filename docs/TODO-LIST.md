@@ -26,6 +26,17 @@ Last updated: 2026-03-22
 | N-18 | OpenFox runtime/orchestration provider diagnostics | Done | OpenFox gateway session selection, solver bounty discovery, and opportunity scouting now persist explainable provider-discovery diagnostics into local state, so planner/execution paths can report why no provider was selected instead of silently falling back or returning empty results |
 | N-19 | OpenFox execution-provider automatic fallback | Done | OpenFox provider invocation paths now automatically fall back across ranked discovery providers, record per-provider failure/success feedback into the existing local rank model, and use that feedback to re-order future execution selection instead of repeatedly preferring the same failing provider |
 
+All items in the current `N-*` wave are now complete.
+
+## Post-Closure Next Wave
+
+| ID | Item | Status | Notes |
+|---|---|---|---|
+| P-1 | LVM vs openlib boundary cleanup | Pending | The first closure wave intentionally landed protocol-native settlement, registry, package, and discovery primitives in GTOS. The next task is to decide which developer-facing APIs should remain `tos.*`, which should move behind openlib wrappers, and which should become system-contract surfaces. |
+| P-2 | Settlement-bus adoption cleanup | Pending | Now that `tos.settle(...)`, `tos.receipt_*`, and runtime settlement records exist, the next task is to standardize how openlib and higher-level clients consume them so public rail, UNO rail, escrow, sponsor, and receipt flows no longer expose ad hoc lifecycle differences. |
+| P-3 | OpenFox / SDK orchestration policy layer | Pending | Discovery, runtime join, trusted ranking, diagnostics, and fallback are complete. The next task is to let planner/executor policy choose providers using reusable policy bundles, explicit trust/cost/privacy preferences, and stable fallback strategy rather than helper-by-helper logic. |
+| P-4 | Governance v2 hardening | Pending | Registry/package governance v1 is complete. The next task is stronger governor workflows, namespace dispute handling, revocation propagation, and clearer operator-facing lifecycle policy over protocol registries and package publishing. |
+
 ## Current openlib backlog closures
 
 | ID | Item | Status | Notes |

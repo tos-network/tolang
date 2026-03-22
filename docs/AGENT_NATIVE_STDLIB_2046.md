@@ -1335,10 +1335,34 @@ Current GTOS implementation status (2026-03-22):
   receipt preconditions
 
 What remains for the next GTOS-owned wave is no longer "make openlib work."
-It is:
+The current GTOS/tolang/tosdk/openfox closure wave is now complete through:
 
-- keep the agent-facing profile/discovery/release surface aligned with those
-  protocol changes
+- protocol registries + governance
+- package publishing trust + namespace governance
+- settlement bus + receipt hooks v1
+- unified release/profile/discovery/threat-model export
+- GTOS metadata/discovery/client consumption
+- higher-level TypeScript and OpenFox provider selection, diagnostics, and
+  execution fallback
+
+The next post-closure wave is now:
+
+1. `LVM vs openlib boundary cleanup`
+   decide which developer-facing economic/discovery helpers remain protocol
+   native, which should be wrapped by openlib, and which should move to a
+   system-contract shape.
+2. `Settlement-bus adoption cleanup`
+   standardize how openlib and higher-level runtimes consume
+   `tos.settle(...)`, `tos.receipt_*`, and runtime settlement records so
+   public rail, UNO rail, escrow, sponsor, and receipt flows converge on one
+   stable developer-facing model.
+3. `OpenFox / SDK orchestration policy layer`
+   lift discovery/runtime/trust/fallback logic into reusable execution policy
+   bundles so planner/executor paths stop embedding one-off selection logic.
+4. `Governance v2 hardening`
+   extend registry/package governance beyond v1 lifecycle metadata and basic
+   governor override into clearer dispute, namespace, revocation-propagation,
+   and operator workflow semantics.
 
 Execution prompt for this GTOS-owned wave:
 

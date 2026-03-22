@@ -496,3 +496,35 @@ contract Consumer {
 		})
 	}
 }
+
+// TestPackageImportResolvesFromSearchPaths verifies that package-style imports
+// resolve correctly when PackageSearchPaths is set, eliminating the need for
+// synthetic compile paths.
+func TestPackageImportResolvesFromSearchPaths(t *testing.T) {
+	repoRoot, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+
+	// A contract that imports from tolang.stdlib.account.
+	source := []byte(`
+pragma tolang 0.4.0;
+import tolang.stdlib.account.IPolicyAccount;
+contract Importer {
+    function check() public view returns (bool ok) {
+        return true;
+    }
+}
+`)
+	// Compile using the REAL file path (not a synthetic one) with
+	// PackageSearchPaths pointing to the stdlib source directory.
+	compileName := filepath.Join(repoRoot, "test_importer.tol")
+	_, compileErr := CompileArtifactWithOptions(source, compileName, &ArtifactOptions{
+		PackageSearchPaths: []string{
+			filepath.Join(repoRoot, "stdlib"),
+		},
+	})
+	if compileErr != nil {
+		t.Fatalf("compile with PackageSearchPaths failed: %v", compileErr)
+	}
+}

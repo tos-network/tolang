@@ -198,26 +198,20 @@ All agent-native annotations now have protocol-level backing:
   calling `__tol_host_transfer`; GTOS `tos.host_transfer` implemented;
   `paypolicy/` provides `tos.canpay` for policy-backed validation
 
-### 4. Package resolution still depends too much on filesystem layout
+### 4. Package resolution still depends too much on filesystem layout — RESOLVED
 
-The stdlib and composed example tests had to use synthetic compile paths so
-package-style imports would resolve correctly relative to the repo parent.
+**Resolved (2026-03-22):**
 
-Evidence:
+`OSFileResolver` now accepts `PackageSearchPaths []string` — explicit
+directories where package-style imports resolve before the walk-up heuristic.
+`CompileOptions` and `ArtifactOptions` both expose `PackageSearchPaths`.
 
-- `e2e/stdlib_examples_e2e_test.go`
-- `stdlib_composed_runtime_test.go`
+Example: `PackageSearchPaths: ["/repo/stdlib"]` makes `import
+"tolang.stdlib.account"` resolve by checking `/repo/stdlib/account/` first,
+without relying on the importing file's position in the directory tree.
 
-Why this matters:
-
-- a mature package system should not feel like "path trickery"
-- it should feel like a stable package identity model with predictable import
-  and publishing rules
-
-Diagnosis:
-
-- Tolang package identity and package resolution still feel too source-tree
-  dependent
+Test: `TestPackageImportResolvesFromSearchPaths` verifies compilation with
+a real file path + search path (no synthetic compile name hack).
 
 ### 5. Namespace hygiene — RESOLVED (lexer unreserve + directory rename)
 
@@ -328,11 +322,11 @@ The priority order should be:
    LVM host functions `tos.hascapability`, `tos.hasdelegation`, `tos.isverified`,
    `tos.canpay` are registry-backed. `tos.host_transfer` wired for @pay.
    Compiler emits preambles for `@requires`, `@delegated`, `@pay`.
-4. Stable package identity and import resolution independent of local source
-   layout. — GTOS design doc `PACKAGE_PUBLISHING_REGISTRY.md` is ready
-   (PackageIdentity, PublisherRecord, PackageRecord schemas defined); local
-   toolchain resolution still filesystem-based; protocol-grade registry not yet
-   implemented.
+4. ~~Stable package identity and import resolution independent of local source
+   layout.~~ — **RESOLVED (2026-03-22)**: `OSFileResolver.PackageSearchPaths`
+   enables filesystem-independent resolution; `CompileOptions` and
+   `ArtifactOptions` expose the field; GTOS `pkgregistry/` provides protocol-
+   grade package identity model.
 5. Unified ABI/discovery/capability schema designed explicitly for agents. —
    PARTIALLY DONE: `ServiceDirectory` has typed discovery fields (`fee`,
    `sla_duration_ms`, capability/manifest/version refs);

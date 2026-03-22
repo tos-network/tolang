@@ -42,6 +42,10 @@ type ArtifactOptions struct {
 	// IncludeSourceMap controls whether embedded bytecode contains source map/debug metadata.
 	// Default is false for reproducible builds.
 	IncludeSourceMap bool
+
+	// PackageSearchPaths provides explicit directories for package-style import
+	// resolution, passed through to the underlying CompileOptions.
+	PackageSearchPaths []string
 }
 
 // gasModelVersion is the version string embedded in the gas_model ABI field.
@@ -209,8 +213,13 @@ func CompileArtifactWithOptions(source []byte, name string, opts *ArtifactOption
 	if opts != nil {
 		includeSourceMap = opts.IncludeSourceMap
 	}
+	var pkgPaths []string
+	if opts != nil {
+		pkgPaths = opts.PackageSearchPaths
+	}
 	bytecode, err := CompileBytecodeWithOptions(source, name, &CompileOptions{
-		IncludeSourceMap: includeSourceMap,
+		IncludeSourceMap:   includeSourceMap,
+		PackageSearchPaths: pkgPaths,
 	})
 	if err != nil {
 		return nil, err

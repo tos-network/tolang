@@ -19,8 +19,15 @@ import (
 
 // OSFileResolver is a sema.FileResolver that reads files from the OS filesystem.
 // Relative import paths are resolved against BaseDir.
+//
+// PackageSearchPaths provides explicit directories where package-style imports
+// are resolved before falling back to the walk-up heuristic.  Each entry is a
+// root directory that may contain package family subdirectories (e.g., if
+// PackageSearchPaths includes "/repo/stdlib" then "tolang.stdlib.account" will
+// check "/repo/stdlib/account/" first).
 type OSFileResolver struct {
-	BaseDir string
+	BaseDir            string
+	PackageSearchPaths []string
 }
 
 const maxGitHubImportBytes = 4 << 20 // 4 MiB
@@ -161,21 +168,9 @@ func (r *OSFileResolver) ListPackage(pkgPath string) ([]string, error) {
 }
 
 func (r *OSFileResolver) packageSearchDirs(importingFile, pkgPath string) []string {
-	base := r.BaseDir
-	if base == "" && importingFile != "" {
-		base = filepath.Dir(importingFile)
-	}
-	if base == "" {
-		return nil
-	}
 	segments := strings.Split(pkgPath, ".")
 	if len(segments) == 0 {
 		return nil
-	}
-	relAll := filepath.Join(segments...)
-	relWithinRoot := ""
-	if len(segments) > 1 {
-		relWithinRoot = filepath.Join(segments[1:]...)
 	}
 
 	var dirs []string
@@ -189,13 +184,38 @@ func (r *OSFileResolver) packageSearchDirs(importingFile, pkgPath string) []stri
 		dirs = append(dirs, dir)
 	}
 
+	// Priority 1: explicit PackageSearchPaths.
+	// For "tolang.stdlib.account", check <searchPath>/account/ and
+	// <searchPath>/tolang/stdlib/account/ and <searchPath>/stdlib/account/.
+	family := segments[len(segments)-1]
+	relAll := filepath.Join(segments...)
+	relWithinRoot := ""
+	if len(segments) > 1 {
+		relWithinRoot = filepath.Join(segments[1:]...)
+	}
+	for _, sp := range r.PackageSearchPaths {
+		addDir(filepath.Join(sp, family))
+		addDir(filepath.Join(sp, relAll))
+		if relWithinRoot != "" {
+			addDir(filepath.Join(sp, relWithinRoot))
+		}
+	}
+
+	// Priority 2: walk up from BaseDir (legacy heuristic).
+	base := r.BaseDir
+	if base == "" && importingFile != "" {
+		base = filepath.Dir(importingFile)
+	}
+	if base == "" {
+		return dirs
+	}
+
 	for cur := filepath.Clean(base); ; cur = filepath.Dir(cur) {
 		addDir(filepath.Join(cur, relAll))
 		if filepath.Base(cur) == segments[0] && relWithinRoot != "" {
 			addDir(filepath.Join(cur, relWithinRoot))
 		}
 		if len(segments) >= 2 && segments[0] == "tolang" && segments[1] == "stdlib" {
-			family := segments[len(segments)-1]
 			if filepath.Base(cur) == "tolang" {
 				addDir(filepath.Join(cur, "stdlib", "releases", family))
 			}
@@ -438,6 +458,11 @@ type CompileOptions struct {
 	// local/call/upvalue debug sections) is embedded in output bytecode.
 	// Default is false for reproducible builds.
 	IncludeSourceMap bool
+
+	// PackageSearchPaths provides explicit directories where package-style
+	// imports are resolved before falling back to the directory-walk heuristic.
+	// This eliminates the need for synthetic compile paths in tests.
+	PackageSearchPaths []string
 }
 
 const defaultIncludeSourceMap = false
@@ -487,7 +512,11 @@ func CompileBytecodeWithOptions(source []byte, name string, opts *CompileOptions
 	if err != nil {
 		return nil, err
 	}
-	typed, diags := sema.CheckWithResolver(name, mod, NewOSFileResolver(filepath.Dir(name)))
+	resolver := &OSFileResolver{BaseDir: filepath.Dir(name)}
+	if opts != nil && len(opts.PackageSearchPaths) > 0 {
+		resolver.PackageSearchPaths = opts.PackageSearchPaths
+	}
+	typed, diags := sema.CheckWithResolver(name, mod, resolver)
 	if diags.HasErrors() {
 		return nil, diags
 	}

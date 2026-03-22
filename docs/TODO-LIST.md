@@ -24,6 +24,7 @@ Last updated: 2026-03-22
 | N-16 | `tosdk` throw-or-explain provider resolution | Done | `tosdk` now also exposes `summarizeAgentProviderDiagnostics(...)`, `requirePreferredAgentProvider(...)`, and `search/directory...OrThrow(...)` helpers so app code can either keep structured diagnostics or fail with a stable, explainable error string |
 | N-17 | OpenFox CLI/tooling explainable provider discovery | Done | OpenFox signer/paymaster CLI discovery and provider-resolution paths, plus the `discover_capability_providers` tool, now surface package/routing hints and explain provider-selection failures instead of collapsing discovery misses into generic empty-result messages |
 | N-18 | OpenFox runtime/orchestration provider diagnostics | Done | OpenFox gateway session selection, solver bounty discovery, and opportunity scouting now persist explainable provider-discovery diagnostics into local state, so planner/execution paths can report why no provider was selected instead of silently falling back or returning empty results |
+| N-19 | OpenFox execution-provider automatic fallback | Done | OpenFox provider invocation paths now automatically fall back across ranked discovery providers, record per-provider failure/success feedback into the existing local rank model, and use that feedback to re-order future execution selection instead of repeatedly preferring the same failing provider |
 
 ## Current openlib backlog closures
 

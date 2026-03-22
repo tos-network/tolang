@@ -1261,7 +1261,11 @@ The release/export surface has now tightened one step further:
   including gateway session selection, solver bounty discovery, and
   opportunity scouting, which persist the last provider-selection explanation
   into local state so planner/execution layers can explain why no provider
-  was selected
+  was selected; OpenFox execution paths now also automatically fall back
+  across ranked discovery providers and feed per-provider success/failure
+  outcomes back into the existing local ranking model, so future execution
+  selection stops preferring the same failing provider when a viable
+  alternative exists
 - legacy `.discovery.json` / `.agentpkg.json` bundle artifacts remain for
   compatibility while consumers migrate
 

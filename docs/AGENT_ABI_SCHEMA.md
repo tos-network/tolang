@@ -166,7 +166,9 @@ Status note:
   `discover_capability_providers` tool surface; gateway session selection,
   solver bounty discovery, and opportunity scouting now also persist the
   latest provider-selection explanation into local state for orchestration
-  and planner consumption
+  and planner consumption, while direct provider invocation paths now also
+  fall back across ranked providers and feed those outcomes back into the
+  local ranking model used for future selection
 - legacy `.discovery.json` / `.agentpkg.json` bundle artifacts are still emitted
   for compatibility during the transition
 

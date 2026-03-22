@@ -1,7 +1,7 @@
 # Discovery Typed Schema
 
-**Status**: DESIGN READY FOR IMPLEMENTATION  
-**Date**: 2026-03-21
+**Status**: V1 IMPLEMENTED (2026-03-22)  
+**Date**: 2026-03-22
 
 ---
 
@@ -352,6 +352,13 @@ This design is considered implemented when:
 - existing services can migrate incrementally
 - at least one composed example uses typed discovery for routing decisions
 
+V1 status:
+
+- `ServiceDirectory` exposes typed routing fields on-chain
+- release/export emits normalized `typed_discovery`
+- `PrivateServiceOrder` now uses typed discovery for route acceptance
+- GTOS deployed metadata RPC now exposes a normalized `routing_profile`
+
 ---
 
 ## Recommended Implementation Order
@@ -375,4 +382,3 @@ This design is considered implemented when:
   work
 - [PACKAGE_IDENTITY_MODEL.md](/home/tomi/tolang/docs/PACKAGE_IDENTITY_MODEL.md)
   Package identity remains a separate concern from typed discovery
-

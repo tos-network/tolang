@@ -1109,12 +1109,17 @@ The following items have been resolved:
 
 Next evolution order:
 
-1. broaden privacy helper coverage beyond the current `PrivateDisputeEscrow`
-   seed into the wider helper family described in
-   `docs/PRIVACY_COMPOSITION_HELPERS.md`
-2. continue typed discovery integration beyond stdlib release/export into
+1. ~~broaden privacy helper coverage beyond the current
+   `PrivateDisputeEscrow` seed into the wider helper family described in
+   `docs/PRIVACY_COMPOSITION_HELPERS.md`~~ — **RESOLVED (2026-03-22)**:
+   `PrivateDisputeEscrow`, `RegulatedPrivateCheckout`, and
+   `TreasuryDisclosureFlow` now form a concrete v1 helper family with
+   compile/runtime/e2e coverage
+2. ~~continue typed discovery integration beyond stdlib release/export into
    broader GTOS/OpenFox consumption paths described in
-   `docs/DISCOVERY_TYPED_SCHEMA.md`
+   `docs/DISCOVERY_TYPED_SCHEMA.md`~~ — **RESOLVED (2026-03-22)**:
+   `PrivateServiceOrder` now routes on typed discovery fields, and GTOS
+   deployed metadata RPC exposes a normalized `routing_profile`
 3. keep tightening release/discovery/threat-model documentation as new helper
    flows are added
 
@@ -1165,8 +1170,8 @@ future expansion, not unresolved correctness gaps in the present codebase.
 
 | Next evolution item | Primary implementation surface | Detailed design home |
 | --- | --- | --- |
-| Broader privacy helper family beyond `PrivateDisputeEscrow` | `stdlib/privacy` + composed examples | `docs/PRIVACY_COMPOSITION_HELPERS.md` |
-| Typed discovery integration beyond stdlib release/export into GTOS/OpenFox consumers | `stdlib/discovery` + exporter + metadata + GTOS/OpenFox consumers | `docs/DISCOVERY_TYPED_SCHEMA.md` plus `docs/AGENT_ABI_SCHEMA.md` |
+| Broader privacy helper family beyond `PrivateDisputeEscrow` | **RESOLVED (2026-03-22)** — composed examples now include `PrivateDisputeEscrow`, `RegulatedPrivateCheckout`, and `TreasuryDisclosureFlow` with runtime coverage | `docs/PRIVACY_COMPOSITION_HELPERS.md` |
+| Typed discovery integration beyond stdlib release/export into GTOS/OpenFox consumers | **RESOLVED (2026-03-22)** — typed routing now influences `PrivateServiceOrder`, and GTOS metadata RPC exposes `routing_profile` | `docs/DISCOVERY_TYPED_SCHEMA.md` plus `docs/AGENT_ABI_SCHEMA.md` |
 | Ongoing release/discovery/threat-model tightening as new flows are added | docs + exporter + release manifests | `docs/STDLIB_THREAT_MODEL_MATRIX.md` plus `docs/AGENT_NATIVE_STDLIB_2046.md` |
 
 ### GTOS protocol design homes for the next stage

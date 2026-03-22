@@ -21,7 +21,7 @@ for every package (`stdlib_runtime_test.go`, `stdlib_composed_runtime_test.go`).
 Core lifecycles (grant/revoke, escrow/release, recovery, receipts) are
 functionally closed.
 
-**Overall implementation: ~97%.**
+**Overall implementation: ~99%.**
 
 Current follow-on work is no longer the six implementation gaps that were
 previously open. Those are now resolved:
@@ -32,12 +32,12 @@ previously open. Those are now resolved:
    enforcement and reusable step-up guards
 3. typed discovery and privacy-helper work now have concrete v1 implementations
 
-What remains is broader expansion, not missing baseline capability closure:
+What remains is longer-horizon productization, not missing baseline capability
+closure:
 
-1. expand privacy composition from the current `PrivateDisputeEscrow` helper to
-   the wider family described in `docs/PRIVACY_COMPOSITION_HELPERS.md`
-2. continue typed discovery adoption beyond stdlib release/export into broader
-   GTOS/OpenFox consumption paths
+1. keep tightening release/discovery/threat-model documentation as new helper
+   flows are added
+2. continue broadening helper ergonomics as new commercial patterns appear
 
 ---
 
@@ -96,11 +96,13 @@ slash policy plus canonical receipts.
 
 ### Wave 3: Market Plane — Making Agent Economies Scale
 
-**Wave status: ~92% implemented.** All privacy-family contracts now exist
+**Wave status: ~97% implemented.** All privacy-family contracts now exist
 (ConfidentialVault, ConfidentialEscrow, ConfidentialPayment,
 ConfidentialTreasury, ConfidentialAllowance, AuditorDisclosureBook).
-Typed discovery now has a normalized on-chain/exported v1, and privacy
-composition now has a stateful `PrivateDisputeEscrow` helper seed.
+Typed discovery now has a normalized on-chain/exported v1 plus GTOS routing
+consumption, and privacy composition now has a concrete helper trio:
+`PrivateDisputeEscrow`, `RegulatedPrivateCheckout`, and
+`TreasuryDisclosureFlow`.
 
 | Scenario | With stdlib | Status |
 |----------|-------------|--------|
@@ -121,8 +123,9 @@ composition now has a stateful `PrivateDisputeEscrow` helper seed.
   typed discovery fields and release/export metadata includes a normalized
   `typed_discovery` profile
 - ~~**Selective disclosure composition ergonomics**~~ — **RESOLVED for v1**:
-  `PrivateDisputeEscrow` now has stateful runtime coverage over confidential
-  open/settle/dispute/refund with receipt and auditor-disclosure linkage
+  `PrivateDisputeEscrow`, `RegulatedPrivateCheckout`, and
+  `TreasuryDisclosureFlow` now provide stateful helper coverage for
+  dispute/refund, regulated checkout, and treasury disclosure lifecycles
 
 ---
 
@@ -144,8 +147,8 @@ composition now has a stateful `PrivateDisputeEscrow` helper seed.
 | Gas bounds | Guessed or empirical | `@gas(upper: N)` verified by compiler, bound-checked | **~90%** — compiler-level |
 | Terminal-scoped policy | Not supported | `SessionBook` + `PolicyAccount` — per-session trust tier and budget | **~70%** — requires manual composition of two contracts |
 | Guardian recovery | ~150 lines hand-rolled | `RecoveryController.startRecovery` → `approveRecovery` → `executeRecovery` — timelocked, cancellable | **~90%** |
-| Discovery metadata | No standard | `ServiceDirectory.registerService(manifest_ref, capability_ref, version_ref, quote_ref)` + `setServiceFee` + `setServiceSLA` | **~80%** — fee and SLA are structured fields; capability metadata remains reference-based |
-| Confidential DeFi | Not supported | `ConfidentialEscrow` + `ConfidentialVault` + `ConfidentialPayment` + `ConfidentialTreasury` + `ConfidentialAllowance` + `AuditorDisclosureBook` — full privacy family on UNO rails | **~85%** — all 6 contracts implemented; remaining gap is higher-level composed privacy ergonomics |
+| Discovery metadata | No standard | `ServiceDirectory.registerService(manifest_ref, capability_ref, version_ref, quote_ref)` + typed fields + exported `typed_discovery` + GTOS `routing_profile` | **~95%** — typed routing fields now flow through stdlib export and GTOS deployed metadata RPC |
+| Confidential DeFi | Not supported | `ConfidentialEscrow` + `ConfidentialVault` + `ConfidentialPayment` + `ConfidentialTreasury` + `ConfidentialAllowance` + `AuditorDisclosureBook` + composed helpers | **~95%** — all 6 contracts plus v1 helper family implemented |
 
 ---
 
@@ -284,6 +287,5 @@ settlement family has both TaskSettlement and RecurringPayment. The current
 stdlib closure wave also includes slash distribution, auto-receipt binding,
 named terminal/trust taxonomy, reusable step-up enforcement, v1 privacy
 composition helpers, and typed discovery normalization. The remaining work is
-longer-horizon evolution: broader privacy helper coverage, broader
-GTOS/OpenFox typed discovery consumption, and continued
-release/discovery/threat-model tightening.
+longer-horizon evolution: continued release/discovery/threat-model tightening
+and broader helper ergonomics for future commercial patterns.

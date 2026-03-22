@@ -26,7 +26,7 @@ func TestStdlibComposedExamplesCompile(t *testing.T) {
 		{
 			file:         filepath.Join(repoRoot, "examples/stdlib_composed/PrivateServiceOrder.tol"),
 			contractName: "PrivateServiceOrder",
-			functions:    []string{"ready", "settleReadyOrder", "customerVaultBalance", "serviceManifest"},
+			functions:    []string{"ready", "settleReadyOrder", "customerVaultBalance", "routeReady", "serviceManifest"},
 		},
 		{
 			file:         filepath.Join(repoRoot, "examples/stdlib_composed/PrivateEscrowCheckout.tol"),
@@ -42,6 +42,16 @@ func TestStdlibComposedExamplesCompile(t *testing.T) {
 			file:         filepath.Join(repoRoot, "examples/stdlib_composed/PrivateDisputeEscrow.tol"),
 			contractName: "PrivateDisputeEscrow",
 			functions:    []string{"openOrder", "settleOrder", "disputeOrder", "resolveDispute", "escrowStatus", "receiptStatus"},
+		},
+		{
+			file:         filepath.Join(repoRoot, "examples/stdlib_composed/RegulatedPrivateCheckout.tol"),
+			contractName: "RegulatedPrivateCheckout",
+			functions:    []string{"prepareCheckout", "commitCheckout", "settleCheckout", "refundCheckout", "authorizeAuditView", "receiptOf", "checkoutStatusOf"},
+		},
+		{
+			file:         filepath.Join(repoRoot, "examples/stdlib_composed/TreasuryDisclosureFlow.tol"),
+			contractName: "TreasuryDisclosureFlow",
+			functions:    []string{"proposeTreasurySpend", "approveTreasurySpend", "attachDisclosurePolicy", "executeTreasurySpend", "finalizeTreasuryReceipt", "receiptOf", "disclosureScopeOf", "policyRefOf", "spendStatusOf"},
 		},
 	}
 

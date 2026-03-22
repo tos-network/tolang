@@ -12,6 +12,8 @@ Last updated: 2026-03-21
 | S-4 | Stronger reusable step-up enforcement | Done | `SessionBook.requireTerminal(...)` and `enforceStepUp(...)` now sit on top of validated taxonomy and reusable runtime guards |
 | S-5 | Privacy composition helpers | Done | `PrivateDisputeEscrow` now has real stateful runtime coverage for confidential open/settle/dispute/refund flows, not only compile coverage |
 | S-6 | Typed discovery schema normalization | Done | `ServiceDirectory` now exposes typed discovery fields, and `metadata.BuildDiscoveryManifest(...)` exports a normalized `typed_discovery` profile for agent-facing artifacts |
+| S-7 | Broader privacy helper family | Done | v1 helper family now includes `PrivateDisputeEscrow`, `RegulatedPrivateCheckout`, and `TreasuryDisclosureFlow` with runtime/e2e coverage |
+| S-8 | GTOS typed routing consumption | Done | `PrivateServiceOrder` routes on typed discovery fields and GTOS metadata RPC now returns `routing_profile` |
 
 ## Review Follow-Ups
 

@@ -959,6 +959,42 @@ func invokeStdlib(t *testing.T, L *LState, tos LValue, fnSig string, args ...LVa
 	return ret
 }
 
+func invokeStdlibMulti(t *testing.T, L *LState, tos LValue, fnSig string, args ...LValue) []LValue {
+	t.Helper()
+
+	oninvoke := L.GetField(tos, "oninvoke")
+	if oninvoke == LNil {
+		t.Fatal("tos.oninvoke not set")
+	}
+
+	storageSnap, transientSnap := snapshotLuaStorage(L)
+	hostSnap := snapshotRuntimeHost(hostFromTables(L))
+
+	base := L.GetTop()
+	prevCalldata := L.GetField(tos, "calldata")
+	L.SetField(tos, "calldata", LNil)
+	defer L.SetField(tos, "calldata", prevCalldata)
+	L.Push(oninvoke)
+	L.Push(LString(selectorHexFromSignature(fnSig)))
+	for _, arg := range args {
+		stdlibRememberAgentValue(hostFromTables(L), arg)
+		L.Push(arg)
+	}
+	if err := L.PCall(1+len(args), MultRet, nil); err != nil {
+		revertLuaStorage(L, storageSnap, transientSnap)
+		restoreRuntimeHost(hostFromTables(L), hostSnap)
+		t.Fatalf("invoke %s failed: %v", fnSig, err)
+	}
+
+	n := L.GetTop() - base
+	rets := make([]LValue, 0, n)
+	for i := 0; i < n; i++ {
+		rets = append(rets, L.Get(base+1+i))
+	}
+	L.SetTop(base)
+	return rets
+}
+
 func invokeStdlibErr(t *testing.T, L *LState, tos LValue, fnSig string, args ...LValue) string {
 	t.Helper()
 

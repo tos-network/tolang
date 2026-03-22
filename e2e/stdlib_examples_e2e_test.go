@@ -58,7 +58,7 @@ func TestStdlibComposedExamplesMetadataAndDiscovery(t *testing.T) {
 			file:         "PrivateServiceOrder.tol",
 			contractName: "PrivateServiceOrder",
 			packageName:  "tolang.examples.stdlib_composed.private_service_order",
-			functions:    []string{"ready", "settleReadyOrder", "customerVaultBalance", "serviceManifest"},
+			functions:    []string{"ready", "settleReadyOrder", "customerVaultBalance", "routeReady", "serviceManifest"},
 		},
 		{
 			file:         "PrivateEscrowCheckout.tol",
@@ -77,6 +77,18 @@ func TestStdlibComposedExamplesMetadataAndDiscovery(t *testing.T) {
 			contractName: "PrivateDisputeEscrow",
 			packageName:  "tolang.examples.stdlib_composed.private_dispute_escrow",
 			functions:    []string{"openOrder", "settleOrder", "disputeOrder", "resolveDispute", "escrowStatus", "receiptStatus"},
+		},
+		{
+			file:         "RegulatedPrivateCheckout.tol",
+			contractName: "RegulatedPrivateCheckout",
+			packageName:  "tolang.examples.stdlib_composed.regulated_private_checkout",
+			functions:    []string{"prepareCheckout", "commitCheckout", "settleCheckout", "refundCheckout", "authorizeAuditView", "receiptOf", "checkoutStatusOf"},
+		},
+		{
+			file:         "TreasuryDisclosureFlow.tol",
+			contractName: "TreasuryDisclosureFlow",
+			packageName:  "tolang.examples.stdlib_composed.treasury_disclosure_flow",
+			functions:    []string{"proposeTreasurySpend", "approveTreasurySpend", "attachDisclosurePolicy", "executeTreasurySpend", "finalizeTreasuryReceipt", "receiptOf", "disclosureScopeOf", "policyRefOf", "spendStatusOf"},
 		},
 	}
 

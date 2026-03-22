@@ -41,6 +41,14 @@ contract PrivateServiceOrder {
         bytes32 evidence_id,
         bytes32 settlement_ref
     )
+    event RouteAccepted(
+        agent indexed provider,
+        u256 indexed service_id,
+        u256 service_kind,
+        u256 capability_kind,
+        u256 privacy_mode,
+        u256 receipt_mode
+    )
 
     constructor(
         agent _owner,
@@ -87,11 +95,20 @@ contract PrivateServiceOrder {
         require(trust.isEligible(provider) == true, "PROVIDER_NOT_ELIGIBLE");
         require(discovery.isActive(service_id) == true, "SERVICE_INACTIVE");
         require(discovery.providerOf(service_id) == provider, "PROVIDER_MISMATCH");
+        require(routeReady(service_id) == true, "SERVICE_ROUTE_UNSUITABLE");
         require(agreement.statusOf(agreement_id) >= 1, "AGREEMENT_UNKNOWN");
         require(settlement.statusOf(task_id) >= 1, "TASK_UNKNOWN");
         require(evidence.statusOf(evidence_id) >= 1, "EVIDENCE_UNKNOWN");
         require(vault.canAudit(customer, auditor) == true, "AUDIT_NOT_ALLOWED");
 
+        emit RouteAccepted(
+            provider,
+            service_id,
+            discovery.serviceKindOf(service_id),
+            discovery.capabilityTypeOf(service_id),
+            discovery.privacyModeOf(service_id),
+            discovery.receiptModeOf(service_id)
+        );
         emit OrderReady(provider, service_id, agreement_id, task_id);
         return true;
     }
@@ -116,6 +133,7 @@ contract PrivateServiceOrder {
         require(trust.isEligible(provider) == true, "PROVIDER_NOT_ELIGIBLE");
         require(discovery.isActive(service_id) == true, "SERVICE_INACTIVE");
         require(discovery.providerOf(service_id) == provider, "PROVIDER_MISMATCH");
+        require(routeReady(service_id) == true, "SERVICE_ROUTE_UNSUITABLE");
         require(agreement.statusOf(agreement_id) == 2, "AGREEMENT_NOT_ACCEPTED");
         require(settlement.statusOf(task_id) == 3, "TASK_NOT_SUBMITTED");
         require(evidence.isFinalized(evidence_id) == true, "EVIDENCE_NOT_FINAL");
@@ -131,6 +149,28 @@ contract PrivateServiceOrder {
     function customerVaultBalance(agent customer) public view returns (uno balance) {
         ConfidentialVault vault = ConfidentialVault(vault_addr);
         return vault.balanceOf(customer);
+    }
+
+    function routeReady(u256 service_id) public view returns (bool ok) {
+        ServiceDirectory discovery = ServiceDirectory(discovery_addr);
+        if (discovery.isActive(service_id) != true) {
+            return false;
+        }
+        u256 service_kind = discovery.serviceKindOf(service_id);
+        if (service_kind != 4 && service_kind != 9) {
+            return false;
+        }
+        u256 capability_kind = discovery.capabilityTypeOf(service_id);
+        if (capability_kind != 4 && capability_kind != 7) {
+            return false;
+        }
+        if (discovery.privacyModeOf(service_id) < 3) {
+            return false;
+        }
+        if (discovery.receiptModeOf(service_id) < 3) {
+            return false;
+        }
+        return true;
     }
 
     function serviceManifest(u256 service_id) public view returns (bytes32 manifest_ref) {

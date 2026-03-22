@@ -1,7 +1,7 @@
 # Privacy Composition Helpers
 
-**Status**: DESIGN READY FOR IMPLEMENTATION  
-**Date**: 2026-03-21
+**Status**: V1 IMPLEMENTED (2026-03-22)  
+**Date**: 2026-03-22
 
 ---
 
@@ -329,6 +329,14 @@ This design is considered implemented only when:
 - GTOS selective disclosure is consumed, not reimplemented
 - docs clearly say which helper is for arbitrator, auditor, and regulator flows
 
+V1 status:
+
+- `PrivateDisputeEscrow` implemented with stateful runtime coverage
+- `RegulatedPrivateCheckout` implemented with sponsor/account/receipt/disclosure
+  runtime coverage
+- `TreasuryDisclosureFlow` implemented with treasury/disclosure/receipt runtime
+  coverage
+
 ---
 
 ## Recommended Implementation Order
@@ -355,4 +363,3 @@ This design is considered implemented only when:
   This document turns the privacy ergonomics backlog into implementable work
 - `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md`
   GTOS protocol source of truth for disclosure primitives
-

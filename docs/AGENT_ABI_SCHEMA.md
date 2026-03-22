@@ -111,6 +111,18 @@ Status note:
 
 - per-contract `.profile.json` is implemented
 - family-level `.bundle.profile.json` is now emitted by the release exporter
+- GTOS now consumes the unified profile family by returning `profile`,
+  `bundle_profile`, `parsed_card`, and `suggested_card` views, and can publish
+  a recommended discovery card directly from deployed metadata
+- GTOS also exposes a read-only suggested-card path so clients can fetch the
+  canonical structured card for deployed `.toc` / `.tor` code without
+  publishing into discovery first
+- `tosclient` now exposes typed discovery/suggested-card wrappers plus a typed
+  `GetContractMetadata(...)` client, so external agent runtimes can consume the
+  unified surface without crafting raw RPC payloads by hand; the same client
+  layer now also exposes typed reads for protocol registry and package-
+  governance facts such as capability, delegation, package, publisher,
+  verifier, verification, settlement policy, and agent identity
 - legacy `.discovery.json` / `.agentpkg.json` bundle artifacts are still emitted
   for compatibility during the transition
 
@@ -209,7 +221,7 @@ Example:
 - [x] Machine-readable `threat_model` is emitted alongside profile/discovery/agent package artifacts
 - [ ] No information loss compared to current artifacts
 - [ ] `risk_level`, `failure_modes`, `requires_capability`, `verifiable`, `delegated` all present in one document
-- [ ] GTOS `tos_getContractMetadata` returns the unified profile
+- [x] GTOS `tos_getContractMetadata` returns the unified profile
 
 ---
 

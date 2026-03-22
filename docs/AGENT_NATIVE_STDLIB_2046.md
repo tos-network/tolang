@@ -1164,7 +1164,7 @@ present openlib codebase.
 | --- | --- | --- |
 | GTOS-native settlement bus and receipt hooks | GTOS VM/runtime + system receipt surface | `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md` |
 | Registry governance and revocation workflows | GTOS protocol registries + sysactions + RPC inspection | `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md` |
-| Ongoing release/discovery/threat-model tightening as the protocol layer grows | Tolang docs + exporter + release/profile manifests | `docs/STDLIB_THREAT_MODEL_MATRIX.md` plus `docs/AGENT_NATIVE_STDLIB_2046.md` |
+| Release/discovery/threat-model tightening (current closure wave complete; future protocol consumers may extend it) | Tolang docs + exporter + release/profile manifests | `docs/STDLIB_THREAT_MODEL_MATRIX.md` plus `docs/AGENT_NATIVE_STDLIB_2046.md` |
 
 The Tolang release/export layer now also emits an additive
 `protocol_alignment` marker in `.profile.json`, `.discovery.json`, and
@@ -1183,6 +1183,30 @@ The release/export surface has now tightened one step further:
 - family bundles now also emit `.bundle.profile.json`
 - per-contract and family bundle artifacts now also emit machine-readable
   `threat_model` sections derived from the openlib threat matrix
+- GTOS deployed metadata RPC now returns the unified per-contract `profile`
+  and package-level `bundle_profile`, alongside `discovery`, `agent_package`,
+  and `routing_profile`
+- GTOS agent discovery card consumption now exposes a structured `parsed_card`
+  view for standard card fields such as capability entries, `routing_profile`,
+  `threat_model`, and release/profile refs, while keeping raw `cardJson`
+  compatibility
+- GTOS now also builds a recommended `suggested_card` directly from unified
+  contract/bundle metadata so discovery clients can bootstrap a standard card
+  shape without hand-assembling routing/threat/profile hints
+- GTOS discovery APIs can now publish that recommended `suggested_card`
+  directly from deployed contract/package metadata, so discovery providers do
+  not need to hand-assemble standard card JSON before advertising an agent
+- GTOS also exposes a read-only suggested-card path for deployed `.toc` and
+  `.tor` code, so clients can fetch the canonical structured card shape
+  without publishing it into discovery first
+- the first client-consumption slice is now in place too: `tosclient`
+  exposes typed wrappers for discovery info/search/card methods and for
+  suggested-card fetch/publication; it now also exposes a typed
+  `GetContractMetadata(...)` wrapper so agent runtimes no longer need to
+  hand-assemble raw `tos_*` JSON RPC payloads to consume the unified profile,
+  routing, package trust, and discovery surface; the same client surface now
+  also exposes typed reads for capability/delegation/package/publisher/
+  verifier/verification/pay-policy/agent-identity governance data
 - legacy `.discovery.json` / `.agentpkg.json` bundle artifacts remain for
   compatibility while consumers migrate
 

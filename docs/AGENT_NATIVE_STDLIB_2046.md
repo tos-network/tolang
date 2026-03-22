@@ -1208,6 +1208,9 @@ Current GTOS implementation status (2026-03-22):
 - LVM now also exposes runtime-backed inspection primitives over GTOS protocol
   state: `tos.agentinfo(...)`, `tos.packageinfo(...)`,
   `tos.packagelatest(...)`, and `tos.publisherinfo(...)`
+- escrow / release semantics now have explicit VM-level rollback coverage:
+  reserve/release/slash balance movement is tested, and both top-level revert
+  and nested-call failure restore the escrow ledger correctly
 
 Execution prompt for this GTOS-owned wave:
 

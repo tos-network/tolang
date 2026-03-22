@@ -117,6 +117,6 @@ Before calling a stdlib family "commercially ready", the minimum bar should be:
 That bar is now substantially met for the current first-wave stdlib set.
 Runtime rollback semantics are now resolved (per-contract atomicity via
 StateDB snapshot/revert, cross-contract atomicity via `tos.multicall`).
-The main remaining blockers for a true "production-complete" claim are
-protocol-backed registries for delegation, verification, and agent identity
-semantics.
+The main remaining blockers for a true "production-complete" claim are fuller
+GTOS protocol backing for delegation / verification / agent identity
+governance and the still-open UNO runtime-contract normalization wave.

@@ -39,6 +39,21 @@ All items in the current `N-*` wave are now complete.
 | P-5 | Runtime settlement inspection surfaces | Done | GTOS now exposes typed `tosclient` wrappers for `settlement_getRuntimeReceipt` / `settlement_getSettlementEffect`, `gtosclient` now joins those records into `GetRuntimeReceiptSurface(...)` / `GetSettlementEffectSurface(...)` with sender/recipient runtime metadata, and `tosdk` now exposes `inspectRuntimeReceipt(...)` / `inspectSettlementEffect(...)` so SDK consumers can inspect canonical runtime receipts/effects without hand-writing settlement RPC joins. |
 | P-6 | OpenFox runtime settlement inspection UX | Done | OpenFox now directly consumes GTOS runtime settlement records through `src/settlement/runtime.ts`, exposes `openfox settlement runtime-receipt --receipt-ref ...` and `openfox settlement runtime-effect --settlement-ref ...`, and serves matching operator API endpoints at `/operator/settlement/runtime-receipt` and `/operator/settlement/runtime-effect`, so operators can inspect canonical runtime receipts/effects without conflating them with legacy local settlement anchor IDs. |
 
+## V2 / Later Waves
+
+This is the bounded V2 cap. Do not expand this list until these seven items
+are either completed or explicitly dropped.
+
+| ID | Item | Status | Notes |
+|---|---|---|---|
+| V2-1 | Sponsor-aware settlement joins | Planned | Extend runtime settlement inspection, metadata joins, and higher-level consumption so sponsor-linked settlement flows can be inspected end to end rather than only as sender/recipient pairs. Design home: `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md` |
+| V2-2 | `ESCROW_RELEASE_UNO` | Planned | Complete the missing confidential escrow-release settlement mode so UNO escrow release reaches parity with the existing public settlement-bus surface. Design home: `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md` |
+| V2-3 | Deeper confidential refund / release normalization | Planned | Finish the remaining confidential settlement-bus normalization after `ESCROW_RELEASE_UNO`, so confidential refund/release flows use one canonical runtime settlement shape instead of mixed ad hoc paths. Design home: `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md` |
+| V2-4 | OpenFox local-settlement to canonical-runtime bridge | Planned | Bridge OpenFox’s legacy local `receiptId` / anchor-tx model onto canonical GTOS `receipt_ref` / `settlement_ref`, so operator UX, local records, and protocol runtime inspection stop living in parallel ID domains. Design home: `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md` |
+| V2-5 | Richer verifier classes | Planned | Expand protocol registries beyond the current v1 verifier model so `@verifiable` and related runtime inspection can express stronger verifier/proof classes without falling back to app conventions. Design home: `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md` |
+| V2-6 | Richer settlement-policy classes | Planned | Expand pay-policy / settlement-policy registry classes beyond the current v1 surface so policy-backed settlement semantics can evolve without embedding more special cases into app contracts. Design home: `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md` |
+| V2-7 | Deeper discovery / deployment trust integration | Planned | Push package/publisher trust further into discovery and deployment consumption, so trust-aware routing and deployment decisions do not stop at basic package resolution and publisher flags. Design home: `/home/tomi/gtos/docs/PACKAGE_PUBLISHING_REGISTRY.md` |
+
 ## Current openlib backlog closures
 
 | ID | Item | Status | Notes |

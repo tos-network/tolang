@@ -3,8 +3,8 @@
   "identity": {
     "package_name": "tolang.openlib.sponsor",
     "package_version": "1.0.0",
-    "content_hash": "0x0cef116db250913ccde2cf9beeacaddea826ab10c69839c50b951817f86b1efd",
-    "bytecode_hash": "0x7a4b8e214a85156bee69bbd30f9de66652a341a742ecb4ff8ee42565e7bcecd2",
+    "content_hash": "0x33e618b0d60b79bcefcfd4f56ffb788d8937aad1fb965e089343f0bc8923eb68",
+    "bytecode_hash": "0x20769f197fce553fbdce399109a7e539bffa38174296bf371e097c6ed4f0166d",
     "abi_hash": "0x620e08719ad6bfe9294155fc879bb8315f573b9f125dc339ad7967b8dadb1573"
   },
   "contract": {

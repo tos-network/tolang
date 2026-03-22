@@ -2,8 +2,8 @@
   "package_name": "tolang.openlib.discovery",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x67e8ea264f755f21a05d9e5601f39ea88ece5b2a7b31be80a8a0e17f0878494d",
-    "bytecode_hash": "0x0a2864fb941e707d933c775c086e54f7f19222dced02ef9b48fc09952da97816",
+    "package_hash": "0xb2cf41416a31feee65a1a8fec14bf38a6d71aa367756a27520a6637e2e6503f0",
+    "bytecode_hash": "0x95ab46ad5fef8c69fa202feb8dd33b49cb0fc2fd8e816cd1ffa76bcb2bcc522e",
     "source_hash": "0x90487ee81cd65e81751e456292d94cc5f6d88888f402ed56df0d9a127f0777ac",
     "abi_hash": "0x7ca775a8900fa79e6731a7993ac71443fadf61feed3236e24e40f60f13b0b50c",
     "version": "1.0.0"
@@ -111,8 +111,8 @@
     "package_name": "tolang.openlib.discovery",
     "package_version": "1.0.0",
     "artifact_ref": {
-      "package_hash": "0x67e8ea264f755f21a05d9e5601f39ea88ece5b2a7b31be80a8a0e17f0878494d",
-      "bytecode_hash": "0x0a2864fb941e707d933c775c086e54f7f19222dced02ef9b48fc09952da97816",
+      "package_hash": "0xb2cf41416a31feee65a1a8fec14bf38a6d71aa367756a27520a6637e2e6503f0",
+      "bytecode_hash": "0x95ab46ad5fef8c69fa202feb8dd33b49cb0fc2fd8e816cd1ffa76bcb2bcc522e",
       "source_hash": "0x90487ee81cd65e81751e456292d94cc5f6d88888f402ed56df0d9a127f0777ac",
       "abi_hash": "0x7ca775a8900fa79e6731a7993ac71443fadf61feed3236e24e40f60f13b0b50c",
       "version": "1.0.0"

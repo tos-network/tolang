@@ -42,8 +42,8 @@ type InterfaceDecl struct {
 	Functions    []InterfaceFuncSig
 	Enums        []EnumDecl     // enum declarations (propagated from package imports)
 	Constants    []ConstantDecl // compile-time constants (propagated from package imports)
-	PackageName  string // origin package path, e.g. "tolang.registry"; empty for file imports
-	ContractName string // concrete contract name in the package, e.g. "AgentRegistry"
+	PackageName  string         // origin package path, e.g. "tolang.registry"; empty for file imports
+	ContractName string         // concrete contract name in the package, e.g. "AgentRegistry"
 }
 
 // InterfaceFuncSig is a single function signature within an interface.
@@ -58,12 +58,12 @@ type Program struct {
 	PackageName       string // declared package path from source, e.g. "tolang.registry"
 	StorageSlots      []StorageSlot
 	Events            []Event
-	Errors            []ErrorDecl    // custom error declarations
-	Enums             []EnumDecl     // enum declarations
-	Structs           []StructDecl   // struct declarations
-	Constants         []ConstantDecl // compile-time constant declarations
+	Errors            []ErrorDecl     // custom error declarations
+	Enums             []EnumDecl      // enum declarations
+	Structs           []StructDecl    // struct declarations
+	Constants         []ConstantDecl  // compile-time constant declarations
 	Interfaces        []InterfaceDecl // interface declarations (for type(I).interfaceId)
-	TypeAliases       []TypeAlias   // user-defined value type declarations (type X is Y;)
+	TypeAliases       []TypeAlias     // user-defined value type declarations (type X is Y;)
 	Functions         []Function
 	Libraries         []Library   // library declarations (functions only, no storage)
 	UsingDecls        []UsingDecl // using LibName for Type directives from the contract
@@ -124,6 +124,39 @@ type Function struct {
 	Body             []ast.Statement
 	PayableAsset     string       // "uno" for payable(uno); "" for plain payable (TOS)
 	Doc              *ast.DocMeta // structured doc comment metadata (optional); carries @requires, @pay, etc.
+	// VerifiableTargetLuaName / VerifiableOriginalParamCount are only populated
+	// for synthesized verify_* stubs so the lowering/codegen stages can emit a
+	// working verification body instead of a placeholder revert.
+	VerifiableTargetLuaName      string
+	VerifiableTargetSignature    string
+	VerifiableOriginalParamCount int
+}
+
+func normalizeSelectorTypeName(t string) string {
+	tokens := strings.Fields(t)
+	if len(tokens) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(tokens[0])
+	for i := 1; i < len(tokens); i++ {
+		prev, cur := tokens[i-1], tokens[i]
+		noSpaceBefore := cur == "[" || cur == "]" || cur == "(" || cur == ")" || cur == ","
+		noSpaceAfter := prev == "[" || prev == "(" || prev == ","
+		if !noSpaceBefore && !noSpaceAfter {
+			b.WriteByte(' ')
+		}
+		b.WriteString(cur)
+	}
+	return b.String()
+}
+
+func canonicalFunctionSignature(name string, params []ast.FieldDecl) string {
+	types := make([]string, 0, len(params))
+	for _, p := range params {
+		types = append(types, normalizeSelectorTypeName(p.Type))
+	}
+	return fmt.Sprintf("%s(%s)", name, strings.Join(types, ","))
 }
 
 // MangledLuaName returns a Lua-safe mangled name for a function given its parameter types.
@@ -340,8 +373,9 @@ func FromTypedContract(typed *sema.TypedModule, c *ast.ContractDecl) (*Program, 
 		})
 	}
 	// Synthesize verify_* stub functions for each @verifiable function.
-	// These stubs always revert with "ZKBackendNotImplemented" and are callable
-	// as external functions so that verifier backends can be plugged in later.
+	// The lowering/codegen stages recognize these stubs via VerifiableStub and
+	// replace the placeholder body with a generated verifier that re-executes the
+	// original function and compares the result against expected_* arguments.
 	for _, fn := range out.Functions {
 		if fn.Doc == nil || !fn.Doc.Verifiable {
 			continue
@@ -359,20 +393,24 @@ func FromTypedContract(typed *sema.TypedModule, c *ast.ContractDecl) (*Program, 
 			stubParams = append(stubParams, ast.FieldDecl{Name: "expected_" + name, Type: r.Type})
 		}
 		stubReturns := []ast.FieldDecl{{Name: "ok", Type: "bool"}}
-		// Body: revert("ZKBackendNotImplemented")
+		// Placeholder body — the direct lowering stage replaces this using the
+		// VerifiableStub metadata carried below.
 		stubBody := []ast.Statement{{
 			Kind: "revert",
 			Expr: &ast.Expr{Kind: "string", Value: "ZKBackendNotImplemented"},
 		}}
 		stubDoc := &ast.DocMeta{VerifiableStub: true}
 		out.Functions = append(out.Functions, Function{
-			Name:      "verify_" + fn.Name,
-			LuaName:   "verify_" + fn.LuaName,
-			Params:    stubParams,
-			Returns:   stubReturns,
-			Modifiers: []string{"external", "view"},
-			Body:      stubBody,
-			Doc:       stubDoc,
+			Name:                         "verify_" + fn.Name,
+			LuaName:                      "verify_" + fn.LuaName,
+			Params:                       stubParams,
+			Returns:                      stubReturns,
+			Modifiers:                    []string{"external", "view"},
+			Body:                         stubBody,
+			Doc:                          stubDoc,
+			VerifiableTargetLuaName:      fn.LuaName,
+			VerifiableTargetSignature:    canonicalFunctionSignature(fn.Name, fn.Params),
+			VerifiableOriginalParamCount: len(fn.Params),
 		})
 	}
 

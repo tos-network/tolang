@@ -3,8 +3,8 @@
   "package_name": "tolang.openlib.session",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x40c355d073b0cb30e002e7b9e997d08bdd89477bbae2135b85472a370891a620",
-    "bytecode_hash": "0x97f4ba22ca4591f729774bb6f6657176cb7ae90fbbb75e70c89699acbbccb64b",
+    "package_hash": "0x4cc23c3380c876bf7c20c6115fed575d33a06c29dfeb0c74f8b687dde0a96b63",
+    "bytecode_hash": "0xac12cbc778fcadac4458d755b8a64cb10ad3ee8bf748fa4883bb8e4c533c4ad6",
     "source_hash": "0x05ede4d552862a3d440467c5edb47648b7f4de00ea67f06f0dcdbd03c23718e9",
     "abi_hash": "0xa4a0f6622ba33a4a9c00106e328ef2623409230a29fce159d972c593cf9ce44b",
     "version": "1.0.0"

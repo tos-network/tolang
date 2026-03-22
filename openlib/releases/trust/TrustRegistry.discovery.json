@@ -3,8 +3,8 @@
   "package_name": "tolang.openlib.trust",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x8bcdc94d5e889d2ed30d3c739e9f7b5baffc825e0990ef08802d79231d093aab",
-    "bytecode_hash": "0x7d4d401562e46c6ede5db875bc40825a63f1ac63e129ca17958bd11efa37bde1",
+    "package_hash": "0xe59eb7cd2df3ecfba1bb6b58d5b2ae1e466455ac47ae6026d89dabdf7f1e5983",
+    "bytecode_hash": "0xb9329f5f623ece98e5353ea940a4cbd24e5240f6ec16c6e5e81728fef05ed759",
     "source_hash": "0x8cd8452fd9ff64243ce9f289e1b33b2f662b2549711a5f672d4cbee97bce65d7",
     "abi_hash": "0x9a73ddd216728af2e293c01d43fe08c5d3cdc369b1c7029c3d4c874de3c0ed14",
     "version": "1.0.0"

@@ -37,3 +37,21 @@ Last updated: 2026-03-22
 | T-4 | Make default `.tol -> bytecode/.toc/.tor` outputs reproducible across host paths by stripping source-map/debug metadata unless explicitly requested | Done | Default compile/package outputs no longer embed host-dependent `SourceName` paths |
 | T-5 | Remove host-side interrupt channel from the deterministic VM execution path | Done | Execution termination is gas-driven only; host cancellation API removed |
 | T-6 | Bound hash-table tombstone growth while preserving stale-key iteration semantics for `next/pairs` | Done | Tombstones are retained only for active stale traversal and compacted afterwards |
+
+## Shortcomings Closure Follow-Ups
+
+| ID | Item | Status | Notes |
+|---|---|---|---|
+| A-1 | `@delegated` compiler/runtime alignment | Done | `buildDelegatedPreamble(...)` now passes `(principal, delegate, scope_ref)` into `tos.hasdelegation(...)`, with `tx.origin` as principal fallback and a `bytes32` scope ref encoded as canonical hex |
+| A-2 | `@pay` protocol-backed enforcement | Done | `buildPayPreamble(...)` now checks `tos.canpay(...)` before transfer and routes payment through `tos.host_transfer(...)` when available rather than the legacy ad hoc path |
+| A-3 | `@verifiable` runtime stub body | Done | synthesized `verify_*` entrypoints now re-execute the original view/pure function in the lowering stage and compare actual outputs with `expected_*` arguments instead of always reverting |
+| A-4 | `tos.package_call` strict published-package closure | Done | GTOS LVM now rejects unpublished packages with `PACKAGE_UNPUBLISHED`, validates package addr/data strictly, and tests the real registry-backed path end to end |
+
+## Shortcomings Closure Audit Follow-Ups
+
+| ID | Item | Status | Notes |
+|---|---|---|---|
+| B-1 | `@delegated` overload-safe scope refs | Done | Delegation scope refs now hash the canonical function signature (for example `transfer(agent,u256)`), so overloads no longer collide on bare source name |
+| B-2 | `@verifiable` proof-bound v1 semantics | Done | `verify_*` now binds the `proof` argument to a deterministic witness digest over the canonical target signature, original inputs, and expected outputs before re-executing the function |
+| B-3 | strict address parsing parity for registry-backed hooks | Done | `tos.hascapability(...)` and `tos.isverified(...)` now reject malformed addresses with the same fail-closed posture already used by `hasdelegation`, `canpay`, and `package_call` |
+| B-4 | GTOS chain-level `@pay` integration coverage | Done | Added live VM end-to-end coverage that compiles a real `@pay` contract, seeds pay-policy registry state, and proves both deny and allow paths on-chain |

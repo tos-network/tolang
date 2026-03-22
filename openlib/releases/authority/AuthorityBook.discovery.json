@@ -3,8 +3,8 @@
   "package_name": "tolang.openlib.authority",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x53ee51f446c79feeaf43512631dfa7a0a3783af0108657576fc0a6df9761a59f",
-    "bytecode_hash": "0xf480be14291042ef5440e6fede15845fefa823f7541ae7714c9d425e11f6c1c0",
+    "package_hash": "0x9663565c1e68c91a4b1863c88e7b65b0807cceeb904485f52e0e146d38479805",
+    "bytecode_hash": "0xf94d720cae1708414a46283caa8dba53249e8b68b7c4eeaf5434e20be30e1e4d",
     "source_hash": "0x71bd97019fa34eaa7fea1c4f5a126f084415c8dfdfdce6477873754298c18b4e",
     "abi_hash": "0xfdcc76b1161b722117f68e97a4505cafa77b16935259fd34f810696befe73dbf",
     "version": "1.0.0"

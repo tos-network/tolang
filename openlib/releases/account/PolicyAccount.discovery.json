@@ -3,8 +3,8 @@
   "package_name": "tolang.openlib.account",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x514ead9f169ca4fad652d31deba092f9ca7c4a3d575cb9adf67c73ff943e7fcf",
-    "bytecode_hash": "0x6df85932aca169fe9bcddd61d046bc88618f955b5010cce1fe5ba7579c589586",
+    "package_hash": "0xe5a77f1a1ce4fcdf8c13b4771f17c060bb0fff92f99205d316019e1447b030c2",
+    "bytecode_hash": "0xab95d2e25e7928af0016273782fac70a92e40ce17e242a23439542c560a2e67b",
     "source_hash": "0x6bd80ccd94fd6ed00fad4ebd974fb3e6670e9bf8f9ea3d93ae31460e7d47d111",
     "abi_hash": "0xce7afd8ba3deec6785d98c3e3966feb8289a0552d061fa55a9b7968173e71c85",
     "version": "1.0.0"

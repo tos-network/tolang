@@ -13,8 +13,8 @@
       "discovery_path": "openlib/releases/account/PolicyAccount.discovery.json",
       "agent_package_path": "openlib/releases/account/PolicyAccount.agentpkg.json",
       "profile_path": "openlib/releases/account/PolicyAccount.profile.json",
-      "bytecode_hash": "0x6df85932aca169fe9bcddd61d046bc88618f955b5010cce1fe5ba7579c589586",
-      "package_hash": "0x514ead9f169ca4fad652d31deba092f9ca7c4a3d575cb9adf67c73ff943e7fcf"
+      "bytecode_hash": "0xab95d2e25e7928af0016273782fac70a92e40ce17e242a23439542c560a2e67b",
+      "package_hash": "0xe5a77f1a1ce4fcdf8c13b4771f17c060bb0fff92f99205d316019e1447b030c2"
     },
     {
       "family": "agreement",
@@ -28,8 +28,8 @@
       "discovery_path": "openlib/releases/agreement/CommercialAgreement.discovery.json",
       "agent_package_path": "openlib/releases/agreement/CommercialAgreement.agentpkg.json",
       "profile_path": "openlib/releases/agreement/CommercialAgreement.profile.json",
-      "bytecode_hash": "0x92ecd820f369bdb8d0629c509262298726371de7d24ca173648aea0c92723b76",
-      "package_hash": "0xccf1f8a5ff4cfb5d605cb2a27b6ebfdec58f5e3f76a80ce59288e18d8b0a2842"
+      "bytecode_hash": "0x67db25f7ded65d3aaa8095dc47e2797a65cc7a75d148e20dd6c81a79101fb263",
+      "package_hash": "0xbec50e1d1c7dddc462c23bfb55abe00f77c970e908d817ffaca304aa725c4f0e"
     },
     {
       "family": "authority",
@@ -43,8 +43,8 @@
       "discovery_path": "openlib/releases/authority/AuthorityBook.discovery.json",
       "agent_package_path": "openlib/releases/authority/AuthorityBook.agentpkg.json",
       "profile_path": "openlib/releases/authority/AuthorityBook.profile.json",
-      "bytecode_hash": "0xf480be14291042ef5440e6fede15845fefa823f7541ae7714c9d425e11f6c1c0",
-      "package_hash": "0x53ee51f446c79feeaf43512631dfa7a0a3783af0108657576fc0a6df9761a59f"
+      "bytecode_hash": "0xf94d720cae1708414a46283caa8dba53249e8b68b7c4eeaf5434e20be30e1e4d",
+      "package_hash": "0x9663565c1e68c91a4b1863c88e7b65b0807cceeb904485f52e0e146d38479805"
     },
     {
       "family": "discovery",
@@ -58,8 +58,8 @@
       "discovery_path": "openlib/releases/discovery/ServiceDirectory.discovery.json",
       "agent_package_path": "openlib/releases/discovery/ServiceDirectory.agentpkg.json",
       "profile_path": "openlib/releases/discovery/ServiceDirectory.profile.json",
-      "bytecode_hash": "0x0a2864fb941e707d933c775c086e54f7f19222dced02ef9b48fc09952da97816",
-      "package_hash": "0x67e8ea264f755f21a05d9e5601f39ea88ece5b2a7b31be80a8a0e17f0878494d"
+      "bytecode_hash": "0x95ab46ad5fef8c69fa202feb8dd33b49cb0fc2fd8e816cd1ffa76bcb2bcc522e",
+      "package_hash": "0xb2cf41416a31feee65a1a8fec14bf38a6d71aa367756a27520a6637e2e6503f0"
     },
     {
       "family": "evidence",
@@ -73,8 +73,8 @@
       "discovery_path": "openlib/releases/evidence/EvidenceBook.discovery.json",
       "agent_package_path": "openlib/releases/evidence/EvidenceBook.agentpkg.json",
       "profile_path": "openlib/releases/evidence/EvidenceBook.profile.json",
-      "bytecode_hash": "0xedb088799d39559caebd8921df1ce6d0b12ebabe0f97e69b51bb0389785617ec",
-      "package_hash": "0x51b077f7fb9e62929ed0fd9ce3f6564885e5948d4aaac0056cbd0f361f320e08"
+      "bytecode_hash": "0x211b68435f6bf23c6af113a4c56ca60b15931099b677d6b921af68694e9f2eb8",
+      "package_hash": "0x0cfa236f344609f892fbe8c481c31da689fdf81434058d6b40024da06bece6e5"
     },
     {
       "family": "execution_binding",
@@ -88,8 +88,8 @@
       "discovery_path": "openlib/releases/execution_binding/ExecutionBindingBook.discovery.json",
       "agent_package_path": "openlib/releases/execution_binding/ExecutionBindingBook.agentpkg.json",
       "profile_path": "openlib/releases/execution_binding/ExecutionBindingBook.profile.json",
-      "bytecode_hash": "0xa4b596c2ce5239594404279044cac4317ea4ab19b1b96ddbcb4dfbd65a7d0dde",
-      "package_hash": "0x87f485a3c5f84f745473b4f7786639f9255174ba285bb0191ce773c4cceadfe2"
+      "bytecode_hash": "0x25434462675282a5cd7d65fb366eaedc13722411fca732e25fc1167ac7c15be0",
+      "package_hash": "0xe33d59d1b5a72ccd7ac862bd982517df89eceaccd76b83fb86c512223e4b8404"
     },
     {
       "family": "privacy",
@@ -103,8 +103,8 @@
       "discovery_path": "openlib/releases/privacy/ConfidentialEscrow.discovery.json",
       "agent_package_path": "openlib/releases/privacy/ConfidentialEscrow.agentpkg.json",
       "profile_path": "openlib/releases/privacy/ConfidentialEscrow.profile.json",
-      "bytecode_hash": "0x9d76bd49c60edd6f75e41dc063893c17a16c75afbf8e7c471dae317bf5e8b27a",
-      "package_hash": "0xc2feb19e673a38c6d214ba25a06580ae312e4396ee5dd2a90f7156adcb111f62"
+      "bytecode_hash": "0xda7393c6cad72959acc4c443562cdcd535b89d912227bb5b925ce6492b134a62",
+      "package_hash": "0x16cd49fa80f3f0f3f55c0fd8e706ddb1f5c95a9512393b609882966a6fc34dbf"
     },
     {
       "family": "privacy",
@@ -117,8 +117,8 @@
       "discovery_path": "openlib/releases/privacy/ConfidentialVault.discovery.json",
       "agent_package_path": "openlib/releases/privacy/ConfidentialVault.agentpkg.json",
       "profile_path": "openlib/releases/privacy/ConfidentialVault.profile.json",
-      "bytecode_hash": "0x4e0a08670e454e80a06a90c06c2181037b7eff0965398592da30b96bd250616c",
-      "package_hash": "0x94a71d9b31e7c3c527f8033ba9a5c98ba116be6cfea9fdd2043a3ba4a9daee63"
+      "bytecode_hash": "0x60b4b4c5cef1602dfc741d167466582d708fed3cbc87f25c312d78a110c84a61",
+      "package_hash": "0x04645e5f18e4ddaa89050595dc5b57e9c347f367a7612ae1ba12b982d1985807"
     },
     {
       "family": "receipt",
@@ -132,8 +132,8 @@
       "discovery_path": "openlib/releases/receipt/ReceiptBook.discovery.json",
       "agent_package_path": "openlib/releases/receipt/ReceiptBook.agentpkg.json",
       "profile_path": "openlib/releases/receipt/ReceiptBook.profile.json",
-      "bytecode_hash": "0xbf2ba81f66c19195a90fbe1ed2728f452c7014468d6456a73bf2927fb216a131",
-      "package_hash": "0xba36856a28ae9404db5704a545d6865118ce52e1ee1722ce6d83317736b30b34"
+      "bytecode_hash": "0x3e95186404e9634e392eac8b8cbc0e30ef527a62b07302447ec22cbdc0951bd9",
+      "package_hash": "0xe78f157c446e44a2de4a7be90cc539626c96b42e117c3c7638c271a12c7327f1"
     },
     {
       "family": "recovery",
@@ -147,8 +147,8 @@
       "discovery_path": "openlib/releases/recovery/RecoveryController.discovery.json",
       "agent_package_path": "openlib/releases/recovery/RecoveryController.agentpkg.json",
       "profile_path": "openlib/releases/recovery/RecoveryController.profile.json",
-      "bytecode_hash": "0xb288ed5c0c5cd91246d753c3ebbce01cc5bb48437ad0deab5df039acadae12aa",
-      "package_hash": "0x8670e4f4c22b4ebffda1b6fcf7e3c428c291a94be9310a82842f5597cfbaa633"
+      "bytecode_hash": "0x1e9098b2c8ee2d111a18a5edcf9edcad9a143f9fd9eb9ecc0e122c83811c5b7f",
+      "package_hash": "0x34af2b27393ba3cb761cb73e3313d2407ea26640fdfeedec7f4a774a0e9a8999"
     },
     {
       "family": "session",
@@ -162,8 +162,8 @@
       "discovery_path": "openlib/releases/session/SessionBook.discovery.json",
       "agent_package_path": "openlib/releases/session/SessionBook.agentpkg.json",
       "profile_path": "openlib/releases/session/SessionBook.profile.json",
-      "bytecode_hash": "0x97f4ba22ca4591f729774bb6f6657176cb7ae90fbbb75e70c89699acbbccb64b",
-      "package_hash": "0x40c355d073b0cb30e002e7b9e997d08bdd89477bbae2135b85472a370891a620"
+      "bytecode_hash": "0xac12cbc778fcadac4458d755b8a64cb10ad3ee8bf748fa4883bb8e4c533c4ad6",
+      "package_hash": "0x4cc23c3380c876bf7c20c6115fed575d33a06c29dfeb0c74f8b687dde0a96b63"
     },
     {
       "family": "settlement",
@@ -177,8 +177,8 @@
       "discovery_path": "openlib/releases/settlement/TaskSettlement.discovery.json",
       "agent_package_path": "openlib/releases/settlement/TaskSettlement.agentpkg.json",
       "profile_path": "openlib/releases/settlement/TaskSettlement.profile.json",
-      "bytecode_hash": "0x9bf1e6864f4b90d1b4ef0f9f1e54e2fefc4a677d5575f038f5d220cf56eb431f",
-      "package_hash": "0x64ed6e4cc22bc3c0b3ae595270d61430583f06a2ca3a70029fc27152e0e50f1d"
+      "bytecode_hash": "0xf996831a6c1af1dbce308b7ef23a1fdb760818a8ba1a47849ee769ed8775271a",
+      "package_hash": "0xfd1c809ff78597aee02f2757b8d2348763a52db28fa984e6b920c9100c952b24"
     },
     {
       "family": "sponsor",
@@ -192,8 +192,8 @@
       "discovery_path": "openlib/releases/sponsor/SponsorPolicyRelay.discovery.json",
       "agent_package_path": "openlib/releases/sponsor/SponsorPolicyRelay.agentpkg.json",
       "profile_path": "openlib/releases/sponsor/SponsorPolicyRelay.profile.json",
-      "bytecode_hash": "0x7a4b8e214a85156bee69bbd30f9de66652a341a742ecb4ff8ee42565e7bcecd2",
-      "package_hash": "0x0cef116db250913ccde2cf9beeacaddea826ab10c69839c50b951817f86b1efd"
+      "bytecode_hash": "0x20769f197fce553fbdce399109a7e539bffa38174296bf371e097c6ed4f0166d",
+      "package_hash": "0x33e618b0d60b79bcefcfd4f56ffb788d8937aad1fb965e089343f0bc8923eb68"
     },
     {
       "family": "trust",
@@ -207,8 +207,8 @@
       "discovery_path": "openlib/releases/trust/TrustRegistry.discovery.json",
       "agent_package_path": "openlib/releases/trust/TrustRegistry.agentpkg.json",
       "profile_path": "openlib/releases/trust/TrustRegistry.profile.json",
-      "bytecode_hash": "0x7d4d401562e46c6ede5db875bc40825a63f1ac63e129ca17958bd11efa37bde1",
-      "package_hash": "0x8bcdc94d5e889d2ed30d3c739e9f7b5baffc825e0990ef08802d79231d093aab"
+      "bytecode_hash": "0xb9329f5f623ece98e5353ea940a4cbd24e5240f6ec16c6e5e81728fef05ed759",
+      "package_hash": "0xe59eb7cd2df3ecfba1bb6b58d5b2ae1e466455ac47ae6026d89dabdf7f1e5983"
     }
   ],
   "bundles": [
@@ -223,7 +223,7 @@
       "catalog_path": "openlib/releases/privacy/privacy.bundle.json",
       "discovery_path": "openlib/releases/privacy/privacy.bundle.discovery.json",
       "agent_package_path": "openlib/releases/privacy/privacy.bundle.agentpkg.json",
-      "package_hash": "0x9d13db536bb5e6d21414aa82e68489c7ac5d2700522aaabd95df45272bd82a21"
+      "package_hash": "0x42da21b2d1c6a2487f4fc80789c5ff516b40e4b22f1eaad7e8f1944a9ac45296"
     }
   ]
 }

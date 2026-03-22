@@ -2041,6 +2041,9 @@ function __tol_host_create2x(value, salt, init_code, lease_blocks, lease_owner)
 end
 
 function __tol_host_transfer(addr, amount)
+  if tos ~= nil and type(tos) == "table" and type(tos.host_transfer) == "function" then
+    return tos.host_transfer(addr, amount)
+  end
   if tos ~= nil and type(tos) == "table" and type(tos.transfer) == "function" then
     return tos.transfer(addr, amount)
   end
@@ -2922,6 +2925,10 @@ func buildPayPreamble(payAmount, payRecipient string) ([]luast.Stmt, error) {
 		"if not (msg and msg.value and msg.value >= %s) then error(%q) end\n",
 		payAmount, "InsufficientPayment",
 	))
+	sb.WriteString(fmt.Sprintf(
+		"if tos ~= nil and type(tos.canpay)==\"function\" then if not tos.canpay(((msg and msg.sender) or %q), tostring(%s), %q) then error(%q) end end\n",
+		"0x"+strings.Repeat("0", 64), payAmount, "TOS", "PaymentPolicyDenied",
+	))
 	if payRecipient != "" {
 		sb.WriteString(fmt.Sprintf("__tol_host_transfer(%s, %s)\n", payRecipient, payAmount))
 	}
@@ -2961,24 +2968,18 @@ func buildRequiresCapPreamble(caps []string) ([]luast.Stmt, error) {
 // buildDelegatedPreamble emits Lua guard statements for @delegated annotations.
 // Unlike @requires which always blocks, @delegated is backward-compatible: the function
 // is still callable by anyone if no delegation infrastructure (tos.hasdelegation) exists.
-// When the infrastructure IS present, the caller must have delegation for the function scope.
-//
-// Emitted preamble:
-//
-//	local __tol_fn_scope_<FnName> = keccak256("<FnName>")
-//	if tos and type(tos.hasdelegation) == "function" then
-//	    if not tos.hasdelegation(msg.sender, __tol_fn_scope_<FnName>) then
-//	        error("DelegationDenied:<FnName>")
-//	    end
-//	end
-func buildDelegatedPreamble(fnName string) ([]luast.Stmt, error) {
-	scopeVar := "__tol_fn_scope_" + fnName
-	scopeHash := keccak256Hex([]byte(fnName))
+// When the infrastructure IS present, the caller must have delegation for the canonical
+// function-signature scope (for example "transfer(agent,u256)"), not just the bare name.
+func buildDelegatedPreamble(scopeVarSuffix, scopeSignature string) ([]luast.Stmt, error) {
+	scopeVar := "__tol_fn_scope_" + scopeVarSuffix
+	scopeHash := keccak256Hex([]byte(scopeSignature))
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("local %s = %q\n", scopeVar, scopeHash))
+	sb.WriteString(fmt.Sprintf("local __tol_delegate_%s = ((msg and msg.sender) or %q)\n", scopeVarSuffix, "0x"+strings.Repeat("0", 64)))
+	sb.WriteString(fmt.Sprintf("local __tol_principal_%s = ((tx and tx.origin) or __tol_delegate_%s)\n", scopeVarSuffix, scopeVarSuffix))
 	sb.WriteString(fmt.Sprintf(
-		"if tos ~= nil and type(tos.hasdelegation)==\"function\" then if not tos.hasdelegation(msg.sender, %s) then error(%q) end end\n",
-		scopeVar, "DelegationDenied:"+fnName,
+		"if __tol_principal_%[1]s ~= __tol_delegate_%[1]s and tos ~= nil and type(tos.hasdelegation)==\"function\" then if not tos.hasdelegation(__tol_principal_%[1]s, __tol_delegate_%[1]s, %[2]s) then error(%[3]q) end end\n",
+		scopeVarSuffix, scopeVar, "DelegationDenied:"+scopeSignature,
 	))
 	stmts, err := parse.Parse(bytes.NewReader([]byte(sb.String())), "<tol-delegated-preamble>")
 	if err != nil {
@@ -3039,25 +3040,71 @@ func lowerFunctionToLua(fn lower.Function, env *loweringEnv) (luast.Stmt, error)
 		luaFuncName = fn.Name
 	}
 
-	// @verifiable stub: emit error("ZKBackendNotImplemented") body directly without
-	// going through the full statement lowering pipeline.
+	// @verifiable stub: synthesize a real verification body that re-executes the
+	// original pure/view function and compares the result against the expected_*
+	// arguments carried by the stub ABI.
 	if fn.Doc != nil && fn.Doc.VerifiableStub {
-		errorBody := withLineStmt(&luast.FuncCallStmt{
-			Expr: withLineExpr(&luast.FuncCallExpr{
-				Func: withLineExpr(&luast.IdentExpr{Value: "error"}),
-				Args: []luast.Expr{
-					withLineExpr(&luast.StringExpr{Value: "ZKBackendNotImplemented"}),
-				},
-				AdjustRet: true,
-			}),
-		}, 1)
+		targetName := strings.TrimSpace(fn.VerifiableTargetLuaName)
+		if targetName == "" {
+			targetName = strings.TrimPrefix(luaFuncName, "verify_")
+		}
+		targetSig := strings.TrimSpace(fn.VerifiableTargetSignature)
+		if targetSig == "" {
+			targetSig = targetName
+		}
+		origCount := fn.VerifiableOriginalParamCount
+		if origCount < 0 || origCount > len(parNames)-1 {
+			return nil, fmt.Errorf("[%s] invalid verifiable stub metadata for %s", diag.CodeLowerUnsupportedFeature, luaFuncName)
+		}
+		origArgs := append([]string(nil), parNames[1:1+origCount]...)
+		expectedArgs := append([]string(nil), parNames[1+origCount:]...)
+		origTypes := make([]string, 0, len(origArgs))
+		for i := 0; i < len(origArgs); i++ {
+			origTypes = append(origTypes, normalizeSelectorType(fn.Params[1+i].Type))
+		}
+		expectedTypes := make([]string, 0, len(expectedArgs))
+		for i := 0; i < len(expectedArgs); i++ {
+			expectedTypes = append(expectedTypes, normalizeSelectorType(fn.Params[1+origCount+i].Type))
+		}
+		actualNames := make([]string, 0, len(expectedArgs))
+		for i := range expectedArgs {
+			actualNames = append(actualNames, fmt.Sprintf("__tol_actual_%d", i+1))
+		}
+		var sb strings.Builder
+		sb.WriteString("local __tol_expected_proof = __tol_keccak256(__tol_abi_encode_packed_v2(")
+		sb.WriteString(fmt.Sprintf("%q, %q, %q, %q", "verifiable-v1", "string", targetSig, "string"))
+		for i, arg := range origArgs {
+			sb.WriteString(fmt.Sprintf(", %s, %q", arg, origTypes[i]))
+		}
+		for i, expected := range expectedArgs {
+			sb.WriteString(fmt.Sprintf(", %s, %q", expected, expectedTypes[i]))
+		}
+		sb.WriteString("))\n")
+		sb.WriteString("if not __tol_bytes_eq(proof, __tol_expected_proof) then return false end\n")
+		if len(actualNames) > 0 {
+			sb.WriteString("local ")
+			sb.WriteString(strings.Join(actualNames, ", "))
+			sb.WriteString(" = ")
+		}
+		sb.WriteString(targetName)
+		sb.WriteString("(")
+		sb.WriteString(strings.Join(origArgs, ", "))
+		sb.WriteString(")\n")
+		for i, expected := range expectedArgs {
+			sb.WriteString(fmt.Sprintf("if %s ~= %s then return false end\n", actualNames[i], expected))
+		}
+		sb.WriteString("return true\n")
+		body, err := parse.Parse(bytes.NewReader([]byte(sb.String())), "<tol-verifiable-stub>")
+		if err != nil {
+			return nil, fmt.Errorf("[%s] failed to build @verifiable stub for %s: %w", diag.CodeLowerUnsupportedFeature, luaFuncName, err)
+		}
 		nameExpr := withLineExpr(&luast.IdentExpr{Value: luaFuncName})
 		fnExpr := withLineExpr(&luast.FunctionExpr{
 			ParList: &luast.ParList{
 				HasVargs: false,
 				Names:    parNames,
 			},
-			Stmts: []luast.Stmt{errorBody},
+			Stmts: body,
 		})
 		return withLineStmt(&luast.FuncDefStmt{
 			Name: &luast.FuncName{Func: nameExpr},
@@ -3104,7 +3151,11 @@ func lowerFunctionToLua(fn lower.Function, env *loweringEnv) (luast.Stmt, error)
 
 	// Inject @delegated preamble (delegation scope check, backward-compatible).
 	if fn.Doc != nil && fn.Doc.Delegated {
-		delegatedPreamble, dErr := buildDelegatedPreamble(fn.Name)
+		sig, sigErr := selectorSignatureForFunction(fn)
+		if sigErr != nil {
+			return nil, sigErr
+		}
+		delegatedPreamble, dErr := buildDelegatedPreamble(luaFuncName, sig)
 		if dErr != nil {
 			return nil, dErr
 		}
@@ -6897,7 +6948,7 @@ func lowerUnoMethodExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, bool, err
 			return withLineExpr(&luast.FuncCallExpr{
 				Func: withLineExpr(&luast.AttrGetExpr{
 					Object: withLineExpr(&luast.IdentExpr{Value: "tos"}),
-					Key: withLineExpr(&luast.StringExpr{Value: "uno_" + method}),
+					Key:    withLineExpr(&luast.StringExpr{Value: "uno_" + method}),
 				}),
 				Args:      args,
 				AdjustRet: true,

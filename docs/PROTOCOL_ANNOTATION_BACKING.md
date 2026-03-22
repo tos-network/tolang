@@ -1,110 +1,105 @@
 # Protocol-Level Runtime Registries for Agent-Native Annotations
 
-**Status**: DESIGN
-**Date**: 2026-03-21
+**Status**: V1 IMPLEMENTED, NEXT-WAVE DESIGN OPEN
+**Date**: 2026-03-22
 
 ---
 
-## Problem Statement
+## Current Status
 
-Four agent-native annotations compile to correct bytecode and appear in ABI
-metadata, but lack protocol-level runtime registries to enforce their semantics
-end-to-end:
+The original gap was that four agent-native annotations compiled correctly and
+appeared in ABI metadata, but lacked protocol-level runtime registries to
+enforce their semantics end-to-end.
+
+That v1 closure is now implemented. The remaining work is no longer "add any
+runtime backing at all", but "deepen the protocol hooks for proofs, settlement,
+and richer governance."
 
 | Annotation | Compiler status | Runtime status |
 |------------|----------------|----------------|
-| `@delegated` | Emitted in ABI `delegated: true` | No delegation registry; no protocol enforcement of delegation chain validity |
-| `@verifiable` | Emitted in ABI `verifiable: true`; `proof_type: "state_proof"` in `.agentpkg.json` | No on-chain proof verification hook; agents trust the annotation but cannot verify |
-| `@pay` | Parsed and lowered; settlement preamble emitted | No protocol settlement bus; payment routing depends on ad hoc host calls |
-| `@requires(caller: Cap)` | Full pipeline (parser/sema/lower/codegen/ABI); runtime preamble calls `tos.hascapability` | `tos.hascapability` exists but the capability registry is host-provided, not protocol-native |
+| `@delegated` | Emitted in ABI `delegated: true`; compiler preamble derives `(principal, delegate, scope_ref)` from the canonical function signature | GTOS delegation registry is live; `tos.hasdelegation(principal, delegate, scope_ref)` is state-backed and enforced in runtime |
+| `@verifiable` | Emitted in ABI `verifiable: true`; `verify_*` entrypoints are synthesized | v1 runtime body binds `proof` to a deterministic witness digest, re-executes the original pure/view function, and compares `expected_*` outputs; GTOS `verifyregistry/` exposes `tos.isverified(...)`; proof-return hooks remain future work |
+| `@pay` | Parsed and lowered; preamble checks `msg.value` and `tos.canpay(...)` | GTOS `paypolicy/` backs `tos.canpay(...)`; transfer path uses `tos.host_transfer(...)`; chain-level E2E now covers deny/allow execution; protocol settlement bus remains future work |
+| `@requires(caller: Cap)` | Full pipeline (parser/sema/lower/codegen/ABI); runtime preamble calls `tos.hascapability` | GTOS capability registry is live; `tos.hascapability(...)` is protocol-native with strict address parsing |
 
-The compiler can describe these semantics. The protocol cannot yet enforce them.
+The compiler and protocol now agree on the baseline semantics. The next wave is
+about richer proof artifacts and a native settlement bus.
 
 ---
 
-## Proposed Mechanism
+## What Is Implemented In V1
 
 ### 1. `@requires` / capability registry
 
-**Current**: `tos.hascapability(caller, capName)` is a host function. The
-registry backing it is implementation-defined.
+**Current**: `tos.hascapability(caller, capName)` is state-backed in GTOS.
 
-**Needed**: A protocol-native capability registry in GTOS StateDB, keyed by
-`(account, capName) -> bool`. Capabilities are granted/revoked via system
-actions (like `SetAuditorKey`). The LVM reads the registry directly rather
-than delegating to a host hook.
+**Implemented**: GTOS capability registry state and LVM lookup back the Tolang
+`@requires(caller: Cap)` preamble directly.
 
-**GTOS changes**: New `policywallet/capability.go` with `ReadCapability` /
-`WriteCapability`. New system action `ActionPolicyGrantCapability` /
-`ActionPolicyRevokeCapability`. LVM replaces host-function lookup with
-StateDB read.
+**Remaining**: governance, namespacing, and richer registry metadata.
 
 ### 2. `@delegated` / delegation registry
 
-**Current**: `delegated: true` in ABI tells agents a function supports
-delegation, but there is no on-chain record of who delegated what to whom.
+**Current**: `@delegated` lowers to a runtime preamble that derives principal
+from `tx.origin`, delegate from `msg.sender`, and scope from a canonical
+`bytes32` hash of the full function signature.
 
-**Needed**: A protocol-native delegation registry: `(principal, delegate,
-scope, expiry, budget) -> DelegationRecord`. The LVM checks delegation
-validity before executing `@delegated` functions when `msg.sender != principal`.
+**Implemented**: GTOS delegation registry state backs
+`tos.hasdelegation(principal, delegate, scope_ref)` with grant/revoke/expiry
+checks.
 
-**GTOS changes**: New `delegation/registry.go` with `GrantDelegation` /
-`RevokeDelegation` / `CheckDelegation`. LVM preamble for `@delegated`
-functions queries the registry. Delegation records expire automatically.
+**Remaining**: richer delegation budgets/sub-scopes and governance workflows.
 
 ### 3. `@verifiable` / proof verification hook
 
-**Current**: `verifiable: true` in ABI and `proof_type: "state_proof"` in
-agent metadata. No runtime verification.
+**Current**: `verify_*` entrypoints are synthesized and no longer hard-revert
+in the direct lowering path.
 
-**Needed**: A protocol-level state proof verification path. When an agent
-calls a `@verifiable` function via `tos.staticcall`, the LVM can optionally
-return a state proof alongside the result. This requires GTOS to expose
-Merkle proof generation for the storage slots read during execution.
+**Implemented**: the lowering stage emits a verification body that first binds
+`proof` to a deterministic witness digest over the canonical target signature,
+original inputs, and `expected_*` outputs, then re-executes the original
+pure/view function and compares the actual result to the `expected_*`
+arguments carried by the stub ABI. GTOS `verifyregistry/` provides
+`tos.isverified(...)` for protocol-backed attestation status.
 
-**GTOS changes**: New `tos.verified_staticcall(addr, data)` host function
-that returns `(ok, result, proof)`. Proof format: list of `(slot, value,
-merkle_path)` tuples. No consensus change; proof generation is read-only.
+**Remaining**: `tos.verified_staticcall(...)` and proof payload generation for
+state-read proofs.
 
 ### 4. `@pay` / settlement bus
 
-**Current**: `@pay` emits a settlement preamble that calls host functions
-(`tos.transfer`, `uno.transfer`). Routing is ad hoc.
+**Current**: `@pay` emits a preamble that checks `msg.value` and
+`tos.canpay(...)` before transferring via `tos.host_transfer(...)` when the
+dedicated host primitive is available.
 
-**Needed**: A protocol-level settlement bus that routes `@pay`-annotated
-calls through a canonical escrow/transfer path with receipt generation.
-This is the most complex registry because it touches value transfer.
+**Implemented**: GTOS `paypolicy/` provides protocol-backed policy validation,
+Tolang lowering uses that live runtime surface instead of relying only on ad
+hoc host transfer calls, and GTOS chain-level tests now prove both deny and
+allow execution paths for a real `@pay` contract under the live VM.
 
-**GTOS changes**: New `tos.settle(recipient, amount, receipt_ref)` host
-function that atomically transfers value and emits a settlement event.
-Settlement bus validates that the caller's contract has an active `@pay`
-annotation for the function being executed.
+**Remaining**: a native settlement bus with receipt/proof hooks.
 
 ---
 
-## Implementation Order
+## Next-Wave Design Targets
 
-1. **Capability registry** -- lowest complexity, highest immediate value;
-   unblocks `@requires` from host-dependent to protocol-native
-2. **Delegation registry** -- required before `@delegated` is safe for
-   production multi-agent flows
-3. **Proof verification hook** -- enables verifiable compute without
-   trust assumptions; read-only, no consensus change
-4. **Settlement bus** -- highest complexity; depends on stable escrow
-   and receipt primitives
+1. **Proof verification hook** -- `tos.verified_staticcall(...)` and proof
+   payload generation for `@verifiable`
+2. **Settlement bus** -- canonical settlement routing with receipt binding for
+   `@pay`
+3. **Registry governance** -- revocation, namespacing, and policy evolution
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `tos.hascapability` reads from StateDB, not from a host-injected table
-- [ ] Capability grant/revoke via system actions with tests in `lvm_rollback_test.go`
-- [ ] `@delegated` functions reject unauthorized delegates at protocol level
-- [ ] Delegation records support expiry, budget, and scope filtering
-- [ ] `tos.verified_staticcall` returns Merkle proofs for `@verifiable` functions
-- [ ] `tos.settle` provides atomic value transfer with receipt binding
-- [ ] All existing `@requires` tests continue to pass unchanged
-- [ ] ABI metadata fields (`delegated`, `verifiable`, `requires_capability`) unchanged
+- [x] `tos.hascapability` reads from StateDB, not from a host-injected table
+- [x] Capability grant/revoke is backed by protocol registry state
+- [x] `@delegated` functions reject unauthorized delegates at protocol level
+- [x] Delegation records support expiry and scope filtering in runtime lookup
+- [x] `@pay` consults `tos.canpay(...)` and routes through `tos.host_transfer(...)`
+- [x] Existing `@requires` ABI metadata remains unchanged
+- [ ] `tos.verified_staticcall` returns proof payloads for `@verifiable` functions
+- [ ] native settlement bus provides atomic value transfer with receipt binding
 
 ---
 
@@ -113,5 +108,7 @@ annotation for the function being executed.
 - `docs/CALLER_CAPABILITY_SYNTAX.md` -- implemented `@requires` pipeline
 - `docs/TOLANG_SHORTCOMINGS.md` -- shortcoming #3 (annotations ahead of protocol backing)
 - `docs/AGENT_NATIVE_STDLIB_2046.md` -- authority/delegation/settlement design
+- `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md` -- registry v1 implementation status
+- `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md` -- next-wave settlement bus design
 - `/home/tomi/gtos/docs/Atomic-Execution-v1.md` -- `tos.multicall` precedent for protocol primitives
 - `/home/tomi/gtos/docs/SELECTIVE-DISCLOSURE.md` -- `SetAuditorKey` precedent for system actions

@@ -3,8 +3,8 @@
   "package_name": "tolang.openlib.privacy.confidential_escrow",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0xc2feb19e673a38c6d214ba25a06580ae312e4396ee5dd2a90f7156adcb111f62",
-    "bytecode_hash": "0x9d76bd49c60edd6f75e41dc063893c17a16c75afbf8e7c471dae317bf5e8b27a",
+    "package_hash": "0x16cd49fa80f3f0f3f55c0fd8e706ddb1f5c95a9512393b609882966a6fc34dbf",
+    "bytecode_hash": "0xda7393c6cad72959acc4c443562cdcd535b89d912227bb5b925ce6492b134a62",
     "source_hash": "0xa5ed5c16b67a42ed6e5054ed99d696c932ffe2028e6a75df8ac74a435b1cbdf9",
     "abi_hash": "0xa909bbe80e48cbcd85c96347e1ee8d26a0994747ba736e2cacad414dc9d06fc4",
     "version": "1.0.0"

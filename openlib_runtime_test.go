@@ -98,6 +98,7 @@ type openlibRuntimeHostSnapshot struct {
 	msgSender   LValue
 	msgValue    LValue
 	msgUno      LValue
+	txOrigin    LValue
 	tosCalldata LValue
 }
 
@@ -173,6 +174,13 @@ func snapshotRuntimeHost(host *openlibRuntimeHost) openlibRuntimeHostSnapshot {
 		snap.msgUno = host.msgTable.RawGetString("uno_value")
 	}
 	if host.tosTable != nil {
+		if tx := host.tosTable.RawGetString("tx"); tx != LNil {
+			if txTable, ok := tx.(*LTable); ok {
+				snap.txOrigin = txTable.RawGetString("origin")
+			}
+		}
+	}
+	if host.tosTable != nil {
 		snap.tosCalldata = host.tosTable.RawGetString("calldata")
 	}
 	return snap
@@ -218,6 +226,11 @@ func restoreRuntimeHostCallContext(host *openlibRuntimeHost, snap openlibRuntime
 		host.msgTable.RawSetString("uno_value", snap.msgUno)
 	}
 	if host.tosTable != nil {
+		if tx := host.tosTable.RawGetString("tx"); tx != LNil {
+			if txTable, ok := tx.(*LTable); ok {
+				txTable.RawSetString("origin", snap.txOrigin)
+			}
+		}
 		host.tosTable.RawSetString("calldata", snap.tosCalldata)
 	}
 }
@@ -228,6 +241,7 @@ func TestRuntimeHostSnapshotRestoresPersistentStateAndCallContext(t *testing.T) 
 
 	host := installOpenlibRuntimeHost(L)
 	openlibSetSender(host, alice)
+	openlibSetOrigin(L, alice)
 	openlibSetValue(host, 7)
 	openlibSetUnoValue(host, openlibUnoFromInt(3))
 	host.tosTable.RawSetString("calldata", LString("0x1234"))
@@ -240,6 +254,7 @@ func TestRuntimeHostSnapshotRestoresPersistentStateAndCallContext(t *testing.T) 
 	snap := snapshotRuntimeHost(host)
 
 	openlibSetSender(host, bob)
+	openlibSetOrigin(L, bob)
 	openlibSetValue(host, 99)
 	openlibSetUnoValue(host, openlibUnoFromInt(25))
 	host.tosTable.RawSetString("calldata", LString("0xbeef"))
@@ -262,6 +277,14 @@ func TestRuntimeHostSnapshotRestoresPersistentStateAndCallContext(t *testing.T) 
 	}
 	if got := LVAsString(host.tosTable.RawGetString("calldata")); got != "0x1234" {
 		t.Fatalf("calldata after restore: got=%q want=%q", got, "0x1234")
+	}
+	tx := L.GetGlobal("tx")
+	txTable, ok := tx.(*LTable)
+	if !ok {
+		t.Fatal("tx table missing after restore")
+	}
+	if got := LVAsString(txTable.RawGetString("origin")); got != alice {
+		t.Fatalf("tx.origin after restore: got=%q want=%q", got, alice)
 	}
 	if got := openlibNativeUnoBalance(host, alice); got.Cmp(big.NewInt(11)) != 0 {
 		t.Fatalf("native UNO balance after restore: got=%s want=11", got.String())
@@ -592,6 +615,17 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 		}
 		return 0
 	}))
+	L.SetField(tosTable, "canpay", L.NewFunction(func(L *LState) int {
+		L.Push(LTrue)
+		return 1
+	}))
+	hostTransferFn := L.NewFunction(func(L *LState) int {
+		_ = L.CheckAny(1)
+		_ = L.CheckAny(2)
+		return 0
+	})
+	L.SetField(tosTable, "host_transfer", hostTransferFn)
+	L.SetField(tosTable, "transfer", hostTransferFn)
 	L.SetField(tosTable, "agentload", L.NewFunction(func(L *LState) int {
 		addr := LVAsString(L.CheckAny(1))
 		field := "is_registered"
@@ -750,6 +784,13 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 func openlibSetSender(host *openlibRuntimeHost, sender string) {
 	openlibRememberAgentString(host, sender)
 	host.msgTable.RawSetString("sender", LString(sender))
+}
+
+func openlibSetOrigin(L *LState, sender string) {
+	tx := L.GetGlobal("tx")
+	if tbl, ok := tx.(*LTable); ok {
+		tbl.RawSetString("origin", LString(sender))
+	}
 }
 
 func openlibSetValue(host *openlibRuntimeHost, value int) {
@@ -3349,8 +3390,37 @@ contract DelegatedContract {
 		t.Fatalf("restricted() without hook: got=%s want=42", got)
 	}
 
-	// Install tos.hasdelegation that returns false → restricted() should fail.
+	// Direct caller path: origin == sender should bypass delegation checks even
+	// when the host function exists.
+	openlibSetSender(host, alice)
+	openlibSetOrigin(L, alice)
 	L.SetField(host.tosTable, "hasdelegation", L.NewFunction(func(L *LState) int {
+		t.Fatalf("hasdelegation should not be called for direct invocation")
+		L.Push(LFalse)
+		return 1
+	}))
+	if got := LVAsString(invokeOpenlib(t, L, tos, "restricted()")); got != "42" {
+		t.Fatalf("restricted() direct path: got=%s want=42", got)
+	}
+
+	// Install tos.hasdelegation that returns false on delegated path →
+	// restricted() should fail. Also verify the full 3-arg calling convention.
+	openlibSetSender(host, charlie)
+	openlibSetOrigin(L, alice)
+	wantScope := keccak256Hex([]byte("restricted()"))
+	L.SetField(host.tosTable, "hasdelegation", L.NewFunction(func(L *LState) int {
+		if L.GetTop() != 3 {
+			t.Fatalf("hasdelegation argc=%d want=3", L.GetTop())
+		}
+		if got := LVAsString(L.CheckAny(1)); got != alice {
+			t.Fatalf("principal: got=%s want=%s", got, alice)
+		}
+		if got := LVAsString(L.CheckAny(2)); got != charlie {
+			t.Fatalf("delegate: got=%s want=%s", got, charlie)
+		}
+		if got := LVAsString(L.CheckAny(3)); got != wantScope {
+			t.Fatalf("scope: got=%s want=%s", got, wantScope)
+		}
 		L.Push(LFalse)
 		return 1
 	}))
@@ -3367,11 +3437,168 @@ contract DelegatedContract {
 
 	// Change hook to return true → restricted() should succeed.
 	L.SetField(host.tosTable, "hasdelegation", L.NewFunction(func(L *LState) int {
+		if L.GetTop() != 3 {
+			t.Fatalf("grant hook argc=%d want=3", L.GetTop())
+		}
 		L.Push(LTrue)
 		return 1
 	}))
 
 	if got := LVAsString(invokeOpenlib(t, L, tos, "restricted()")); got != "42" {
 		t.Fatalf("restricted() with grant hook: got=%s want=42", got)
+	}
+}
+
+func TestDelegatedPreambleUsesCanonicalSignatureScopeForOverloads(t *testing.T) {
+	source := []byte(`pragma tolang 0.4.0;
+contract DelegatedOverloads {
+    /// @delegated
+    function restricted(u256 input) public view returns (u256 result) {
+        return input + 1;
+    }
+    /// @delegated
+    function restricted(agent who) public view returns (u256 result) {
+        return 99;
+    }
+}
+`)
+	L, tos, host := deployOpenlibSourceContract(t, source, "<DelegatedOverloads.tol>")
+	defer L.Close()
+
+	openlibSetSender(host, charlie)
+	openlibSetOrigin(L, alice)
+	wantU256Scope := keccak256Hex([]byte("restricted(u256)"))
+	wantAgentScope := keccak256Hex([]byte("restricted(agent)"))
+	L.SetField(host.tosTable, "hasdelegation", L.NewFunction(func(L *LState) int {
+		if L.GetTop() != 3 {
+			t.Fatalf("hasdelegation argc=%d want=3", L.GetTop())
+		}
+		scope := LVAsString(L.CheckAny(3))
+		switch scope {
+		case wantU256Scope:
+			L.Push(LTrue)
+		case wantAgentScope:
+			L.Push(LFalse)
+		default:
+			t.Fatalf("unexpected delegation scope: %s", scope)
+		}
+		return 1
+	}))
+
+	if got := LVAsString(invokeOpenlib(t, L, tos, "restricted(u256)", lu256FromInt(4))); got != "5" {
+		t.Fatalf("restricted(u256): got=%s want=5", got)
+	}
+	errMsg := invokeOpenlibErr(t, L, tos, "restricted(agent)", LString(bob))
+	if !strings.Contains(errMsg, "DelegationDenied:restricted(agent)") {
+		t.Fatalf("restricted(agent) should be denied by its own scope, got=%s", errMsg)
+	}
+}
+
+func TestPayAnnotationUsesPolicyCheckAndHostTransfer(t *testing.T) {
+	source := []byte(`pragma tolang 0.4.0;
+contract PayProbe {
+    /// @pay(10, recipient: msg.sender)
+    function payMe() public payable returns (bool ok) {
+        return true;
+    }
+}
+`)
+	L, tos, host := deployOpenlibSourceContract(t, source, "<PayProbe.tol>")
+	defer L.Close()
+
+	openlibSetSender(host, alice)
+	openlibSetValue(host, 10)
+
+	hostTransferCalled := 0
+	L.SetField(host.tosTable, "host_transfer", L.NewFunction(func(L *LState) int {
+		hostTransferCalled++
+		if got := LVAsString(L.CheckAny(1)); got != alice {
+			t.Fatalf("host_transfer recipient: got=%s want=%s", got, alice)
+		}
+		if got := LVAsString(L.CheckAny(2)); got != "10" {
+			t.Fatalf("host_transfer amount: got=%s want=10", got)
+		}
+		return 0
+	}))
+	L.SetField(host.tosTable, "transfer", L.NewFunction(func(L *LState) int {
+		t.Fatal("legacy tos.transfer path should not be used when tos.host_transfer exists")
+		return 0
+	}))
+	L.SetField(host.tosTable, "canpay", L.NewFunction(func(L *LState) int {
+		if L.GetTop() != 3 {
+			t.Fatalf("canpay argc=%d want=3", L.GetTop())
+		}
+		if got := LVAsString(L.CheckAny(1)); got != alice {
+			t.Fatalf("canpay caller: got=%s want=%s", got, alice)
+		}
+		if got := LVAsString(L.CheckAny(2)); got != "10" {
+			t.Fatalf("canpay amount: got=%s want=10", got)
+		}
+		if got := LVAsString(L.CheckAny(3)); got != "TOS" {
+			t.Fatalf("canpay asset: got=%s want=TOS", got)
+		}
+		L.Push(LFalse)
+		return 1
+	}))
+
+	errMsg := invokeOpenlibErr(t, L, tos, "payMe()")
+	if !strings.Contains(errMsg, "PaymentPolicyDenied") {
+		t.Fatalf("payMe() deny path: got=%s want contains PaymentPolicyDenied", errMsg)
+	}
+	if hostTransferCalled != 0 {
+		t.Fatalf("host_transfer should not run on denied payment, got=%d calls", hostTransferCalled)
+	}
+
+	L.SetField(host.tosTable, "canpay", L.NewFunction(func(L *LState) int {
+		L.Push(LTrue)
+		return 1
+	}))
+	if got := invokeOpenlib(t, L, tos, "payMe()"); !LVAsBool(got) {
+		t.Fatalf("payMe() allow path: got=%v want=true", got)
+	}
+	if hostTransferCalled != 1 {
+		t.Fatalf("host_transfer call count: got=%d want=1", hostTransferCalled)
+	}
+}
+
+func openlibPackedU256(value uint64) []byte {
+	slot := make([]byte, 32)
+	n := new(big.Int).SetUint64(value).Bytes()
+	copy(slot[32-len(n):], n)
+	return slot
+}
+
+func openlibVerifiableProofV1U256(sig string, values ...uint64) string {
+	buf := append([]byte("verifiable-v1"), []byte(sig)...)
+	for _, value := range values {
+		buf = append(buf, openlibPackedU256(value)...)
+	}
+	return keccak256Hex(buf)
+}
+
+func TestVerifiableStubRuntimeMatchesOriginalFunction(t *testing.T) {
+	source := []byte(`pragma tolang 0.4.0;
+contract VerifyProbe {
+    @verifiable
+    function plusOne(u256 input) public view returns (u256 result) {
+        return input + 1;
+    }
+}
+`)
+	L, tos, _ := deployOpenlibSourceContract(t, source, "<VerifyProbe.tol>")
+	defer L.Close()
+
+	if got := LVAsString(invokeOpenlib(t, L, tos, "plusOne(u256)", lu256FromInt(4))); got != "5" {
+		t.Fatalf("plusOne(4): got=%s want=5", got)
+	}
+	proof := openlibVerifiableProofV1U256("plusOne(u256)", 4, 5)
+	if got := invokeOpenlib(t, L, tos, "verify_plusOne(bytes,u256,u256)", LString(proof), lu256FromInt(4), lu256FromInt(5)); !LVAsBool(got) {
+		t.Fatalf("verify_plusOne should return true for matching result, got=%v", got)
+	}
+	if got := invokeOpenlib(t, L, tos, "verify_plusOne(bytes,u256,u256)", LString(proof), lu256FromInt(4), lu256FromInt(7)); LVAsBool(got) {
+		t.Fatalf("verify_plusOne should return false for mismatched result")
+	}
+	if got := invokeOpenlib(t, L, tos, "verify_plusOne(bytes,u256,u256)", LString("0x1234"), lu256FromInt(4), lu256FromInt(5)); LVAsBool(got) {
+		t.Fatalf("verify_plusOne should return false for mismatched proof")
 	}
 }

@@ -3,8 +3,8 @@
   "identity": {
     "package_name": "tolang.openlib.recovery",
     "package_version": "1.0.0",
-    "content_hash": "0x8670e4f4c22b4ebffda1b6fcf7e3c428c291a94be9310a82842f5597cfbaa633",
-    "bytecode_hash": "0xb288ed5c0c5cd91246d753c3ebbce01cc5bb48437ad0deab5df039acadae12aa",
+    "content_hash": "0x34af2b27393ba3cb761cb73e3313d2407ea26640fdfeedec7f4a774a0e9a8999",
+    "bytecode_hash": "0x1e9098b2c8ee2d111a18a5edcf9edcad9a143f9fd9eb9ecc0e122c83811c5b7f",
     "abi_hash": "0x4196a1fceef4e6be19507accfbfe17233a6a891925ca628015b2d500c1c9a167"
   },
   "contract": {

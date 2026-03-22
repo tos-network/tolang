@@ -3,8 +3,8 @@
   "package_name": "tolang.openlib.receipt",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0xba36856a28ae9404db5704a545d6865118ce52e1ee1722ce6d83317736b30b34",
-    "bytecode_hash": "0xbf2ba81f66c19195a90fbe1ed2728f452c7014468d6456a73bf2927fb216a131",
+    "package_hash": "0xe78f157c446e44a2de4a7be90cc539626c96b42e117c3c7638c271a12c7327f1",
+    "bytecode_hash": "0x3e95186404e9634e392eac8b8cbc0e30ef527a62b07302447ec22cbdc0951bd9",
     "source_hash": "0xb0e85a5500c6f2fa429f93d3cd27e7dbcf9f2c9a157251c2670ef6b9678fa201",
     "abi_hash": "0xb8586da74204084e85634c8750b4ac1dff71e5285c9a4021f116ae66658c81a6",
     "version": "1.0.0"

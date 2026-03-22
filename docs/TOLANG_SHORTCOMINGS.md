@@ -184,19 +184,30 @@ Evidence:
 
 Features such as:
 
-All agent-native annotations now have protocol-level backing:
+All agent-native annotations now have a concrete protocol/runtime-backed v1
+path. The advanced proof-return and settlement-bus layers remain future work,
+but the original "annotation semantics stop at ABI metadata" gap is closed.
 
 - `capability` + `@requires(...)` — **RESOLVED (2026-03-21)**: compiler
   pipeline + `tos.hascapability` registry-backed lookup
 - `@delegated` — **RESOLVED (2026-03-22)**: compiler emits
-  `buildDelegatedPreamble` calling `tos.hasdelegation`; GTOS `registry/`
-  DelegationRecord with grant/revoke/expiry; backward-compatible (no hook =
-  unrestricted)
-- `@verifiable` — **RESOLVED**: off-chain verification by design; GTOS
-  `verifyregistry/` provides `tos.isverified` for protocol-backed attestation
+  `buildDelegatedPreamble` calling `tos.hasdelegation(principal, delegate,
+  scope_ref)` with a canonical `bytes32` hash of the full function signature,
+  so overloads do not collide on bare source name; GTOS `registry/`
+  DelegationRecord now enforces grant/revoke/expiry in the runtime path
+- `@verifiable` — **RESOLVED (v1)**: synthesized `verify_*` entrypoints no
+  longer revert by default; the lowering stage now binds `proof` to a
+  deterministic witness digest over the canonical target signature, original
+  inputs, and `expected_*` outputs before re-executing the target pure/view
+  function. GTOS `verifyregistry/` provides `tos.isverified` for
+  protocol-backed attestation. A richer `verified_staticcall + third-party
+  proof payload` path is still a future enhancement, not a remaining closure
+  blocker
 - `@pay` — **RESOLVED (2026-03-22)**: compiler emits `buildPayPreamble`
-  calling `__tol_host_transfer`; GTOS `tos.host_transfer` implemented;
-  `paypolicy/` provides `tos.canpay` for policy-backed validation
+  calling `tos.canpay(...)` before routing funds through `tos.host_transfer`
+  (falling back to legacy transfer only when the dedicated host function is
+  absent); `paypolicy/` provides protocol-backed validation, and GTOS now has
+  chain-level deny/allow coverage for the live `@pay` path
 
 ### 4. Package resolution still depends too much on filesystem layout — RESOLVED
 
@@ -301,15 +312,19 @@ The priority order should be:
    `tos.multicall`; 10 regression tests across both repos.
 2. ~~Native, dependable runtime support for package calls and contract capability
    routing.~~ — **RESOLVED (2026-03-22)**: `tos.package_call` now validates
-   deployed package identity via `pkgregistry.ReadPackageByHash`; revoked
-   packages/publishers are blocked; 4 tests in `lvm_pkgreg_test.go`.
+   deployed package identity via `pkgregistry.ReadPackageByHash`, rejects
+   unpublished packages with `PACKAGE_UNPUBLISHED`, blocks revoked
+   packages/publishers, and validates package addr/data inputs strictly; tests
+   cover both VM-level and chain-level paths.
 3. ~~Protocol-backed registries and enforcement for delegation, verification,
    settlement, and agent identity semantics.~~ — **RESOLVED (2026-03-22)**:
    GTOS `registry/` (Capability + Delegation), `verifyregistry/` (Verification),
    `paypolicy/` (Settlement/Pay) all implemented with real state-backed CRUD.
    LVM host functions `tos.hascapability`, `tos.hasdelegation`, `tos.isverified`,
-   `tos.canpay` are registry-backed. `tos.host_transfer` wired for @pay.
-   Compiler emits preambles for `@requires`, `@delegated`, `@pay`.
+   `tos.canpay` are registry-backed with strict fail-closed address parsing.
+   `tos.host_transfer` is wired for `@pay`, compiler preambles for `@requires`,
+   `@delegated`, and `@pay` align with the live GTOS calling conventions, and
+   GTOS end-to-end tests now exercise the real `@pay` path.
 4. ~~Stable package identity and import resolution independent of local source
    layout.~~ — **RESOLVED (2026-03-22)**: `OSFileResolver.PackageSearchPaths`
    enables filesystem-independent resolution; `CompileOptions` and

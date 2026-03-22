@@ -109,7 +109,7 @@ contract ConfidentialEscrow is IConfidentialEscrow {
 
         set escrow_status[escrow_id] = STATUS_RELEASED;
         set escrow_settlement_ref[escrow_id] = settlement_ref;
-        settlement.transferUno(
+        settlement.releaseEscrowUno(
             escrow_payee[escrow_id],
             escrow_amount[escrow_id],
             escrow_receipt_ref[escrow_id],

@@ -1105,6 +1105,13 @@ local __tol_settlement_opt_ref = function(v)
   return tostring(v)
 end
 
+local __tol_settlement_opt_agent = function(v)
+  if __tol_settlement_zero_ref(v) then
+    return nil
+  end
+  return tostring(v)
+end
+
 local __tol_settlement_require = function(name)
   if tos ~= nil and type(tos) == "table" and type(tos[name]) == "function" then
     return tos[name]
@@ -1112,19 +1119,24 @@ local __tol_settlement_require = function(name)
   error("settlement: tos." .. name .. " unavailable")
 end
 
-local __tol_settlement_open_receipt = function(receipt_ref, kind)
+local __tol_settlement_open_receipt = function(receipt_ref, kind, sponsor)
   local ref = __tol_settlement_opt_ref(receipt_ref)
   if ref == nil then
     return nil
   end
   local info = __tol_settlement_require("receipt_info")(ref)
   if info == nil then
-    __tol_settlement_require("receipt_open")(ref, kind)
+    local sponsor_addr = __tol_settlement_opt_agent(sponsor)
+    if sponsor_addr ~= nil then
+      __tol_settlement_require("receipt_open")(ref, kind, { sponsor = sponsor_addr })
+    else
+      __tol_settlement_require("receipt_open")(ref, kind)
+    end
   end
   return ref
 end
 
-local __tol_settlement_opts = function(proof_ref, artifact_ref, extra)
+local __tol_settlement_opts = function(proof_ref, artifact_ref, sponsor, extra)
   local opts = extra or {}
   local proof = __tol_settlement_opt_ref(proof_ref)
   if proof ~= nil then
@@ -1133,6 +1145,10 @@ local __tol_settlement_opts = function(proof_ref, artifact_ref, extra)
   local artifact = __tol_settlement_opt_ref(artifact_ref)
   if artifact ~= nil then
     opts.artifact_ref = artifact
+  end
+  local sponsor_addr = __tol_settlement_opt_agent(sponsor)
+  if sponsor_addr ~= nil then
+    opts.sponsor = sponsor_addr
   end
   return opts
 end
@@ -1147,49 +1163,58 @@ local __tol_settlement_uno_transfer = function(recipient, amount)
   error("settlement: uno transfer unavailable")
 end
 
-local __tol_settlement_transfer_public = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref)
-  local ref = __tol_settlement_open_receipt(receipt_ref, kind)
+local __tol_settlement_transfer_public = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref, sponsor)
+  local ref = __tol_settlement_open_receipt(receipt_ref, kind, sponsor)
   if ref == nil then
     __tol_host_transfer(recipient, amount)
     return __tol_zero_b256
   end
-  return __tol_settlement_require("settle")("PUBLIC_TRANSFER", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, nil))
+  return __tol_settlement_require("settle")("PUBLIC_TRANSFER", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, sponsor, nil))
 end
 
-local __tol_settlement_refund_public = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref)
-  local ref = __tol_settlement_open_receipt(receipt_ref, kind)
+local __tol_settlement_refund_public = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref, sponsor)
+  local ref = __tol_settlement_open_receipt(receipt_ref, kind, sponsor)
   if ref == nil then
     __tol_host_transfer(recipient, amount)
     return __tol_zero_b256
   end
-  return __tol_settlement_require("settle_refund")("REFUND_PUBLIC", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, nil))
+  return __tol_settlement_require("settle_refund")("REFUND_PUBLIC", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, sponsor, nil))
 end
 
-local __tol_settlement_release_escrow_public = function(recipient, amount, receipt_ref, kind, purpose, proof_ref, artifact_ref)
-  local ref = __tol_settlement_open_receipt(receipt_ref, kind)
+local __tol_settlement_release_escrow_public = function(recipient, amount, receipt_ref, kind, purpose, proof_ref, artifact_ref, sponsor)
+  local ref = __tol_settlement_open_receipt(receipt_ref, kind, sponsor)
   if ref == nil then
     __tol_release(recipient, amount, purpose or 0)
     return __tol_zero_b256
   end
-  return __tol_settlement_require("settle_escrow")("ESCROW_RELEASE_PUBLIC", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, {purpose = purpose or 0}))
+  return __tol_settlement_require("settle_escrow")("ESCROW_RELEASE_PUBLIC", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, sponsor, {purpose = purpose or 0}))
 end
 
-local __tol_settlement_transfer_uno = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref)
-  local ref = __tol_settlement_open_receipt(receipt_ref, kind)
+local __tol_settlement_release_escrow_uno = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref, sponsor)
+  local ref = __tol_settlement_open_receipt(receipt_ref, kind, sponsor)
   if ref == nil then
     __tol_settlement_uno_transfer(recipient, amount)
     return __tol_zero_b256
   end
-  return __tol_settlement_require("settle")("UNO_TRANSFER", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, nil))
+  return __tol_settlement_require("settle_escrow")("ESCROW_RELEASE_UNO", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, sponsor, nil))
 end
 
-local __tol_settlement_refund_uno = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref)
-  local ref = __tol_settlement_open_receipt(receipt_ref, kind)
+local __tol_settlement_transfer_uno = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref, sponsor)
+  local ref = __tol_settlement_open_receipt(receipt_ref, kind, sponsor)
   if ref == nil then
     __tol_settlement_uno_transfer(recipient, amount)
     return __tol_zero_b256
   end
-  return __tol_settlement_require("settle_refund")("REFUND_UNO", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, nil))
+  return __tol_settlement_require("settle")("UNO_TRANSFER", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, sponsor, nil))
+end
+
+local __tol_settlement_refund_uno = function(recipient, amount, receipt_ref, kind, proof_ref, artifact_ref, sponsor)
+  local ref = __tol_settlement_open_receipt(receipt_ref, kind, sponsor)
+  if ref == nil then
+    __tol_settlement_uno_transfer(recipient, amount)
+    return __tol_zero_b256
+  end
+  return __tol_settlement_require("settle_refund")("REFUND_UNO", recipient, amount, ref, __tol_settlement_opts(proof_ref, artifact_ref, sponsor, nil))
 end
 `)
 	}
@@ -5599,17 +5624,19 @@ func lowerAgentNativeCallExpr(ctx *loweringCtx, e *tolast.Expr) (luast.Expr, boo
 				var spec *settlementSpec
 				switch method {
 				case "openReceipt":
-					spec = &settlementSpec{helperName: "__tol_settlement_open_receipt", minArity: 2, maxArity: 2, purposeIdx: -1}
+					spec = &settlementSpec{helperName: "__tol_settlement_open_receipt", minArity: 2, maxArity: 3, purposeIdx: -1}
 				case "transferPublic":
-					spec = &settlementSpec{helperName: "__tol_settlement_transfer_public", minArity: 4, maxArity: 6, purposeIdx: -1}
+					spec = &settlementSpec{helperName: "__tol_settlement_transfer_public", minArity: 4, maxArity: 7, purposeIdx: -1}
 				case "refundPublic":
-					spec = &settlementSpec{helperName: "__tol_settlement_refund_public", minArity: 4, maxArity: 6, purposeIdx: -1}
+					spec = &settlementSpec{helperName: "__tol_settlement_refund_public", minArity: 4, maxArity: 7, purposeIdx: -1}
 				case "releaseEscrowPublic":
-					spec = &settlementSpec{helperName: "__tol_settlement_release_escrow_public", minArity: 5, maxArity: 7, purposeIdx: 4}
+					spec = &settlementSpec{helperName: "__tol_settlement_release_escrow_public", minArity: 5, maxArity: 8, purposeIdx: 4}
+				case "releaseEscrowUno":
+					spec = &settlementSpec{helperName: "__tol_settlement_release_escrow_uno", minArity: 4, maxArity: 7, purposeIdx: -1}
 				case "transferUno":
-					spec = &settlementSpec{helperName: "__tol_settlement_transfer_uno", minArity: 4, maxArity: 6, purposeIdx: -1}
+					spec = &settlementSpec{helperName: "__tol_settlement_transfer_uno", minArity: 4, maxArity: 7, purposeIdx: -1}
 				case "refundUno":
-					spec = &settlementSpec{helperName: "__tol_settlement_refund_uno", minArity: 4, maxArity: 6, purposeIdx: -1}
+					spec = &settlementSpec{helperName: "__tol_settlement_refund_uno", minArity: 4, maxArity: 7, purposeIdx: -1}
 				}
 				if spec != nil {
 					nArgs := len(e.Args)

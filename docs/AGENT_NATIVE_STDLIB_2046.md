@@ -1394,6 +1394,38 @@ The next post-closure wave is now:
    canonical runtime receipts/effects without conflating them with the older
    local `receiptId` anchor model used by OpenFox settlement publishing.
 
+The bounded V2 cap is now also complete:
+
+1. `Sponsor-aware settlement joins` — **RESOLVED (2026-03-22)**
+   runtime receipts/effects now persist `sponsor`, settlement-bus helpers
+   accept sponsor-aware opts, and Go/TS/OpenFox inspection surfaces expose
+   sponsor-linked settlement flows end to end.
+2. `ESCROW_RELEASE_UNO` — **RESOLVED (2026-03-22)**
+   GTOS settlement mode parity now includes confidential escrow release,
+   Tolang lowering exposes `settlement.releaseEscrowUno(...)`, and
+   `ConfidentialEscrow.releaseEscrow(...)` now routes through the canonical
+   settlement-bus release path instead of an ad hoc UNO transfer helper.
+3. `Deeper confidential refund / release normalization` — **RESOLVED (2026-03-22)**
+   confidential settlement flows now converge on one runtime settlement shape
+   across GTOS state, Tolang lowering/harnesses, and openlib adoption.
+4. `OpenFox local-settlement to canonical-runtime bridge` — **RESOLVED (2026-03-22)**
+   OpenFox settlement records now persist canonical `runtimeReceiptRef` /
+   `runtimeSettlementRef`, and both CLI plus operator API can bridge those
+   refs back into GTOS runtime inspection when publisher flows adopt native
+   settlement identifiers.
+5. `Richer verifier classes` — **RESOLVED (2026-03-22)**
+   registry/API/client consumption now projects `verifier_class` and
+   `proof_class`, so verification-backed flows no longer have to infer richer
+   verifier semantics from raw numeric type codes alone.
+6. `Richer settlement-policy classes` — **RESOLVED (2026-03-22)**
+   pay-policy inspection now projects `policy_class`, giving settlement-aware
+   routing and future SDK/operator logic a typed registry class surface
+   instead of only opaque numeric kinds.
+7. `Deeper discovery / deployment trust integration` — **RESOLVED (2026-03-22)**
+   suggested discovery cards now carry normalized `deployment_trust` hints
+   derived from protocol package/publisher trust, and TS/OpenFox card types
+   now preserve those hints across discovery consumption.
+
 Execution prompt for this GTOS-owned wave:
 
 - Claude Code parallel implementation prompt:

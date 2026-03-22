@@ -2124,7 +2124,7 @@ func TestComposedSettleReceiptEscrowRollback(t *testing.T) {
 	escrowL := NewState()
 	defer escrowL.Close()
 	escrowHost := installOpenlibRuntimeHost(escrowL)
-	origSettle := escrowL.GetField(escrowHost.tosTable, "settle")
+	origSettleEscrow := escrowL.GetField(escrowHost.tosTable, "settle_escrow")
 	failTransferFn := escrowL.NewFunction(func(L *LState) int {
 		if failTransfer {
 			L.RaiseError("UNO_TRANSFER_FAILED")
@@ -2135,7 +2135,7 @@ func TestComposedSettleReceiptEscrowRollback(t *testing.T) {
 		for i := 1; i <= base; i++ {
 			args[i-1] = L.Get(i)
 		}
-		if err := escrowL.CallByParam(P{Fn: origSettle, NRet: 1, Protect: true}, args...); err != nil {
+		if err := escrowL.CallByParam(P{Fn: origSettleEscrow, NRet: 1, Protect: true}, args...); err != nil {
 			escrowL.SetTop(base)
 			escrowL.RaiseError("%v", err)
 			return 0
@@ -2145,7 +2145,7 @@ func TestComposedSettleReceiptEscrowRollback(t *testing.T) {
 		escrowL.Push(ret)
 		return 1
 	})
-	escrowL.SetField(escrowHost.tosTable, "settle", failTransferFn)
+	escrowL.SetField(escrowHost.tosTable, "settle_escrow", failTransferFn)
 
 	repoRoot, err := os.Getwd()
 	if err != nil {
@@ -2278,12 +2278,12 @@ func TestConfidentialEscrowRollbackOnFailedRelease(t *testing.T) {
 	}
 
 	// Replace settlement bus transfer to simulate UNO transfer failure.
-	origSettle := escrowL.GetField(escrowHost.tosTable, "settle")
+	origSettleEscrow := escrowL.GetField(escrowHost.tosTable, "settle_escrow")
 	failTransferFn := escrowL.NewFunction(func(L *LState) int {
 		L.RaiseError("UNO_BRIDGE_FAILED")
 		return 0
 	})
-	escrowL.SetField(escrowHost.tosTable, "settle", failTransferFn)
+	escrowL.SetField(escrowHost.tosTable, "settle_escrow", failTransferFn)
 
 	// Attempt release -- should fail because UNO transfer fails.
 	openlibSetSender(escrowHost, coordinatorAddr)
@@ -2293,7 +2293,7 @@ func TestConfidentialEscrowRollbackOnFailedRelease(t *testing.T) {
 	}
 
 	// Restore settlement transfer.
-	escrowL.SetField(escrowHost.tosTable, "settle", origSettle)
+	escrowL.SetField(escrowHost.tosTable, "settle_escrow", origSettleEscrow)
 
 	// Escrow must still be OPEN (1), not RELEASED (2).
 	statusAfter := LVAsString(invokeOpenlib(t, escrowL, escrowTOS, "statusOf(bytes32)", LString(escrowID)))

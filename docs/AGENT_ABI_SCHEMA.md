@@ -190,6 +190,14 @@ Status note:
   selection
 - legacy `.discovery.json` / `.agentpkg.json` bundle artifacts are still emitted
   for compatibility during the transition
+- suggested discovery cards now also carry normalized `deployment_trust`
+  hints when a deployed package resolves through the GTOS package registry, so
+  discovery/deployment consumers can see package/publisher trust without
+  manually joining package RPCs first
+- OpenFox local settlement records now persist canonical GTOS
+  `runtimeReceiptRef` / `runtimeSettlementRef` when available, allowing CLI
+  and operator UX to bridge legacy local settlement anchors back onto runtime
+  settlement inspection instead of keeping two unrelated identifier domains
 
 ### Protocol alignment layer
 

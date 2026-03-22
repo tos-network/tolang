@@ -3,8 +3,8 @@
   "package_name": "tolang.openlib.sponsor",
   "package_version": "1.0.0",
   "artifact_ref": {
-    "package_hash": "0x1e840dca07263345298bff1b2d6cdaf8aa582a8ad493f90b703d331f65706555",
-    "bytecode_hash": "0xdf6416d14b0f69ee467a73abd7a02880c97a8cbef32e41519dbb03c3d965c371",
+    "package_hash": "0xa07f8453965c0a0ce3cd01cf80104f06b9db78f1dbf59971ccee2fbcd26dab39",
+    "bytecode_hash": "0x7269561f9adf48725a7f381e54f62afdb2737b6ce1d473e1e0b4326fe7b1d959",
     "source_hash": "0x3a16bbdd545ac327b5c63eb902df0447102239f67dfad0c952c65205d3f21c19",
     "abi_hash": "0x620e08719ad6bfe9294155fc879bb8315f573b9f125dc339ad7967b8dadb1573",
     "version": "1.0.0"

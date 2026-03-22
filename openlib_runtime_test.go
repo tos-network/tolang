@@ -73,16 +73,17 @@ type openlibRuntimeHost struct {
 }
 
 type openlibRuntimeReceipt struct {
-	Kind         string
-	Status       string
-	ModeName     string
-	Sender       string
-	Recipient    string
+	Kind          string
+	Status        string
+	ModeName      string
+	Sender        string
+	Recipient     string
+	Sponsor       string
 	SettlementRef string
-	ProofRef     string
-	FailureRef   string
-	ArtifactRef  string
-	AmountRef    string
+	ProofRef      string
+	FailureRef    string
+	ArtifactRef   string
+	AmountRef     string
 }
 
 type openlibRuntimeSettlementEffect struct {
@@ -91,6 +92,7 @@ type openlibRuntimeSettlementEffect struct {
 	ModeName      string
 	Sender        string
 	Recipient     string
+	Sponsor       string
 	ArtifactRef   string
 	AmountRef     string
 }
@@ -750,6 +752,12 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 	L.SetField(tosTable, "receipt_open", L.NewFunction(func(L *LState) int {
 		receiptRef := LVAsString(L.CheckAny(1))
 		kind := LVAsString(L.CheckAny(2))
+		sponsor := ""
+		if L.GetTop() >= 3 {
+			if opts, ok := L.CheckAny(3).(*LTable); ok {
+				sponsor = LVAsString(opts.RawGetString("sponsor"))
+			}
+		}
 		if receiptRef == "" || receiptRef == openlibBytes32("0") {
 			L.RaiseError("tos.receipt_open: invalid receipt_ref")
 			return 0
@@ -759,8 +767,9 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 			return 0
 		}
 		host.runtimeReceipts[receiptRef] = openlibRuntimeReceipt{
-			Kind:   kind,
-			Status: "open",
+			Kind:    kind,
+			Status:  "open",
+			Sponsor: sponsor,
 		}
 		return 0
 	}))
@@ -781,6 +790,7 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 		receipt.ModeName = effect.ModeName
 		receipt.Sender = effect.Sender
 		receipt.Recipient = effect.Recipient
+		receipt.Sponsor = effect.Sponsor
 		receipt.SettlementRef = settlementRef
 		receipt.AmountRef = effect.AmountRef
 		receipt.ArtifactRef = effect.ArtifactRef
@@ -825,6 +835,9 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 		if receipt.Recipient != "" {
 			tbl.RawSetString("recipient", LString(receipt.Recipient))
 		}
+		if receipt.Sponsor != "" {
+			tbl.RawSetString("sponsor", LString(receipt.Sponsor))
+		}
 		if receipt.SettlementRef != "" {
 			tbl.RawSetString("settlement_ref", LString(receipt.SettlementRef))
 		}
@@ -860,6 +873,9 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 		if effect.Recipient != "" {
 			tbl.RawSetString("recipient", LString(effect.Recipient))
 		}
+		if effect.Sponsor != "" {
+			tbl.RawSetString("sponsor", LString(effect.Sponsor))
+		}
 		if effect.ArtifactRef != "" {
 			tbl.RawSetString("artifact_ref", LString(effect.ArtifactRef))
 		}
@@ -869,7 +885,7 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 		L.Push(tbl)
 		return 1
 	}))
-	recordSettlement := func(modeName, recipient, amount, receiptRef, artifactRef string, valueMover func()) string {
+	recordSettlement := func(modeName, recipient, amount, receiptRef, artifactRef, sponsor string, valueMover func()) string {
 		host.settlementCount++
 		host.lastSettlementMode = modeName
 		host.lastSettlementRecipient = recipient
@@ -883,6 +899,7 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 			ReceiptRef:    receiptRef,
 			ModeName:      modeName,
 			Recipient:     recipient,
+			Sponsor:       sponsor,
 			ArtifactRef:   artifactRef,
 			AmountRef:     openlibSettlementAmountRef(amount),
 		}
@@ -890,6 +907,7 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 		receipt.Status = "success"
 		receipt.ModeName = modeName
 		receipt.Recipient = recipient
+		receipt.Sponsor = sponsor
 		receipt.SettlementRef = settlementRef
 		receipt.ArtifactRef = artifactRef
 		receipt.AmountRef = openlibSettlementAmountRef(amount)
@@ -902,16 +920,21 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 		amount := LVAsString(L.CheckAny(3))
 		receiptRef := LVAsString(L.CheckAny(4))
 		artifactRef := ""
+		sponsor := ""
 		if L.GetTop() >= 5 {
 			if opts, ok := L.CheckAny(5).(*LTable); ok {
 				artifactRef = LVAsString(opts.RawGetString("artifact_ref"))
+				sponsor = LVAsString(opts.RawGetString("sponsor"))
 			}
 		}
 		if _, ok := host.runtimeReceipts[receiptRef]; !ok {
 			L.RaiseError("tos.settle: settlement: receipt not found")
 			return 0
 		}
-		settlementRef := recordSettlement(mode, recipient, amount, receiptRef, artifactRef, func() {
+		if sponsor == "" {
+			sponsor = host.runtimeReceipts[receiptRef].Sponsor
+		}
+		settlementRef := recordSettlement(mode, recipient, amount, receiptRef, artifactRef, sponsor, func() {
 			switch mode {
 			case "PUBLIC_TRANSFER":
 				host.hostTransferCount++
@@ -938,16 +961,21 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 		amount := LVAsString(L.CheckAny(3))
 		receiptRef := LVAsString(L.CheckAny(4))
 		artifactRef := ""
+		sponsor := ""
 		if L.GetTop() >= 5 {
 			if opts, ok := L.CheckAny(5).(*LTable); ok {
 				artifactRef = LVAsString(opts.RawGetString("artifact_ref"))
+				sponsor = LVAsString(opts.RawGetString("sponsor"))
 			}
 		}
 		if _, ok := host.runtimeReceipts[receiptRef]; !ok {
 			L.RaiseError("tos.settle_refund: settlement: receipt not found")
 			return 0
 		}
-		settlementRef := recordSettlement(mode, recipient, amount, receiptRef, artifactRef, func() {
+		if sponsor == "" {
+			sponsor = host.runtimeReceipts[receiptRef].Sponsor
+		}
+		settlementRef := recordSettlement(mode, recipient, amount, receiptRef, artifactRef, sponsor, func() {
 			switch mode {
 			case "REFUND_PUBLIC":
 				host.hostTransferCount++
@@ -974,12 +1002,14 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 		amount := LVAsString(L.CheckAny(3))
 		receiptRef := LVAsString(L.CheckAny(4))
 		artifactRef := ""
+		sponsor := ""
 		if L.GetTop() >= 5 {
 			if opts, ok := L.CheckAny(5).(*LTable); ok {
 				artifactRef = LVAsString(opts.RawGetString("artifact_ref"))
+				sponsor = LVAsString(opts.RawGetString("sponsor"))
 			}
 		}
-		if mode != "ESCROW_RELEASE_PUBLIC" {
+		if mode != "ESCROW_RELEASE_PUBLIC" && mode != "ESCROW_RELEASE_UNO" {
 			L.RaiseError("tos.settle_escrow: invalid mode")
 			return 0
 		}
@@ -987,11 +1017,27 @@ func installOpenlibRuntimeHost(L *LState) *openlibRuntimeHost {
 			L.RaiseError("tos.settle_escrow: settlement: receipt not found")
 			return 0
 		}
-		settlementRef := recordSettlement(mode, recipient, amount, receiptRef, artifactRef, func() {
-			host.releaseCount++
-			host.lastReleaseAddr = recipient
-			host.lastReleaseAmt = amount
-			host.lastReleaseTag = "0"
+		if sponsor == "" {
+			sponsor = host.runtimeReceipts[receiptRef].Sponsor
+		}
+		settlementRef := recordSettlement(mode, recipient, amount, receiptRef, artifactRef, sponsor, func() {
+			switch mode {
+			case "ESCROW_RELEASE_PUBLIC":
+				host.releaseCount++
+				host.lastReleaseAddr = recipient
+				host.lastReleaseAmt = amount
+				host.lastReleaseTag = "0"
+			case "ESCROW_RELEASE_UNO":
+				amt := openlibParseUnoString(amount)
+				host.unoTransferCount++
+				host.lastUnoTransferAddr = recipient
+				host.lastUnoTransferAmount = openlibUnoStringFromBigInt(amt)
+				next := openlibNativeUnoBalance(host, recipient)
+				next.Add(next, amt)
+				host.nativeUnoBalances[recipient] = next
+			default:
+				L.RaiseError("tos.settle_escrow: invalid mode")
+			}
 		})
 		L.Push(LString(settlementRef))
 		return 1
@@ -2448,8 +2494,8 @@ func TestConfidentialEscrowRuntimeOpenReleaseRefundAndReclaim(t *testing.T) {
 		t.Fatalf("nativeBalance bob after release: got=%s want=%s", got, LVAsString(openlibUnoFromInt(50)))
 	}
 	runtimeRelease := openlibRuntimeReceiptInfo(host, receiptOne)
-	if runtimeRelease.Status != "success" || runtimeRelease.ModeName != "UNO_TRANSFER" {
-		t.Fatalf("runtime release receipt=%+v want success/UNO_TRANSFER", runtimeRelease)
+	if runtimeRelease.Status != "success" || runtimeRelease.ModeName != "ESCROW_RELEASE_UNO" {
+		t.Fatalf("runtime release receipt=%+v want success/ESCROW_RELEASE_UNO", runtimeRelease)
 	}
 	if runtimeRelease.ArtifactRef != settlementRef {
 		t.Fatalf("runtime release artifact: got=%q want=%q", runtimeRelease.ArtifactRef, settlementRef)

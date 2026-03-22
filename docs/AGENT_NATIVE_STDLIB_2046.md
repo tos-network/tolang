@@ -1189,6 +1189,16 @@ Practical split:
 - GTOS should own protocol registries, VM-native economic primitives, and any
   network-grade package publishing identity model.
 
+Current GTOS implementation status (2026-03-22):
+
+- protocol registries now have a concrete v1:
+  capability, delegation, verification, pay-policy, package, publisher, and
+  agent-identity query surfaces are implemented in GTOS
+- LVM now consumes protocol-backed capability / delegation / verification /
+  pay-policy state instead of leaving those surfaces as permissive stubs
+- package publishing is no longer design-only: GTOS now has package/publisher
+  state, sysactions, and RPC lookup by name/version/hash
+
 Execution prompt for this GTOS-owned wave:
 
 - Claude Code parallel implementation prompt:

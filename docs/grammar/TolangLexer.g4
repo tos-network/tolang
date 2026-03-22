@@ -51,8 +51,11 @@ External    : 'external'    ; // production: contextual
 Fallback    : 'fallback'    ;
 False       : 'false'       ; // production: contextual
 For         : 'for'         ;
-From        : 'from'        ; // production: NOT a keyword token — emitted as TokenIdent
-                               // The production lexer checks (p.cur.Literal == "from") directly.
+// NOTE: 'from' is NOT a lexer-level keyword token in production.
+// The production lexer emits it as TokenIdent.  The parser disambiguates
+// contextually: `import Name from "path"` checks p.cur.Literal == "from".
+// It is declared here as a grammar token for ANTLR4 parse accuracy only.
+From        : 'from'        ;
 Function    : 'function'    ;
 Global      : 'global'      ; // production: contextual
 If          : 'if'          ;

@@ -74,6 +74,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 		Capabilities      []string                      `json:"capabilities"`
 		Tags              []string                      `json:"tags"`
 		Contracts         []*metadata.DiscoveryManifest `json:"contracts"`
+		ProtocolAlignment *metadata.ProtocolAlignment   `json:"protocol_alignment,omitempty"`
 		HumanSummary      string                        `json:"human_summary"`
 	}
 	type releaseBundleAgentPackage struct {
@@ -83,6 +84,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 		TORPath           string                       `json:"tor_path"`
 		PackageHash       string                       `json:"package_hash"`
 		Contracts         []*metadata.AgentPackageInfo `json:"contracts"`
+		ProtocolAlignment *metadata.ProtocolAlignment  `json:"protocol_alignment,omitempty"`
 		HumanSummary      string                       `json:"human_summary"`
 	}
 	var index struct {
@@ -401,6 +403,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 			Capabilities:      bundleDedupStrings(capabilities),
 			Tags:              bundleDedupStrings(tags),
 			Contracts:         discoveryContracts,
+			ProtocolAlignment: metadata.MergeProtocolAlignments(bundleProtocolAlignmentsFromDiscovery(discoveryContracts)...),
 			HumanSummary:      "Family bundle for " + bundle.SourcePackagePath + " with contracts: " + strings.Join(wantContracts, ", "),
 		}
 		discoveryWantBytes, err := json.MarshalIndent(discoveryWantStruct, "", "  ")
@@ -422,6 +425,7 @@ func TestOpenlibReleaseArtifactsAreCurrent(t *testing.T) {
 			TORPath:           bundle.TORPath,
 			PackageHash:       bundle.PackageHash,
 			Contracts:         agentContracts,
+			ProtocolAlignment: metadata.MergeProtocolAlignments(bundleProtocolAlignmentsFromAgentPackages(agentContracts)...),
 			HumanSummary:      "Agent package bundle for " + bundle.SourcePackagePath + " with contracts: " + strings.Join(wantContracts, ", "),
 		}
 		agentWantBytes, err := json.MarshalIndent(agentWantStruct, "", "  ")
@@ -456,4 +460,24 @@ func bundleDedupStrings(items []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func bundleProtocolAlignmentsFromDiscovery(items []*metadata.DiscoveryManifest) []*metadata.ProtocolAlignment {
+	alignments := make([]*metadata.ProtocolAlignment, 0, len(items))
+	for _, item := range items {
+		if item != nil {
+			alignments = append(alignments, item.ProtocolAlignment)
+		}
+	}
+	return alignments
+}
+
+func bundleProtocolAlignmentsFromAgentPackages(items []*metadata.AgentPackageInfo) []*metadata.ProtocolAlignment {
+	alignments := make([]*metadata.ProtocolAlignment, 0, len(items))
+	for _, item := range items {
+		if item != nil {
+			alignments = append(alignments, item.ProtocolAlignment)
+		}
+	}
+	return alignments
 }

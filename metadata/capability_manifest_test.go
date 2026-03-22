@@ -249,6 +249,15 @@ func TestBuildAgentPackageInfo(t *testing.T) {
 	if pkg.Discovery == nil {
 		t.Fatal("Discovery is nil")
 	}
+	if pkg.ProtocolAlignment == nil {
+		t.Fatal("ProtocolAlignment is nil")
+	}
+	if !pkg.ProtocolAlignment.SettlementBus {
+		t.Error("expected settlement-bus alignment for TaskEscrow package")
+	}
+	if !pkg.ProtocolAlignment.PackageGovernance {
+		t.Error("expected package-governance alignment for exported package info")
+	}
 	if pkg.ArtifactRef.PackageHash != "0xaabb" {
 		t.Errorf("ArtifactRef.PackageHash = %q, want 0xaabb", pkg.ArtifactRef.PackageHash)
 	}

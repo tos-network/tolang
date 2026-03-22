@@ -356,5 +356,15 @@
     "sload": 2100,
     "sstore": 20000,
     "log_base": 375
+  },
+  "protocol_alignment": {
+    "schema_version": "0.1.0",
+    "settlement_bus": true,
+    "package_governance": true,
+    "release_artifacts": [
+      "profile_json",
+      "discovery_json",
+      "agent_package_json"
+    ]
   }
 }

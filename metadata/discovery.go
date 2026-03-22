@@ -10,19 +10,20 @@ const DiscoverySchemaVersion = "0.1.0"
 // DiscoveryManifest is the standardized manifest format that OpenFox discovery clients
 // can parse to understand what a TOL package provides.
 type DiscoveryManifest struct {
-	SchemaVersion    string                 `json:"schema_version"`
-	PackageName      string                 `json:"package_name"`
-	PackageVersion   string                 `json:"package_version"`
-	ArtifactRef      ArtifactRef            `json:"artifact_ref"`
-	ContractType     string                 `json:"contract_type"` // "token", "policy_wallet", "task_escrow", "oracle", "payment", "delegation", "custom"
-	ServiceKinds     []string               `json:"service_kinds"` // what discovery service kinds this supports
-	Capabilities     []string               `json:"capabilities"`
-	Errors           []ErrorMeta            `json:"errors,omitempty"`
-	InterfaceMethods []DiscoveryMethod      `json:"interface_methods"`
-	PolicyProfile    *PolicyProfile         `json:"policy_profile,omitempty"`
-	TypedDiscovery   *TypedDiscoveryProfile `json:"typed_discovery,omitempty"`
-	HumanSummary     string                 `json:"human_summary"`
-	Tags             []string               `json:"tags"`
+	SchemaVersion     string                 `json:"schema_version"`
+	PackageName       string                 `json:"package_name"`
+	PackageVersion    string                 `json:"package_version"`
+	ArtifactRef       ArtifactRef            `json:"artifact_ref"`
+	ContractType      string                 `json:"contract_type"` // "token", "policy_wallet", "task_escrow", "oracle", "payment", "delegation", "custom"
+	ServiceKinds      []string               `json:"service_kinds"` // what discovery service kinds this supports
+	Capabilities      []string               `json:"capabilities"`
+	Errors            []ErrorMeta            `json:"errors,omitempty"`
+	InterfaceMethods  []DiscoveryMethod      `json:"interface_methods"`
+	PolicyProfile     *PolicyProfile         `json:"policy_profile,omitempty"`
+	TypedDiscovery    *TypedDiscoveryProfile `json:"typed_discovery,omitempty"`
+	ProtocolAlignment *ProtocolAlignment     `json:"protocol_alignment,omitempty"`
+	HumanSummary      string                 `json:"human_summary"`
+	Tags              []string               `json:"tags"`
 }
 
 // TypedDiscoveryProfile is the normalized routing-facing discovery shape that
@@ -95,6 +96,7 @@ func BuildDiscoveryManifest(meta *ContractMetadata, packageName string) *Discove
 	dm.ServiceKinds = InferServiceKinds(meta)
 	dm.Tags = InferTags(meta)
 	dm.TypedDiscovery = BuildTypedDiscoveryProfile(meta)
+	dm.ProtocolAlignment = BuildProtocolAlignment(meta, packageName)
 
 	// Build interface methods.
 	for _, fn := range meta.Functions {

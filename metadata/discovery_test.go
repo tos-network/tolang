@@ -231,6 +231,15 @@ func TestBuildDiscoveryManifestTypedDiscoveryProfile(t *testing.T) {
 	if dm.TypedDiscovery == nil {
 		t.Fatal("expected typed discovery profile")
 	}
+	if dm.ProtocolAlignment == nil {
+		t.Fatal("expected non-nil ProtocolAlignment")
+	}
+	if !dm.ProtocolAlignment.RegistryGovernance {
+		t.Error("expected registry-governance alignment for discovery contracts")
+	}
+	if !dm.ProtocolAlignment.PackageGovernance {
+		t.Error("expected package-governance alignment for exported discovery artifacts")
+	}
 	if dm.TypedDiscovery.ServiceKind != "DISCOVERY" {
 		t.Fatalf("typed discovery service kind = %q, want %q", dm.TypedDiscovery.ServiceKind, "DISCOVERY")
 	}

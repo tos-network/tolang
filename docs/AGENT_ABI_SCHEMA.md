@@ -107,6 +107,34 @@ AgentBundleProfile {
 
 This replaces `.bundle.agentpkg.json` and `.bundle.discovery.json`.
 
+### Protocol alignment layer
+
+The unified profile now also carries an additive `protocol_alignment` section.
+This is not a new execution primitive. It is a machine-readable hint layer for
+the next GTOS-owned wave:
+
+- `settlement_bus`
+- `registry_governance`
+- `package_governance`
+
+The field exists to help agent runtimes and release tools understand which
+contracts are aligned with the next protocol surfaces without changing any
+existing ABI or discovery fields.
+
+Example:
+
+```json
+{
+  "protocol_alignment": {
+    "schema_version": "0.1.0",
+    "settlement_bus": true,
+    "registry_governance": false,
+    "package_governance": true,
+    "release_artifacts": ["profile_json", "discovery_json", "agent_package_json"]
+  }
+}
+```
+
 ### Migration path
 
 1. Add `AgentContractProfile` to `metadata/metadata.go`

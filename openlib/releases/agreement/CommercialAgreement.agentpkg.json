@@ -212,6 +212,15 @@
         "quote_ref"
       ]
     },
+    "protocol_alignment": {
+      "schema_version": "0.1.0",
+      "package_governance": true,
+      "release_artifacts": [
+        "profile_json",
+        "discovery_json",
+        "agent_package_json"
+      ]
+    },
     "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
     "tags": [
       "custom",
@@ -219,5 +228,14 @@
       "verifiable"
     ]
   },
-  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls"
+  "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
+  "protocol_alignment": {
+    "schema_version": "0.1.0",
+    "package_governance": true,
+    "release_artifacts": [
+      "profile_json",
+      "discovery_json",
+      "agent_package_json"
+    ]
+  }
 }

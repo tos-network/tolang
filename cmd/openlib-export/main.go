@@ -73,6 +73,7 @@ type releaseBundleDiscovery struct {
 	Capabilities      []string                      `json:"capabilities"`
 	Tags              []string                      `json:"tags"`
 	Contracts         []*metadata.DiscoveryManifest `json:"contracts"`
+	ProtocolAlignment *metadata.ProtocolAlignment   `json:"protocol_alignment,omitempty"`
 	HumanSummary      string                        `json:"human_summary"`
 }
 
@@ -83,6 +84,7 @@ type releaseBundleAgentPackage struct {
 	TORPath           string                       `json:"tor_path"`
 	PackageHash       string                       `json:"package_hash"`
 	Contracts         []*metadata.AgentPackageInfo `json:"contracts"`
+	ProtocolAlignment *metadata.ProtocolAlignment  `json:"protocol_alignment,omitempty"`
 	HumanSummary      string                       `json:"human_summary"`
 }
 
@@ -186,7 +188,7 @@ func main() {
 		if err := os.WriteFile(filepath.Join(repoRoot, agentPkgRel), agentPkgBytes, 0o644); err != nil {
 			fatalf("write %s: %v", agentPkgRel, err)
 		}
-		profile := metadata.BuildAgentProfile(meta)
+		profile := metadata.BuildAgentProfile(meta, entry.ReleasePackageName)
 		profile.Identity.PackageName = entry.ReleasePackageName
 		profileBytes, err := json.MarshalIndent(profile, "", "  ")
 		if err != nil {
@@ -306,6 +308,7 @@ func main() {
 			Capabilities:      dedupStrings(capabilities),
 			Tags:              dedupStrings(tags),
 			Contracts:         discoveryContracts,
+			ProtocolAlignment: metadata.MergeProtocolAlignments(protocolAlignmentsFromDiscovery(discoveryContracts)...),
 			HumanSummary:      fmt.Sprintf("Family bundle for %s with contracts: %s", entries[0].SourcePackagePath, strings.Join(contractNames, ", ")),
 		}
 		bundleDiscoveryBytes, err := json.MarshalIndent(bundleDiscovery, "", "  ")
@@ -322,6 +325,7 @@ func main() {
 			TORPath:           bundleRel,
 			PackageHash:       lua.PackageHash(bundleBytes),
 			Contracts:         agentContracts,
+			ProtocolAlignment: metadata.MergeProtocolAlignments(protocolAlignmentsFromAgentPackages(agentContracts)...),
 			HumanSummary:      fmt.Sprintf("Agent package bundle for %s with contracts: %s", entries[0].SourcePackagePath, strings.Join(contractNames, ", ")),
 		}
 		bundleAgentPkgBytes, err := json.MarshalIndent(bundleAgentPkg, "", "  ")
@@ -376,4 +380,24 @@ func dedupStrings(items []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func protocolAlignmentsFromDiscovery(items []*metadata.DiscoveryManifest) []*metadata.ProtocolAlignment {
+	alignments := make([]*metadata.ProtocolAlignment, 0, len(items))
+	for _, item := range items {
+		if item != nil {
+			alignments = append(alignments, item.ProtocolAlignment)
+		}
+	}
+	return alignments
+}
+
+func protocolAlignmentsFromAgentPackages(items []*metadata.AgentPackageInfo) []*metadata.ProtocolAlignment {
+	alignments := make([]*metadata.ProtocolAlignment, 0, len(items))
+	for _, item := range items {
+		if item != nil {
+			alignments = append(alignments, item.ProtocolAlignment)
+		}
+	}
+	return alignments
 }

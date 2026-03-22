@@ -8,17 +8,18 @@ const AgentProfileSchemaVersion = "0.2.0"
 // and human-readable metadata into one structure that agent runtimes can consume
 // without chasing multiple JSON files.
 type AgentContractProfile struct {
-	SchemaVersion  string                 `json:"schema_version"`
-	Identity       ProfileIdentity        `json:"identity"`
-	Contract       ProfileContract        `json:"contract"`
-	Capabilities   []string               `json:"capabilities,omitempty"`
-	Functions      []FunctionMeta         `json:"functions"`
-	Events         []EventMeta            `json:"events,omitempty"`
-	Errors         []ErrorMeta            `json:"errors,omitempty"`
-	ServiceKinds   []string               `json:"service_kinds,omitempty"`
-	HumanSummary   string                 `json:"human_summary,omitempty"`
-	GasModel       *GasModelMeta          `json:"gas_model,omitempty"`
-	TypedDiscovery *TypedDiscoveryProfile `json:"typed_discovery,omitempty"`
+	SchemaVersion     string                 `json:"schema_version"`
+	Identity          ProfileIdentity        `json:"identity"`
+	Contract          ProfileContract        `json:"contract"`
+	Capabilities      []string               `json:"capabilities,omitempty"`
+	Functions         []FunctionMeta         `json:"functions"`
+	Events            []EventMeta            `json:"events,omitempty"`
+	Errors            []ErrorMeta            `json:"errors,omitempty"`
+	ServiceKinds      []string               `json:"service_kinds,omitempty"`
+	HumanSummary      string                 `json:"human_summary,omitempty"`
+	GasModel          *GasModelMeta          `json:"gas_model,omitempty"`
+	TypedDiscovery    *TypedDiscoveryProfile `json:"typed_discovery,omitempty"`
+	ProtocolAlignment *ProtocolAlignment     `json:"protocol_alignment,omitempty"`
 }
 
 // ProfileIdentity captures artifact identity and content hashes for an agent profile.
@@ -40,9 +41,11 @@ type ProfileContract struct {
 }
 
 // BuildAgentProfile constructs a unified AgentContractProfile from ContractMetadata.
+// An optional package name can be supplied to mark the profile as package-governed
+// when it is being exported as part of a concrete release surface.
 // It reuses the same inference logic as BuildDiscoveryManifest for service kinds,
 // typed discovery, tags, and human summary generation.
-func BuildAgentProfile(cm *ContractMetadata) *AgentContractProfile {
+func BuildAgentProfile(cm *ContractMetadata, packageName ...string) *AgentContractProfile {
 	p := &AgentContractProfile{
 		SchemaVersion: AgentProfileSchemaVersion,
 	}
@@ -103,6 +106,13 @@ func BuildAgentProfile(cm *ContractMetadata) *AgentContractProfile {
 
 	// TypedDiscovery.
 	p.TypedDiscovery = BuildTypedDiscoveryProfile(cm)
+
+	// ProtocolAlignment.
+	pkgName := ""
+	if len(packageName) > 0 {
+		pkgName = packageName[0]
+	}
+	p.ProtocolAlignment = BuildProtocolAlignment(cm, pkgName)
 
 	return p
 }

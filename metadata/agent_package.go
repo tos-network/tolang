@@ -11,13 +11,14 @@ import (
 // It bundles the capability manifest and discovery manifest into a single,
 // canonical structure that discovery clients can fetch and parse.
 type AgentPackageInfo struct {
-	PackageName    string              `json:"package_name"`
-	PackageVersion string              `json:"package_version"`
-	ArtifactRef    ArtifactRef         `json:"artifact_ref"`
-	Errors         []ErrorMeta         `json:"errors,omitempty"`
-	Capabilities   *CapabilityManifest `json:"capabilities"`
-	Discovery      *DiscoveryManifest  `json:"discovery"`
-	HumanSummary   string              `json:"human_summary"`
+	PackageName       string              `json:"package_name"`
+	PackageVersion    string              `json:"package_version"`
+	ArtifactRef       ArtifactRef         `json:"artifact_ref"`
+	Errors            []ErrorMeta         `json:"errors,omitempty"`
+	Capabilities      *CapabilityManifest `json:"capabilities"`
+	Discovery         *DiscoveryManifest  `json:"discovery"`
+	HumanSummary      string              `json:"human_summary"`
+	ProtocolAlignment *ProtocolAlignment  `json:"protocol_alignment,omitempty"`
 }
 
 // BuildAgentPackageInfo builds a full discovery-inspectable package info record
@@ -35,13 +36,14 @@ func BuildAgentPackageInfo(meta *ContractMetadata, packageName string) *AgentPac
 	summary := GenerateHumanReadable(meta)
 
 	return &AgentPackageInfo{
-		PackageName:    packageName,
-		PackageVersion: version,
-		ArtifactRef:    meta.ArtifactRef,
-		Errors:         meta.Errors,
-		Capabilities:   capManifest,
-		Discovery:      discManifest,
-		HumanSummary:   summary.RiskSummary,
+		PackageName:       packageName,
+		PackageVersion:    version,
+		ArtifactRef:       meta.ArtifactRef,
+		Errors:            meta.Errors,
+		Capabilities:      capManifest,
+		Discovery:         discManifest,
+		HumanSummary:      summary.RiskSummary,
+		ProtocolAlignment: BuildProtocolAlignment(meta, packageName),
 	}
 }
 

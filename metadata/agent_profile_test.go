@@ -112,6 +112,15 @@ func TestBuildAgentProfile_Token(t *testing.T) {
 	if p.TypedDiscovery != nil {
 		t.Error("expected nil TypedDiscovery for token contract")
 	}
+	if p.ProtocolAlignment == nil {
+		t.Fatal("expected non-nil ProtocolAlignment")
+	}
+	if p.ProtocolAlignment.PackageGovernance {
+		t.Error("expected token profile built without release package name to remain package-governance agnostic")
+	}
+	if len(p.ProtocolAlignment.ReleaseArtifacts) == 0 {
+		t.Error("expected release artifacts alignment to be populated")
+	}
 	if len(p.Contract.Tags) == 0 {
 		t.Error("expected non-empty Tags")
 	}
@@ -152,7 +161,7 @@ func TestBuildAgentProfile_AccountContract(t *testing.T) {
 		},
 		Capabilities: []string{"SPEND_ADMIN"},
 		PolicyProfile: &PolicyProfile{
-			HasSpendCaps: true,
+			HasSpendCaps:  true,
 			HasDelegation: true,
 		},
 	}
@@ -205,5 +214,33 @@ func TestBuildAgentProfile_DerivesPolicyProfileWhenNil(t *testing.T) {
 	}
 	if !p.Contract.PolicyProfile.HasRecovery {
 		t.Error("expected HasRecovery = true from function name heuristic")
+	}
+}
+
+func TestBuildAgentProfile_PackageGovernanceAlignment(t *testing.T) {
+	meta := &ContractMetadata{
+		SchemaVersion: SchemaVersion,
+		ArtifactRef: ArtifactRef{
+			PackageHash:  "0x444",
+			BytecodeHash: "0x555",
+			ABIHash:      "0x666",
+		},
+		Contract: ContractInfo{Name: "TaskSettlement"},
+		Functions: []FunctionMeta{
+			{Name: "openTask", Selector: "0x01", Visibility: "external"},
+			{Name: "approveTask", Selector: "0x02", Visibility: "external"},
+			{Name: "refundTask", Selector: "0x03", Visibility: "external"},
+		},
+	}
+
+	p := BuildAgentProfile(meta, "tolang.openlib.settlement.task")
+	if p.ProtocolAlignment == nil {
+		t.Fatal("expected non-nil ProtocolAlignment")
+	}
+	if !p.ProtocolAlignment.PackageGovernance {
+		t.Error("expected package-governance alignment for release-built profile")
+	}
+	if !p.ProtocolAlignment.SettlementBus {
+		t.Error("expected settlement-bus alignment for settlement contract")
 	}
 }

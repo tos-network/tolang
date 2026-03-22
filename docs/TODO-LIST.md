@@ -2,6 +2,16 @@
 
 Last updated: 2026-03-22
 
+## Next Stage Backlog
+
+| ID | Item | Status | Notes |
+|---|---|---|---|
+| N-1 | GTOS settlement bus + receipt hooks | Done | GTOS now exposes `tos.settle(...)`, `tos.settle_refund(...)`, `tos.settle_escrow(...)`, `tos.receipt_open/success/failure/info`, and `tos.settlement_info(...)`, backed by stateful `RuntimeReceipt` + `SettlementEffect` records and VM/runtime tests |
+| N-2 | Registry governance + revocation workflows | Design ready | Registry v1 exists; next work is governance, revocation, and lifecycle control for capability, delegation, verification, pay-policy, and agent-identity surfaces. Design home: `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md` |
+| N-3 | Package namespace + publisher governance | Design ready | Package/publisher registry v1 exists; next work is stronger namespace ownership, publisher governance, deprecation/revocation flow, and deployment trust semantics. Design home: `/home/tomi/gtos/docs/PACKAGE_PUBLISHING_REGISTRY.md` |
+| N-4 | Release/discovery/threat-model tightening | Ongoing | Keep `.profile.json`, `typed_discovery`, `protocol_alignment`, threat-model docs, and release manifests aligned as GTOS-native protocol surfaces land |
+| N-5 | Agent-facing protocol alignment export | Done | `AgentContractProfile`, `DiscoveryManifest`, and `AgentPackageInfo` now carry additive `protocol_alignment` hints for settlement bus, registry governance, and package governance; exporter emits them into release artifacts |
+
 ## Current openlib backlog closures
 
 | ID | Item | Status | Notes |

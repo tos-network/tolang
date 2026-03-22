@@ -270,6 +270,16 @@
       "summary": "Pure computation with no state access"
     }
   ],
+  "protocol_alignment": {
+    "schema_version": "0.1.0",
+    "settlement_bus": true,
+    "package_governance": true,
+    "release_artifacts": [
+      "profile_json",
+      "discovery_json",
+      "agent_package_json"
+    ]
+  },
   "human_summary": "Low risk: 0 functions write state, 0 functions are payable, no external calls",
   "tags": [
     "custom",

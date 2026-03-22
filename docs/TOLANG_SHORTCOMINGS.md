@@ -4,12 +4,12 @@
 
 Building the openlib clarified an important point:
 
-Tolang is already stronger on language shape, compiler structure, and artifact
-metadata than it is on runtime-native economic semantics.
+Tolang was already stronger on language shape, compiler structure, and artifact
+metadata than it was on runtime-native economic semantics.
 
 The main gap is not "missing Solidity-like helpers".
-The main gap is that several agent-native ideas are expressible in source and
-artifacts, but are not yet fully closed across:
+The main gap was that several agent-native ideas were expressible in source and
+artifacts, but were not yet fully closed across:
 
 - compiler lowering
 - package/import resolution
@@ -18,9 +18,17 @@ artifacts, but are not yet fully closed across:
 
 In short:
 
-Tolang can already express a large part of the agent-native model, but the
-runtime and protocol layers are not yet strong enough to make every one of
-those semantics native, uniform, and reliable.
+Tolang could already express a large part of the agent-native model, but the
+runtime and protocol layers still had to be made native, uniform, and
+reliable.
+
+That first-wave closure work is now done. The remaining work is no longer a
+"shortcomings cleanup" list. It is the next GTOS-owned protocol agenda:
+
+- settlement bus + receipt hooks
+- registry governance + revocation workflows
+- package namespace + publisher governance
+- ongoing release/discovery/profile tightening
 
 ## Problems The Openlib Work Exposed And Already Forced Us To Fix
 
@@ -298,6 +306,26 @@ Of the 7 structural shortcomings identified by the openlib effort:
 **7 of 7 resolved.** All structural shortcomings identified by the openlib
 effort have been addressed.
 
+## What Comes Next
+
+The remaining agenda is no longer "fix Tolang shortcomings exposed by the
+first openlib wave." It is "extend GTOS and the agent-facing release surface
+beyond the first closure wave."
+
+The next-stage items are:
+
+1. `GTOS settlement bus + receipt hooks`
+   Design home: `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md`
+2. `Registry governance + revocation workflows`
+   Design home: `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md`
+3. `Package namespace + publisher governance`
+   Design home: `/home/tomi/gtos/docs/PACKAGE_PUBLISHING_REGISTRY.md`
+4. `Release/discovery/profile tightening as those protocol surfaces land`
+   Design homes:
+   - `/home/tomi/tolang/docs/AGENT_NATIVE_STDLIB_2046.md`
+   - `/home/tomi/tolang/docs/STDLIB_THREAT_MODEL_MATRIX.md`
+   - `docs/AGENT_ABI_SCHEMA.md` (now carries `protocol_alignment` for the next GTOS wave)
+
 ## Priority Order For Fixing These Gaps
 
 If these shortcomings are addressed in the wrong order, Tolang risks becoming a
@@ -337,6 +365,13 @@ The priority order should be:
 6. ~~Namespace cleanup so standard library naming is conceptually clean and not
    parser-accidental.~~ — **RESOLVED**: `session` removed from lexer reserved
    words; `openlib/session_book` directory renamed to `openlib/session`.
+
+That closure sequence is now complete. The next execution order should be:
+
+1. settlement bus + receipt hooks
+2. registry governance + revocation workflows
+3. package namespace + publisher governance
+4. release/discovery/profile tightening
 
 ## Design homes for the five strategic follow-on gaps
 

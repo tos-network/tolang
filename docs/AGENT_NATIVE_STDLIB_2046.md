@@ -1107,21 +1107,19 @@ The following items have been resolved:
 - ~~close recurring settlement~~ — **RESOLVED**: `RecurringPayment` implemented
 - ~~close compiler semantics: `@requires(caller: Cap)`~~ — **RESOLVED**: pipeline implemented + tested
 
+The first openlib closure wave is now complete.
+
 Next evolution order:
 
-1. ~~broaden privacy helper coverage beyond the current
-   `PrivateDisputeEscrow` seed into the wider helper family described in
-   `docs/PRIVACY_COMPOSITION_HELPERS.md`~~ — **RESOLVED (2026-03-22)**:
-   `PrivateDisputeEscrow`, `RegulatedPrivateCheckout`, and
-   `TreasuryDisclosureFlow` now form a concrete v1 helper family with
-   compile/runtime/e2e coverage
-2. ~~continue typed discovery integration beyond openlib release/export into
-   broader GTOS/OpenFox consumption paths described in
-   `docs/DISCOVERY_TYPED_SCHEMA.md`~~ — **RESOLVED (2026-03-22)**:
-   `PrivateServiceOrder` now routes on typed discovery fields, and GTOS
-   deployed metadata RPC exposes a normalized `routing_profile`
-3. keep tightening release/discovery/threat-model documentation as new helper
-   flows are added
+1. implement the GTOS-native settlement bus and receipt hooks so value
+   movement, escrow release, sponsor payout, refund, and receipt finalization
+   become one atomic runtime system
+2. add network-grade governance and revocation workflows on top of the GTOS
+   protocol registries that already exist in v1
+3. strengthen publisher governance and namespace control on top of the package
+   publishing registry that already exists in v1
+4. keep tightening release/discovery/threat-model documentation and exporter
+   surfaces as the GTOS-native protocol layers above land
 
 ### Acceptance bar for capability-complete closure
 
@@ -1166,13 +1164,26 @@ stable for future evolution:
 ### Design homes for the next evolution wave
 
 The current openlib closure wave is complete. These design homes now describe
-future expansion, not unresolved correctness gaps in the present codebase.
+the next GTOS-owned protocol wave, not unresolved correctness gaps in the
+present openlib codebase.
 
 | Next evolution item | Primary implementation surface | Detailed design home |
 | --- | --- | --- |
-| Broader privacy helper family beyond `PrivateDisputeEscrow` | **RESOLVED (2026-03-22)** — composed examples now include `PrivateDisputeEscrow`, `RegulatedPrivateCheckout`, and `TreasuryDisclosureFlow` with runtime coverage | `docs/PRIVACY_COMPOSITION_HELPERS.md` |
-| Typed discovery integration beyond openlib release/export into GTOS/OpenFox consumers | **RESOLVED (2026-03-22)** — typed routing now influences `PrivateServiceOrder`, and GTOS metadata RPC exposes `routing_profile` | `docs/DISCOVERY_TYPED_SCHEMA.md` plus `docs/AGENT_ABI_SCHEMA.md` |
-| Ongoing release/discovery/threat-model tightening as new flows are added | docs + exporter + release manifests | `docs/STDLIB_THREAT_MODEL_MATRIX.md` plus `docs/AGENT_NATIVE_STDLIB_2046.md` |
+| GTOS-native settlement bus and receipt hooks | GTOS VM/runtime + system receipt surface | `/home/tomi/gtos/docs/GTOS_SETTLEMENT_BUS_AND_RECEIPT_HOOKS.md` |
+| Registry governance and revocation workflows | GTOS protocol registries + sysactions + RPC inspection | `/home/tomi/gtos/docs/GTOS_PROTOCOL_REGISTRIES.md` |
+| Publisher governance and namespace control | GTOS package/publisher registry + deployment trust joins | `/home/tomi/gtos/docs/PACKAGE_PUBLISHING_REGISTRY.md` |
+| Ongoing release/discovery/threat-model tightening as the protocol layer grows | Tolang docs + exporter + release/profile manifests | `docs/STDLIB_THREAT_MODEL_MATRIX.md` plus `docs/AGENT_NATIVE_STDLIB_2046.md` |
+
+The Tolang release/export layer now also emits an additive
+`protocol_alignment` marker in `.profile.json`, `.discovery.json`, and
+`.agentpkg.json` so the next GTOS wave can consume machine-readable hints for:
+
+- settlement bus alignment
+- registry governance alignment
+- package governance alignment
+
+This is preparatory metadata only. It does not depend on the GTOS runtime
+surfacing those features yet.
 
 ### GTOS protocol design homes for the next stage
 
@@ -1218,6 +1229,23 @@ Current GTOS implementation status (2026-03-22):
   `tos.ciphertext.balance/transfer` compatibility, fails closed on malformed
   addresses, and has rollback coverage for both top-level revert and nested
   call failure
+- settlement bus and receipt hooks now have a concrete v1:
+  GTOS exposes `tos.settle(...)`, `tos.settle_refund(...)`,
+  `tos.settle_escrow(...)`, `tos.receipt_open/success/failure/info`, and
+  `tos.settlement_info(...)`, backed by stateful `RuntimeReceipt` and
+  `SettlementEffect` records in `settlement/`, `PublicSettlementAPI` query
+  methods, and VM/runtime tests for public transfer, split-phase receipt
+  finalization, escrow release, UNO settlement, and rollback on missing/open
+  receipt preconditions
+
+What remains for the next GTOS-owned wave is no longer "make openlib work."
+It is:
+
+- add real governance/revocation workflows on top of the registry v1
+- add namespace and publisher-governance control on top of the publishing
+  registry v1
+- keep the agent-facing profile/discovery/release surface aligned with those
+  protocol changes
 
 Execution prompt for this GTOS-owned wave:
 
